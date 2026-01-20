@@ -1,0 +1,241 @@
+"""Voluptuous schemas and registries for configurable features.
+
+Moved out of const.py to reduce coupling.
+"""
+
+from __future__ import annotations
+
+from itertools import chain
+from typing import Any
+
+import voluptuous as vol
+
+from homeassistant.helpers import config_validation as cv
+
+from custom_components.magic_areas.const import AREA_STATE_OCCUPIED, CONF_ACCENT_LIGHTS, CONF_ACCENT_LIGHTS_ACT_ON, \
+    CONF_ACCENT_LIGHTS_STATES, CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES, CONF_AGGREGATES_ILLUMINANCE_THRESHOLD, \
+    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS, CONF_AGGREGATES_MIN_ENTITIES, \
+    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES, CONF_BLE_TRACKER_ENTITIES, CONF_CLIMATE_CONTROL_ENTITY_ID, \
+    CONF_CLIMATE_CONTROL_PRESET_CLEAR, CONF_CLIMATE_CONTROL_PRESET_EXTENDED, CONF_CLIMATE_CONTROL_PRESET_OCCUPIED, \
+    CONF_CLIMATE_CONTROL_PRESET_SLEEP, CONF_FAN_GROUPS_REQUIRED_STATE, CONF_FAN_GROUPS_SETPOINT, \
+    CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS, CONF_FEATURE_AGGREGATION, CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER, \
+    CONF_FEATURE_BLE_TRACKERS, CONF_FEATURE_CLIMATE_CONTROL, CONF_FEATURE_FAN_GROUPS, CONF_FEATURE_HEALTH, \
+    CONF_FEATURE_LIGHT_GROUPS, CONF_FEATURE_LIST, CONF_FEATURE_LIST_GLOBAL, CONF_FEATURE_PRESENCE_HOLD, \
+    CONF_FEATURE_WASP_IN_A_BOX, CONF_HEALTH_SENSOR_DEVICE_CLASSES, CONF_NOTIFICATION_DEVICES, CONF_NOTIFY_STATES, \
+    CONF_OVERHEAD_LIGHTS, CONF_OVERHEAD_LIGHTS_ACT_ON, CONF_OVERHEAD_LIGHTS_STATES, CONF_PRESENCE_HOLD_TIMEOUT, \
+    CONF_SLEEP_LIGHTS, CONF_SLEEP_LIGHTS_ACT_ON, CONF_SLEEP_LIGHTS_STATES, CONF_TASK_LIGHTS, CONF_TASK_LIGHTS_ACT_ON, \
+    CONF_TASK_LIGHTS_STATES, CONF_WASP_IN_A_BOX_DELAY, CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES, \
+    CONF_WASP_IN_A_BOX_WASP_TIMEOUT, DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES, \
+    DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD, DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS, \
+    DEFAULT_AGGREGATES_MIN_ENTITIES, DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES, DEFAULT_BLE_TRACKER_ENTITIES, \
+    DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR, DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED, \
+    DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED, DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP, DEFAULT_FAN_GROUPS_REQUIRED_STATE, \
+    DEFAULT_FAN_GROUPS_SETPOINT, DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS, DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES, \
+    DEFAULT_LIGHT_GROUP_ACT_ON, DEFAULT_NOTIFY_STATES, DEFAULT_PRESENCE_HOLD_TIMEOUT, DEFAULT_WASP_IN_A_BOX_DELAY, \
+    DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES, DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT
+
+
+AGGREGATE_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_AGGREGATES_MIN_ENTITIES, default=DEFAULT_AGGREGATES_MIN_ENTITIES
+        ): cv.positive_int,
+        vol.Optional(
+            CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
+            default=DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
+        ): cv.ensure_list,
+        vol.Optional(
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
+            default=DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
+        ): cv.ensure_list,
+        vol.Optional(
+            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
+            default=DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
+        ): cv.positive_int,
+        vol.Optional(
+            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
+            default=DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
+        ): cv.positive_int,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+HEALTH_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+            default=DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+        ): cv.ensure_list,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+PRESENCE_HOLD_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_PRESENCE_HOLD_TIMEOUT, default=DEFAULT_PRESENCE_HOLD_TIMEOUT
+        ): cv.positive_int,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+BLE_TRACKER_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_BLE_TRACKER_ENTITIES, default=DEFAULT_BLE_TRACKER_ENTITIES
+        ): cv.entity_ids,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+WASP_IN_A_BOX_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_WASP_IN_A_BOX_DELAY, default=DEFAULT_WASP_IN_A_BOX_DELAY
+        ): cv.positive_int,
+        vol.Optional(
+            CONF_WASP_IN_A_BOX_WASP_TIMEOUT, default=DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT
+        ): cv.positive_int,
+        vol.Optional(
+            CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
+            default=DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
+        ): cv.ensure_list,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+CLIMATE_CONTROL_FEATURE_SCHEMA_ENTITY_SELECT = vol.Schema(
+    {
+        vol.Required(CONF_CLIMATE_CONTROL_ENTITY_ID): cv.entity_id,
+    }
+)
+
+CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT = vol.Schema(
+    {
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_CLEAR,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_SLEEP,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
+        ): str,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+CLIMATE_CONTROL_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_CLIMATE_CONTROL_ENTITY_ID): cv.entity_id,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_CLEAR,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_SLEEP,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
+        ): str,
+        vol.Optional(
+            CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
+            default=DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
+        ): str,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+FAN_GROUP_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONF_FAN_GROUPS_REQUIRED_STATE, default=DEFAULT_FAN_GROUPS_REQUIRED_STATE
+        ): str,
+        vol.Optional(
+            CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
+            default=DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
+        ): str,
+        vol.Optional(
+            CONF_FAN_GROUPS_SETPOINT, default=DEFAULT_FAN_GROUPS_SETPOINT
+        ): float,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+LIGHT_GROUP_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_OVERHEAD_LIGHTS, default=[]): cv.entity_ids,
+        vol.Optional(
+            CONF_OVERHEAD_LIGHTS_STATES, default=[AREA_STATE_OCCUPIED]
+        ): cv.ensure_list,
+        vol.Optional(
+            CONF_OVERHEAD_LIGHTS_ACT_ON, default=DEFAULT_LIGHT_GROUP_ACT_ON
+        ): cv.ensure_list,
+        vol.Optional(CONF_SLEEP_LIGHTS, default=[]): cv.entity_ids,
+        vol.Optional(CONF_SLEEP_LIGHTS_STATES, default=[]): cv.ensure_list,
+        vol.Optional(
+            CONF_SLEEP_LIGHTS_ACT_ON, default=DEFAULT_LIGHT_GROUP_ACT_ON
+        ): cv.ensure_list,
+        vol.Optional(CONF_ACCENT_LIGHTS, default=[]): cv.entity_ids,
+        vol.Optional(CONF_ACCENT_LIGHTS_STATES, default=[]): cv.ensure_list,
+        vol.Optional(
+            CONF_ACCENT_LIGHTS_ACT_ON, default=DEFAULT_LIGHT_GROUP_ACT_ON
+        ): cv.ensure_list,
+        vol.Optional(CONF_TASK_LIGHTS, default=[]): cv.entity_ids,
+        vol.Optional(CONF_TASK_LIGHTS_STATES, default=[]): cv.ensure_list,
+        vol.Optional(
+            CONF_TASK_LIGHTS_ACT_ON, default=DEFAULT_LIGHT_GROUP_ACT_ON
+        ): cv.ensure_list,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_NOTIFICATION_DEVICES, default=[]): cv.entity_ids,
+        vol.Optional(CONF_NOTIFY_STATES, default=DEFAULT_NOTIFY_STATES): cv.ensure_list,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+ALL_FEATURES = set(CONF_FEATURE_LIST) | set(CONF_FEATURE_LIST_GLOBAL)
+
+CONFIGURABLE_FEATURES = {
+    CONF_FEATURE_LIGHT_GROUPS: LIGHT_GROUP_FEATURE_SCHEMA,
+    CONF_FEATURE_CLIMATE_CONTROL: CLIMATE_CONTROL_FEATURE_SCHEMA,
+    CONF_FEATURE_FAN_GROUPS: FAN_GROUP_FEATURE_SCHEMA,
+    CONF_FEATURE_AGGREGATION: AGGREGATE_FEATURE_SCHEMA,
+    CONF_FEATURE_HEALTH: HEALTH_FEATURE_SCHEMA,
+    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA,
+    CONF_FEATURE_PRESENCE_HOLD: PRESENCE_HOLD_FEATURE_SCHEMA,
+    CONF_FEATURE_BLE_TRACKERS: BLE_TRACKER_FEATURE_SCHEMA,
+    CONF_FEATURE_WASP_IN_A_BOX: WASP_IN_A_BOX_FEATURE_SCHEMA,
+}
+
+NON_CONFIGURABLE_FEATURES_META = [
+    CONF_FEATURE_LIGHT_GROUPS,
+    CONF_FEATURE_FAN_GROUPS,
+]
+
+NON_CONFIGURABLE_FEATURES: dict[str, dict[str, Any]] = {
+    feature: {} for feature in ALL_FEATURES if feature not in CONFIGURABLE_FEATURES
+}
+
+FEATURES_SCHEMA = vol.Schema(
+    {
+        vol.Optional(feature): feature_schema
+        for feature, feature_schema in chain(
+            CONFIGURABLE_FEATURES.items(), NON_CONFIGURABLE_FEATURES.items()
+        )
+    },
+    extra=vol.REMOVE_EXTRA,
+)
