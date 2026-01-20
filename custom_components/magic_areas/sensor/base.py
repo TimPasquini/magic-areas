@@ -5,18 +5,22 @@ import logging
 from homeassistant.components.group.sensor import ATTR_MEAN, ATTR_SUM, SensorGroup
 from homeassistant.components.sensor.const import (
     DOMAIN as SENSOR_DOMAIN,
+)
+from homeassistant.components.sensor.const import (
     SensorDeviceClass,
     SensorStateClass,
 )
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
+    EMPTY_STRING,
+)
+from custom_components.magic_areas.core_constants import DEFAULT_SENSOR_PRECISION
+from custom_components.magic_areas.policy import (
     AGGREGATE_MODE_SUM,
     AGGREGATE_MODE_TOTAL_INCREASING_SENSOR,
     AGGREGATE_MODE_TOTAL_SENSOR,
-    DEFAULT_SENSOR_PRECISION,
-    EMPTY_STRING,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,15 +34,13 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
         area: MagicArea,
         device_class: str,
         entity_ids: list[str],
-        unit_of_measurement: str,
+        unit_of_measurement: str | None,
     ) -> None:
         """Initialize an area sensor group sensor."""
 
         MagicEntity.__init__(
             self, area=area, domain=SENSOR_DOMAIN, translation_key=device_class
         )
-
-        final_unit_of_measurement = None
 
         # Resolve unit of measurement
         unit_attr_name = f"{device_class}_unit"
@@ -63,14 +65,19 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
 
         SensorGroup.__init__(
             self,
-            hass=area.hass,
-            device_class=sensor_device_class,
-            entity_ids=entity_ids,
-            ignore_non_numeric=True,
-            sensor_type=ATTR_SUM if device_class in AGGREGATE_MODE_SUM else ATTR_MEAN,
-            state_class=state_class,
-            unit_of_measurement=final_unit_of_measurement,
+            area.hass,
             name=EMPTY_STRING,
             unique_id=self._attr_unique_id,
+            entity_ids=entity_ids,
+            unit_of_measurement=final_unit_of_measurement,
+            device_class=sensor_device_class,
+            state_class=state_class,
+            sensor_type=ATTR_SUM if device_class in AGGREGATE_MODE_SUM else ATTR_MEAN,
+            ignore_non_numeric=True,
         )
         delattr(self, "_attr_name")
+
+    async def async_added_to_hass(self) -> None:
+        """Register listeners."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()

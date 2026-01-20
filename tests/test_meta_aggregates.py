@@ -5,6 +5,7 @@ import logging
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from tests.const import MockAreaIds
 from tests.helpers import assert_state
@@ -19,7 +20,7 @@ async def test_meta_aggregates_binary_sensor(
     entities_binary_sensor_motion_all_areas_with_meta: dict[
         MockAreaIds, list[MockBinarySensor]
     ],
-    _setup_integration_all_areas_with_meta,
+    init_integration_all_areas: list[MockConfigEntry],
 ) -> None:
     """Test aggregation of binary sensor states."""
 

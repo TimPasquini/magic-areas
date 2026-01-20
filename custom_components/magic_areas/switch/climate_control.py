@@ -11,7 +11,7 @@ from homeassistant.const import ATTR_ENTITY_ID, EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
@@ -21,10 +21,14 @@ from custom_components.magic_areas.const import (
     DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
     DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
     DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
-    MagicAreasFeatureInfoClimateControl,
     MagicAreasFeatures,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoClimateControl,
 )
 from custom_components.magic_areas.switch.base import SwitchBase
 
@@ -87,7 +91,9 @@ class ClimateControlSwitch(SwitchBase):
             )
         )
 
-    async def area_state_changed(self, area_id, states_tuple):
+    async def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+    ) -> None:
         """Handle area state change event."""
 
         if not self.is_on:
@@ -118,9 +124,10 @@ class ClimateControlSwitch(SwitchBase):
         # Handle each state top priority to last, returning early
         for p_state in priority_states:
             if self.area.has_state(p_state) and self.preset_map[p_state]:
-                return await self.apply_preset(p_state)
+                await self.apply_preset(p_state)
+                return
 
-    async def apply_preset(self, state_name: str):
+    async def apply_preset(self, state_name: str) -> None:
         """Set climate entity to given preset."""
 
         selected_preset: str = self.preset_map[state_name]

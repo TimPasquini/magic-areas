@@ -1,7 +1,4 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
@@ -14,7 +11,7 @@
         "--debug",
         "-c",
         "./config"
-      ],
+      ]
     },
     {
       "name": "Home Assistant (skip pip)",
@@ -38,11 +35,9 @@
       "args": [
         "--timeout=10",
         "--picked"
-      ],
+      ]
     },
     {
-      // Debug by attaching to local Home Assistant server using Remote Python Debugger.
-      // See https://www.home-assistant.io/integrations/debugpy/
       "name": "Home Assistant: Attach Local",
       "type": "debugpy",
       "request": "attach",
@@ -58,8 +53,6 @@
       ]
     },
     {
-      // Debug by attaching to remote Home Assistant server using Remote Python Debugger.
-      // See https://www.home-assistant.io/integrations/debugpy/
       "name": "Home Assistant: Attach Remote",
       "type": "debugpy",
       "request": "attach",

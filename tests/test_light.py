@@ -1,38 +1,45 @@
 """Test for light groups."""
 
-import asyncio
-from collections.abc import AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+)
+from custom_components.magic_areas.enums import (
+    AreaStates,
+)
+from custom_components.magic_areas.features import (
     CONF_FEATURE_LIGHT_GROUPS,
+)
+from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
     CONF_OVERHEAD_LIGHTS_STATES,
-    DOMAIN,
     LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
-    AreaStates,
 )
-
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
-    setup_mock_entities,
     shutdown_integration,
+    wait_for_state,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockBinarySensor, MockLight
 
@@ -64,33 +71,14 @@ def mock_config_entry_light_groups() -> MockConfigEntry:
 async def setup_integration_light_groups(
     hass: HomeAssistant,
     light_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with BLE tracker config."""
 
-    await init_integration(hass, [light_groups_config_entry])
+    await init_integration_helper(hass, [light_groups_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
     yield
     await shutdown_integration(hass, [light_groups_config_entry])
-
-
-# Entities
-
-
-@pytest.fixture(name="entities_light_one")
-async def setup_entities_light_one(
-    hass: HomeAssistant,
-) -> list[MockLight]:
-    """Create one mock light and setup the system with it."""
-    mock_light_entities = [
-        MockLight(
-            name="mock_light_1",
-            state="off",
-            unique_id="unique_light",
-        )
-    ]
-    await setup_mock_entities(
-        hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: mock_light_entities}
-    )
-    return mock_light_entities
 
 
 # Tests
@@ -136,7 +124,6 @@ async def test_light_group_basic(
     assert_state(area_state, STATE_OFF)
 
     # Turn on light control
-    hass.states.async_set(light_control_entity_id, STATE_ON)
     await hass.services.async_call(
         SWITCH_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: light_control_entity_id}
     )
@@ -147,30 +134,24 @@ async def test_light_group_basic(
     assert_state(light_control_state, STATE_ON)
 
     # Turn motion sensor on
-    hass.states.async_set(mock_motion_sensor_entity_id, STATE_ON)
+    entities_binary_sensor_motion_one[0].turn_on()
     await hass.async_block_till_done()
 
     motion_sensor_state = hass.states.get(mock_motion_sensor_entity_id)
     assert_state(motion_sensor_state, STATE_ON)
 
     # Test area state is STATE_ON
-    area_state = hass.states.get(area_sensor_entity_id)
-    assert_state(area_state, STATE_ON)
-
-    await asyncio.sleep(1)
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
 
     # Check light group is on
-    light_group_state = hass.states.get(light_group_entity_id)
-    assert_state(light_group_state, STATE_ON)
+    await wait_for_state(hass, light_group_entity_id, STATE_ON)
 
     # Turn motion sensor off
-    hass.states.async_set(mock_motion_sensor_entity_id, STATE_OFF)
+    entities_binary_sensor_motion_one[0].turn_off()
     await hass.async_block_till_done()
 
     # Test area state is STATE_OFF
-    area_state = hass.states.get(area_sensor_entity_id)
-    assert_state(area_state, STATE_OFF)
+    await wait_for_state(hass, area_sensor_entity_id, STATE_OFF)
 
     # Check light group is off
-    light_group_state = hass.states.get(light_group_entity_id)
-    assert_state(light_group_state, STATE_OFF)
+    await wait_for_state(hass, light_group_entity_id, STATE_OFF)

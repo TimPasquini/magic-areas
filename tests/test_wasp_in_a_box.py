@@ -1,45 +1,52 @@
 """Test for Wasp in a box sensor behavior."""
 
 import asyncio
-from collections.abc import AsyncGenerator
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 from unittest.mock import patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     ATTR_BOX,
     ATTR_WASP,
 )
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.attrs import (
     ATTR_ACTIVE_SENSORS,
     ATTR_PRESENCE_SENSORS,
+)
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_WASP_IN_A_BOX,
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
-
-from tests.conftest import (
-    DEFAULT_MOCK_AREA,
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
+    CONF_FEATURE_WASP_IN_A_BOX,
+)
+from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers import (
+    assert_attribute,
+    assert_in_attribute,
+    assert_state,
+    wait_for_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
-from tests.helpers import assert_attribute, assert_in_attribute, assert_state
 from tests.mocks import MockBinarySensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,10 +76,10 @@ def mock_config_entry_wasp_in_a_box() -> MockConfigEntry:
 async def setup_integration_wasp_in_a_box(
     hass: HomeAssistant,
     wasp_in_a_box_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with Wasp in a box (and aggregates) config."""
 
-    await init_integration(hass, [wasp_in_a_box_config_entry])
+    await init_integration_helper(hass, [wasp_in_a_box_config_entry])
     yield
     await shutdown_integration(hass, [wasp_in_a_box_config_entry])
 
@@ -314,7 +321,7 @@ async def test_open_box_cancels_timer(
     """Test that opening the box cancels the forget timer.
 
     If the wasp sensor goes OFF and a timeout is scheduled,
-    but then the door (box) opens, the timer should be cancelled
+    but then the door (box) opens, the timer should be canceled
     and the wasp forgotten immediately by box-open logic.
     """
     motion_sensor_entity_id = entities_wasp_in_a_box[0].entity_id
@@ -337,7 +344,7 @@ async def test_open_box_cancels_timer(
     # Motion OFF → schedule timer but capture callback
     fired = {}
 
-    def capture_callback(hass_inner, delay, callback):
+    def capture_callback(hass, delay, callback):
         fired["callback"] = callback
         return lambda: None  # dummy cancel
 
@@ -357,7 +364,7 @@ async def test_open_box_cancels_timer(
         await hass.async_block_till_done()
 
     final = hass.states.get(wasp_in_a_box_entity_id)
-    # The box is now open, wasp is off, timer cancelled
+    # The box is now open, wasp is off, timer canceled
     assert_state(final, STATE_OFF)
     assert_attribute(final, ATTR_BOX, STATE_ON)
 
@@ -382,7 +389,7 @@ async def test_wasp_seen_cancels_timer(
 
     If the wasp sensor goes OFF and a timeout is scheduled,
     but then it goes back to ON before the timeout expires,
-    the timer should be cancelled and the wasp remains present.
+    the timer should be canceled and the wasp remains present.
     """
     motion_sensor_entity_id = entities_wasp_in_a_box[0].entity_id
     door_sensor_entity_id = entities_wasp_in_a_box[1].entity_id
@@ -411,3 +418,109 @@ async def test_wasp_seen_cancels_timer(
     final = hass.states.get(wasp_in_a_box_entity_id)
     assert_state(final, STATE_ON)
     assert_attribute(final, ATTR_WASP, STATE_ON)
+
+
+async def test_wasp_timeout_disabled(
+    hass: HomeAssistant,
+    entities_wasp_in_a_box: list[MockBinarySensor],
+) -> None:
+    """Test Wasp in a Box with timeout disabled."""
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                CONF_FEATURE_WASP_IN_A_BOX: {
+                    CONF_WASP_IN_A_BOX_DELAY: 0,
+                    CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 0,
+                },
+                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+            },
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+    config_entry.add_to_hass(hass)
+
+    await init_integration_helper(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    wasp_in_a_box_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{DEFAULT_MOCK_AREA}"
+    )
+    motion_sensor = entities_wasp_in_a_box[0]
+
+    # Trigger wasp
+    motion_sensor.turn_on()
+    await hass.async_block_till_done()
+
+    await wait_for_state(hass, wasp_in_a_box_entity_id, STATE_ON)
+
+    # Turn off motion
+    motion_sensor.turn_off()
+    await hass.async_block_till_done()
+
+    # Should still be ON (wasp in box) and no timer should be running
+    state = hass.states.get(wasp_in_a_box_entity_id)
+    assert_state(state, STATE_ON)
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_wasp_with_delay(
+    hass: HomeAssistant,
+    entities_wasp_in_a_box: list[MockBinarySensor],
+) -> None:
+    """Test Wasp in a Box with delay."""
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                CONF_FEATURE_WASP_IN_A_BOX: {
+                    CONF_WASP_IN_A_BOX_DELAY: 1,  # 1-second delay
+                    CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 0,
+                },
+                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+            },
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+    config_entry.add_to_hass(hass)
+
+    await init_integration_helper(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    wasp_in_a_box_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{DEFAULT_MOCK_AREA}"
+    )
+    door_sensor = entities_wasp_in_a_box[1]
+
+    # Open door
+    door_sensor.turn_on()
+    await hass.async_block_till_done()
+
+    # State should NOT change yet due to delay (wait for it)
+    await asyncio.sleep(1.1)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(wasp_in_a_box_entity_id)
+    assert_attribute(state, ATTR_BOX, STATE_ON)
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_wasp_redundant_states(
+    hass: HomeAssistant,
+    entities_wasp_in_a_box: list[MockBinarySensor],
+    _setup_integration_wasp_in_a_box,
+) -> None:
+    """Test redundant state changes are ignored."""
+    motion_sensor = entities_wasp_in_a_box[0]
+
+    # Turn on
+    motion_sensor.turn_on()
+    await hass.async_block_till_done()
+
+    # Turn on again (same state) - should hit the guard clause
+    motion_sensor.turn_on()
+    await hass.async_block_till_done()

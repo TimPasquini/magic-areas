@@ -4,8 +4,8 @@ Small helper functions for area and Magic Area objects.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ID, ATTR_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.area_registry import (
@@ -18,12 +18,13 @@ from homeassistant.helpers.floor_registry import (
 )
 
 from custom_components.magic_areas.base.magic import BasicArea, MagicArea, MagicMetaArea
-from custom_components.magic_areas.const import (
-    DATA_AREA_OBJECT,
-    MODULE_DATA,
+from custom_components.magic_areas.enums import (
     MetaAreaIcons,
     MetaAreaType,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +38,6 @@ def basic_area_from_meta(area_id: str, name: str | None = None) -> BasicArea:
     basic_area.id = area_id
     basic_area.is_meta = True
 
-    meta_area_icon_map: dict[str, str] = {}
     meta_area_icon_map = {
         MetaAreaType.EXTERIOR.value: MetaAreaIcons.EXTERIOR.value,
         MetaAreaType.INTERIOR.value: MetaAreaIcons.INTERIOR.value,
@@ -80,14 +80,12 @@ def basic_area_from_floor(floor: FloorEntry) -> BasicArea:
 
 
 def get_magic_area_for_config_entry(
-    hass: HomeAssistant, config_entry: ConfigEntry
+    hass: HomeAssistant, config_entry: "MagicAreasConfigEntry"
 ) -> MagicArea | None:
     """Return magic area object for given config entry."""
 
     area_id = config_entry.data[ATTR_ID]
     area_name = config_entry.data[ATTR_NAME]
-
-    magic_area: MagicArea | None = None
 
     _LOGGER.debug("%s: Setting up entry.", area_name)
 
@@ -101,6 +99,8 @@ def get_magic_area_for_config_entry(
         if meta_area_type != MetaAreaType.FLOOR
     ]
     floor_ids = [f.floor_id for f in floors]
+
+    magic_area: MagicArea
 
     if area_id in non_floor_meta_ids:
         # Non-floor Meta-Area (Global/Interior/Exterior)
@@ -133,11 +133,15 @@ def get_magic_area_for_config_entry(
 
 
 def get_area_from_config_entry(
-    hass: HomeAssistant, config_entry: ConfigEntry
-) -> MagicArea | MagicMetaArea | None:
+    hass: HomeAssistant, config_entry: "MagicAreasConfigEntry"
+) -> MagicArea | None:
     """Return area object for given config entry."""
 
-    if config_entry.entry_id not in hass.data[MODULE_DATA]:
+    if not hasattr(config_entry, "runtime_data"):
         return None
 
-    return hass.data[MODULE_DATA][config_entry.entry_id][DATA_AREA_OBJECT]
+    runtime_data = config_entry.runtime_data
+    if hasattr(runtime_data, "coordinator") and runtime_data.coordinator.data:
+        return runtime_data.coordinator.data.area
+
+    return runtime_data.area

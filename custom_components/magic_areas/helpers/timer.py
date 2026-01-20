@@ -1,8 +1,8 @@
 """Reusable Timer helper for Magic Areas."""
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-import logging
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.event import async_call_later

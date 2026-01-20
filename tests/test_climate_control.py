@@ -22,12 +22,16 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_ENABLED_FEATURES,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
 )
 
@@ -36,7 +40,7 @@ from tests.helpers import (
     assert_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
@@ -79,10 +83,10 @@ def mock_config_entry_climate_control() -> MockConfigEntry:
 async def setup_integration_climate_control(
     hass: HomeAssistant,
     climate_control_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with BLE tracker config."""
 
-    await init_integration(hass, [climate_control_config_entry])
+    await init_integration_helper(hass, [climate_control_config_entry])
     yield
     await shutdown_integration(hass, [climate_control_config_entry])
 
@@ -94,7 +98,7 @@ async def setup_integration_climate_control(
 async def setup_entities_climate_one(
     hass: HomeAssistant,
 ) -> list[MockClimate]:
-    """Create one mock climate and setup the system with it."""
+    """Create one mock climate and set up the system with it."""
     mock_climate_entities = [
         MockClimate(
             name="mock_climate",

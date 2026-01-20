@@ -1,14 +1,13 @@
 """Fake light for testing with."""
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from functools import cached_property
-import logging
 from typing import Any, Final, Literal
 from unittest.mock import AsyncMock
 
 import voluptuous as vol
-
 from homeassistant import data_entry_flow, loader
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -317,11 +316,17 @@ class MockToggleEntity(MockEntity, ToggleEntity):
 
     def __init__(self, name: str, state: str, unique_id: str | None = None) -> None:
         """Initialize the mock entity."""
-        MockEntity.__init__(self)
+        # Pass values to MockEntity properly
+        values = {"name": name}
+        if unique_id:
+            values["unique_id"] = unique_id
+        MockEntity.__init__(self, **values)
         ToggleEntity.__init__(self)
+
         self._name = name or DEVICE_DEFAULT_NAME
         self._state = state
-        self._attr_unique_id = unique_id
+        if unique_id:
+            self._attr_unique_id = unique_id
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     @cached_property
@@ -350,10 +355,23 @@ class MockToggleEntity(MockEntity, ToggleEntity):
         self.calls.append(("turn_on", kwargs))
         self._state = STATE_ON
 
+        # Keep Home Assistant's state machine in sync for tests that rely on
+        # group aggregation and RestoreEntity behavior.
+        if self.hass is not None:
+            self.schedule_update_ha_state()
+
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
         self.calls.append(("turn_off", kwargs))
         self._state = STATE_OFF
+
+        if self.hass is not None:
+            self.schedule_update_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Write initial state when added to Home Assistant."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()
 
     def last_call(self, method: str | None = None) -> tuple[str, dict[str, Any]] | None:
         """Return the last call."""
@@ -372,6 +390,7 @@ class MockLight(MockToggleEntity, LightEntity):
 
     _attr_max_color_temp_kelvin = 6500
     _attr_min_color_temp_kelvin = 2000
+    _attr_supported_color_modes = {ColorMode.ONOFF}
 
     def __init__(
         self,
@@ -382,6 +401,7 @@ class MockLight(MockToggleEntity, LightEntity):
     ) -> None:
         """Initialize the mock light."""
         super().__init__(name, state, unique_id)
+
         if dimmable:
             self.color_mode = ColorMode.RGBWW
             self.hs_color = None  # Should be ignored
@@ -390,8 +410,10 @@ class MockLight(MockToggleEntity, LightEntity):
             self.rgbww_color = (1, 2, 3, 4, 5)
             self.xy_color = None  # Should be ignored
             self.brightness = 255
+            self._attr_supported_color_modes = {ColorMode.RGBWW}
         else:
             self.color_mode = ColorMode.ONOFF
+            self._attr_supported_color_modes = {ColorMode.ONOFF}
 
     def turn_on(self, **kwargs: Any) -> None:
         """Turn the entity on."""
@@ -438,6 +460,11 @@ class MockBinarySensor(MockEntity, BinarySensorEntity):
         """Return the class of this sensor."""
         return self._handle("device_class")
 
+    async def async_added_to_hass(self) -> None:
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()
+
 
 class MockFan(MockEntity, FanEntity):
     """Mock Binary Sensor class."""
@@ -462,6 +489,11 @@ class MockFan(MockEntity, FanEntity):
         """Turn the entity off."""
         self._state = STATE_OFF
         self.schedule_update_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()
 
 
 class MockSensor(MockEntity, SensorEntity):
@@ -524,13 +556,13 @@ class MockCover(MockEntity, CoverEntity):
         self,
     ) -> CoverEntityFeature:  # pylint: disable=overridden-final-method
         """Return the supported features of the cover."""
-        if "supported_feautes" in self._values:
+        if "supported_features" in self._values:
             return self._values["supported_features"]
         return CoverEntity.supported_features.fget(
             self
         )  # pylint: disable=overridden-final-method
 
-    @cached_property
+    @property
     def is_closed(self) -> bool:
         """Return if the cover is closed or not."""
         if "state" in self._values and self._values["state"] == STATE_CLOSED:
@@ -538,7 +570,7 @@ class MockCover(MockEntity, CoverEntity):
 
         return self.current_cover_position == 0
 
-    @cached_property
+    @property
     def is_opening(self) -> bool:
         """Return if the cover is opening or not."""
         if "state" in self._values:
@@ -546,7 +578,7 @@ class MockCover(MockEntity, CoverEntity):
 
         return False
 
-    @cached_property
+    @property
     def is_closing(self) -> bool:
         """Return if the cover is closing or not."""
         if "state" in self._values:
@@ -560,6 +592,7 @@ class MockCover(MockEntity, CoverEntity):
             self._values["state"] = STATE_OPENING
         else:
             self._values["state"] = STATE_OPEN
+        self.schedule_update_ha_state()
 
     def close_cover(self, **kwargs: Any) -> None:
         """Close cover."""
@@ -567,11 +600,13 @@ class MockCover(MockEntity, CoverEntity):
             self._values["state"] = STATE_CLOSING
         else:
             self._values["state"] = STATE_CLOSED
+        self.schedule_update_ha_state()
 
     def stop_cover(self, **kwargs: Any) -> None:
         """Stop cover."""
         assert CoverEntityFeature.STOP in self.supported_features
         self._values["state"] = STATE_CLOSED if self.is_closed else STATE_OPEN
+        self.schedule_update_ha_state()
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
@@ -587,8 +622,8 @@ class MockMediaPlayer(MockEntity, MediaPlayerEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return true if the binary sensor is on."""
-        return self._attr_state == STATE_ON
+        """Return True if the media player is not off."""
+        return self._attr_state != STATE_OFF
 
     # pylint: disable-next=arguments-differ
     def turn_on(self, **kwargs: Any) -> None:
@@ -621,6 +656,11 @@ class MockMediaPlayer(MockEntity, MediaPlayerEntity):
         self._attr_state = STATE_IDLE
         self.schedule_update_ha_state()
         return True
+
+    async def async_added_to_hass(self) -> None:
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()
 
 
 class MockClimate(MockEntity, ClimateEntity):
@@ -667,3 +707,8 @@ class MockClimate(MockEntity, ClimateEntity):
         else:
             self._attr_state = STATE_ON
         self.schedule_update_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        self.async_write_ha_state()

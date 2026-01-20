@@ -1,16 +1,15 @@
 """Common code for running the tests."""
 
-from asyncio import get_running_loop
-from collections.abc import Sequence
+import asyncio
 import functools
 import logging
 import pathlib
+from asyncio import get_running_loop
+from collections.abc import Sequence
 from typing import Any, NoReturn
 from unittest.mock import Mock, patch
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
-
 from homeassistant import loader
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_FLOOR_ID, ATTR_NAME, CONF_PLATFORM
@@ -30,8 +29,9 @@ from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.setup import async_setup_component
 from homeassistant.util.dt import utcnow
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_CLEAR_TIMEOUT,
     CONF_ENABLED_FEATURES,
     CONF_EXCLUDE_ENTITIES,
@@ -40,10 +40,13 @@ from custom_components.magic_areas.const import (
     CONF_INCLUDE_ENTITIES,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_TYPE,
-    DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
-
+from custom_components.magic_areas.defaults import (
+    DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
+)
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
 from tests.mocks import MockModule, MockPlatform
 
@@ -220,6 +223,8 @@ async def init_integration(
         area_registry.async_create(name=area.value, floor_id=floor_id)
 
     for config_entry in config_entries:
+        if hass.config_entries.async_get_entry(config_entry.entry_id):
+            continue
         config_entry.add_to_hass(hass)
 
     assert await async_setup_component(hass, DOMAIN, {})
@@ -268,12 +273,26 @@ async def setup_mock_entities(
     entity_registry = async_get_er(hass)
     for entity in all_entities:
         assert entity is not None
-        assert entity.entity_id is not None
-        assert entity.unique_id is not None
-        entity_registry.async_update_entity(
-            entity.entity_id,
-            area_id=entity_area_map[entity.unique_id].value,
-        )
+
+        # Wait for entity_id to be set
+        if entity.entity_id is None:
+            for _ in range(10):
+                if entity.entity_id is not None:
+                    break
+                await hass.async_block_till_done()
+                await asyncio.sleep(0.1)
+
+        if entity.entity_id is None:
+            raise AssertionError(
+                f"Entity {entity.unique_id} did not get an entity_id assigned"
+            )
+
+        entity_entry = entity_registry.async_get(entity.entity_id)
+        if entity_entry:
+            entity_registry.async_update_entity(
+                entity.entity_id,
+                area_id=entity_area_map[entity.unique_id].value,
+            )
     await hass.async_block_till_done()
 
 
@@ -387,6 +406,22 @@ def assert_in_attribute(
         assert expected_value not in entity_state.attributes[attribute_key]
     else:
         assert expected_value in entity_state.attributes[attribute_key]
+
+
+async def wait_for_state(
+    hass: HomeAssistant, entity_id: str, expected_state: str
+) -> None:
+    """Wait for an entity to reach a specific state."""
+    for _ in range(20):
+        state = hass.states.get(entity_id)
+        if state and state.state == expected_state:
+            return
+        await asyncio.sleep(0.1)
+        await hass.async_block_till_done()
+
+    # Final check to raise assertion error if still not matching
+    state = hass.states.get(entity_id)
+    assert_state(state, expected_state)
 
 
 # Timer helper

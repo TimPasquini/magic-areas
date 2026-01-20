@@ -1,6 +1,7 @@
 """Cover controls for magic areas."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.cover import (
     DEVICE_CLASSES as COVER_DEVICE_CLASSES,
@@ -8,19 +9,23 @@ from homeassistant.components.cover import (
 )
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.group.cover import CoverGroup
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    CONF_FEATURE_COVER_GROUPS,
+from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
+)
+from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoCoverGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.util import cleanup_removed_entries
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 DEPENDENCIES = ["magic_areas"]
@@ -28,9 +33,9 @@ DEPENDENCIES = ["magic_areas"]
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: "MagicAreasConfigEntry",
     async_add_entities: AddEntitiesCallback,
-):
+) -> None:
     """Set up the area cover config entry."""
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
@@ -79,7 +84,7 @@ class AreaCoverGroup(MagicEntity, CoverGroup):
 
     feature_info = MagicAreasFeatureInfoCoverGroups()
 
-    def __init__(self, area: MagicArea, device_class: str) -> None:
+    def __init__(self, area: MagicArea, device_class: str | None) -> None:
         """Initialize the cover group."""
         MagicEntity.__init__(
             self, area, domain=COVER_DOMAIN, translation_key=device_class

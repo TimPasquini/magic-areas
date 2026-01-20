@@ -3,10 +3,14 @@
 from homeassistant.const import EntityCategory
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_HOLD_TIMEOUT,
     DEFAULT_PRESENCE_HOLD_TIMEOUT,
+)
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoPresenceHold,
+)
+from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
 )
 from custom_components.magic_areas.switch.base import ResettableSwitchBase

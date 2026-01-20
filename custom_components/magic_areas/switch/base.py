@@ -1,19 +1,20 @@
 """Base classes for switch."""
 
+from collections.abc import Callable
+from typing import Any
+
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.const import STATE_ON
 from homeassistant.helpers.event import async_call_later
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import ONE_MINUTE
+from custom_components.magic_areas.core_constants import ONE_MINUTE
 
 
 class SwitchBase(MagicEntity, SwitchEntity):
     """The base class for all the switches."""
-
-    _attr_state: str
 
     def __init__(self, area: MagicArea) -> None:
         """Initialize the base switch bits, basic just a mixin for the two types."""
@@ -36,21 +37,19 @@ class SwitchBase(MagicEntity, SwitchEntity):
         self.async_write_ha_state()
         self.schedule_update_ha_state()
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on presence hold."""
-        self._attr_state = STATE_ON
         self._attr_is_on = True
         self.schedule_update_ha_state()
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off presence hold."""
-        self._attr_state = STATE_OFF
         self._attr_is_on = False
         self.schedule_update_ha_state()
 
 
 class ResettableSwitchBase(SwitchBase):
-    """Control the presense/state from being changed for the device."""
+    """Control the presence/state from being changed for the device."""
 
     timeout: int
 
@@ -59,23 +58,22 @@ class ResettableSwitchBase(SwitchBase):
         super().__init__(area)
 
         self.timeout = timeout
-        self._timeout_callback = None
+        self._timeout_callback: Callable[[], None] | None = None
 
         self.async_on_remove(self._clear_timers)
 
-    def _clear_timers(self) -> None:
+    def _clear_timers(self, _: Any = None) -> None:
         """Remove the timer on entity removal."""
         if self._timeout_callback:
             self._timeout_callback()
 
-    async def _timeout_turn_off(self, next_interval):
+    async def _timeout_turn_off(self, next_interval: Any) -> None:
         """Turn off the presence hold after the timeout."""
-        if self._attr_state == STATE_ON:
+        if self.is_on:
             await self.async_turn_off()
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on presence hold."""
-        self._attr_state = STATE_ON
         self._attr_is_on = True
         self.schedule_update_ha_state()
 
@@ -84,9 +82,8 @@ class ResettableSwitchBase(SwitchBase):
                 self.hass, self.timeout * ONE_MINUTE, self._timeout_turn_off
             )
 
-    async def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off presence hold."""
-        self._attr_state = STATE_OFF
         self._attr_is_on = False
         self.schedule_update_ha_state()
 

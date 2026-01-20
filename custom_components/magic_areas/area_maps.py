@@ -1,0 +1,10 @@
+"""Derived maps tying area-state strings to config keys."""
+
+from .area_constants import AREA_STATE_ACCENT, AREA_STATE_DARK, AREA_STATE_SLEEP
+from .config_keys import CONF_ACCENT_ENTITY, CONF_DARK_ENTITY, CONF_SLEEP_ENTITY
+
+CONFIGURABLE_AREA_STATE_MAP = {
+    AREA_STATE_SLEEP: CONF_SLEEP_ENTITY,
+    AREA_STATE_DARK: CONF_DARK_ENTITY,
+    AREA_STATE_ACCENT: CONF_ACCENT_ENTITY,
+}

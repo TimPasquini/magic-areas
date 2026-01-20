@@ -1,0 +1,22 @@
+rules:
+  # Bronze
+  config-flow: done
+  test-coverage: done
+  unique-config-entry: done
+  manifest-codeowners: done
+  manifest-integration-type: done
+  manifest-iot-class: done
+  entity-unique-id: done
+  
+  # Silver
+  entity-unavailable: todo
+  parallel-updates: todo
+  reauthentication-flow: todo
+  
+  # Gold
+  diagnostics: done
+  exception-translations: todo
+  icon-translations: todo
+  
+  # Platinum
+  strict-typing: done

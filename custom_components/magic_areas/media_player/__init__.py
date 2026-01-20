@@ -1,21 +1,32 @@
 """Platform file for Magic Area's media_player entities."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from custom_components.magic_areas.area_constants import (
+    META_AREA_GLOBAL,
+)
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
+    CONF_NOTIFICATION_DEVICES,
+    EMPTY_STRING,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoMediaPlayerGroups,
+)
+from custom_components.magic_areas.features import (
     CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
     CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-    CONF_NOTIFICATION_DEVICES,
-    DATA_AREA_OBJECT,
-    EMPTY_STRING,
-    META_AREA_GLOBAL,
-    MODULE_DATA,
-    MagicAreasFeatureInfoMediaPlayerGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.media_player.area_aware_media_player import (
@@ -23,16 +34,23 @@ from custom_components.magic_areas.media_player.area_aware_media_player import (
 )
 from custom_components.magic_areas.util import cleanup_removed_entries
 
+if TYPE_CHECKING:
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: "MagicAreasConfigEntry",
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Set up the area media player config entry."""
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
 
-    entities_to_add: list[AreaAwareMediaPlayer | AreaMediaPlayerGroup] = []
+    entities_to_add: list[Entity] = []
 
     # Media Player Groups
     if area.has_feature(CONF_FEATURE_MEDIA_PLAYER_GROUPS):
@@ -43,7 +61,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if area.is_meta() and area.id == META_AREA_GLOBAL.lower():
         # Try to setup AAMP
         _LOGGER.debug("%s: Setting up Area-Aware media player", area.name)
-        entities_to_add.extend(setup_area_aware_media_player(area))
+        entities_to_add.extend(await setup_area_aware_media_player(area))
 
     if entities_to_add:
         async_add_entities(entities_to_add)
@@ -54,7 +72,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         )
 
 
-def setup_media_player_group(area):
+def setup_media_player_group(area: MagicArea) -> list[Entity]:
     """Create the media player groups."""
     # Check if there are any media player devices
     if not area.has_entities(MEDIA_PLAYER_DOMAIN):
@@ -66,15 +84,30 @@ def setup_media_player_group(area):
     return [AreaMediaPlayerGroup(area, media_player_entities)]
 
 
-def setup_area_aware_media_player(area):
+async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
     """Create Area-aware media player."""
-    ma_data = area.hass.data[MODULE_DATA]
+    entries = area.hass.config_entries.async_entries(DOMAIN)
 
     # Check if we have areas with MEDIA_PLAYER_DOMAIN entities
     areas_with_media_players = []
 
-    for entry in ma_data.values():
-        current_area = entry[DATA_AREA_OBJECT]
+    for entry in entries:
+        if entry.domain != DOMAIN:
+            continue
+
+        if not hasattr(entry, "runtime_data"):
+            continue
+
+        runtime_data = entry.runtime_data
+        if runtime_data.coordinator.data is None:
+            await runtime_data.coordinator.async_refresh()
+
+        if runtime_data.coordinator.data:
+            current_area = runtime_data.coordinator.data.area
+            entities_by_domain = runtime_data.coordinator.data.entities
+        else:
+            current_area = runtime_data.area
+            entities_by_domain = current_area.entities
 
         # Skip meta areas
         if current_area.is_meta():
@@ -90,7 +123,7 @@ def setup_area_aware_media_player(area):
             continue
 
         # Skip areas without media player entities
-        if not current_area.has_entities(MEDIA_PLAYER_DOMAIN):
+        if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
             _LOGGER.debug(
                 "%s: Has no media player entities, skipping.", current_area.name
             )
@@ -131,7 +164,7 @@ class AreaMediaPlayerGroup(MagicEntity, MediaPlayerGroup):
 
     feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
 
-    def __init__(self, area, entities):
+    def __init__(self, area: MagicArea, entities: list[str]) -> None:
         """Initialize media player group."""
         MagicEntity.__init__(self, area, domain=MEDIA_PLAYER_DOMAIN)
         MediaPlayerGroup.__init__(

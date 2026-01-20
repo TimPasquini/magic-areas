@@ -3,8 +3,9 @@
 import asyncio
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
@@ -20,10 +21,24 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
+from homeassistant.util import dt as dt_util
 
+from custom_components.magic_areas.policy import (
+    INVALID_STATES,
+    PRESENCE_SENSOR_VALID_ON_STATES,
+)
+from custom_components.magic_areas.enums import (
+    AreaStates,
+    MagicAreasEvents,
+)
+
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfo,
+    MagicAreasFeatureInfoPresenceTracking,
+)
 from custom_components.magic_areas.base.entities import BinaryMagicEntity
 from custom_components.magic_areas.base.magic import MagicArea, MagicMetaArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.attrs import (
     ATTR_ACTIVE_SENSORS,
     ATTR_AREAS,
     ATTR_CLEAR_TIMEOUT,
@@ -31,6 +46,8 @@ from custom_components.magic_areas.const import (
     ATTR_PRESENCE_SENSORS,
     ATTR_STATES,
     ATTR_TYPE,
+)
+from custom_components.magic_areas.config_keys import (
     CONF_CLEAR_TIMEOUT,
     CONF_EXTENDED_TIME,
     CONF_EXTENDED_TIMEOUT,
@@ -39,22 +56,20 @@ from custom_components.magic_areas.const import (
     CONF_SECONDARY_STATES_CALCULATION_MODE,
     CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
-    CONFIGURABLE_AREA_STATE_MAP,
     DEFAULT_CLEAR_TIMEOUT,
     DEFAULT_EXTENDED_TIME,
     DEFAULT_EXTENDED_TIMEOUT,
     DEFAULT_SECONDARY_STATES_CALCULATION_MODE,
     DEFAULT_SLEEP_TIMEOUT,
     EMPTY_STRING,
-    INVALID_STATES,
-    ONE_MINUTE,
-    PRESENCE_SENSOR_VALID_ON_STATES,
-    UPDATE_INTERVAL,
-    AreaStates,
     CalculationMode,
-    MagicAreasEvents,
-    MagicAreasFeatureInfo,
-    MagicAreasFeatureInfoPresenceTracking,
+)
+from custom_components.magic_areas.area_maps import (
+    CONFIGURABLE_AREA_STATE_MAP,
+)
+from custom_components.magic_areas.core_constants import (
+    ONE_MINUTE,
+    UPDATE_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,7 +89,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         self._state: bool = False
 
-        self._last_off_time: datetime = datetime.now(UTC) - timedelta(days=2)
+        self._last_off_time: datetime = dt_util.utcnow() - timedelta(days=2)
         self._clear_timeout_callback: Callable[[], None] | None = None
 
         self._sensors: list[str] = []
@@ -138,7 +153,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         """Return sensors used for tracking."""
         return self._sensors
 
-    def get_metadata(self) -> dict:
+    def get_metadata(self) -> dict[str, Any]:
         """Return metadata information about the area's occupancy."""
         return {
             ATTR_PRESENCE_SENSORS: self._sensors,
@@ -162,7 +177,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def _get_configured_secondary_states(self) -> list[str]:
         """Return configured secondary states."""
-        secondary_states = []
+        secondary_states: list[str] = []
 
         for (
             configurable_state,
@@ -183,6 +198,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def _load_presence_sensors(self) -> None:
         """Load sensors that are relevant for presence sensing."""
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            self._sensors = runtime_data.coordinator.data.presence_sensors.copy()
+            return
 
         self._sensors = self.area.get_presence_sensors()
 
@@ -190,7 +209,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
     def _secondary_state_change(self, event: Event[EventStateChangedData]) -> None:
         """Handle area secondary state change event."""
         if event.data["new_state"] is None:
-            return
+            return None
 
         to_state = event.data["new_state"].state
         entity_id = event.data["entity_id"]
@@ -211,14 +230,15 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             )
             return None
 
-        self.hass.loop.call_soon_threadsafe(self._update_state, datetime.now(UTC))
+        self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
+        return None
 
     def _sensor_state_change(self, event: Event[EventStateChangedData]) -> None:
         """Actions when the sensor state has changed."""
         if event.data["new_state"] is None:
             return
 
-        # Ignore state reports taht aren't really a state change
+        # Ignore state reports that aren't really a state change
         if (
             self.ignore_non_state_change
             and event.data["old_state"]
@@ -251,11 +271,11 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
                 event.data["old_state"],
                 event.data["new_state"],
             )
-            self._last_off_time = datetime.now(UTC)  # Update last_off_time
+            self._last_off_time = dt_util.utcnow()  # Update last_off_time
             # Clear the timeout
             self._remove_clear_timeout()
 
-        self.hass.loop.call_soon_threadsafe(self._update_state, datetime.now(UTC))
+        self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
 
     async def _async_update_state(self, timeout: int) -> None:
         await asyncio.sleep(timeout)
@@ -281,11 +301,13 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         if state_changed:
             # Consider all secondary states new
-            states_tuple = (self.area.states.copy(), [])
+            states_tuple = (set(self.area.states.copy()), set())
 
         self._report_state_change(states_tuple)
 
-    def _report_state_change(self, states_tuple=([], [])):
+    def _report_state_change(
+        self, states_tuple: tuple[set[str], set[str]] = (set(), set())
+    ) -> None:
         """Fire an event reporting area state change."""
         new_states, lost_states = states_tuple
         _LOGGER.debug(
@@ -295,7 +317,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             str(lost_states),
         )
         dispatcher_send(
-            self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area.id, states_tuple
+            self.hass,
+            MagicAreasEvents.AREA_STATE_CHANGED,
+            self.area.id,
+            (list(new_states), list(lost_states)),
         )
 
     # Area state calculations
@@ -307,7 +332,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         current_state: set[str] = set(self._get_area_states())
 
         if last_state == current_state:
-            return (set(), set())
+            return set(), set()
 
         # Calculate what's new
         new_states: set[str] = current_state - last_state
@@ -323,11 +348,11 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         self.area.states = list(current_state)
 
-        return (new_states, lost_states)
+        return new_states, lost_states
 
     def _get_area_states(self) -> list[str]:
         """Return states for the area."""
-        states = []
+        states: list[str] = []
 
         # Get Main occupancy state
         current_state = self._get_occupancy_state()
@@ -335,7 +360,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         states.append(AreaStates.OCCUPIED if current_state else AreaStates.CLEAR)
         if current_state != last_state:
-            self.area.last_changed = datetime.now(UTC)
+            self.area.last_changed = dt_util.utcnow()
             _LOGGER.debug(
                 "%s: State changed to %s at %s",
                 self.area.name,
@@ -345,7 +370,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         # Extended state
         seconds_since_last_change = (
-            datetime.now(UTC) - self.area.last_changed
+            dt_util.utcnow() - self.area.last_changed
         ).total_seconds()
 
         extended_time = self.area.config.get(CONF_SECONDARY_STATES, {}).get(
@@ -362,10 +387,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         return states
 
-    def _get_secondary_states(self) -> list[AreaStates]:
+    def _get_secondary_states(self) -> list[str]:
         """Return secondary states for an area."""
 
-        states: list[AreaStates] = []
+        states: list[str] = []
 
         configurable_states = self._get_configured_secondary_states()
 
@@ -411,7 +436,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
                     entity.state.lower(),
                     configurable_state,
                 )
-                states.append(AreaStates(configurable_state))
+                states.append(configurable_state)
 
         # Meta-state bright
         if AreaStates.DARK in configurable_states and AreaStates.DARK not in states:
@@ -516,10 +541,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     # Clear timeout
 
-    def _set_clear_timeout(self):
+    def _set_clear_timeout(self) -> None:
         """Set clear timeout."""
         if not self.area.is_occupied():
-            return False
+            return
 
         timeout = self._get_clear_timeout()
 
@@ -528,7 +553,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             self.hass, timeout, self._update_state
         )
 
-    def _get_clear_timeout(self) -> int:
+    def _get_clear_timeout(self) -> float:
         """Return configured clear timeout value."""
         if self.area.has_state(AreaStates.SLEEP):
             return (
@@ -575,7 +600,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         last_clear = self._last_off_time
         clear_time = last_clear + clear_delta
-        time_now = datetime.now(UTC)
+        time_now = dt_util.utcnow()
 
         if time_now >= clear_time:
             _LOGGER.debug("%s: Clear Timeout exceeded.", self.area.name)
@@ -599,7 +624,7 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
         BinarySensorEntity.__init__(self)
 
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
-        self._attr_extra_state_attributes = {}
+        self._attr_extra_state_attributes: dict[str, Any] = {}
         self._attr_is_on: bool = False
 
         self._attr_icon: str = self.area.icon or self.feature_info.icons.get(
@@ -612,10 +637,10 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
         await self.restore_state()
         await self._load_attributes()
 
-        # Setup the listeners
+        # Set up the listeners
         await self._setup_listeners()
 
-        self.hass.loop.call_soon_threadsafe(self._update_state, datetime.now(UTC))
+        self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
 
         _LOGGER.debug("%s: area presence binary sensor initialized", self.area.name)
 
@@ -688,10 +713,10 @@ class MetaAreaStateBinarySensor(AreaStateBinarySensor):
             }
         )
 
-    def _get_secondary_states(self) -> list[AreaStates]:
+    def _get_secondary_states(self) -> list[str]:
         """Return secondary states for an area through calculation."""
 
-        states: list[AreaStates] = []
+        states: list[str] = []
         mode: CalculationMode = CalculationMode(
             self.area.config.get(CONF_SECONDARY_STATES, {}).get(
                 CONF_SECONDARY_STATES_CALCULATION_MODE,
@@ -700,7 +725,7 @@ class MetaAreaStateBinarySensor(AreaStateBinarySensor):
         )
 
         child_areas: list[str] = self.area.get_child_areas()
-        states_list: list[AreaStates] = []
+        states_list: list[str] = []
 
         for area_slug in child_areas:
             area_entity_id: str = (
@@ -725,17 +750,17 @@ class MetaAreaStateBinarySensor(AreaStateBinarySensor):
             amt_states = state_counter[AreaStates(secondary_state)]
 
             if mode == CalculationMode.ANY and amt_states > 0:
-                states.append(AreaStates(secondary_state))
+                states.append(secondary_state)
                 continue
 
             if mode == CalculationMode.ALL and amt_states == child_area_count:
-                states.append(AreaStates(secondary_state))
+                states.append(secondary_state)
                 continue
 
             if mode == CalculationMode.MAJORITY and amt_states >= (
                 child_area_count / 2
             ):
-                states.append(AreaStates(secondary_state))
+                states.append(secondary_state)
                 continue
 
         # Meta-state bright
