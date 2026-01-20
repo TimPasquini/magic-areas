@@ -25,11 +25,14 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.const import (
+    CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
     CONF_FEATURE_AGGREGATION,
+    CONF_FEATURE_HEALTH,
     DOMAIN,
 )
 
@@ -37,7 +40,7 @@ from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
@@ -63,14 +66,35 @@ def mock_config_entry_aggregates() -> MockConfigEntry:
     return MockConfigEntry(domain=DOMAIN, data=data)
 
 
+@pytest.fixture(name="aggregates_filtered_config_entry")
+def mock_config_entry_aggregates_filtered() -> MockConfigEntry:
+    """Fixture for mock configuration entry with filtered device classes."""
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                CONF_FEATURE_AGGREGATION: {
+                    CONF_AGGREGATES_MIN_ENTITIES: 1,
+                    # Only allow DOOR, so MOTION will be skipped
+                    CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: [
+                        BinarySensorDeviceClass.DOOR
+                    ],
+                },
+                CONF_FEATURE_HEALTH: {},
+            }
+        }
+    )
+    return MockConfigEntry(domain=DOMAIN, data=data)
+
+
 @pytest.fixture(name="_setup_integration_aggregates")
 async def setup_integration_aggregates(
     hass: HomeAssistant,
     aggregates_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with secondary states config."""
 
-    await init_integration(hass, [aggregates_config_entry])
+    await init_integration_helper(hass, [aggregates_config_entry])
     yield
     await shutdown_integration(hass, [aggregates_config_entry])
 
@@ -371,3 +395,113 @@ async def test_aggregates_sensor_sum(
     assert round(float(aggregate_sensor_state.state), 2) == round(
         sum(changed_values), 2
     )
+
+
+async def test_aggregates_not_enough_entities(
+    hass: HomeAssistant,
+) -> None:
+    """Test that aggregates are not created if not enough entities."""
+    
+    # Create config entry with min_entities = 2
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 2}
+            }
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+    
+    # Create only 1 entity
+    mock_entity = MockBinarySensor(
+        name="motion_sensor_1",
+        unique_id="motion_sensor_1",
+        device_class=BinarySensorDeviceClass.MOTION,
+    )
+    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_entity]})
+
+    await init_integration_helper(hass, [config_entry])
+    
+    aggregate_sensor_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_kitchen_aggregate_motion"
+    assert hass.states.get(aggregate_sensor_id) is None
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_aggregates_no_entities(
+    hass: HomeAssistant,
+    aggregates_filtered_config_entry: MockConfigEntry,
+) -> None:
+    """Test setup with no binary sensors in area."""
+    # Initialize without setting up any mock entities
+    await init_integration_helper(hass, [aggregates_filtered_config_entry])
+    await hass.async_block_till_done()
+
+    # Verify no aggregates created
+    # (Presence tracking sensor is always created)
+    aggregate_sensor_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_kitchen_aggregate_motion"
+    assert hass.states.get(aggregate_sensor_id) is None
+
+    await shutdown_integration(hass, [aggregates_filtered_config_entry])
+
+
+async def test_aggregates_missing_attributes(
+    hass: HomeAssistant,
+    aggregates_filtered_config_entry: MockConfigEntry,
+) -> None:
+    """Test setup with binary sensors missing attributes."""
+    # Create a binary sensor without device class in the registry
+    registry = er.async_get(hass)
+    entry = registry.async_get_or_create(
+        BINARY_SENSOR_DOMAIN,
+        "test",
+        "no_device_class",
+        suggested_object_id="no_device_class",
+    )
+    registry.async_update_entity(entry.entity_id, area_id=DEFAULT_MOCK_AREA.value)
+
+    # Set state without device_class attribute
+    hass.states.async_set(entry.entity_id, STATE_OFF, {})
+
+    await init_integration_helper(hass, [aggregates_filtered_config_entry])
+    await hass.async_block_till_done()
+
+    # Should handle gracefully and not create aggregates/health for this entity
+    # Since device_class is missing, it shouldn't be aggregated
+    aggregate_sensor_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_kitchen_aggregate_motion"
+    assert hass.states.get(aggregate_sensor_id) is None
+
+    await shutdown_integration(hass, [aggregates_filtered_config_entry])
+
+
+async def test_aggregates_filtered_device_class(
+    hass: HomeAssistant,
+    aggregates_filtered_config_entry: MockConfigEntry,
+) -> None:
+    """Test setup with binary sensors of excluded device class."""
+    # Config excludes MOTION (only DOOR allowed)
+    mock_motion = MockBinarySensor(
+        name="motion_sensor",
+        unique_id="motion_sensor",
+        device_class=BinarySensorDeviceClass.MOTION,
+    )
+
+    await setup_mock_entities(
+        hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_motion]}
+    )
+
+    await init_integration_helper(hass, [aggregates_filtered_config_entry])
+    await hass.async_block_till_done()
+
+    # Verify aggregate for motion NOT created
+    aggregate_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_motion"
+    )
+    assert hass.states.get(aggregate_id) is None
+
+    # Verify health sensor NOT created (MOTION is not a distress class)
+    health_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_health_{DEFAULT_MOCK_AREA}_health_problem"
+    assert hass.states.get(health_id) is None
+
+    await shutdown_integration(hass, [aggregates_filtered_config_entry])

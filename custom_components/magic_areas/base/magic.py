@@ -1,13 +1,14 @@
 """Classes for Magic Areas and Meta Areas."""
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 import logging
 import random
+from typing import Any, Callable, TYPE_CHECKING, cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
@@ -26,7 +27,8 @@ from homeassistant.helpers.entity_registry import (
     RegistryEntry,
     async_get as entityreg_async_get,
 )
-from homeassistant.util import Throttle, slugify
+from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.const import (
     AREA_STATE_OCCUPIED,
@@ -41,11 +43,11 @@ from custom_components.magic_areas.const import (
     CONF_FEATURE_WASP_IN_A_BOX,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
+    CONF_SECONDARY_STATES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_TYPE,
     CONFIGURABLE_AREA_STATE_MAP,
-    DATA_AREA_OBJECT,
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
     DEFAULT_PRESENCE_DEVICE_PLATFORMS,
     MAGIC_AREAS_COMPONENTS,
@@ -54,11 +56,14 @@ from custom_components.magic_areas.const import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
     META_AREA_GLOBAL,
-    MODULE_DATA,
     MagicAreasEvents,
     MetaAreaAutoReloadSettings,
     MetaAreaType,
 )
+from custom_components.magic_areas.models import MagicAreasConfigEntry
+
+if TYPE_CHECKING:
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 # Classes
 
@@ -83,7 +88,7 @@ class MagicArea:
         self,
         hass: HomeAssistant,
         area: BasicArea,
-        config: ConfigEntry,
+        config: "MagicAreasConfigEntry",
     ) -> None:
         """Initialize the magic area with all the stuff."""
         self.hass: HomeAssistant = hass
@@ -92,7 +97,7 @@ class MagicArea:
         self.icon: str | None = area.icon
         self.id: str = area.id
         self.slug: str = slugify(self.name)
-        self.hass_config: ConfigEntry = config
+        self.hass_config: MagicAreasConfigEntry = config
         self.initialized: bool = False
         self.floor_id: str | None = area.floor_id
         self.logger = logging.getLogger(__name__)
@@ -102,19 +107,20 @@ class MagicArea:
         self._area_devices: list[str] = []
 
         # Timestamp for initialization / reload tests
-        self.timestamp: datetime = datetime.now(UTC)
+        self.timestamp: datetime = dt_util.utcnow()
         self.reloading: bool = False
+        self._last_reload: datetime = datetime.min.replace(tzinfo=dt_util.UTC)
 
         # Merged options
         area_config = dict(config.data)
         if config.options:
             area_config.update(config.options)
-        self.config = area_config
+        self.config: dict[str, Any] = area_config
 
         self.entities: dict[str, list[dict[str, str]]] = {}
         self.magic_entities: dict[str, list[dict[str, str]]] = {}
 
-        self.last_changed: datetime = datetime.now(UTC)
+        self.last_changed: datetime = dt_util.utcnow()
 
         self.states: list[str] = []
 
@@ -122,7 +128,7 @@ class MagicArea:
 
         self.logger.debug("%s: Primed for initialization.", self.name)
 
-    def finalize_init(self):
+    def finalize_init(self) -> None:
         """Finalize initialization of the area."""
         self.initialized = True
         self.logger.debug(
@@ -130,7 +136,7 @@ class MagicArea:
         )
 
         @callback
-        async def _async_notify_load(*args, **kwargs) -> None:
+        async def _async_notify_load(*args: Any, **kwargs: Any) -> None:
             """Notify that area is loaded."""
             # Announce area type loaded
             dispatcher_send(
@@ -153,25 +159,27 @@ class MagicArea:
         """Return if area is occupied."""
         return self.has_state(AREA_STATE_OCCUPIED)
 
-    def has_state(self, state) -> bool:
+    def has_state(self, state: str) -> bool:
         """Check if area has a given state."""
         return state in self.states
 
-    def has_configured_state(self, state) -> bool:
+    def has_configured_state(self, state: str) -> bool:
         """Check if area supports a given state."""
         state_opts = CONFIGURABLE_AREA_STATE_MAP.get(state, None)
 
         if not state_opts:
             return False
 
-        state_entity, state_value = state_opts
-
-        if state_entity and state_value:
+        # state_opts is the config key for the entity (e.g. "sleep_entity")
+        # We need to check if this key is configured in secondary states
+        secondary_states = self.config.get(CONF_SECONDARY_STATES, {})
+        
+        if secondary_states.get(state_opts):
             return True
 
         return False
 
-    def has_feature(self, feature) -> bool:
+    def has_feature(self, feature: str) -> bool:
         """Check if area has a given feature."""
         enabled_features = self.config.get(CONF_ENABLED_FEATURES)
 
@@ -188,7 +196,7 @@ class MagicArea:
 
         return feature in enabled_features
 
-    def feature_config(self, feature) -> dict:
+    def feature_config(self, feature: str) -> dict:
         """Return configuration for a given feature."""
         if not self.has_feature(feature):
             self.logger.debug("%s: Feature '%s' not enabled.", self.name, feature)
@@ -201,7 +209,7 @@ class MagicArea:
 
         return options.get(feature, {})
 
-    def available_platforms(self):
+    def available_platforms(self) -> list[str]:
         """Return available platforms to area type."""
         available_platforms = []
 
@@ -217,7 +225,7 @@ class MagicArea:
         return available_platforms
 
     @property
-    def area_type(self):
+    def area_type(self) -> str | None:
         """Return the area type."""
         return self.config.get(CONF_TYPE)
 
@@ -225,11 +233,11 @@ class MagicArea:
         """Return if area is Meta or not."""
         return self.area_type == AREA_TYPE_META
 
-    def is_interior(self):
+    def is_interior(self) -> bool:
         """Return if area type is interior or not."""
         return self.area_type == AREA_TYPE_INTERIOR
 
-    def is_exterior(self):
+    def is_exterior(self) -> bool:
         """Return if area type is exterior or not."""
         return self.area_type == AREA_TYPE_EXTERIOR
 
@@ -312,7 +320,7 @@ class MagicArea:
             str(self.entities),
         )
 
-    def load_magic_entities(self):
+    def load_magic_entities(self) -> None:
         """Load magic areas-generated entities."""
 
         entity_registry = entityreg_async_get(self.hass)
@@ -336,7 +344,7 @@ class MagicArea:
             "%s: Loaded magic entities: %s", self.name, str(self.magic_entities)
         )
 
-    def get_entity_dict(self, entity_id) -> dict[str, str]:
+    def get_entity_dict(self, entity_id: str) -> dict[str, str]:
         """Return entity_id in a dictionary with attributes (if available)."""
 
         # Get latest state and create object
@@ -349,7 +357,7 @@ class MagicArea:
             # all keys that are NOT entity_id
             for attr_key, attr_value in latest_state.attributes.items():
                 if attr_key != ATTR_ENTITY_ID:
-                    entity_dict[attr_key] = attr_value
+                    entity_dict[str(attr_key)] = str(attr_value)
 
         return entity_dict
 
@@ -441,7 +449,7 @@ class MagicArea:
 
         return sensors
 
-    async def initialize(self, _=None) -> None:
+    async def initialize(self, _: Any = None) -> None:
         """Initialize area."""
         self.logger.debug("%s: Initializing area...", self.name)
 
@@ -449,11 +457,11 @@ class MagicArea:
 
         self.finalize_init()
 
-    def has_entities(self, domain):
+    def has_entities(self, domain: str) -> bool:
         """Check if area has entities."""
         return domain in self.entities
 
-    def make_entity_registry_filter(self):
+    def make_entity_registry_filter(self) -> Callable[[EventEntityRegistryUpdatedData], bool]:
         """Create entity register filter for this area."""
 
         @callback
@@ -468,22 +476,20 @@ class MagicArea:
                 return False
 
             # Ignore if too soon
-            if datetime.now(UTC) - self.timestamp < timedelta(
+            if dt_util.utcnow() - self.timestamp < timedelta(
                 seconds=MetaAreaAutoReloadSettings.THROTTLE
             ):
                 return False
 
-            action = event_data["action"]
             entity_registry = entityreg_async_get(self.hass)
             entity_entry = entity_registry.async_get(entity_id)
 
             if (
-                action == "update"
-                and "changes" in event_data
+                event_data["action"] == "update"
                 and "area_id" in event_data["changes"]
             ):
                 # Removed from our area
-                if event_data["changes"]["area_id"] == self.id:
+                if event_data["changes"].get("area_id") == self.id:
                     return True
 
                 # Is from our area
@@ -492,7 +498,7 @@ class MagicArea:
 
                 return False
 
-            if action in ("create", "remove"):
+            if event_data["action"] in ("create", "remove"):
                 # Is from our area
                 if entity_entry and entity_entry.area_id == self.id:
                     return True
@@ -501,7 +507,7 @@ class MagicArea:
 
         return _entity_registry_filter
 
-    def make_device_registry_filter(self):
+    def make_device_registry_filter(self) -> Callable[[EventDeviceRegistryUpdatedData], bool]:
         """Create device register filter for this area."""
 
         @callback
@@ -513,20 +519,17 @@ class MagicArea:
                 return False
 
             # Ignore if too soon
-            if datetime.now(UTC) - self.timestamp < timedelta(
+            if dt_util.utcnow() - self.timestamp < timedelta(
                 seconds=MetaAreaAutoReloadSettings.THROTTLE
             ):
                 return False
 
-            action = event_data["action"]
-
             if (
-                action == "update"
-                and "changes" in event_data
+                event_data["action"] == "update"
                 and "area_id" in event_data["changes"]
             ):
                 # Removed from our area
-                if event_data["changes"]["area_id"] == self.id:
+                if event_data["changes"].get("area_id") == self.id:
                     return True
 
             # Was from our area?
@@ -552,7 +555,7 @@ class MagicMetaArea(MagicArea):
         self,
         hass: HomeAssistant,
         area: BasicArea,
-        config: ConfigEntry,
+        config: "MagicAreasConfigEntry",
     ) -> None:
         """Initialize the meta magic area with all the stuff."""
         super().__init__(hass, area, config)
@@ -569,14 +572,14 @@ class MagicMetaArea(MagicArea):
             sensors.append(entity_id)
         return sensors
 
-    def get_active_areas(self):
+    def get_active_areas(self) -> list[str]:
         """Return areas that are occupied."""
 
         active_areas = []
 
         for area in self.child_areas:
             try:
-                entity_id = f"binary_sensor.area_{area}"
+                entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
                 entity = self.hass.states.get(entity_id)
 
                 if not entity:
@@ -595,13 +598,22 @@ class MagicMetaArea(MagicArea):
 
         return active_areas
 
-    def get_child_areas(self):
+    def get_child_areas(self) -> list[str]:
         """Return areas that a Meta area is watching."""
-        data = self.hass.data[MODULE_DATA]
+        entries = self.hass.config_entries.async_entries("magic_areas")
         areas: list[str] = []
 
-        for area_info in data.values():
-            area: MagicArea = area_info[DATA_AREA_OBJECT]
+        for entry in entries:
+            if entry.state != ConfigEntryState.LOADED:
+                continue
+            
+            # We need to cast here because we know it's a MagicAreasConfigEntry
+            # but the type system doesn't know that yet
+            if entry.domain != "magic_areas":
+                continue
+            entry = cast(MagicAreasConfigEntry, entry)
+
+            area: MagicArea = entry.runtime_data.area
 
             if area.is_meta():
                 continue
@@ -618,7 +630,7 @@ class MagicMetaArea(MagicArea):
 
         return areas
 
-    async def initialize(self, _=None) -> None:
+    async def initialize(self, _: Any = None) -> None:
         """Initialize Meta area."""
         if self.initialized:
             self.logger.debug("%s: Already initialized, ignoring.", self.name)
@@ -636,9 +648,18 @@ class MagicMetaArea(MagicArea):
         entity_registry = entityreg_async_get(self.hass)
         entity_list: list[RegistryEntry] = []
 
-        data = self.hass.data[MODULE_DATA]
-        for area_info in data.values():
-            area: MagicArea = area_info[DATA_AREA_OBJECT]
+        entries = self.hass.config_entries.async_entries("magic_areas")
+        for entry in entries:
+            if entry.state != ConfigEntryState.LOADED:
+                continue
+            
+            # We need to cast here because we know it's a MagicAreasConfigEntry
+            # but the type system doesn't know that yet
+            if entry.domain != "magic_areas":
+                continue
+            entry = cast(MagicAreasConfigEntry, entry)
+
+            area: MagicArea = entry.runtime_data.area
 
             if area.slug not in self.child_areas:
                 continue
@@ -722,10 +743,15 @@ class MagicMetaArea(MagicArea):
         if area_type == self.slug or area_id in self.child_areas:
             return await self.reload()
 
-    @Throttle(min_time=timedelta(seconds=MetaAreaAutoReloadSettings.THROTTLE))
     async def reload(self) -> None:
         """Reload current entry."""
+        if dt_util.utcnow() - self._last_reload < timedelta(
+            seconds=MetaAreaAutoReloadSettings.THROTTLE
+        ):
+            return
+
         self.logger.info("%s: Reloading entry.", self.name)
+        self._last_reload = dt_util.utcnow()
 
         # Give some time for areas to finish loading,
         # randomize to prevent staggering the CPU with

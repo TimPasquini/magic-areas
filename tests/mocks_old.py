@@ -355,22 +355,16 @@ class MockToggleEntity(MockEntity, ToggleEntity):
         """Turn the entity on."""
         self.calls.append(("turn_on", kwargs))
         self._state = STATE_ON
-
-        # Keep Home Assistant's state machine in sync for tests that rely on
-        # group aggregation and RestoreEntity behavior.
-        if self.hass is not None:
-            self.schedule_update_ha_state()
+        self.schedule_update_ha_state()
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
         self.calls.append(("turn_off", kwargs))
         self._state = STATE_OFF
-
-        if self.hass is not None:
-            self.schedule_update_ha_state()
+        self.schedule_update_ha_state()
 
     async def async_added_to_hass(self) -> None:
-        """Write initial state when added to Home Assistant."""
+        """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
         self.async_write_ha_state()
 
@@ -563,7 +557,7 @@ class MockCover(MockEntity, CoverEntity):
             self
         )  # pylint: disable=overridden-final-method
 
-    @property
+    @cached_property
     def is_closed(self) -> bool:
         """Return if the cover is closed or not."""
         if "state" in self._values and self._values["state"] == STATE_CLOSED:
@@ -571,7 +565,7 @@ class MockCover(MockEntity, CoverEntity):
 
         return self.current_cover_position == 0
 
-    @property
+    @cached_property
     def is_opening(self) -> bool:
         """Return if the cover is opening or not."""
         if "state" in self._values:
@@ -579,7 +573,7 @@ class MockCover(MockEntity, CoverEntity):
 
         return False
 
-    @property
+    @cached_property
     def is_closing(self) -> bool:
         """Return if the cover is closing or not."""
         if "state" in self._values:
@@ -593,7 +587,6 @@ class MockCover(MockEntity, CoverEntity):
             self._values["state"] = STATE_OPENING
         else:
             self._values["state"] = STATE_OPEN
-        self.schedule_update_ha_state()
 
     def close_cover(self, **kwargs: Any) -> None:
         """Close cover."""
@@ -601,13 +594,11 @@ class MockCover(MockEntity, CoverEntity):
             self._values["state"] = STATE_CLOSING
         else:
             self._values["state"] = STATE_CLOSED
-        self.schedule_update_ha_state()
 
     def stop_cover(self, **kwargs: Any) -> None:
         """Stop cover."""
         assert CoverEntityFeature.STOP in self.supported_features
         self._values["state"] = STATE_CLOSED if self.is_closed else STATE_OPEN
-        self.schedule_update_ha_state()
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""

@@ -36,7 +36,7 @@ from tests.helpers import (
     assert_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
@@ -79,10 +79,10 @@ def mock_config_entry_climate_control() -> MockConfigEntry:
 async def setup_integration_climate_control(
     hass: HomeAssistant,
     climate_control_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with BLE tracker config."""
 
-    await init_integration(hass, [climate_control_config_entry])
+    await init_integration_helper(hass, [climate_control_config_entry])
     yield
     await shutdown_integration(hass, [climate_control_config_entry])
 

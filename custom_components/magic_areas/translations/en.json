@@ -13,7 +13,8 @@
     "abort": {
       "already_configured": "This device is already configured",
       "invalid_area": "The selected area does not exist",
-      "no_more_areas": "All your areas are already magic!"
+      "no_more_areas": "All your areas are already magic!",
+      "no_areas_available": "All areas are already configured"
     }
   },
   "options": {

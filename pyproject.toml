@@ -1,3 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "magic-areas"
+version = "4.4.1"
+description = "Magic Areas component for Home Assistant"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.3",
+    "pytest-homeassistant-custom-component>=0.13.179",
+    "pytest-asyncio",
+    "pytest-cov",
+    "mypy",
+]
+
 [tool.black]
 target-version = ["py312"]
 extend-exclude = "/generated/"
@@ -194,3 +215,16 @@ keep-runtime-typing = true
 
 [tool.ruff.mccabe]
 max-complexity = 25
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_unused_configs = true
+explicit_package_bases = true

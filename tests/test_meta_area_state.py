@@ -5,8 +5,9 @@ import logging
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import AreaStates
+from custom_components.magic_areas.const import ATTR_AREAS, AreaStates
 
 from tests.const import MockAreaIds
 from tests.helpers import assert_state
@@ -23,7 +24,7 @@ async def test_meta_area_primary_state_change(
     entities_binary_sensor_motion_all_areas_with_meta: dict[
         MockAreaIds, list[MockBinarySensor]
     ],
-    _setup_integration_all_areas_with_meta,
+    init_integration_all_areas: list[MockConfigEntry],
 ) -> None:
     """Test primary state changes between meta areas."""
 
@@ -173,6 +174,25 @@ async def test_meta_area_primary_state_change(
 
     second_floor_area_sensor_state = hass.states.get(second_floor_area_sensor_entity_id)
     assert_state(second_floor_area_sensor_state, STATE_OFF)
+
+
+async def test_meta_area_attributes_coverage(
+    hass: HomeAssistant,
+    init_integration_all_areas: list[MockConfigEntry],
+) -> None:
+    """Test meta area attributes coverage."""
+
+    # Get Global Meta Area
+    global_area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.GLOBAL.value}_area_state"
+
+    state = hass.states.get(global_area_sensor_entity_id)
+    assert state is not None
+    assert ATTR_AREAS in state.attributes
+    assert len(state.attributes[ATTR_AREAS]) > 0
+
+    # Define entity IDs
+    master_bedroom_area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.MASTER_BEDROOM.value}_area_state"
+    second_floor_area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.SECOND_FLOOR.value}_area_state"
 
     hass.states.async_set(master_bedroom_area_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()

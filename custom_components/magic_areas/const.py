@@ -2,6 +2,7 @@
 
 from enum import IntEnum, StrEnum, auto
 from itertools import chain
+from typing import Any
 
 import voluptuous as vol
 
@@ -17,7 +18,7 @@ from homeassistant.components.device_tracker.const import (
 )
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
-from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.remote import DOMAIN as REMOTE_DOMAIN
 from homeassistant.components.sensor.const import (
@@ -40,7 +41,6 @@ ONE_MINUTE = 60  # seconds, for conversion
 EMPTY_STRING = ""
 
 DOMAIN = "magic_areas"
-MODULE_DATA = f"{DOMAIN}_data"
 
 ADDITIONAL_LIGHT_TRACKING_ENTITIES = ["sun.sun"]
 DEFAULT_SENSOR_PRECISION = 2
@@ -360,10 +360,6 @@ class SelectorTranslationKeys(StrEnum):
 ALL_BINARY_SENSOR_DEVICE_CLASSES = [cls.value for cls in BinarySensorDeviceClass]
 ALL_SENSOR_DEVICE_CLASSES = [cls.value for cls in SensorDeviceClass]
 
-# Data Items
-DATA_AREA_OBJECT = "area_object"
-DATA_TRACKED_LISTENERS = "tracked_listeners"
-
 # Attributes
 ATTR_STATES = "states"
 ATTR_AREAS = "areas"
@@ -486,8 +482,10 @@ INVALID_STATES = [STATE_UNAVAILABLE, STATE_UNKNOWN]
 CONF_ID = "id"
 CONF_NAME, DEFAULT_NAME = "name", ""  # cv.string
 CONF_TYPE, DEFAULT_TYPE = "type", AREA_TYPE_INTERIOR  # cv.string
-CONF_ENABLED_FEATURES, DEFAULT_ENABLED_FEATURES = "features", {}  # cv.ensure_list
-CONF_SECONDARY_STATES, DEFAULT_AREA_STATES = "secondary_states", {}  # cv.ensure_list
+CONF_ENABLED_FEATURES = "features"
+DEFAULT_ENABLED_FEATURES: dict[str, Any] = {}
+CONF_SECONDARY_STATES = "secondary_states"
+DEFAULT_AREA_STATES: dict[str, Any] = {}
 CONF_INCLUDE_ENTITIES = "include_entities"  # cv.entity_ids
 CONF_EXCLUDE_ENTITIES = "exclude_entities"  # cv.entity_ids
 CONF_KEEP_ONLY_ENTITIES = "keep_only_entities"  # cv.entity_ids
@@ -610,10 +608,8 @@ CONF_CLEAR_TIMEOUT, DEFAULT_CLEAR_TIMEOUT, DEFAULT_CLEAR_TIMEOUT_META = (
     1,
     0,
 )  # cv.positive_int
-CONF_NOTIFICATION_DEVICES, DEFAULT_NOTIFICATION_DEVICES = (
-    "notification_devices",
-    [],
-)  # cv.entity_ids
+CONF_NOTIFICATION_DEVICES = "notification_devices"
+DEFAULT_NOTIFICATION_DEVICES: list[str] = []
 CONF_NOTIFY_STATES, DEFAULT_NOTIFY_STATES = (
     "notification_states",
     [
@@ -632,10 +628,8 @@ CONF_SLEEP_ENTITY = "sleep_entity"
 CONF_EXTENDED_TIME, DEFAULT_EXTENDED_TIME = "extended_time", 5  # cv.positive_int
 CONF_EXTENDED_TIMEOUT, DEFAULT_EXTENDED_TIMEOUT = "extended_timeout", 10  # int
 
-CONF_BLE_TRACKER_ENTITIES, DEFAULT_BLE_TRACKER_ENTITIES = (
-    "ble_tracker_entities",
-    [],
-)  # cv.entity_ids
+CONF_BLE_TRACKER_ENTITIES = "ble_tracker_entities"
+DEFAULT_BLE_TRACKER_ENTITIES: list[str] = []
 
 CONF_WASP_IN_A_BOX_DELAY, DEFAULT_WASP_IN_A_BOX_DELAY = (
     "delay",
@@ -932,7 +926,7 @@ NON_CONFIGURABLE_FEATURES_META = [
     CONF_FEATURE_FAN_GROUPS,
 ]
 
-NON_CONFIGURABLE_FEATURES = {
+NON_CONFIGURABLE_FEATURES: dict[str, dict[str, Any]] = {
     feature: {} for feature in ALL_FEATURES if feature not in CONFIGURABLE_FEATURES
 }
 

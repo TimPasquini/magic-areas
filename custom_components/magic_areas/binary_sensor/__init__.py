@@ -1,12 +1,12 @@
 """Binary sensor control for magic areas."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
@@ -42,6 +42,9 @@ from custom_components.magic_areas.helpers.area import get_area_from_config_entr
 from custom_components.magic_areas.threshold import create_illuminance_threshold
 from custom_components.magic_areas.util import cleanup_removed_entries
 
+if TYPE_CHECKING:
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 # Classes
@@ -64,7 +67,7 @@ class AreaHealthBinarySensor(AreaSensorGroupBinarySensor):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: "MagicAreasConfigEntry",
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the area binary sensor config entry."""
@@ -74,7 +77,7 @@ async def async_setup_entry(
     )
     assert area is not None
 
-    entities = []
+    entities: list[Entity] = []
 
     # Create main presence sensor
     if area.is_meta() and isinstance(area, MagicMetaArea):

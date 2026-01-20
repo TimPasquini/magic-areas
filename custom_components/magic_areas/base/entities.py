@@ -96,7 +96,7 @@ class MagicEntity(RestoreEntity):
 
         return f"{domain}.{entity_id}"
 
-    def _generaete_unique_id(self, domain: str, extra_parts: list | None = None):
+    def _generaete_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
         # Format: magicareas_feature_domain_areaname_name
         if not self.feature_info:
             raise NotImplementedError(f"{self.name}: Feature info not set.")

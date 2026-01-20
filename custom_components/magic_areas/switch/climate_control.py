@@ -1,6 +1,7 @@
 """Climate control feature switch."""
 
 import logging
+from typing import Any
 
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
@@ -87,7 +88,7 @@ class ClimateControlSwitch(SwitchBase):
             )
         )
 
-    async def area_state_changed(self, area_id, states_tuple):
+    async def area_state_changed(self, area_id: str, states_tuple: tuple[list[str], list[str]]) -> None:
         """Handle area state change event."""
 
         if not self.is_on:
@@ -118,9 +119,10 @@ class ClimateControlSwitch(SwitchBase):
         # Handle each state top priority to last, returning early
         for p_state in priority_states:
             if self.area.has_state(p_state) and self.preset_map[p_state]:
-                return await self.apply_preset(p_state)
+                await self.apply_preset(p_state)
+                return
 
-    async def apply_preset(self, state_name: str):
+    async def apply_preset(self, state_name: str) -> None:
         """Set climate entity to given preset."""
 
         selected_preset: str = self.preset_map[state_name]

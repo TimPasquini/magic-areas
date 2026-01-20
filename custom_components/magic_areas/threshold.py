@@ -71,7 +71,7 @@ def create_illuminance_threshold(hass: HomeAssistant, area: MagicArea) -> Entity
         CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
         DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     )
-    illuminance_threshold_hysteresis = 0
+    illuminance_threshold_hysteresis = 0.0
 
     if illuminance_threshold_hysteresis_percentage > 0:
         illuminance_threshold_hysteresis = illuminance_threshold * (
@@ -120,9 +120,9 @@ class AreaThresholdSensor(MagicEntity, ThresholdSensor):
         area: MagicArea,
         device_class: BinarySensorDeviceClass,
         entity_id: str,
-        upper: int | None = None,
-        lower: int | None = None,
-        hysteresis: int = 0,
+        upper: float | None = None,
+        lower: float | None = None,
+        hysteresis: float = 0.0,
     ) -> None:
         """Initialize an area sensor group binary sensor."""
 
@@ -131,13 +131,21 @@ class AreaThresholdSensor(MagicEntity, ThresholdSensor):
         )
         ThresholdSensor.__init__(
             self,
-            hass=hass,
             entity_id=entity_id,
             name=EMPTY_STRING,
             unique_id=self.unique_id,
             lower=lower,
             upper=upper,
-            hysteresis=hysteresis,
+            hysteresis=float(hysteresis),
             device_class=device_class,
         )
-        delattr(self, "_attr_name")
+        self._attr_name = None
+
+    async def async_added_to_hass(self) -> None:
+        """Register listeners."""
+        await super().async_added_to_hass()
+        # Explicitly call ThresholdSensor.async_added_to_hass to ensure listeners are registered
+        # This handles cases where MRO might not route to it correctly via RestoreEntity
+        if hasattr(ThresholdSensor, "async_added_to_hass"):
+            await ThresholdSensor.async_added_to_hass(self)
+        self.async_write_ha_state()

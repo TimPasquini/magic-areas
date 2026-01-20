@@ -1,6 +1,6 @@
 """BLE Tracker binary sensor component."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 import logging
 
 from homeassistant.components.binary_sensor import (
@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
@@ -55,7 +56,7 @@ class AreaBLETrackerBinarySensor(MagicEntity, BinarySensorEntity):
         # Setup the listeners
         await self._setup_listeners()
 
-        self.hass.loop.call_soon_threadsafe(self._update_state, datetime.now(UTC))
+        self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
 
         _LOGGER.debug("%s: BLE Tracker monitor sensor initialized", self.area.name)
 

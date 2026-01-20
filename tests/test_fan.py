@@ -40,7 +40,7 @@ from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
@@ -76,10 +76,10 @@ def mock_config_entry_fan_groups() -> MockConfigEntry:
 async def setup_integration_fan_groups(
     hass: HomeAssistant,
     fan_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with Fan groups config."""
 
-    await init_integration(hass, [fan_groups_config_entry])
+    await init_integration_helper(hass, [fan_groups_config_entry])
     yield
     await shutdown_integration(hass, [fan_groups_config_entry])
 

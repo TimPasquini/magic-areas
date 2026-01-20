@@ -1,9 +1,9 @@
 """Platform file for Magic Area's switch entities."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -23,20 +23,23 @@ from custom_components.magic_areas.switch.media_player_control import (
 from custom_components.magic_areas.switch.presence_hold import PresenceHoldSwitch
 from custom_components.magic_areas.util import cleanup_removed_entries
 
+if TYPE_CHECKING:
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: "MagicAreasConfigEntry",
     async_add_entities: AddEntitiesCallback,
-):
+) -> None:
     """Set up the area switch config entry."""
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
 
-    switch_entities = []
+    switch_entities: list[SwitchBase] = []
 
     if area.has_feature(MagicAreasFeatures.PRESENCE_HOLD) and not area.is_meta():
         try:

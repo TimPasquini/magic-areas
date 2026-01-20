@@ -40,7 +40,7 @@ from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
 )
@@ -81,10 +81,10 @@ async def setup_integration_area_aware_media_player(
     hass: HomeAssistant,
     area_aware_media_player_global_config_entry: MockConfigEntry,
     area_aware_media_player_area_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with secondary states config."""
 
-    await init_integration(
+    await init_integration_helper(
         hass,
         [
             area_aware_media_player_area_config_entry,

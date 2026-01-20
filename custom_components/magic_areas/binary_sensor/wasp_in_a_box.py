@@ -1,6 +1,7 @@
 """Wasp in a box binary sensor component."""
 
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
@@ -96,8 +97,10 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         # Initialize timer if timeout configured
         if self._wasp_timeout > 0:
 
-            async def forget_wasp(now):
+            async def forget_wasp(now: Any) -> None:
                 self.wasp = False
+                if self._attr_extra_state_attributes is None:
+                    self._attr_extra_state_attributes = {}
                 self._attr_extra_state_attributes[ATTR_WASP] = STATE_OFF
                 self._attr_is_on = self.wasp
                 self.schedule_update_ha_state()
@@ -161,6 +164,8 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         if self._delay:
             self.wasp = False
             self._attr_is_on = self.wasp
+            if self._attr_extra_state_attributes is None:
+                self._attr_extra_state_attributes = {}
             self._attr_extra_state_attributes[ATTR_BOX] = new_state.state
             self._attr_extra_state_attributes[ATTR_WASP] = STATE_OFF
             self.schedule_update_ha_state()
@@ -215,6 +220,8 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
             if self._wasp_timer and self.wasp:
                 self._wasp_timer.start()
 
+        if self._attr_extra_state_attributes is None:
+            self._attr_extra_state_attributes = {}
         self._attr_extra_state_attributes[ATTR_BOX] = box_state
         self._attr_extra_state_attributes[ATTR_WASP] = wasp_state
 

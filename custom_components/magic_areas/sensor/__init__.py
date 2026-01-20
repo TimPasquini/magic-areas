@@ -2,9 +2,9 @@
 
 from collections import Counter
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
@@ -27,20 +27,23 @@ from custom_components.magic_areas.helpers.area import get_area_from_config_entr
 from custom_components.magic_areas.sensor.base import AreaSensorGroupSensor
 from custom_components.magic_areas.util import cleanup_removed_entries
 
+if TYPE_CHECKING:
+    from custom_components.magic_areas.models import MagicAreasConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: "MagicAreasConfigEntry",
     async_add_entities: AddEntitiesCallback,
-):
+) -> None:
     """Set up the area sensor config entry."""
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
 
-    entities_to_add = []
+    entities_to_add: list[Entity] = []
 
     if area.has_feature(CONF_FEATURE_AGGREGATION):
         entities_to_add.extend(create_aggregate_sensors(area))
@@ -60,7 +63,7 @@ def create_aggregate_sensors(area: MagicArea) -> list[Entity]:
     eligible_entities: dict[str, list[str]] = {}
     unit_of_measurement_map: dict[str, list[str]] = {}
 
-    aggregates = []
+    aggregates: list[Entity] = []
 
     if SENSOR_DOMAIN not in area.entities:
         return []

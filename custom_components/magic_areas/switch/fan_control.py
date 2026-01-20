@@ -1,6 +1,7 @@
 """Fan Control switch."""
 
 import logging
+from typing import Any
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
@@ -85,7 +86,7 @@ class FanControlSwitch(SwitchBase):
 
         await self.run_logic(self.area.states)
 
-    async def area_state_changed(self, area_id, states_tuple):
+    async def area_state_changed(self, area_id: str, states_tuple: tuple[list[str], list[str]]) -> None:
         """Handle area state change event."""
 
         if area_id != self.area.id:

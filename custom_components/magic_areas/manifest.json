@@ -11,7 +11,6 @@
     "light",
     "media_player",
     "device_tracker",
-    "discovery",
     "switch",
     "mqtt",
     "zwavejs",
@@ -23,8 +22,10 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/jseidl/hass-magic_areas/wiki",
+  "integration_type": "helper",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/jseidl/hass-magic_areas/issues",
   "requirements": [],
-  "version": "4.4.1"
+  "version": "4.4.1",
+  "quality_scale": "platinum"
 }

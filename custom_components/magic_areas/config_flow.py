@@ -1,11 +1,13 @@
 """Config Flow for Magic Area."""
 
 import logging
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Callable, Coroutine
 
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState, ConfigFlowResult
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
@@ -14,7 +16,7 @@ from homeassistant.components.climate.const import (
     ATTR_PRESET_MODES,
     DOMAIN as CLIMATE_DOMAIN,
 )
-from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, CONF_NAME
@@ -121,7 +123,6 @@ from .const import (
     CONFIG_FLOW_ENTITY_FILTER_EXT,
     CONFIGURABLE_AREA_STATE_MAP,
     CONFIGURABLE_FEATURES,
-    DATA_AREA_OBJECT,
     DISTRESS_SENSOR_CLASSES,
     DOMAIN,
     EMPTY_STRING,
@@ -133,7 +134,6 @@ from .const import (
     META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA,
     META_AREA_SCHEMA,
     META_AREA_SECONDARY_STATES_SCHEMA,
-    MODULE_DATA,
     NON_CONFIGURABLE_FEATURES_META,
     OPTIONS_AGGREGATES,
     OPTIONS_AREA,
@@ -168,6 +168,7 @@ from custom_components.magic_areas.helpers.area import (
     basic_area_from_meta,
     basic_area_from_object,
 )
+from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -177,16 +178,16 @@ EMPTY_ENTRY = [""]
 class ConfigBase:
     """Base class for config flow."""
 
-    config_entry = None
+    config_entry: MagicAreasConfigEntry | None = None
 
     # Selector builder
-    def _build_selector_boolean(self):
+    def _build_selector_boolean(self) -> BooleanSelector:
         """Build a boolean toggle selector."""
         return BooleanSelector(BooleanSelectorConfig())
 
     def _build_selector_select(
-        self, options=None, multiple=False, translation_key=EMPTY_STRING
-    ):
+        self, options: list | None = None, multiple: bool = False, translation_key: str = EMPTY_STRING
+    ) -> SelectSelector:
         """Build a <select> selector."""
         if not options:
             options = []
@@ -201,8 +202,8 @@ class ConfigBase:
         )
 
     def _build_selector_entity_simple(
-        self, options=None, multiple=False, force_include=False
-    ):
+        self, options: list | None = None, multiple: bool = False, force_include: bool = False
+    ) -> "NullableEntitySelector":
         """Build a <select> selector with predefined settings."""
         if not options:
             options = []
@@ -218,7 +219,7 @@ class ConfigBase:
         mode: NumberSelectorMode = NumberSelectorMode.BOX,
         step: float = 1,
         unit_of_measurement: str = "seconds",
-    ):
+    ) -> NumberSelector:
         """Build a number selector."""
         return NumberSelector(
             NumberSelectorConfig(
@@ -232,11 +233,11 @@ class ConfigBase:
 
     def _build_options_schema(
         self,
-        options,
+        options: list,
         *,
-        saved_options: dict | None = None,
-        dynamic_validators=None,
-        selectors=None,
+        saved_options: Mapping[str, Any] | None = None,
+        dynamic_validators: dict | None = None,
+        selectors: dict | None = None,
     ) -> vol.Schema:
         """Build schema for configuration options."""
         _LOGGER.debug(
@@ -285,7 +286,7 @@ class ConfigBase:
 class NullableEntitySelector(EntitySelector):
     """Entity selector that supports null values."""
 
-    def __call__(self, data):
+    def __call__(self, data: Any) -> Any:
         """Validate the passed selection, if passed."""
 
         if data in (None, ""):
@@ -300,9 +301,9 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
     VERSION = MagicConfigEntryVersion.MAJOR
     MINOR_VERSION = MagicConfigEntryVersion.MINOR
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         reserved_names = []
         non_floor_meta_areas = [
@@ -395,14 +396,14 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
                 )
                 config_entry.update({CONF_TYPE: AREA_TYPE_META})
 
-            return self.async_create_entry(title=area_object.name, data=config_entry)
+            return self.async_create_entry(title=area_object.name, data=config_entry)  # type: ignore[arg-type]
 
         # Filter out already-configured areas
         configured_areas = []
-        ma_data = self.hass.data.get(MODULE_DATA, {})
-
-        for config_data in ma_data.values():
-            configured_areas.append(config_data[DATA_AREA_OBJECT].id)
+        entries = self._async_current_entries()
+        for entry in entries:
+            if entry.data.get(CONF_ID):
+                configured_areas.append(entry.data.get(CONF_ID))
 
         available_areas = [area for area in areas if area.id not in configured_areas]
 
@@ -433,7 +434,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: MagicAreasConfigEntry) -> "OptionsFlowHandler":
         """Get the options flow for this handler."""
         return OptionsFlowHandler(config_entry)
 
@@ -442,18 +443,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
     """Handle a option flow for Adaptive Lighting."""
 
     area: MagicArea
+    config_entry: MagicAreasConfigEntry
 
-    def __init__(self, config_entry: config_entries.ConfigEntry):
+    def __init__(self, config_entry: MagicAreasConfigEntry) -> None:
         """Initialize options flow."""
+        self.config_entry = config_entry
         self.data: dict[str, Any] = {}
-        self.all_entities = []
-        self.area_entities = []
-        self.all_area_entities = []
-        self.all_lights = []
-        self.all_media_players = []
-        self.all_binary_entities = []
-        self.all_light_tracking_entities = []
-        self.area_options = {}
+        self.all_entities: list[str] = []
+        self.area_entities: list[str] = []
+        self.all_area_entities: list[str] = []
+        self.all_lights: list[str] = []
+        self.all_media_players: list[str] = []
+        self.all_binary_entities: list[str] = []
+        self.all_light_tracking_entities: list[str] = []
+        self.area_options: dict[str, Any] = {}
         super().__init__()
 
     def _get_feature_list(self) -> list[str]:
@@ -478,15 +481,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         return filtered_configurable_features
 
-    async def _update_options(self):
+    async def _update_options(self) -> ConfigFlowResult:
         """Update config entry options."""
         return self.async_create_entry(title="", data=dict(self.area_options))
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Initialize the options flow."""
 
-        self.data = self.hass.data[MODULE_DATA][self.config_entry.entry_id]
-        self.area = self.data[DATA_AREA_OBJECT]
+        self.area = self.config_entry.runtime_data.area
 
         _LOGGER.debug(
             "OptionsFlow: Initializing options flow for area %s", self.area.name
@@ -500,9 +502,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         # Return all relevant entities
         self.all_entities = sorted(
             self.resolve_groups(
-                entity_id
-                for entity_id in self.hass.states.async_entity_ids()
-                if entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_EXT
+                [
+                    entity_id
+                    for entity_id in self.hass.states.async_entity_ids()
+                    if entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_EXT
+                ]
             )
         )
 
@@ -523,9 +527,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         # All binary entities
         self.all_binary_entities = sorted(
             self.resolve_groups(
-                entity_id
-                for entity_id in self.all_entities
-                if entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_BOOL
+                [
+                    entity_id
+                    for entity_id in self.all_entities
+                    if entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_BOOL
+                ]
             )
         )
 
@@ -536,16 +542,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         self.all_lights = sorted(
             self.resolve_groups(
-                entity["entity_id"]
-                for entity in self.area.entities.get(LIGHT_DOMAIN, [])
-                if entity["entity_id"] in self.all_entities
+                [
+                    entity["entity_id"]
+                    for entity in self.area.entities.get(LIGHT_DOMAIN, [])
+                    if entity["entity_id"] in self.all_entities
+                ]
             )
         )
         self.all_media_players = sorted(
             self.resolve_groups(
-                entity["entity_id"]
-                for entity in self.area.entities.get(MEDIA_PLAYER_DOMAIN, [])
-                if entity["entity_id"] in self.all_entities
+                [
+                    entity["entity_id"]
+                    for entity in self.area.entities.get(MEDIA_PLAYER_DOMAIN, [])
+                    if entity["entity_id"] in self.all_entities
+                ]
             )
         )
 
@@ -582,7 +592,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         return await self.async_step_show_menu()
 
-    async def async_step_show_menu(self, user_input=None):
+    async def async_step_show_menu(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show options selection menu."""
         # Show options menu
         menu_options: list = [
@@ -606,7 +616,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return self.async_show_menu(step_id="show_menu", menu_options=menu_options)
 
     @staticmethod
-    def resolve_groups(raw_list):
+    def resolve_groups(raw_list: list) -> list:
         """Resolve entities from groups."""
         resolved_list = []
         for item in raw_list:
@@ -618,7 +628,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         return list(dict.fromkeys(resolved_list))
 
-    async def async_step_area_config(self, user_input=None):
+    async def async_step_area_config(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Gather basic settings for the area."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -693,7 +703,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             errors=errors,
         )
 
-    async def async_step_presence_tracking(self, user_input=None):
+    async def async_step_presence_tracking(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Gather basic settings for the area."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -772,7 +782,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             errors=errors,
         )
 
-    async def async_step_secondary_states(self, user_input=None):
+    async def async_step_secondary_states(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Gather secondary states settings for the area."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -860,7 +870,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             errors=errors,
         )
 
-    async def async_step_select_features(self, user_input=None):
+    async def async_step_select_features(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Ask the user to select features to enable for the area."""
 
         feature_list = self._get_feature_list()
@@ -911,7 +921,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             ),
         )
 
-    async def async_step_finish(self, user_input=None):
+    async def async_step_finish(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Save options and exit options flow."""
         _LOGGER.debug(
             "OptionsFlow: All features configured for area %s, saving config: %s",
@@ -920,7 +930,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         )
         return await self._update_options()
 
-    async def async_step_feature_conf_light_groups(self, user_input=None):
+    async def async_step_feature_conf_light_groups(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the light groups feature."""
 
         available_states = BUILTIN_AREA_STATES.copy()
@@ -1010,7 +1020,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_fan_groups(self, user_input=None):
+    async def async_step_feature_conf_fan_groups(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the fan groups feature."""
 
         available_states = [AREA_STATE_OCCUPIED, AREA_STATE_EXTENDED]
@@ -1035,7 +1045,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_climate_control(self, user_input=None):
+    async def async_step_feature_conf_climate_control(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the climate control feature."""
 
         all_climate_entities = [
@@ -1065,8 +1075,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         )
 
     async def async_step_feature_conf_climate_control_select_presets(
-        self, user_input=None
-    ):
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Configure the climate control feature."""
 
         climate_entity_id: str | None = None
@@ -1147,7 +1157,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_health(self, user_input=None):
+    async def async_step_feature_conf_health(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the climate groups feature."""
 
         return await self.do_feature_config(
@@ -1166,7 +1176,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_area_aware_media_player(self, user_input=None):
+    async def async_step_feature_conf_area_aware_media_player(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the area aware media player feature."""
 
         available_states = [AREA_STATE_OCCUPIED, AREA_STATE_EXTENDED, AREA_STATE_SLEEP]
@@ -1191,7 +1201,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_aggregates(self, user_input=None):
+    async def async_step_feature_conf_aggregates(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the sensor aggregates feature."""
 
         selectors = {
@@ -1225,7 +1235,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_presence_hold(self, user_input=None):
+    async def async_step_feature_conf_presence_hold(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the sensor presence_hold feature."""
 
         selectors = {
@@ -1241,7 +1251,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_ble_trackers(self, user_input=None):
+    async def async_step_feature_conf_ble_trackers(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the sensor BLE trackers feature."""
 
         selectors = {
@@ -1267,7 +1277,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
-    async def async_step_feature_conf_wasp_in_a_box(self, user_input=None):
+    async def async_step_feature_conf_wasp_in_a_box(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure the sensor Wasp in a Box feature."""
 
         selectors = {
@@ -1292,16 +1302,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
     async def do_feature_config(
         self,
         *,
-        name,
-        options,
-        dynamic_validators=None,
-        selectors=None,
-        user_input=None,
-        custom_schema=None,
-        return_to=None,
-        merge_options=False,
-        step_name=None,
-    ):
+        name: str,
+        options: list,
+        dynamic_validators: dict | None = None,
+        selectors: dict | None = None,
+        user_input: dict[str, Any] | None = None,
+        custom_schema: vol.Schema | None = None,
+        return_to: Callable[[], Coroutine[Any, Any, ConfigFlowResult]] | None = None,
+        merge_options: bool = False,
+        step_name: str | None = None,
+    ) -> ConfigFlowResult:
         """Execute step for a generic feature."""
         errors: dict[str, str] = {}
 

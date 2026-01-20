@@ -10,7 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, STATE_OPEN
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, STATE_CLOSED, STATE_OPEN
 from homeassistant.core import HomeAssistant
 
 from custom_components.magic_areas.const import (
@@ -22,9 +22,10 @@ from custom_components.magic_areas.const import (
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
-    init_integration,
+    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+    wait_for_state,
 )
 from tests.mocks import MockCover
 
@@ -46,10 +47,10 @@ def mock_config_entry_cover_groups() -> MockConfigEntry:
 async def setup_integration_cover_group(
     hass: HomeAssistant,
     cover_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[Any, None]:
     """Set up integration with secondary states config."""
 
-    await init_integration(hass, [cover_groups_config_entry])
+    await init_integration_helper(hass, [cover_groups_config_entry])
     yield
     await shutdown_integration(hass, [cover_groups_config_entry])
 
@@ -118,3 +119,35 @@ async def test_cover_group_basic(
             assert (
                 child_cover.entity_id in group_entity_state.attributes[ATTR_ENTITY_ID]
             )
+
+
+async def test_cover_group_update(
+    hass: HomeAssistant,
+    entities_sensor_cover_all_classes_multiple: list[MockCover],
+    _setup_integration_cover_group,
+) -> None:
+    """Test cover group state update."""
+
+    cover_group_entity_id_base = (
+        f"{COVER_DOMAIN}.magic_areas_cover_groups_kitchen_cover_group_"
+    )
+
+    # Get all blinds
+    blinds = [e for e in entities_sensor_cover_all_classes_multiple if e.device_class == CoverDeviceClass.BLIND]
+    blind_group_id = f"{cover_group_entity_id_base}{CoverDeviceClass.BLIND}"
+
+    # Initial state is OPEN
+    assert hass.states.get(blind_group_id).state == STATE_OPEN
+
+    # Close all blinds
+    for blind in blinds:
+        blind.close_cover()
+
+    # Verify group is closed
+    await wait_for_state(hass, blind_group_id, STATE_CLOSED)
+
+    # Open one blind
+    blinds[0].open_cover()
+
+    # Verify group is open
+    await wait_for_state(hass, blind_group_id, STATE_OPEN)
