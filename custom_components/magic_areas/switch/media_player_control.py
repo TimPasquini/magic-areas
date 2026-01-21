@@ -1,16 +1,17 @@
 """Media player control feature switch."""
 
 import logging
-from typing import Any
 
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
+)
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoMediaPlayerGroups,
 )
 from custom_components.magic_areas.switch.base import SwitchBase
@@ -43,7 +44,9 @@ class MediaPlayerControlSwitch(SwitchBase):
             )
         )
 
-    async def area_state_changed(self, area_id: str, states_tuple: tuple[list[str], list[str]]) -> None:
+    async def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+    ) -> None:
         """Handle area state change event."""
 
         if not self.is_on:

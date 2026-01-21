@@ -7,9 +7,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_BLE_TRACKER_ENTITIES,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+)
+from custom_components.magic_areas.features import (
     CONF_FEATURE_AGGREGATION,
     CONF_FEATURE_BLE_TRACKERS,
     CONF_FEATURE_HEALTH,
@@ -18,7 +23,6 @@ from custom_components.magic_areas.const import (
     CONF_FEATURE_FAN_GROUPS,
     CONF_FEATURE_CLIMATE_CONTROL,
     CONF_FEATURE_WASP_IN_A_BOX,
-    DOMAIN,
 )
 
 from tests.const import DEFAULT_MOCK_AREA

@@ -7,7 +7,8 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import ATTR_AREAS, AreaStates
+from custom_components.magic_areas.attrs import ATTR_AREAS
+from custom_components.magic_areas.enums import AreaStates
 
 from tests.const import MockAreaIds
 from tests.helpers import assert_state
@@ -171,6 +172,33 @@ async def test_meta_area_primary_state_change(
 
     first_floor_area_sensor_state = hass.states.get(first_floor_area_sensor_entity_id)
     assert_state(first_floor_area_sensor_state, STATE_OFF)
+
+    second_floor_area_sensor_state = hass.states.get(second_floor_area_sensor_entity_id)
+    assert_state(second_floor_area_sensor_state, STATE_OFF)
+
+    # Test Second Floor
+    master_bedroom_motion_sensor_id = entities_binary_sensor_motion_all_areas_with_meta[
+        MockAreaIds.MASTER_BEDROOM
+    ][0].entity_id
+
+    hass.states.async_set(master_bedroom_motion_sensor_id, STATE_ON)
+    await hass.async_block_till_done()
+
+    master_bedroom_area_sensor_state = hass.states.get(
+        master_bedroom_area_sensor_entity_id
+    )
+    assert_state(master_bedroom_area_sensor_state, STATE_ON)
+
+    second_floor_area_sensor_state = hass.states.get(second_floor_area_sensor_entity_id)
+    assert_state(second_floor_area_sensor_state, STATE_ON)
+
+    hass.states.async_set(master_bedroom_motion_sensor_id, STATE_OFF)
+    await hass.async_block_till_done()
+
+    master_bedroom_area_sensor_state = hass.states.get(
+        master_bedroom_area_sensor_entity_id
+    )
+    assert_state(master_bedroom_area_sensor_state, STATE_OFF)
 
     second_floor_area_sensor_state = hass.states.get(second_floor_area_sensor_entity_id)
     assert_state(second_floor_area_sensor_state, STATE_OFF)

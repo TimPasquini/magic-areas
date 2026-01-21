@@ -1,47 +1,55 @@
 """Test for area changes and how the system handles it."""
 
+import logging
 from collections.abc import AsyncGenerator
 from datetime import timedelta
-import logging
 from typing import Any
 
 import pytest
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-)
-
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
+)
+from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
-
-from custom_components.magic_areas.const import (
-    ATTR_PRESENCE_SENSORS,
-    ATTR_STATES,
-    CONF_ACCENT_ENTITY,
-    CONF_DARK_ENTITY,
-    CONF_KEEP_ONLY_ENTITIES,
-    CONF_CLEAR_TIMEOUT,
-    CONF_SECONDARY_STATES,
-    CONF_SLEEP_ENTITY,
-    DOMAIN,
-    MagicAreasEvents,
-    AreaStates,
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
 )
 
+from custom_components.magic_areas.attrs import (
+    ATTR_PRESENCE_SENSORS,
+    ATTR_STATES,
+)
+from custom_components.magic_areas.config_keys import (
+    CONF_ACCENT_ENTITY,
+    CONF_CLEAR_TIMEOUT,
+    CONF_DARK_ENTITY,
+    CONF_KEEP_ONLY_ENTITIES,
+    CONF_SECONDARY_STATES,
+    CONF_SLEEP_ENTITY,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+)
+from custom_components.magic_areas.enums import (
+    AreaStates,
+    MagicAreasEvents,
+)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockBinarySensor
 
@@ -88,7 +96,7 @@ async def setup_integration_secondary_states(
     hass: HomeAssistant,
     secondary_states_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[Any, None]:
-    """Set up integration with secondary states config."""
+    """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [secondary_states_config_entry])
     yield
@@ -100,7 +108,7 @@ async def setup_integration_keep_only_sensor(
     hass: HomeAssistant,
     keep_only_sensor_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[Any, None]:
-    """Set up integration with secondary states config."""
+    """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [keep_only_sensor_config_entry])
     yield
@@ -151,7 +159,7 @@ async def test_area_primary_state_change(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_kitchen_area_state"
     )
 
-    # Validate the right enties were created.
+    # Validate the right entities were created.
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     assert_state(area_binary_sensor, STATE_OFF)
     assert_in_attribute(
@@ -249,7 +257,7 @@ async def test_area_secondary_state_change(
 
 
 # Test extended state
-# @TODO pending figuring out virtualclock
+# @TODO pending figuring out virtual clock
 
 
 # Test keep-only sensors
@@ -266,7 +274,7 @@ async def test_keep_only_sensors(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_kitchen_area_state"
     )
 
-    # Validate the right enties were created.
+    # Validate the right entities were created.
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
 
     assert_state(area_binary_sensor, STATE_OFF)

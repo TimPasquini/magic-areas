@@ -14,15 +14,17 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    CONF_FEATURE_COVER_GROUPS,
+from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
+)
+from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoCoverGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.util import cleanup_removed_entries
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

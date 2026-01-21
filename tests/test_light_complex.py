@@ -1,38 +1,43 @@
 """Test for complex light group behavior."""
 
-from collections.abc import AsyncGenerator
-from typing import Any
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+    EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+)
+from custom_components.magic_areas.enums import (
+    AreaStates,
+)
+from custom_components.magic_areas.features import (
     CONF_FEATURE_LIGHT_GROUPS,
+)
+from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
     CONF_OVERHEAD_LIGHTS_STATES,
-    DOMAIN,
     LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
-    EVENT_MAGICAREAS_AREA_STATE_CHANGED,
-    AreaStates,
-    MagicAreasEvents,
 )
-
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
     wait_for_state,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockLight
 

@@ -8,23 +8,28 @@ from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayer
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_CONTENT_ID,
     ATTR_MEDIA_CONTENT_TYPE,
-    DOMAIN as MEDIA_PLAYER_DOMAIN,
     SERVICE_PLAY_MEDIA,
     MediaPlayerEntityFeature,
 )
-from homeassistant.const import ATTR_ENTITY_ID, STATE_IDLE, STATE_ON
-from homeassistant.core import HomeAssistant
+from homeassistant.components.media_player.const import (
+    DOMAIN as MEDIA_PLAYER_DOMAIN,
+)
+from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
     DEFAULT_NOTIFICATION_DEVICES,
     DEFAULT_NOTIFY_STATES,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
-    MagicAreasFeatureInfoAreaAwareMediaPlayer,
     MagicAreasFeatures,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoAreaAwareMediaPlayer,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +67,8 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         ]
         self._attr_extra_state_attributes["entity_id"] = self._tracked_entities
 
-    def get_media_players_for_area(self, area: MagicArea) -> set[str]:
+    @staticmethod
+    def get_media_players_for_area(area: MagicArea) -> set[str]:
         """Return media players for a given area."""
         entity_ids = []
 
@@ -90,7 +96,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
         if last_state:
             _LOGGER.debug(
-                "%s: Nedia Player restored [state=%s]", self.name, last_state.state
+                "%s: Media Player restored [state=%s]", self.name, last_state.state
             )
             self._state = MediaPlayerState(last_state.state)
         else:
@@ -165,7 +171,9 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
             self._state = state
         self.update_state()
 
-    async def async_play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:
+    async def async_play_media(
+        self, media_type: str, media_id: str, **kwargs: Any
+    ) -> None:
         """Forward a piece of media to media players in active areas."""
 
         # Read active areas

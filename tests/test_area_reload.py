@@ -1,8 +1,8 @@
 """Test for the logic on automatically reloading areas."""
 
 import asyncio
-from datetime import UTC, datetime
 import logging
+from datetime import datetime
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -14,10 +14,9 @@ from homeassistant.helpers.entity_registry import (
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
-
 from tests.const import MockAreaIds
 from tests.mocks import MockBinarySensor
 
@@ -97,7 +96,7 @@ async def test_reload_on_entity_area_change(
         "entity_id": "sensor.test",
         "changes": {"area_id": MockAreaIds.KITCHEN.value},
     }
-    
+
     hass.bus.async_fire(EVENT_ENTITY_REGISTRY_UPDATED, event_data)
     await hass.async_block_till_done()
     # Allow the reload task (which sleeps 0) to run

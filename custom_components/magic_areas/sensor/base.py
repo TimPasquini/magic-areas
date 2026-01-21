@@ -5,18 +5,22 @@ import logging
 from homeassistant.components.group.sensor import ATTR_MEAN, ATTR_SUM, SensorGroup
 from homeassistant.components.sensor.const import (
     DOMAIN as SENSOR_DOMAIN,
+)
+from homeassistant.components.sensor.const import (
     SensorDeviceClass,
     SensorStateClass,
 )
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
+    EMPTY_STRING,
+)
+from custom_components.magic_areas.core_constants import DEFAULT_SENSOR_PRECISION
+from custom_components.magic_areas.policy import (
     AGGREGATE_MODE_SUM,
     AGGREGATE_MODE_TOTAL_INCREASING_SENSOR,
     AGGREGATE_MODE_TOTAL_SENSOR,
-    DEFAULT_SENSOR_PRECISION,
-    EMPTY_STRING,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,8 +41,6 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
         MagicEntity.__init__(
             self, area=area, domain=SENSOR_DOMAIN, translation_key=device_class
         )
-
-        final_unit_of_measurement = None
 
         # Resolve unit of measurement
         unit_attr_name = f"{device_class}_unit"

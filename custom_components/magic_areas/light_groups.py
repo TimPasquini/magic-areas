@@ -1,7 +1,5 @@
-"""Light group configuration constants and tables.
+"""Light group configuration constants and tables."""
 
-Extracted from const.py.
-"""
 from custom_components.magic_areas.enums import StrEnum, auto
 
 # Light group options

@@ -18,12 +18,12 @@ from homeassistant.helpers.floor_registry import (
 )
 
 from custom_components.magic_areas.base.magic import BasicArea, MagicArea, MagicMetaArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.enums import (
     MetaAreaIcons,
     MetaAreaType,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,6 @@ def basic_area_from_meta(area_id: str, name: str | None = None) -> BasicArea:
     basic_area.id = area_id
     basic_area.is_meta = True
 
-    meta_area_icon_map: dict[str, str] = {}
     meta_area_icon_map = {
         MetaAreaType.EXTERIOR.value: MetaAreaIcons.EXTERIOR.value,
         MetaAreaType.INTERIOR.value: MetaAreaIcons.INTERIOR.value,
@@ -88,8 +87,6 @@ def get_magic_area_for_config_entry(
     area_id = config_entry.data[ATTR_ID]
     area_name = config_entry.data[ATTR_NAME]
 
-    magic_area: MagicArea | None = None
-
     _LOGGER.debug("%s: Setting up entry.", area_name)
 
     # Load floors
@@ -102,6 +99,8 @@ def get_magic_area_for_config_entry(
         if meta_area_type != MetaAreaType.FLOOR
     ]
     floor_ids = [f.floor_id for f in floors]
+
+    magic_area: MagicArea
 
     if area_id in non_floor_meta_ids:
         # Non-floor Meta-Area (Global/Interior/Exterior)
@@ -135,7 +134,7 @@ def get_magic_area_for_config_entry(
 
 def get_area_from_config_entry(
     hass: HomeAssistant, config_entry: "MagicAreasConfigEntry"
-) -> MagicArea | MagicMetaArea | None:
+) -> MagicArea | None:
     """Return area object for given config entry."""
 
     if not hasattr(config_entry, "runtime_data"):

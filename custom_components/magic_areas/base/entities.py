@@ -7,13 +7,17 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.area_constants import (
+    META_AREAS,
+)
+from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
-    META_AREAS,
-    MagicAreasFeatureInfo,
 )
+from custom_components.magic_areas.feature_info import MagicAreasFeatureInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,7 +67,7 @@ class MagicEntity(RestoreEntity):
 
         # Resolve entity id & unique id
         self.entity_id = self._generate_entity_id(domain)
-        self._attr_unique_id = self._generaete_unique_id(domain)
+        self._attr_unique_id = self._generate_unique_id(domain)
 
         _LOGGER.debug(
             "%s: Initializing entity. (entity_id: %s, unique id: %s, translation_key: %s)",
@@ -96,7 +100,7 @@ class MagicEntity(RestoreEntity):
 
         return f"{domain}.{entity_id}"
 
-    def _generaete_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
+    def _generate_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
         # Format: magicareas_feature_domain_areaname_name
         if not self.feature_info:
             raise NotImplementedError(f"{self.name}: Feature info not set.")

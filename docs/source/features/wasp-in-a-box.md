@@ -67,7 +67,7 @@ These indicate entry/exit points (the "box"):
 These are automatically detected during setup — no configuration needed.
 
 !!! failure
-    If you have doors you use for presence sensing that are not room access doors (e.g. cabinet doors, fridge doors), those will not work with Wasp in a Box. Exclude this doors from the area and create template sensors of device class `presence` based on their state, then add those template sensors to the area.
+    If you have doors you use for presence sensing that are not room access doors (e.g. cabinet doors, fridge doors), those will not work with Wasp in a Box. Exclude these doors from the area and create template sensors of device class `presence` based on their state, then add those template sensors to the area.
 
 ## ✅ Presence Integration
 

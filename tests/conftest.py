@@ -18,14 +18,20 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_AGGREGATION,
     CONF_ID,
     CONF_TYPE,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
+)
+from custom_components.magic_areas.enums import (
     AreaType,
 )
 
@@ -63,7 +69,9 @@ def mock_http_start_server():
 @pytest.fixture(autouse=True)
 def patch_reload_settings():
     """Patch reload settings to be instant."""
-    with patch("custom_components.magic_areas.base.magic.MetaAreaAutoReloadSettings") as mock_settings:
+    with patch(
+        "custom_components.magic_areas.base.magic.MetaAreaAutoReloadSettings"
+    ) as mock_settings:
         mock_settings.DELAY = 0
         mock_settings.DELAY_MULTIPLIER = 1
         mock_settings.THROTTLE = 0
@@ -76,12 +84,15 @@ def patch_reload_settings():
 @pytest.fixture
 def patch_async_call_later(hass):
     """Automatically patch async_call_later for ReusableTimer tests."""
-    with patch(
-        "custom_components.magic_areas.helpers.timer.async_call_later",
-        side_effect=immediate_call_factory(hass),
-    ), patch(
-        "custom_components.magic_areas.switch.base.async_call_later",
-        side_effect=immediate_call_factory(hass),
+    with (
+        patch(
+            "custom_components.magic_areas.helpers.timer.async_call_later",
+            side_effect=immediate_call_factory(hass),
+        ),
+        patch(
+            "custom_components.magic_areas.switch.base.async_call_later",
+            side_effect=immediate_call_factory(hass),
+        ),
     ):
         yield
 
@@ -96,9 +107,7 @@ async def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
     # Set unique_id to match the area ID from the data
     area_id = data.get(CONF_ID, DEFAULT_MOCK_AREA.value)
     entry: MockConfigEntry = MockConfigEntry(
-        domain=DOMAIN, 
-        data=data,
-        unique_id=area_id  # Add this line!
+        domain=DOMAIN, data=data, unique_id=area_id  # Add this line!
     )
     entry.add_to_hass(hass)
     return entry
@@ -125,9 +134,7 @@ async def mock_config_entry_all_areas_with_meta_config_entry() -> list[MockConfi
         area_id = data.get(CONF_ID, area_entry.value)
         config_entries.append(
             MockConfigEntry(
-                domain=DOMAIN,
-                data=data,
-                unique_id=area_id  # Add this line!
+                domain=DOMAIN, data=data, unique_id=area_id  # Add this line!
             )
         )
 
@@ -141,7 +148,7 @@ async def mock_config_entry_all_areas_with_meta_config_entry() -> list[MockConfi
 async def setup_entities_binary_sensor_motion_one(
     hass: HomeAssistant,
 ) -> list[MockBinarySensor]:
-    """Create one mock sensor and setup the system with it."""
+    """Create one mock sensor and set up the system with it."""
     mock_binary_sensor_entities = [
         MockBinarySensor(
             name="motion_sensor",
@@ -159,7 +166,7 @@ async def setup_entities_binary_sensor_motion_one(
 async def setup_entities_binary_sensor_motion_multiple(
     hass: HomeAssistant,
 ) -> list[MockBinarySensor]:
-    """Create multiple mock sensor and setup the system with it."""
+    """Create multiple mock sensor and set up the system with it."""
     nr_entities = 3
     mock_binary_sensor_entities = []
     for i in range(nr_entities):
@@ -180,7 +187,7 @@ async def setup_entities_binary_sensor_motion_multiple(
 async def setup_entities_binary_sensor_motion_all_areas_with_meta(
     hass: HomeAssistant,
 ) -> dict[MockAreaIds, list[MockBinarySensor]]:
-    """Create multiple mock sensor and setup the system with it."""
+    """Create multiple mock sensor and set up the system with it."""
 
     mock_binary_sensor_entities: dict[MockAreaIds, list[MockBinarySensor]] = {}
 
@@ -210,7 +217,7 @@ async def setup_entities_binary_sensor_motion_all_areas_with_meta(
 async def setup_entities_light_one(
     hass: HomeAssistant,
 ) -> list[MockLight]:
-    """Create one mock light and setup the system with it."""
+    """Create one mock light and set up the system with it."""
     mock_light_entities = [
         MockLight(
             name="mock_light_1",
@@ -225,6 +232,7 @@ async def setup_entities_light_one(
 
 
 # Integration setups
+
 
 @pytest.fixture(name="init_integration_fixture")
 async def init_integration_fixture(
@@ -269,7 +277,7 @@ async def setup_integration(
     mock_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[Any, None]:
     """Set up integration with basic config."""
-    # This fixture is kept for backward compatibility with other tests
+    # This fixture is kept for backward compatibility with other tests,
     # but it now uses the new mock_config_entry fixture
 
     # We need to manually call the helper init because the new init_integration fixture
@@ -330,7 +338,10 @@ async def init_integration_all_areas(
         await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
 
+
 @pytest.fixture
-async def init_integration(init_integration_fixture: MockConfigEntry) -> AsyncGenerator[MockConfigEntry, None]:
+async def init_integration(
+    init_integration_fixture: MockConfigEntry,
+) -> AsyncGenerator[MockConfigEntry, None]:
     """Alias for init_integration_fixture to support existing tests."""
     yield init_integration_fixture

@@ -1,11 +1,9 @@
-"""Defaults that depend on Home Assistant enums.
-
-Extracted from const.py to keep const.py mostly primitive.
-"""
+"""Defaults that depend on Home Assistant enums."""
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor.const import SensorDeviceClass
 
+from custom_components.magic_areas.policy import DISTRESS_SENSOR_CLASSES
 
 DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS = [
     BinarySensorDeviceClass.MOTION,
@@ -61,7 +59,12 @@ DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES = [
     SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
 ]
 
-DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES = [BinarySensorDeviceClass.MOTION, BinarySensorDeviceClass.OCCUPANCY]
+DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES = [
+    BinarySensorDeviceClass.MOTION,
+    BinarySensorDeviceClass.OCCUPANCY,
+]
+
+DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES = DISTRESS_SENSOR_CLASSES
 
 DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS = SensorDeviceClass.TEMPERATURE
 

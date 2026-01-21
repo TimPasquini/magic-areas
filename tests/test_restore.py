@@ -1,30 +1,36 @@
 """Test entity state restoration."""
 
-from unittest.mock import patch
 
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers.json import json_dumps
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     mock_restore_cache,
 )
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_OVERHEAD_LIGHTS,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_LIGHT_GROUPS,
+)
+from custom_components.magic_areas.light_groups import (
+    CONF_OVERHEAD_LIGHTS,
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_state,
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockLight
 

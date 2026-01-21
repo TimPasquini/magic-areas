@@ -22,12 +22,16 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_ENABLED_FEATURES,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
 )
 
@@ -94,7 +98,7 @@ async def setup_integration_climate_control(
 async def setup_entities_climate_one(
     hass: HomeAssistant,
 ) -> list[MockClimate]:
-    """Create one mock climate and setup the system with it."""
+    """Create one mock climate and set up the system with it."""
     mock_climate_entities = [
         MockClimate(
             name="mock_climate",

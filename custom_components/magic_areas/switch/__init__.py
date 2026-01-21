@@ -9,9 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    MagicAreasFeatureInfoLightGroups,
+from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoLightGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.switch.base import SwitchBase
@@ -23,7 +25,7 @@ from custom_components.magic_areas.switch.media_player_control import (
 from custom_components.magic_areas.switch.presence_hold import PresenceHoldSwitch
 from custom_components.magic_areas.util import cleanup_removed_entries
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

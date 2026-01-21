@@ -4,7 +4,10 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.diagnostics import async_get_config_entry_diagnostics
-from tests.helpers import init_integration as init_integration_helper, shutdown_integration
+from tests.helpers import (
+    init_integration as init_integration_helper,
+    shutdown_integration,
+)
 
 
 async def test_diagnostics(

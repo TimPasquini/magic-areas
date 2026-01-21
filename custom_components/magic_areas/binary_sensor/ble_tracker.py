@@ -15,10 +15,16 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    ATTR_ACTIVE_SENSORS,
+from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
+)
+from custom_components.magic_areas.attrs import (
+    ATTR_ACTIVE_SENSORS,
+)
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoBLETrackers,
+)
+from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
 )
 
@@ -53,7 +59,7 @@ class AreaBLETrackerBinarySensor(MagicEntity, BinarySensorEntity):
         await super().async_added_to_hass()
         await self.restore_state()
 
-        # Setup the listeners
+        # Set up the listeners
         await self._setup_listeners()
 
         self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
@@ -61,7 +67,7 @@ class AreaBLETrackerBinarySensor(MagicEntity, BinarySensorEntity):
         _LOGGER.debug("%s: BLE Tracker monitor sensor initialized", self.area.name)
 
     async def _setup_listeners(self) -> None:
-        """Attach state chagne listeners."""
+        """Attach state change listeners."""
         self.async_on_remove(
             async_track_state_change_event(
                 self.hass, self._sensors, self._sensor_state_change

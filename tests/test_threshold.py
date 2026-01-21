@@ -1,34 +1,42 @@
 """Test for aggregate (group) sensor behavior."""
 
 import asyncio
+
 import pytest
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.sensor import (
     DOMAIN as SENSOR_DOMAIN,
-    SensorEntity,
+)
+from homeassistant.components.sensor import (
     SensorDeviceClass,
+    SensorEntity,
 )
 from homeassistant.components.threshold.const import ATTR_HYSTERESIS, ATTR_UPPER
 from homeassistant.const import LIGHT_LUX, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_AGGREGATION,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
-    setup_mock_entities,
     init_integration as init_integration_helper,
 )
+from tests.helpers import (
+    setup_mock_entities,
+)
 from tests.mocks import MockSensor
+
 
 @pytest.fixture
 def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
@@ -48,11 +56,12 @@ def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
     entry = MockConfigEntry(domain=DOMAIN, data=data, entry_id="test_threshold")
     return entry
 
+
 @pytest.fixture(name="entities_sensor_illuminance_multiple")
 async def setup_entities_sensor_illuminance_multiple(
     hass: HomeAssistant,
 ) -> list[SensorEntity]:
-    """Create multiple mock sensor and setup the system with it."""
+    """Create multiple mock sensor and set up the system with it."""
     entities = [
         MockSensor(
             name=f"illuminance_sensor_{i}",
@@ -64,10 +73,8 @@ async def setup_entities_sensor_illuminance_multiple(
         )
         for i in range(3)
     ]
-    
-    await setup_mock_entities(
-        hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: entities}
-    )
+
+    await setup_mock_entities(hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: entities})
 
     return entities
 
@@ -105,10 +112,10 @@ async def test_threshold_sensor_light(
     assert ATTR_UPPER in threshold_sensor_state.attributes
     assert ATTR_HYSTERESIS in threshold_sensor_state.attributes
 
-    sensor_threhsold_upper = int(threshold_sensor_state.attributes[ATTR_UPPER])
+    sensor_threshold_upper = int(threshold_sensor_state.attributes[ATTR_UPPER])
     sensor_hysteresis = int(threshold_sensor_state.attributes[ATTR_HYSTERESIS])
 
-    assert sensor_threhsold_upper == 600
+    assert sensor_threshold_upper == 600
     assert sensor_hysteresis == 60.0
 
     # Set illuminance sensor values to over the threhsold upper value (incl. hysteresis)
@@ -117,7 +124,7 @@ async def test_threshold_sensor_light(
         attributes = old_state.attributes if old_state else {}
         hass.states.async_set(
             mock_entity.entity_id,
-            str(sensor_threhsold_upper + sensor_hysteresis + 10),
+            str(sensor_threshold_upper + sensor_hysteresis + 10),
             attributes=attributes,
         )
     await hass.async_block_till_done()
@@ -126,11 +133,15 @@ async def test_threshold_sensor_light(
 
     # Ensure aggregate sensor updated
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
-    assert float(aggregate_sensor_state.state) == float(sensor_threhsold_upper + sensor_hysteresis + 10)
+    assert float(aggregate_sensor_state.state) == float(
+        sensor_threshold_upper + sensor_hysteresis + 10
+    )
 
     # Ensure threhsold sensor is triggered
     threshold_sensor_state = hass.states.get(threshold_sensor_id)
-    assert threshold_sensor_state.state == STATE_ON, f"Threshold sensor is {threshold_sensor_state.state}, expected {STATE_ON}. Aggregate state: {aggregate_sensor_state.state}"
+    assert (
+        threshold_sensor_state.state == STATE_ON
+    ), f"Threshold sensor is {threshold_sensor_state.state}, expected {STATE_ON}. Aggregate state: {aggregate_sensor_state.state}"
 
     # Reset illuminance sensor values to 0
     for mock_entity in entities_sensor_illuminance_multiple:

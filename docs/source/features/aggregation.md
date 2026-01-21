@@ -13,13 +13,13 @@ This is especially useful for simplifying automations and dashboards, since you 
 
 ## ⚙️ Configuration Options
 
-| Option                  | Type    | Default | Description |
-|--------------------------|---------|---------|-------------|
-| **Minimum number of entities** | Integer | `2`     | Minimum number of entities required for an aggregate sensor to be created. If you want aggregates always created (even with a single entity), set this to `1`. |
-| **Binary sensor device classes**  | Device class list | N/A     | Device classes of [binary_sensor](https://www.home-assistant.io/integrations/binary_sensor/) to aggregate. |
-| **Sensor device classes**  | Device class list | N/A     | Device classes of [sensor](https://www.home-assistant.io/integrations/binary_sensor/) to aggregate. |
-| **Illuminance threshold**  | Integer | `0` (disabled)     | Magic Areas can automatically create a [threshold](https://www.home-assistant.io/integrations/threshold/) sensor of device class `light` that tracks the aggregated `illuminance` sensor. This is useful for using as an [Area light sensor](../concepts/area-states.md#secondary-states). |
-| **Threshold sensor hysteresis**  | Integer | `0`     | [Hysteresis](https://www.home-assistant.io/integrations/threshold/#hysteresis) for the light threshold sensor (percentage of the threshold value). |
+| Option                           | Type              | Default        | Description                                                                                                                                                                                                                                                                                |
+|----------------------------------|-------------------|----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Minimum number of entities**   | Integer           | `2`            | Minimum number of entities required for an aggregate sensor to be created. If you want aggregates always created (even with a single entity), set this to `1`.                                                                                                                             |
+| **Binary sensor device classes** | Device class list | N/A            | Device classes of [binary_sensor](https://www.home-assistant.io/integrations/binary_sensor/) to aggregate.                                                                                                                                                                                 |
+| **Sensor device classes**        | Device class list | N/A            | Device classes of [sensor](https://www.home-assistant.io/integrations/binary_sensor/) to aggregate.                                                                                                                                                                                        |
+| **Illuminance threshold**        | Integer           | `0` (disabled) | Magic Areas can automatically create a [threshold](https://www.home-assistant.io/integrations/threshold/) sensor of device class `light` that tracks the aggregated `illuminance` sensor. This is useful for using as an [Area light sensor](../concepts/area-states.md#secondary-states). |
+| **Threshold sensor hysteresis**  | Integer           | `0`            | [Hysteresis](https://www.home-assistant.io/integrations/threshold/#hysteresis) for the light threshold sensor (percentage of the threshold value).                                                                                                                                         |
 
 ## 📊 Aggregation Methods
 

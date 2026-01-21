@@ -25,13 +25,20 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import (
-    ATTR_STATES,
+from custom_components.magic_areas.attrs import ATTR_STATES
+
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
 )
 
@@ -82,7 +89,7 @@ async def setup_integration_area_aware_media_player(
     area_aware_media_player_global_config_entry: MockConfigEntry,
     area_aware_media_player_area_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[Any, None]:
-    """Set up integration with secondary states config."""
+    """Set up integration with secondary state's config."""
 
     await init_integration_helper(
         hass,
@@ -108,13 +115,10 @@ async def setup_integration_area_aware_media_player(
 async def setup_entities_media_player_single(
     hass: HomeAssistant,
 ) -> list[MockMediaPlayer]:
-    """Create multiple mock sensor and setup the system with it."""
+    """Create multiple mock sensor and set up the system with it."""
 
-    mock_media_player_entities = []
+    mock_media_player_entities = [MockMediaPlayer(name="media_player_1", unique_id="media_player_1")]
 
-    mock_media_player_entities.append(
-        MockMediaPlayer(name="media_player_1", unique_id="media_player_1")
-    )
     await setup_mock_entities(
         hass, MEDIA_PLAYER_DOMAIN, {DEFAULT_MOCK_AREA: mock_media_player_entities}
     )

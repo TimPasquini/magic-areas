@@ -8,9 +8,9 @@ Contributing to this project should be as easy and transparent as possible, whet
 - Proposing new features
 - Helping with translation
 
-## Github is used for (almost) everything
+## GitHub is used for (almost) everything
 
-Github is used to host code, to track issues and feature requests, as well as accept pull requests. We use [Hosted Weblate](https://hosted.weblate.org/engage/magic-areas/) for translations but old-school pull requests for those are accepted as well.
+GitHub is used to host code, to track issues and feature requests, as well as accept pull requests. We use [Hosted Weblate](https://hosted.weblate.org/engage/magic-areas/) for translations but old-school pull requests for those are accepted as well.
 
 Pull requests are the best way to propose changes to the codebase.
 
@@ -24,7 +24,7 @@ Pull requests are the best way to propose changes to the codebase.
 
 In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
 
-## Report bugs using Github's [issues](https://github.com/jseidl/hass-magic_areas/issues)
+## Report bugs using GitHub's [issues](https://github.com/jseidl/hass-magic_areas/issues)
 
 GitHub issues are used to track public bugs.
 Report a bug by [opening a new issue](https://github.com/jseidl/hass-magic_areas/issues/new/choose); it's that easy!

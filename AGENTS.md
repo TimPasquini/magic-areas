@@ -1009,7 +1009,7 @@ async def init_integration(hass, mock_config_entry, mock_api):
     await hass.config_entries.async_setup(mock_config_entry.entry_id)  # ✅ Proper setup
 
 # Integration-determined polling intervals (not user-configurable)
-SCAN_INTERVAL = timedelta(minutes=5)  # ✅ Common pattern: constant in const.py
+SCAN_INTERVAL = timedelta(minutes=5)
 
 class MyCoordinator(DataUpdateCoordinator[MyData]):
     def __init__(self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry) -> None:

@@ -1,7 +1,6 @@
 """Fan Control switch."""
 
 import logging
-from typing import Any
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
@@ -17,17 +16,23 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     DEFAULT_FAN_GROUPS_REQUIRED_STATE,
     DEFAULT_FAN_GROUPS_SETPOINT,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
-    MagicAreasFeatureInfoFanGroups,
     MagicAreasFeatures,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoFanGroups,
 )
 from custom_components.magic_areas.switch.base import SwitchBase
 
@@ -86,7 +91,9 @@ class FanControlSwitch(SwitchBase):
 
         await self.run_logic(self.area.states)
 
-    async def area_state_changed(self, area_id: str, states_tuple: tuple[list[str], list[str]]) -> None:
+    async def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+    ) -> None:
         """Handle area state change event."""
 
         if area_id != self.area.id:
@@ -153,7 +160,7 @@ class FanControlSwitch(SwitchBase):
         return
 
     def is_setpoint_reached(self) -> bool:
-        """Check wether the setpoint is reached."""
+        """Check whether the setpoint is reached."""
 
         tracked_sensor_state = self.hass.states.get(self.tracked_entity_id)
 

@@ -26,7 +26,7 @@ PIR sensors are reliable and fast but they only detect movement, not people stan
     You should place them with their FoV towards the access of rooms, usually in the ceiling corner facing the area you walk through after you go through the door.
 
 !!! failure
-    Avoid placing looking directly at the door or it will trigger when you walk past the room.
+    Avoid placing looking directly at the door, or it will trigger when you walk past the room.
 
 #### mmWave sensors
 
@@ -37,7 +37,7 @@ These can be pointed wide in a corner as their FoV is usually wide and deep. You
 
 ### Sensing presence on dumb devices
 
-A quick and dirty way to detect a device being in use (and thus using this information to trigger presence) is to use a power-metering smart outlets. There are a plethora of those on the market for very little. Unless you need to actually control the outlet, you can find metering-only smart outlets (with no relay). These can be cheaper and you don't risk accidentally turning off the device.
+A quick and dirty way to detect a device being in use (and thus using this information to trigger presence) is to use a power-metering smart outlets. There are a plethora of those on the market for very little. Unless you need to actually control the outlet, you can find metering-only smart outlets (with no relay). These can be cheaper, and you don't risk accidentally turning off the device.
 
 Plug your device into the outlet, see how much it draws when in use, add a [Threshold sensor](https://www.home-assistant.io/integrations/threshold/) and set its device class to `presence` and add this entity to the area in question. Magic Areas will automatically pick it up and start using it as a presence source.
 
@@ -52,12 +52,12 @@ This is an interesting concept where when movement is detected on a room with cl
 
 ### BLE Trackers
 
-BLE trackers are excellent for keeping presence reliably but they have a slow initial detection and occasional "flapping" between areas. We recommend using BLE trackers as "keep only sensors".
+BLE trackers are excellent for keeping presence reliably, but they have a slow initial detection and occasional "flapping" between areas. We recommend using BLE trackers as "keep only sensors".
 
 This feature is designed to support most BLE tracker integrations such as [Bermuda](https://github.com/agittins/bermuda), [ESPresence](https://espresense.com/), [Room Assistant](https://www.room-assistant.io/) etc. I personally use Bermuda, but you do you.
 
 !!! failure
-    Tracking of BLE devices needs that you go "all in" and add BLE proxies/trackers to almost every room to avoid situations where you're in a room that doesn't have a tracker but it's next to a room that does have a tracker, thus marking you on the wrong room.
+    Tracking of BLE devices needs you to go "all in" and add BLE proxies/trackers to almost every room. This avoids creating false positives where you're in a room that doesn't have a tracker, but near enough to one that you're marked in the wrong room.
 
 ### Indoor cameras are creepy, but hear me out
 
@@ -67,18 +67,18 @@ If you can safely deploy cloudless/fully-local/isolated cameras, then I recommen
 
 I use [Adaptive Lighting](https://github.com/basnijholt/adaptive-lighting) in all my rooms as most of my lights are at least dimmable. Adaptive Lighting provide a `switch` called "Sleep Mode" which is used by that integration to control your lights brightness and color in a different way.
 
-Magic Areas can use those switches as "Sleep State" sensors. You can use any binary-state entity (`input_boolean`, `switch`, `binary_sensor`, etc) but it's very convenient to just reuse Adaptive Lighting's "Sleep Mode" switch. I like to make a `group` of switches with all the "Sleep Mode" switches from the common areas (basically everything that is not a bedroom) in the `all` mode. That way I can control the sleep state of all those areas at once via automations.
+Magic Areas can use those switches as "Sleep State" sensors. You can use any binary-state entity (`input_boolean`, `switch`, `binary_sensor`, etc.) but it's very convenient to just reuse Adaptive Lighting's "Sleep Mode" switch. I like to make a `group` of switches with all the "Sleep Mode" switches from the common areas (basically everything that is not a bedroom) in the `all` mode. That way I can control the sleep state of all those areas at once via automations.
 
 #### Automating sleep states
 
-For common areas, I have a Template binary sensor called `night_mode` based off `sensor.time` that is `on` during the period of 00h00 until 08h00. I have an automation listening to changes in that binary sensor. You can totally just make the automation trigger on time directly but I use that sensor in other automations.
+For common areas, I have a Template binary sensor called `night_mode` based off `sensor.time` that is `on` during the period of 00h00 until 08h00. I have an automation listening to changes in that binary sensor. You can totally just make the automation trigger on time directly, but I use that sensor in other automations.
 
 For each bedroom there's a different automation. My kid's room is triggered by her smart speaker playing after `sun.sun` is `below_horizon` (she sleeps with "sleep songs"). Master bedroom is triggered by the bed sensor detecting occupancy for over 10m and the TV is off. The guest bedroom is triggered by the `night_mode` sensor as well.
 
 
 #### Sleep lights
 
-I highly recommend having in every room possible a light source that is faint (or can be made faint) and small. These are great for when you're walking around the house in pitch black and you surely don't want bright lights being turned on by Magic Areas. Most ceiling lights will be either too bright at the minimum level or not even turn on when you dim them too low. It's best to use smaller lamps or decorative lights that can be run ~20-25% and give a good faint glow that is enough to light your path without hurting your eyes or disturbing nearby areas (for example, in the US, usually internal doors are required to have a significant gap behind them and light will leak from these gaps into the room).
+I highly recommend every room possible has a light source that is faint (or can be made faint) and small. These are great for when you're walking around the house at night and don't want Magic Areas turning on bright lights. Many overhead fixtures have multiple bulbs and cannot dim low enough. The best practice is to use smaller lamps or decorative lights that can be run dimly with just enough brightness to light your path without hurting your eyes or shining into nearby areas (ex: light leakage under doors).
 
 ### Timeouts and extended state
 
@@ -102,7 +102,7 @@ As your front door is susceptible to a lot of noisy movement sources, it might f
 
 ### Backyard
 
-Backyard will work similarly as the front yard but you can't rely on door sensors to keep presence up because one usually does not keep their backyard door open. You will need to rely either on person detection with cameras, add more motion sensors and play with "clear timeout" to be lax enough (~15m on extended mode should work).
+Backyard will work similarly as the front yard, but you can't rely on door sensors to keep presence up because one usually does not keep their backyard door open. You will need to rely either on person detection with cameras, add more motion sensors and play with "clear timeout" to be lax enough (~15m on extended mode should work).
 
 On houses, you can split the backyard into three areas: one for the main backyard in the back of the house and one for each "side strips" (if you have it). This only makes sense if you have controllable lights on these "side strips". Then add the strips "area state tracker" sensor to the main backyard via "include entities".
 
@@ -129,7 +129,7 @@ It depends on the kind of hallway. If your hallway is a passage only, meaning yo
 
 Family room follows the same concept of living & dining room, except that you can use "watching the tv" as a presence source. This can be achieved the following ways:
 
-* (if your TV is dumb -- not smart) Use a power-metering smart outlet, note the consumption with the TV off and with the TV on, add a Threshold sensor for when the TV is on, use that sensor as presence source on that area.
+* (if your TV is dumb -- not smart) Use a power-metering smart outlet. You can find the consumption with the TV off and on, and use the values to create a Threshold sensor. Use that sensor as presence source in the area.
 * (if your TV is smart) Use the media player state
 
 BLE trackers are particularly useful here as well. Make sure to follow the "extended time" and "extended timeout" recommendations from Living Room & Dining Room above.
@@ -159,7 +159,7 @@ These are areas where you don't usually close the door behind you, they have the
 
 ### Bathrooms
 
-I've tried almost everything here. Motion sensors alone won't cut it, as you might already have some experience with it. Tracking humidity for baths works initially but either fails to keep tracking or fails to stop tracking. mmWave sensors are the absolute best option here but my peeve is that bathrooms don't usually benefit from well placed outlets.
+I've tried almost everything here. Motion sensors alone won't cut it, as you might already have some experience with it. Tracking humidity for baths works initially but either fails to keep tracking or fails to stop tracking. mmWave sensors are the absolute best option here but my peeve is that bathrooms don't usually benefit from well-placed outlets.
 
 mmWave sensors will usually "steal" one of your precious limited outlets, even thou battery-operated "sleeper" mmWave sensors exists, wired ones are more common. If you have a smart speaker there and only a 1-gang outlet, you're out of outlets for hair dryers and so. Also, usually the outlet isn't where the mmWave sensor would be better placed so likely you'll have a cord going unsightly.
 
@@ -169,10 +169,10 @@ Wasp in a box are very good at this, have a contact sensor at the door, a batter
     mmWave are the best, if you can live with the issues described above, go for it. If not, wasp in a box is your friend!
 
 !!! failure
-    Don't add door sensors as presence sensors as those areas usually have doors open while unnocupied.
+    Don't add door sensors as presence sensors as those areas usually have doors open while unoccupied.
 
 !!! warning
-    "Clear timeout" setting for bathrooms is an artform and you will have to fiddle with it a bit as it will depend on your presence sources and how well they work. If wasp in a box is working reliable for you, you may be able to set a low "clear timeout".
+    "Clear timeout" setting for bathrooms is an art-form, and you will have to fiddle with it a bit as it will depend on your presence sources and how well they work. If wasp in a box is working reliable for you, you may be able to set a low "clear timeout".
 
 !!! tip
     If you have an exhaust fan in your bathroom, you may want to use a humidity sensor paired with the [Fan Groups](../../features/fan-groups.md) feature tracking `humidity` of the area. This will automatically control your bathroom exhaust as needed.
@@ -184,7 +184,7 @@ Bedrooms also should have at least a PIR motion sensor and a mmWave sensor. BLE 
 Wasp-in-a-box works well for bedrooms but only for bedtime when doors are actually closed (if you do close your doors on your bedrooms, of course). If you don't use wasp-in-a-box then setting a slow (~30m) "extended timeout" is recommended.
 
 !!! warning
-    If you have a suite bedroom, make sure to use the attached bathroom's area state tracker sensor as a presence sensor on the bedroom. This will help keep the bedroom occupied while you go to the bedroom in the middle of the night, otherwise your bedroom could go "clear" and when you walk back, the lights would turn on on you.
+    If you have a suite bedroom, make sure to use the attached bathroom's area state tracker sensor as a presence sensor on the bedroom. This will help keep the bedroom occupied while you go to the bathroom in the middle of the night, otherwise your bedroom could go "clear" and when you walk back, the lights would turn-on on you.
 
 !!! tip
     If you have a TV on your bedroom, you can add it as a presence source the same way as in the Family Room.
@@ -197,7 +197,7 @@ Wasp-in-a-box works well for bedrooms but only for bedtime when doors are actual
 
 ### (Home) Offices
 
-Areas that have computers on while in use can use this information for presence tracking. It's recommended that your computer is configure to auto-sleep after being idle for a while, in order to release presence. You can get this information from
+Areas that have computers on while in use can use this information for presence tracking. It's recommended that your computer is configured to auto-sleep after being idle for a while, in order to release presence. You can get this information from
 * Ping sensor
 * Integration with networking software (e.g. Unifi)
 * Using a power-metering smart outlet to measure the consumption of your monitors. If you have more than one, use a T-splitter and connect all of them to the same metering outlet.
@@ -213,7 +213,7 @@ Garages are usually cluttered spaces which hinders the ability of motion sensors
 
 ### Basement
 
-Basements follow the same challenges as garages but it's not unusual to have the main access door open while you're down there so Wasp-in-a-box would not consistently help here. If you do usually close the door behind you (or it has auto-close), then Wasp-in-a-box will be useful. mmWave with a couple PIR motion sensors would be the best.
+Basements follow the same challenges as garages, but it's not unusual to have the main access door open while you're down there so Wasp-in-a-box would not consistently help here. If you do usually close the door behind you (or it has auto-close), then Wasp-in-a-box will be useful. mmWave with a couple PIR motion sensors would be the best.
 
 ### Gym
 
@@ -236,4 +236,4 @@ I do recommend having illuminance sensors across your exterior areas for more ac
 
 ### Floor meta-areas
 
-I love those areas to tie my thermostat to the aggregate state of floors. Since I have a dual zone HVAC that exposes two climate entities to home assistant, I add [Climate control](../../features/climate-control.md) to each floor pointing to each climate device. If you have a single zone HVAC in a two story house, you can use the Interior meta-area instead.
+I love those areas to tie my thermostat to the aggregate state of floors. Since I have a dual zone HVAC that exposes two climate entities to home assistant, I add [Climate control](../../features/climate-control.md) to each floor pointing to each climate device. If you have a single zone HVAC in a two-story house, you can use the Interior meta-area instead.

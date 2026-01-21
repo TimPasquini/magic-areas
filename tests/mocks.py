@@ -1,14 +1,13 @@
 """Fake light for testing with."""
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from functools import cached_property
-import logging
 from typing import Any, Final, Literal
 from unittest.mock import AsyncMock
 
 import voluptuous as vol
-
 from homeassistant import data_entry_flow, loader
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -339,7 +338,7 @@ class MockToggleEntity(MockEntity, ToggleEntity):
     @property
     # pylint: disable-next=overridden-final-method
     def state(
-            self,
+        self,
     ) -> Literal["on", "off"] | None:
         """Return the state of the entity if any."""
         self.calls.append(("state", {}))
@@ -394,11 +393,11 @@ class MockLight(MockToggleEntity, LightEntity):
     _attr_supported_color_modes = {ColorMode.ONOFF}
 
     def __init__(
-            self,
-            name: str,
-            state: str,
-            unique_id: str | None = None,
-            dimmable: bool | None = None,
+        self,
+        name: str,
+        state: str,
+        unique_id: str | None = None,
+        dimmable: bool | None = None,
     ) -> None:
         """Initialize the mock light."""
         super().__init__(name, state, unique_id)
@@ -557,7 +556,7 @@ class MockCover(MockEntity, CoverEntity):
         self,
     ) -> CoverEntityFeature:  # pylint: disable=overridden-final-method
         """Return the supported features of the cover."""
-        if "supported_feautes" in self._values:
+        if "supported_features" in self._values:
             return self._values["supported_features"]
         return CoverEntity.supported_features.fget(
             self

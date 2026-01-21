@@ -51,7 +51,7 @@ class MagicAreasFeatureInfoAggregates(MagicAreasFeatureInfo):
     }
 
 
-class MagicAreasFeatureInfoThrehsold(MagicAreasFeatureInfo):
+class MagicAreasFeatureInfoThreshold(MagicAreasFeatureInfo):
     id = "threshold"
     translation_keys = {BINARY_SENSOR_DOMAIN: "threshold"}
 

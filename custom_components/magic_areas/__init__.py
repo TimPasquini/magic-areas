@@ -17,18 +17,25 @@ from homeassistant.helpers.entity_registry import (
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_RELOAD_ON_REGISTRY_CHANGE,
     DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
+)
+from custom_components.magic_areas.enums import (
     MagicConfigEntryVersion,
 )
 from custom_components.magic_areas.helpers.area import get_magic_area_for_config_entry
-from custom_components.magic_areas.models import MagicAreasConfigEntry, MagicAreasRuntimeData
+from custom_components.magic_areas.models import (
+    MagicAreasConfigEntry,
+    MagicAreasRuntimeData,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: MagicAreasConfigEntry) -> bool:
+async def async_setup_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Set up the component."""
 
     @callback
@@ -89,9 +96,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: MagicAreasConfigE
             str(magic_area.config),
         )
 
-        # Setup config uptate listener
-        tracked_listeners: list[Callable] = []
-        tracked_listeners.append(config_entry.add_update_listener(async_update_options))
+        # Setup config update listener
+        tracked_listeners: list[Callable] = [config_entry.add_update_listener(async_update_options)]
 
         # Watch for area changes.
         if not magic_area.is_meta():
@@ -127,7 +133,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: MagicAreasConfigE
     return True
 
 
-async def async_update_options(hass: HomeAssistant, config_entry: MagicAreasConfigEntry) -> None:
+async def async_update_options(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> None:
     """Update options."""
     _LOGGER.debug(
         "Detected options change for entry %s, reloading", config_entry.entry_id
@@ -135,7 +143,9 @@ async def async_update_options(hass: HomeAssistant, config_entry: MagicAreasConf
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, config_entry: MagicAreasConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Unload a config entry."""
 
     area_data = config_entry.runtime_data
@@ -152,7 +162,9 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: MagicAreasConfig
 
 
 # Update config version
-async def async_migrate_entry(hass: HomeAssistant, config_entry: MagicAreasConfigEntry) -> bool:
+async def async_migrate_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Migrate old entry."""
     _LOGGER.info(
         "%s: Migrating configuration from version %s.%s, current config: %s",

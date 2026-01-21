@@ -7,7 +7,7 @@ Now let’s walk through how to set up your home with Magic Areas to make every 
 
 If you haven’t paid much attention to Home Assistant’s **Area Registry** before, now is the time!
 
-Go to **Settings > Areas** and make sure every room or zone in your home is represented as an area. Since you're here, if your home is multi-story, configure the each Floor and assign areas to them.
+Go to **Settings > Areas** and make sure every room or zone in your home is represented as an area. Since you're here, if your home is multi-story, configure each Floor and assign areas to them.
 
 Once you’ve created your areas, go to **Settings > Devices & Services > Integrations**, click **+ Add Integration**, search for **Magic Areas**, and create a Magic Area for each of your defined areas.
 

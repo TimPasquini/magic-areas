@@ -24,7 +24,7 @@ Your dashboard stays up to date on its own.
 3. Aggregates will appear automatically, e.g.:
    - `sensor.magic_areas_aggregates_living_room_aggregate_energy`
    - `sensor.magic_areas_aggregates_kitchen_aggregate_energy`
-4. Add these Magic Area device to the Area (to enable hierarchical view). Magic Areas will not include it's own entities on its logic so it's safe.
+4. Add these Magic Area device to the Area (to enable hierarchical view). Magic Areas will not include its own entities on its logic so it's safe.
 5. In **Settings → Dashboards → Energy**, select these aggregate sensors instead of individual devices.
 
 From this point on, any new energy-reporting device you add to an area is included automatically.

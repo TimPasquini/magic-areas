@@ -1,7 +1,4 @@
-"""Feature flag constants and feature lists.
-
-Extracted from const.py.
-"""
+"""Feature flag constants and feature lists."""
 
 # features
 CONF_FEATURE_CLIMATE_CONTROL = "climate_control"

@@ -1,7 +1,7 @@
 """Sensor controls for magic areas."""
 
-from collections import Counter
 import logging
+from collections import Counter
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
@@ -15,14 +15,18 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-    CONF_FEATURE_AGGREGATION,
     DEFAULT_AGGREGATES_MIN_ENTITIES,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
+)
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
 )
+from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.sensor.base import AreaSensorGroupSensor
 from custom_components.magic_areas.util import cleanup_removed_entries

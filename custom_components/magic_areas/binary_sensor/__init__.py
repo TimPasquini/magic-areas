@@ -24,17 +24,26 @@ from custom_components.magic_areas.binary_sensor.presence import (
 from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     AreaWaspInABoxBinarySensor,
 )
-from custom_components.magic_areas.const import (
-    CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
+    CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_BLE_TRACKER_ENTITIES,
+    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+)
+from custom_components.magic_areas.defaults import (
+    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+)
+
+from custom_components.magic_areas.features import (
     CONF_FEATURE_AGGREGATION,
     CONF_FEATURE_BLE_TRACKERS,
     CONF_FEATURE_HEALTH,
     CONF_FEATURE_WASP_IN_A_BOX,
-    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
-    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+)
+from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
     MagicAreasFeatureInfoHealth,
 )

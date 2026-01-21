@@ -96,7 +96,7 @@ Light groups are tied to area states:
 
 - **Group:** Accent Lights
 - **State:** `accented`
-- **Trigger Mode:** `state` (media player, for exmaple)
+- **Trigger Mode:** `state` (media player, for example)
 - **Why:** Soft lighting during movie nights or relaxing evenings.
 
 ### 💤 Nighttime routine in bedrooms

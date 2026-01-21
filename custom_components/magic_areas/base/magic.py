@@ -1,10 +1,11 @@
 """Classes for Magic Areas and Meta Areas."""
 
 import asyncio
-from datetime import datetime, timedelta
 import logging
 import random
-from typing import Any, Callable, TYPE_CHECKING, cast
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -19,46 +20,60 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import (
     EventDeviceRegistryUpdatedData,
+)
+from homeassistant.helpers.device_registry import (
     async_get as devicereg_async_get,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
 from homeassistant.helpers.entity_registry import (
     EventEntityRegistryUpdatedData,
     RegistryEntry,
+)
+from homeassistant.helpers.entity_registry import (
     async_get as entityreg_async_get,
 )
-from homeassistant.util import slugify
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.area_constants import (
     AREA_STATE_OCCUPIED,
     AREA_TYPE_EXTERIOR,
     AREA_TYPE_INTERIOR,
     AREA_TYPE_META,
-    CONF_ENABLED_FEATURES,
-    CONF_EXCLUDE_ENTITIES,
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
-    CONF_IGNORE_DIAGNOSTIC_ENTITIES,
-    CONF_INCLUDE_ENTITIES,
-    CONF_SECONDARY_STATES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_TYPE,
+    META_AREA_GLOBAL,
+)
+from custom_components.magic_areas.area_maps import (
     CONFIGURABLE_AREA_STATE_MAP,
-    DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
-    DEFAULT_PRESENCE_DEVICE_PLATFORMS,
+)
+from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
     MAGIC_AREAS_COMPONENTS_GLOBAL,
     MAGIC_AREAS_COMPONENTS_META,
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
-    META_AREA_GLOBAL,
+)
+from custom_components.magic_areas.config_keys import (
+    CONF_ENABLED_FEATURES,
+    CONF_EXCLUDE_ENTITIES,
+    CONF_IGNORE_DIAGNOSTIC_ENTITIES,
+    CONF_INCLUDE_ENTITIES,
+    CONF_PRESENCE_DEVICE_PLATFORMS,
+    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+    CONF_SECONDARY_STATES,
+    CONF_TYPE,
+    DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
+    DEFAULT_PRESENCE_DEVICE_PLATFORMS,
+)
+from custom_components.magic_areas.enums import (
     MagicAreasEvents,
     MetaAreaAutoReloadSettings,
     MetaAreaType,
+)
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
+    CONF_FEATURE_BLE_TRACKERS,
+    CONF_FEATURE_PRESENCE_HOLD,
+    CONF_FEATURE_WASP_IN_A_BOX,
 )
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
@@ -173,7 +188,7 @@ class MagicArea:
         # state_opts is the config key for the entity (e.g. "sleep_entity")
         # We need to check if this key is configured in secondary states
         secondary_states = self.config.get(CONF_SECONDARY_STATES, {})
-        
+
         if secondary_states.get(state_opts):
             return True
 
@@ -211,7 +226,6 @@ class MagicArea:
 
     def available_platforms(self) -> list[str]:
         """Return available platforms to area type."""
-        available_platforms = []
 
         if not self.is_meta():
             available_platforms = MAGIC_AREAS_COMPONENTS
@@ -461,7 +475,9 @@ class MagicArea:
         """Check if area has entities."""
         return domain in self.entities
 
-    def make_entity_registry_filter(self) -> Callable[[EventEntityRegistryUpdatedData], bool]:
+    def make_entity_registry_filter(
+        self,
+    ) -> Callable[[EventEntityRegistryUpdatedData], bool]:
         """Create entity register filter for this area."""
 
         @callback
@@ -484,10 +500,7 @@ class MagicArea:
             entity_registry = entityreg_async_get(self.hass)
             entity_entry = entity_registry.async_get(entity_id)
 
-            if (
-                event_data["action"] == "update"
-                and "area_id" in event_data["changes"]
-            ):
+            if event_data["action"] == "update" and "area_id" in event_data["changes"]:
                 # Removed from our area
                 if event_data["changes"].get("area_id") == self.id:
                     return True
@@ -507,7 +520,9 @@ class MagicArea:
 
         return _entity_registry_filter
 
-    def make_device_registry_filter(self) -> Callable[[EventDeviceRegistryUpdatedData], bool]:
+    def make_device_registry_filter(
+        self,
+    ) -> Callable[[EventDeviceRegistryUpdatedData], bool]:
         """Create device register filter for this area."""
 
         @callback
@@ -524,10 +539,7 @@ class MagicArea:
             ):
                 return False
 
-            if (
-                event_data["action"] == "update"
-                and "area_id" in event_data["changes"]
-            ):
+            if event_data["action"] == "update" and "area_id" in event_data["changes"]:
                 # Removed from our area
                 if event_data["changes"].get("area_id") == self.id:
                     return True
@@ -606,12 +618,12 @@ class MagicMetaArea(MagicArea):
         for entry in entries:
             if entry.state != ConfigEntryState.LOADED:
                 continue
-            
+
             # We need to cast here because we know it's a MagicAreasConfigEntry
             # but the type system doesn't know that yet
             if entry.domain != "magic_areas":
                 continue
-            entry = cast(MagicAreasConfigEntry, entry)
+            entry = entry
 
             area: MagicArea = entry.runtime_data.area
 
@@ -641,6 +653,7 @@ class MagicMetaArea(MagicArea):
         await self.load_entities()
 
         self.finalize_init()
+        return None
 
     async def load_entities(self) -> None:
         """Load entities into entity list."""
@@ -652,12 +665,12 @@ class MagicMetaArea(MagicArea):
         for entry in entries:
             if entry.state != ConfigEntryState.LOADED:
                 continue
-            
+
             # We need to cast here because we know it's a MagicAreasConfigEntry
             # but the type system doesn't know that yet
             if entry.domain != "magic_areas":
                 continue
-            entry = cast(MagicAreasConfigEntry, entry)
+            entry = entry
 
             area: MagicArea = entry.runtime_data.area
 
@@ -722,11 +735,11 @@ class MagicMetaArea(MagicArea):
 
         # Don't act while hass is not running
         if not self.hass.is_running:
-            return
+            return None
 
         # Ignore if already handling it
         if self.reloading:
-            return
+            return None
 
         # Handle Global
         if self.slug == MetaAreaType.GLOBAL:
@@ -742,6 +755,7 @@ class MagicMetaArea(MagicArea):
         )
         if area_type == self.slug or area_id in self.child_areas:
             return await self.reload()
+        return None
 
     async def reload(self) -> None:
         """Reload current entry."""

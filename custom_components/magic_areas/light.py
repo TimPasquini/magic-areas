@@ -16,15 +16,22 @@ from homeassistant.const import (
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event, EventStateChangedData
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    EventStateChangedData,
+)
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    AREA_PRIORITY_STATES,
-    DEFAULT_LIGHT_GROUP_ACT_ON,
+from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
+)
+from custom_components.magic_areas.core_constants import (
     EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+)
+from custom_components.magic_areas.area_constants import AREA_PRIORITY_STATES
+from custom_components.magic_areas.light_groups import (
+    DEFAULT_LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
@@ -32,10 +39,14 @@ from custom_components.magic_areas.const import (
     LIGHT_GROUP_DEFAULT_ICON,
     LIGHT_GROUP_ICONS,
     LIGHT_GROUP_STATES,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
     LightGroupCategory,
-    MagicAreasFeatureInfoLightGroups,
     MagicAreasFeatures,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoLightGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.util import cleanup_removed_entries
@@ -132,7 +143,9 @@ class MagicLightGroup(MagicEntity, LightGroup):
 
     feature_info = MagicAreasFeatureInfoLightGroups()
 
-    def __init__(self, area: MagicArea, entities: list[str], translation_key: str | None = None) -> None:
+    def __init__(
+        self, area: MagicArea, entities: list[str], translation_key: str | None = None
+    ) -> None:
         """Initialize parent class and state."""
         MagicEntity.__init__(
             self, area, domain=LIGHT_DOMAIN, translation_key=translation_key
@@ -189,7 +202,13 @@ class MagicLightGroup(MagicEntity, LightGroup):
 class AreaLightGroup(MagicLightGroup):
     """Magic Light Group."""
 
-    def __init__(self, area: MagicArea, entities: list[str], category: str | None = None, child_ids: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        area: MagicArea,
+        entities: list[str],
+        category: str | None = None,
+        child_ids: list[str] | None = None,
+    ) -> None:
         """Initialize light group."""
 
         MagicLightGroup.__init__(self, area, entities, translation_key=category)
@@ -262,7 +281,7 @@ class AreaLightGroup(MagicLightGroup):
         await super().async_added_to_hass()
 
     async def _setup_listeners(self, _: Any = None) -> None:
-        """Set up listeners for area state chagne."""
+        """Set up listeners for area state change."""
         async_dispatcher_connect(
             self.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, self.area_state_changed
         )
@@ -279,7 +298,9 @@ class AreaLightGroup(MagicLightGroup):
     # State Change Handling
 
     @callback
-    def area_state_changed(self, area_id: str, states_tuple: tuple[list[str], list[str]]) -> bool:
+    def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+    ) -> bool:
         """Handle area state change event."""
         if area_id != self.area.id:
             self.logger.debug(
@@ -332,7 +353,10 @@ class AreaLightGroup(MagicLightGroup):
             self.reset_control()
             return False
 
-        if self.area.has_state(AreaStates.BRIGHT) and AreaStates.BRIGHT not in self.assigned_states:
+        if (
+            self.area.has_state(AreaStates.BRIGHT)
+            and AreaStates.BRIGHT not in self.assigned_states
+        ):
             # Only turn off lights when bright if the room was already occupied
             if (
                 AreaStates.BRIGHT in new_states
@@ -426,7 +450,7 @@ class AreaLightGroup(MagicLightGroup):
             )
             return False
 
-        # Turn off if we're a PRIORITY_STATE and we're coming out of it
+        # Turn off if we're a PRIORITY_STATE, and we're coming out of it
         out_of_priority_states = [
             state
             for state in AREA_PRIORITY_STATES
@@ -467,7 +491,7 @@ class AreaLightGroup(MagicLightGroup):
         return True
 
     def _turn_off(self) -> bool:
-        """Turn off light if it's not already off and we're controlling it."""
+        """Turn off light if it's not already off, and we're controlling it."""
         if not self.controlling:
             return False
 
@@ -555,7 +579,7 @@ class AreaLightGroup(MagicLightGroup):
             else:
                 # Ignore certain events
                 if origin_event and origin_event.event_type == "state_changed":
-                    # Skip non ON/OFF state changes
+                    # Skip non-ON/OFF state changes
                     if (
                         "old_state" not in origin_event.data
                         or not origin_event.data["old_state"]

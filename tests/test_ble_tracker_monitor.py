@@ -4,30 +4,36 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.attrs import (
     ATTR_ACTIVE_SENSORS,
     ATTR_PRESENCE_SENSORS,
+)
+from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_BLE_TRACKERS,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
-
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_BLE_TRACKERS,
+)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockSensor
 
@@ -69,7 +75,7 @@ async def setup_integration_ble_tracker(
 async def setup_entities_ble_sensor_one(
     hass: HomeAssistant,
 ) -> list[MockSensor]:
-    """Create one mock sensor and setup the system with it."""
+    """Create one mock sensor and set up the system with it."""
     mock_ble_sensor_entities = [
         MockSensor(
             name="ble_sensor_1",
@@ -157,14 +163,11 @@ async def test_ble_tracker_missing_entity(
     hass.states.async_remove(ble_sensor_entity_id)
     await hass.async_block_till_done()
 
-    # Trigger an update (though the tracker listens to state changes, we can force a check if needed,
-    # but here we just verify it handles the missing state gracefully if it were to check)
-    # The tracker updates on state change events. If we removed it, no event might fire that the tracker cares about
-    # unless we simulate a state change event for the missing entity (which is weird).
-    # However, the _update_state method iterates over _sensors and calls hass.states.get().
-    # We can trigger _update_state by firing an event for another (non-existent) sensor or just calling it if we could.
-    # Since we can't easily call private methods, we rely on the fact that the sensor is initialized.
-    # But wait, if we remove it, we want to ensure _update_state doesn't crash.
+    # The tracker normally updates via state-change events. Removing a sensor may not
+    # generate an event the tracker reacts to unless we simulate one, which is awkward.
+    # Internally, _update_state iterates over tracked sensors and calls hass.states.get().
+    # We rely on the initial update path to ensure missing sensor states are handled
+    # gracefully and do not cause a crash.
 
     # Let's simulate a state change event for the sensor, but where the new state is None (removal)
     # or just ensure the tracker state remains correct.
@@ -177,7 +180,7 @@ async def test_ble_tracker_no_entities_configured(
     hass: HomeAssistant,
 ) -> None:
     """Test BLE tracker with no entities configured."""
-    
+
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data.update(
         {
@@ -191,7 +194,7 @@ async def test_ble_tracker_no_entities_configured(
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
 
     await init_integration_helper(hass, [config_entry])
-    
+
     ble_tracker_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_{DEFAULT_MOCK_AREA.value}_ble_tracker_monitor"
     assert hass.states.get(ble_tracker_entity_id) is None
 

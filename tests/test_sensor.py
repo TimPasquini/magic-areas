@@ -3,30 +3,34 @@
 from unittest.mock import patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_UNIT_OF_MEASUREMENT,
-    STATE_ON,
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_AGGREGATION,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
-
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
+)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     shutdown_integration,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 
 
@@ -78,9 +82,7 @@ async def test_sensor_setup_missing_attributes(
     entry_valid = registry.async_get_or_create(
         SENSOR_DOMAIN, "test", "valid", suggested_object_id="valid"
     )
-    registry.async_update_entity(
-        entry_valid.entity_id, area_id=DEFAULT_MOCK_AREA.value
-    )
+    registry.async_update_entity(entry_valid.entity_id, area_id=DEFAULT_MOCK_AREA.value)
     hass.states.async_set(
         entry_valid.entity_id,
         "10",
@@ -113,9 +115,7 @@ async def test_sensor_setup_exception(
     entry_valid = registry.async_get_or_create(
         SENSOR_DOMAIN, "test", "valid", suggested_object_id="valid"
     )
-    registry.async_update_entity(
-        entry_valid.entity_id, area_id=DEFAULT_MOCK_AREA.value
-    )
+    registry.async_update_entity(entry_valid.entity_id, area_id=DEFAULT_MOCK_AREA.value)
     hass.states.async_set(
         entry_valid.entity_id,
         "10",

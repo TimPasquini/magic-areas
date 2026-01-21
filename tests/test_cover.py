@@ -10,14 +10,24 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, STATE_CLOSED, STATE_OPEN
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_ENTITY_ID,
+    STATE_CLOSED,
+    STATE_OPEN,
+)
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
-    CONF_FEATURE_COVER_GROUPS,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_COVER_GROUPS,
+)
+
 
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
@@ -48,7 +58,7 @@ async def setup_integration_cover_group(
     hass: HomeAssistant,
     cover_groups_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[Any, None]:
-    """Set up integration with secondary states config."""
+    """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [cover_groups_config_entry])
     yield
@@ -62,7 +72,7 @@ async def setup_integration_cover_group(
 async def setup_entities_sensor_cover_all_classes_multiple(
     hass: HomeAssistant,
 ) -> list[MockCover]:
-    """Create multiple mock sensor and setup the system with it."""
+    """Create multiple mock sensor and set up the system with it."""
 
     nr_entities = 3
     mock_cover_entities = []
@@ -133,7 +143,11 @@ async def test_cover_group_update(
     )
 
     # Get all blinds
-    blinds = [e for e in entities_sensor_cover_all_classes_multiple if e.device_class == CoverDeviceClass.BLIND]
+    blinds = [
+        e
+        for e in entities_sensor_cover_all_classes_multiple
+        if e.device_class == CoverDeviceClass.BLIND
+    ]
     blind_group_id = f"{cover_group_entity_id_base}{CoverDeviceClass.BLIND}"
 
     # Initial state is OPEN

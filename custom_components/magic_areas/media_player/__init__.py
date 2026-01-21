@@ -1,7 +1,7 @@
 """Platform file for Magic Area's media_player entities."""
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
@@ -10,16 +10,24 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from custom_components.magic_areas.area_constants import (
+    META_AREA_GLOBAL,
+)
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
+    CONF_NOTIFICATION_DEVICES,
+    EMPTY_STRING,
+)
+from custom_components.magic_areas.core_constants import (
+    DOMAIN,
+)
+from custom_components.magic_areas.feature_info import (
+    MagicAreasFeatureInfoMediaPlayerGroups,
+)
+from custom_components.magic_areas.features import (
     CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
     CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-    CONF_NOTIFICATION_DEVICES,
-    DOMAIN,
-    EMPTY_STRING,
-    META_AREA_GLOBAL,
-    MagicAreasFeatureInfoMediaPlayerGroups,
 )
 from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.media_player.area_aware_media_player import (
@@ -90,11 +98,10 @@ def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
 
         # We need to cast here because we know it's a MagicAreasConfigEntry
         # but the type system doesn't know that yet
-        from custom_components.magic_areas.models import MagicAreasConfigEntry
 
         if entry.domain != DOMAIN:
             continue
-        entry = cast(MagicAreasConfigEntry, entry)
+        entry = entry
 
         current_area = entry.runtime_data.area
 

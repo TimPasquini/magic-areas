@@ -1,15 +1,16 @@
 """Base classes for switch."""
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.const import STATE_ON
 from homeassistant.helpers.event import async_call_later
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import ONE_MINUTE
+from custom_components.magic_areas.core_constants import ONE_MINUTE
 
 
 class SwitchBase(MagicEntity, SwitchEntity):
@@ -48,7 +49,7 @@ class SwitchBase(MagicEntity, SwitchEntity):
 
 
 class ResettableSwitchBase(SwitchBase):
-    """Control the presense/state from being changed for the device."""
+    """Control the presence/state from being changed for the device."""
 
     timeout: int
 

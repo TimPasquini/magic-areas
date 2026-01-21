@@ -5,12 +5,12 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import (
     DOMAIN as SENSOR_DOMAIN,
+)
+from homeassistant.components.sensor.const import (
     SensorDeviceClass,
 )
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -23,26 +23,34 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_FAN_GROUPS,
+)
+from custom_components.magic_areas.core_constants import (
     DOMAIN,
+)
+from custom_components.magic_areas.enums import (
     AreaStates,
 )
-
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
+    CONF_FEATURE_FAN_GROUPS,
+)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
     assert_state,
     get_basic_config_entry_data,
-    init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+)
+from tests.helpers import (
+    init_integration as init_integration_helper,
 )
 from tests.mocks import MockBinarySensor, MockFan, MockSensor
 
@@ -91,7 +99,7 @@ async def setup_integration_fan_groups(
 async def setup_entities_fan_multiple(
     hass: HomeAssistant,
 ) -> list[MockFan]:
-    """Create multiple mock fans setup the system with it."""
+    """Create multiple mock fans set up the system with it."""
     mock_fan_entities: list[MockFan] = []
     nr_fans: int = 3
     for i in range(nr_fans):
@@ -106,7 +114,7 @@ async def setup_entities_fan_multiple(
 async def setup_entities_sensor_temperature_one(
     hass: HomeAssistant,
 ) -> MockSensor:
-    """Create one mock temperature sensor and setup the system with it."""
+    """Create one mock temperature sensor and set up the system with it."""
 
     mock_temperature_sensor = MockSensor(
         name="mock_temperature_sensor",
