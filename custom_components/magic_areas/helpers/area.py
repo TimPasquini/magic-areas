@@ -140,4 +140,8 @@ def get_area_from_config_entry(
     if not hasattr(config_entry, "runtime_data"):
         return None
 
-    return config_entry.runtime_data.area
+    runtime_data = config_entry.runtime_data
+    if hasattr(runtime_data, "coordinator") and runtime_data.coordinator.data:
+        return runtime_data.coordinator.data.area
+
+    return runtime_data.area

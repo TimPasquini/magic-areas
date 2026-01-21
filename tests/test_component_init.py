@@ -25,11 +25,15 @@ async def test_async_setup_entry_reload_skipped_before_start(
     magic_area.name = data[ATTR_NAME]
     magic_area.id = data[ATTR_ID]
     magic_area.config = {}
+    magic_area.entities = {}
+    magic_area.magic_entities = {}
     magic_area.is_meta.return_value = False
     magic_area.make_entity_registry_filter.return_value = None
     magic_area.make_device_registry_filter.return_value = None
     magic_area.available_platforms.return_value = []
     magic_area.initialize = AsyncMock()
+    magic_area.load_entities = AsyncMock()
+    magic_area.get_presence_sensors.return_value = []
     magic_area.has_feature.return_value = False
 
     callbacks: dict[str, object] = {}
@@ -84,11 +88,15 @@ async def test_async_setup_entry_registry_update_respects_disabled_reload(
     magic_area.name = data[ATTR_NAME]
     magic_area.id = data[ATTR_ID]
     magic_area.config = {}
+    magic_area.entities = {}
+    magic_area.magic_entities = {}
     magic_area.is_meta.return_value = False
     magic_area.make_entity_registry_filter.return_value = None
     magic_area.make_device_registry_filter.return_value = None
     magic_area.available_platforms.return_value = []
     magic_area.initialize = AsyncMock()
+    magic_area.load_entities = AsyncMock()
+    magic_area.get_presence_sensors.return_value = []
     magic_area.has_feature.return_value = False
 
     callbacks: dict[str, object] = {}

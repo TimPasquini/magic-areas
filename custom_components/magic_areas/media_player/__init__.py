@@ -103,7 +103,11 @@ def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
             continue
         entry = entry
 
-        current_area = entry.runtime_data.area
+        runtime_data = entry.runtime_data
+        if runtime_data.coordinator.data:
+            current_area = runtime_data.coordinator.data.area
+        else:
+            current_area = runtime_data.area
 
         # Skip meta areas
         if current_area.is_meta():

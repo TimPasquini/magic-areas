@@ -17,6 +17,7 @@ from homeassistant.helpers.entity_registry import (
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
     CONF_RELOAD_ON_REGISTRY_CHANGE,
     DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
@@ -118,8 +119,12 @@ async def async_setup_entry(
             # Reload once Home Assistant has finished starting to make sure we have all entities.
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_reload_entry)
 
+        coordinator = MagicAreasCoordinator(hass, magic_area, config_entry)
+        await coordinator.async_config_entry_first_refresh()
+
         config_entry.runtime_data = MagicAreasRuntimeData(
             area=magic_area,
+            coordinator=coordinator,
             listeners=tracked_listeners,
         )
 
@@ -154,6 +159,8 @@ async def async_unload_entry(
     all_unloaded = await hass.config_entries.async_unload_platforms(
         config_entry, area.available_platforms()
     )
+
+    await area_data.coordinator.async_shutdown()
 
     for tracked_listener in area_data.listeners:
         tracked_listener()
