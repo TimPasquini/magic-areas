@@ -135,6 +135,7 @@ class AreaThresholdSensor(MagicEntity, ThresholdSensor):
         )
         ThresholdSensor.__init__(
             self,
+            hass,
             entity_id=entity_id,
             name=EMPTY_STRING,
             unique_id=self.unique_id,

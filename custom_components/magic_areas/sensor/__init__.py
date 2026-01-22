@@ -47,9 +47,15 @@ async def async_setup_entry(
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
     runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
     data = runtime_data.coordinator.data
-    entities_by_domain = data.entities if data else area.entities
-    magic_entities = data.magic_entities if data else area.magic_entities
+    entities_by_domain = (
+        data.entities if data and data.entities else area.entities
+    )
+    magic_entities = (
+        data.magic_entities if data and data.magic_entities else area.magic_entities
+    )
 
     entities_to_add: list[Entity] = []
 

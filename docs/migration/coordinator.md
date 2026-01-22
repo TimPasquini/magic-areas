@@ -1,27 +1,31 @@
-# Coordinator migration
+# Coordinator differences
 
-This document explains why the coordinator was introduced, how it works, and what it replaces.
+This document explains how the current coordinator-based runtime model differs
+from the original fork baseline.
 
-## Motivation
+## Original behavior
 
-The pre-coordinator design relied on each platform building its own view of area data. This resulted in:
+Each platform assembled its own view of area data by reading `MagicArea`
+properties directly. That meant:
 
-- duplicated filtering logic for entity lists
-- divergent views of entity state across platforms
-- increased complexity when adding new features
+- duplicated entity filtering logic across platforms
+- inconsistent data reads when multiple platforms updated concurrently
+- more surface area to update when new features were added
 
-The coordinator consolidates this into a single, typed snapshot per config entry.
+## Current behavior
 
-## What changed
+A coordinator now owns a single, typed snapshot per config entry:
 
-- Added `custom_components/magic_areas/coordinator.py` with `MagicAreasCoordinator` and `MagicAreasData`.
-- Extended runtime data to include the coordinator object.
-- Setup now performs a coordinator refresh before platforms are initialized.
-- Platform code prefers `coordinator.data` and falls back to `area` when needed.
+- `custom_components/magic_areas/coordinator.py` defines `MagicAreasCoordinator`
+  and the `MagicAreasData` snapshot.
+- runtime data includes the coordinator alongside the `MagicArea`.
+- setup performs a refresh before platforms read data.
+- platforms prefer `coordinator.data` and only fall back to the area instance
+  when the snapshot is unavailable.
 
 ## Snapshot data model
 
-`MagicAreasData` represents the area as a stable, read-only view:
+`MagicAreasData` is a read-only snapshot containing:
 
 - `area`: the active `MagicArea` or `MagicMetaArea`
 - `entities`: resolved entity lists by domain
@@ -34,7 +38,7 @@ The coordinator consolidates this into a single, typed snapshot per config entry
 ## Coordinator lifecycle
 
 - created during `async_setup_entry`
-- refreshed once before platform setup
+- refreshed before platform setup
 - refreshed via standard `DataUpdateCoordinator` methods
 - stopped during `async_unload_entry`
 
@@ -46,12 +50,8 @@ snapshot = runtime_data.coordinator.data
 entities_by_domain = snapshot.entities if snapshot else area.entities
 ```
 
-## Backward compatibility
+## Compatibility with the original structure
 
-The coordinator wraps the existing `MagicArea` instance. Tests and platform code that still use `entry.runtime_data.area` continue to work, but should migrate to the snapshot over time.
-
-## Known follow-ups
-
-- move additional derived values into the snapshot
-- tighten typing to remove remaining `Any` usage in platform setup
-- migrate remaining platforms to snapshot-only behavior
+The coordinator wraps the existing `MagicArea` instance, so code that still
+uses `entry.runtime_data.area` continues to work. The main difference is that
+current platforms now have a single, consistent snapshot available.

@@ -200,3 +200,6 @@ AREA_SCHEMA = vol.Schema(
 _DOMAIN_SCHEMA = vol.Schema(
     {cv.slug: vol.Any(AREA_SCHEMA, None)}, extra=vol.REMOVE_EXTRA
 )
+
+# Public alias for consumers outside this module.
+DOMAIN_SCHEMA = _DOMAIN_SCHEMA

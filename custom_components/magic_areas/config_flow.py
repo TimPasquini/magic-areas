@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable, Coroutine, Mapping
-from typing import Any, cast
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -15,7 +15,6 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.components.climate.const import ATTR_PRESET_MODES
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
-from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.area_registry import async_get as areareg_async_get
@@ -115,7 +114,7 @@ from custom_components.magic_areas.policy import (
     WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.schemas.area import (
-    _DOMAIN_SCHEMA,
+    DOMAIN_SCHEMA,
     META_AREA_BASIC_OPTIONS_SCHEMA,
     META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA,
     META_AREA_SCHEMA,
@@ -159,7 +158,7 @@ class ConfigBase:
 
     @staticmethod
     def _build_selector_select(
-            options: list | None = None,
+        options: list | None = None,
         multiple: bool = False,
         translation_key: str = EMPTY_STRING,
     ) -> SelectSelector:
@@ -178,9 +177,8 @@ class ConfigBase:
 
     @staticmethod
     def _build_selector_entity_simple(
-            options: list | None = None,
+        options: list | None = None,
         multiple: bool = False,
-        force_include: bool = False,
     ) -> "NullableEntitySelector":
         """Build a <select> selector with predefined settings."""
         if not options:
@@ -191,7 +189,7 @@ class ConfigBase:
 
     @staticmethod
     def _build_selector_number(
-            *,
+        *,
         min_value: float = 0,
         max_value: float = 9999,
         mode: NumberSelectorMode = NumberSelectorMode.BOX,
@@ -259,6 +257,17 @@ class ConfigBase:
         _LOGGER.debug("ConfigFlow: Built schema: %s", str(schema))
 
         return vol.Schema(schema)
+
+    @staticmethod
+    def _errors_from_validation(
+        validation: vol.MultipleInvalid,
+    ) -> dict[str, str]:
+        """Return errors mapping from voluptuous validation."""
+        return {
+            str(error.path[0]): str(error.msg)
+            for error in validation.errors
+            if isinstance(error, vol.Invalid) and error.path
+        }
 
 
 class NullableEntitySelector(EntitySelector):
@@ -357,6 +366,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
             # Fail if area name not found,
             # this should never happen in ideal conditions.
             if not area_object:
+                # noinspection PyTypeChecker
                 return self.async_abort(reason="invalid_area")
 
             # Reserve unique name / already configured check
@@ -364,7 +374,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             # Create area entry with default config
-            config_entry = _DOMAIN_SCHEMA({f"{area_object.id}": {}})[area_object.id]
+            config_entry = DOMAIN_SCHEMA({f"{area_object.id}": {}})[area_object.id]
             extra_opts = {CONF_NAME: area_object.name, CONF_ID: area_object.id}
             config_entry.update(extra_opts)
 
@@ -376,6 +386,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
                 )
                 config_entry.update({CONF_TYPE: AREA_TYPE_META})
 
+            # noinspection PyTypeChecker
             return self.async_create_entry(title=area_object.name, data=config_entry)  # type: ignore[arg-type]
 
         # Filter out already-configured areas
@@ -388,6 +399,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
         available_areas = [area for area in areas if area.id not in configured_areas]
 
         if not available_areas:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="no_more_areas")
 
         # Slight ordering trick so Meta areas are at the bottom
@@ -406,6 +418,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
 
         schema = vol.Schema({vol.Required(CONF_NAME): vol.In(available_area_names)})
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="user",
             data_schema=schema,
@@ -429,7 +442,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
     def __init__(self, config_entry: MagicAreasConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
+        self.handler = config_entry.entry_id
         self.data: dict[str, Any] = {}
         self.all_entities: list[str] = []
         self.area_entities: list[str] = []
@@ -439,6 +453,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self.all_binary_entities: list[str] = []
         self.all_light_tracking_entities: list[str] = []
         self.area_options: dict[str, Any] = {}
+        self._feature_step_id: str | None = None
         super().__init__()
 
     def _get_feature_list(self) -> list[str]:
@@ -463,11 +478,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         return filtered_configurable_features
 
-    async def async_step_feature_conf(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
-        step_id = str(self.context.get("step_id", ""))
+    async def async_step_feature_conf(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure a specific feature."""
+        step_id = self._feature_step_id or str(self.context.get("step_id", ""))
         feature_key = step_id.replace("feature_conf_", "")
 
         if feature_key not in FEATURE_REGISTRY:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="unknown_feature")
 
         feature: FeatureConfig = FEATURE_REGISTRY[feature_key]
@@ -490,9 +509,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
                 if feature.next_step:
                     return await getattr(self, feature.next_step)()
-
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id=step_id,
             data_schema=self._build_options_schema(
@@ -506,12 +526,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
     async def _update_options(self) -> config_entries.ConfigFlowResult:
         """Update config entry options."""
+        # noinspection PyTypeChecker
         return self.async_create_entry(title="", data=dict(self.area_options))
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    ) -> config_entries.ConfigFlowResult:
         """Initialize the options flow."""
+        del user_input
 
         self.area = self.config_entry.runtime_data.area
 
@@ -614,13 +636,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         _LOGGER.debug(
             "%s: Loaded area options: %s", self.area.name, str(self.area_options)
         )
-
+        # noinspection PyTypeChecker
         return await self.async_step_show_menu()
 
     async def async_step_show_menu(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Show options selection menu."""
+        del user_input
         # Show options menu
         menu_options: list = [
             "area_config",
@@ -631,7 +654,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
         # Add entries for features
         menu_options_features = []
-        configurable_features = self._get_configurable_features()
         for feature in self.area_options.get(CONF_ENABLED_FEATURES, {}):
             if feature in FEATURE_REGISTRY:
                 menu_options_features.append(f"feature_conf_{feature}")
@@ -639,6 +661,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         menu_options.extend(sorted(menu_options_features))
         menu_options.append("finish")
 
+        # noinspection PyTypeChecker
         return self.async_show_menu(step_id="show_menu", menu_options=menu_options)
 
     @staticmethod
@@ -673,9 +696,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             try:
                 self.area_options.update(options_schema(user_input))
             except vol.MultipleInvalid as validation:
-                errors = {
-                    str(error.path[0]): str(error.msg) for error in validation.errors
-                }
+                errors = self._errors_from_validation(validation)
                 _LOGGER.debug(
                     "OptionsFlow: Found the following errors for area %s: %s",
                     self.area.name,
@@ -695,7 +716,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     self.area.name,
                     str(self.area_options),
                 )
-
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
         all_selectors = {
@@ -725,6 +746,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             options=options, saved_options=self.area_options, selectors=selectors
         )
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="area_config",
             data_schema=data_schema,
@@ -750,9 +772,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             try:
                 self.area_options.update(options_schema(user_input))
             except vol.MultipleInvalid as validation:
-                errors = {
-                    str(error.path[0]): str(error.msg) for error in validation.errors
-                }
+                errors = self._errors_from_validation(validation)
                 _LOGGER.debug(
                     "OptionsFlow: Found the following errors for area %s: %s",
                     self.area.name,
@@ -772,7 +792,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     self.area.name,
                     str(self.area_options),
                 )
-
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
         all_selectors = {
@@ -806,6 +826,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             options=options, saved_options=self.area_options, selectors=selectors
         )
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="presence_tracking",
             data_schema=data_schema,
@@ -833,9 +854,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     area_state_schema(user_input)
                 )
             except vol.MultipleInvalid as validation:
-                errors = {
-                    str(error.path[0]): str(error.msg) for error in validation.errors
-                }
+                errors = self._errors_from_validation(validation)
                 _LOGGER.debug(
                     "OptionsFlow: Found the following errors for area %s: %s",
                     self.area.name,
@@ -855,8 +874,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     self.area.name,
                     str(self.area_options),
                 )
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="secondary_states",
             data_schema=self._build_options_schema(
@@ -934,6 +955,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     if c_feature in self.area_options.get(CONF_ENABLED_FEATURES, {}):
                         self.area_options[CONF_ENABLED_FEATURES].pop(c_feature)
 
+            # noinspection PyTypeChecker
             return await self.async_step_show_menu()
 
         _LOGGER.debug(
@@ -942,6 +964,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             feature_list,
         )
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id="select_features",
             data_schema=self._build_options_schema(
@@ -957,13 +980,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
     async def async_step_finish(
         self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    ) -> config_entries.ConfigFlowResult:
         """Save options and exit options flow."""
         _LOGGER.debug(
             "OptionsFlow: All features configured for area %s, saving config: %s",
             self.area.name,
             str(self.area_options),
         )
+        # noinspection PyTypeChecker
         return await self._update_options()
 
     async def do_feature_config(
@@ -975,7 +999,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         selectors: dict | None = None,
         user_input: dict[str, Any] | None = None,
         custom_schema: vol.Schema | None = None,
-        return_to: Callable[[], Coroutine[Any, Any, ConfigFlowResult]] | None = None,
+        return_to: (
+            Callable[[], Coroutine[Any, Any, config_entries.ConfigFlowResult]] | None
+        ) = None,
         merge_options: bool = False,
         step_name: str | None = None,
     ) -> config_entries.ConfigFlowResult:
@@ -1003,9 +1029,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                         raise ValueError(f"No schema found for {name}")
                     validated_input = CONFIGURABLE_FEATURES[name](user_input)
             except vol.MultipleInvalid as validation:
-                errors = {
-                    str(error.path[0]): "malformed_input" for error in validation.errors
-                }
+                errors = dict.fromkeys(
+                    self._errors_from_validation(validation), "malformed_input"
+                )
                 _LOGGER.debug("OptionsFlow: Found the following errors: %s", errors)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 _LOGGER.warning(
@@ -1038,8 +1064,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                 )
 
                 if return_to:
+                    # noinspection PyTypeChecker
                     return await return_to()
 
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
         _LOGGER.debug(
@@ -1053,6 +1081,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         if not step_name:
             step_name = f"feature_conf_{name}"
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id=step_name,
             data_schema=self._build_options_schema(
@@ -1063,9 +1092,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             ),
             errors=errors,
         )
-    async def async_step(self, step_id: str, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
+
+    async def async_step(
+        self, step_id: str, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Route dynamic steps for feature configuration."""
         if step_id.startswith("feature_conf_"):
-            cast(dict[str, Any], self.context)["step_id"] = step_id
+            self._feature_step_id = step_id
+            # noinspection PyTypeChecker
             return await self.async_step_feature_conf(user_input)
 
         raise ValueError(f"Unknown step {step_id}")
@@ -1074,8 +1108,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self,
         feature_key: str,
         user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
+    ) -> config_entries.ConfigFlowResult:
+        """Handle configuration for a single feature.
+
+        Returns:
+            config_entries.ConfigFlowResult
+
+        """
         if feature_key not in FEATURE_REGISTRY:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="unknown_feature")
 
         feature = FEATURE_REGISTRY[feature_key]
@@ -1100,6 +1141,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                     # feature.next_step is a *step_id* (e.g. "feature_conf_climate_control_select_presets")
                     return await getattr(self, f"async_step_{feature.next_step}")()
 
+                # noinspection PyTypeChecker
                 return await self.async_step_show_menu()
 
         selectors: dict[str, Any] = {}
@@ -1114,6 +1156,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
                 )
             )
 
+        # noinspection PyTypeChecker
         return self.async_show_form(
             step_id=f"feature_conf_{feature_key}",
             data_schema=self._build_options_schema(
@@ -1128,33 +1171,36 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
     async def async_step_feature_conf_climate_control_select_presets(
         self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    ) -> config_entries.ConfigFlowResult:
         """Second climate step: select presets based on chosen climate entity."""
 
         # The first climate step stores the selected entity id under the climate feature config.
-        climate_cfg = (
-            self.area_options.get(CONF_ENABLED_FEATURES, {})
-            .get(CONF_FEATURE_CLIMATE_CONTROL, {})
+        climate_cfg = self.area_options.get(CONF_ENABLED_FEATURES, {}).get(
+            CONF_FEATURE_CLIMATE_CONTROL, {}
         )
 
-        climate_entity_id: str | None = (
-            climate_cfg.get(CONF_CLIMATE_CONTROL_ENTITY_ID)
-            or climate_cfg.get(ATTR_ENTITY_ID)  # backward/alternate storage
-        )
+        climate_entity_id: str | None = climate_cfg.get(
+            CONF_CLIMATE_CONTROL_ENTITY_ID
+        ) or climate_cfg.get(
+            ATTR_ENTITY_ID
+        )  # backward/alternate storage
 
         if not climate_entity_id:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="no_entity_selected")
 
         entity_registry = entityreg_async_get(self.hass)
         entity_object = entity_registry.async_get(climate_entity_id)
 
         if not entity_object:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="invalid_entity")
 
         caps = entity_object.capabilities or {}
         preset_modes = caps.get(ATTR_PRESET_MODES)
 
         if not preset_modes:
+            # noinspection PyTypeChecker
             return self.async_abort(reason="climate_no_preset_support")
 
         available_preset_modes = EMPTY_ENTRY + list(preset_modes)
@@ -1185,6 +1231,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             CONF_CLIMATE_CONTROL_PRESET_EXTENDED: vol.In(available_preset_modes),
         }
 
+        # noinspection PyTypeChecker
         return await self.do_feature_config(
             name=CONF_FEATURE_CLIMATE_CONTROL,
             step_name="feature_conf_climate_control_select_presets",
@@ -1196,30 +1243,77 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             user_input=user_input,
         )
 
+    async def async_step_feature_conf_light_groups(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure light group settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_LIGHT_GROUPS, user_input
+        )
 
-    async def async_step_feature_conf_light_groups(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_LIGHT_GROUPS, user_input)
+    async def async_step_feature_conf_climate_control(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure climate control settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_CLIMATE_CONTROL, user_input
+        )
 
-    async def async_step_feature_conf_climate_control(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_CLIMATE_CONTROL, user_input)
-
-    async def async_step_feature_conf_fan_groups(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_feature_conf_fan_groups(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure fan group settings."""
+        # noinspection PyTypeChecker
         return await self._async_step_feature_conf(CONF_FEATURE_FAN_GROUPS, user_input)
 
-    async def async_step_feature_conf_area_aware_media_player(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER, user_input)
+    async def async_step_feature_conf_area_aware_media_player(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure area-aware media player settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER, user_input
+        )
 
-    async def async_step_feature_conf_aggregates(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_feature_conf_aggregates(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure aggregation settings."""
+        # noinspection PyTypeChecker
         return await self._async_step_feature_conf(CONF_FEATURE_AGGREGATION, user_input)
 
-    async def async_step_feature_conf_presence_hold(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_PRESENCE_HOLD, user_input)
+    async def async_step_feature_conf_presence_hold(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure presence hold settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_PRESENCE_HOLD, user_input
+        )
 
-    async def async_step_feature_conf_ble_trackers(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_BLE_TRACKERS, user_input)
+    async def async_step_feature_conf_ble_trackers(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure BLE tracker settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_BLE_TRACKERS, user_input
+        )
 
-    async def async_step_feature_conf_wasp_in_a_box(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return await self._async_step_feature_conf(CONF_FEATURE_WASP_IN_A_BOX, user_input)
+    async def async_step_feature_conf_wasp_in_a_box(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure Wasp in a Box settings."""
+        # noinspection PyTypeChecker
+        return await self._async_step_feature_conf(
+            CONF_FEATURE_WASP_IN_A_BOX, user_input
+        )
 
-    async def async_step_feature_conf_health(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_feature_conf_health(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure health feature settings."""
+        # noinspection PyTypeChecker
         return await self._async_step_feature_conf(CONF_FEATURE_HEALTH, user_input)

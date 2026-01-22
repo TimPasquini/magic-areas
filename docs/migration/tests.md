@@ -1,6 +1,7 @@
-# Test strategy and scope
+# Test coverage differences
 
-This document outlines the expanded test coverage introduced across the refactor series and explains how the test suite supports the HA Bronze tier baseline.
+This document outlines how the current test suite differs from the original
+fork baseline and how it supports the HA Bronze tier requirements.
 
 ## Bronze alignment
 
@@ -10,11 +11,14 @@ The Bronze tier requires:
 - baseline coding standards
 - stable, documented behavior for new users
 
-Test changes in this series focus on validating UI setup paths, configuration options, and the runtime behavior of the integration so the baseline requirements are demonstrably met.
+The current suite validates UI setup paths, configuration options, and runtime
+behavior so baseline requirements are demonstrably met.
 
-## What changed (test scope)
+## Current test scope
 
-The refactor series touched tests across nearly every platform. The list below is grouped by intent and highlights where coverage was strengthened.
+Compared to the original baseline, the current suite covers more of the
+integration surface area. The list below reflects the present scope and how it
+maps to runtime behavior.
 
 ### Core integration setup and lifecycle
 
