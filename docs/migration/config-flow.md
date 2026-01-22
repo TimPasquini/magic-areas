@@ -1,17 +1,22 @@
-# Config flow refactor
+# Config flow differences
 
-This document explains the config flow changes and why feature configuration is now registry-driven.
+This document describes how config and options flow behavior is organized in
+the current integration compared to the original fork baseline.
 
-## Motivation
+## Original behavior
 
-The previous options flow was a single, long class with many feature-specific branches. Adding or updating a feature required editing multiple steps, which increased risk and duplicated validation logic.
+The options flow used a single, long class with many feature-specific branches.
+Adding or updating a feature required touching multiple methods and duplicating
+validation logic across steps.
 
-## What changed
+## Current behavior
 
-- Added `config_flows/feature_registry.py` to describe each feature in one place.
-- Consolidated feature configuration into `async_step_feature_conf`.
-- Added consistent schema handling with selectors and validators.
-- Reduced feature-specific step methods to thin wrappers.
+Feature configuration is registry-driven:
+
+- `config_flows/feature_registry.py` declares each feature in one place.
+- `async_step_feature_conf` handles feature configuration generically.
+- schemas, selectors, and validators are built consistently.
+- feature-specific step methods remain thin wrappers when needed.
 
 ## Feature registry structure
 
@@ -23,14 +28,10 @@ Each feature entry provides:
 - `merge_options`: whether to merge or replace feature config
 - `next_step`: optional follow-up step ID
 
-This keeps per-feature logic declarative and minimal.
+This keeps per-feature logic declarative and easier to maintain.
 
-## Benefits
+## User-facing behavior
 
-- smaller options flow surface area
-- fewer branches to test
-- clearer separation between feature metadata and flow mechanics
-
-## Reviewer notes
-
-Behavior is unchanged from the user perspective. The refactor is internal only, with tests focused on preserving results rather than step ordering.
+From the user perspective, UI setup and options flow remain stable. The
+differences are internal: feature metadata is centralized and the flow logic is
+less error-prone.

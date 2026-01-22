@@ -4,6 +4,7 @@ from collections.abc import Callable
 import logging
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_NAME, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.device_registry import (
@@ -120,7 +121,10 @@ async def async_setup_entry(
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_reload_entry)
 
         coordinator = MagicAreasCoordinator(hass, magic_area, config_entry)
-        await coordinator.async_config_entry_first_refresh()
+        if config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
+            await coordinator.async_config_entry_first_refresh()
+        else:
+            await coordinator.async_refresh()
 
         config_entry.runtime_data = MagicAreasRuntimeData(
             area=magic_area,

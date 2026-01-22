@@ -1,8 +1,9 @@
 # Architecture overview
 
-This document summarizes the current runtime architecture and highlights how data flow changed after adding the coordinator.
+This document summarizes the current runtime architecture and explains how
+it differs from the original fork baseline.
 
-## Integration layout
+## Current integration layout
 
 - `custom_components/magic_areas/__init__.py`
   - config entry lifecycle
@@ -25,14 +26,14 @@ This document summarizes the current runtime architecture and highlights how dat
 - `custom_components/magic_areas/config_flows/feature_registry.py`
   - per-feature metadata and schemas
 
-## Runtime data flow (post-coordinator)
+## Runtime data flow (current)
 
 ```
 Config entry setup
   └─ __init__.py
        ├─ build MagicArea / MagicMetaArea
        ├─ create MagicAreasCoordinator
-       ├─ coordinator.async_config_entry_first_refresh()
+       ├─ coordinator refresh (first refresh during setup)
        └─ runtime_data = { area, coordinator, listeners }
 
 Coordinator refresh
@@ -57,7 +58,7 @@ Platform setup
           └─ fallback to area state if snapshot missing
 ```
 
-## Runtime data flow (pre-coordinator)
+## Runtime data flow (original baseline)
 
 ```
 Config entry setup
@@ -80,11 +81,3 @@ Platform setup
 - The snapshot ensures consistent entity lists across platforms.
 - Refresh logic is centralized and testable in one place.
 - Platforms can be simplified over time to read snapshot data only.
-
-## Future direction
-
-As more platforms migrate to coordinator data, expect:
-
-- fewer direct registry reads in platform code
-- more consistent behavior during reloads and config updates
-- easier feature expansion (one snapshot update instead of multiple platform changes)

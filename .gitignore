@@ -9,11 +9,13 @@ __pycache__
 # misc
 .coverage
 .vscode
+.idea
 coverage.xml
 *.swp
 old/*
 tmp/*
 temp/*
+stubs/*
 
 
 # Home Assistant configuration

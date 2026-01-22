@@ -1,34 +1,37 @@
 # Migration guide
 
-This folder documents the recent refactor work and explains how to review or adopt it. The goal is to make upstream review straightforward by describing intent, impact, and the main structural shifts.
+This folder documents how the current integration differs from the original
+version we forked. The goal is to make upstream review straightforward by
+describing what is now different in structure, behavior, and test coverage.
 
 ## Scope
 
-The documents cover:
+These documents describe the current system and its deltas from the original
+fork baseline:
 
-- the new coordinator-based data flow
-- changes to config flow structure and feature metadata
-- testing strategy and coverage improvements
-- high-level architecture before and after the refactor
+- coordinator-based data flow and runtime snapshot usage
+- config flow organization and feature metadata structure
+- test coverage scope across setup, options, and platform behavior
+- high-level runtime architecture in the current state
 
 ## Bronze tier context
 
-The refactor is written with the HA Bronze tier in mind:
+The current version is written with the HA Bronze tier in mind:
 
-- UI setup and options flows are tested end-to-end
-- baseline coding standards are reinforced
-- documentation focuses on step-by-step setup and behavior
+- UI setup and options flows have end-to-end tests
+- baseline coding standards are enforced
+- documentation focuses on step-by-step setup and expected behavior
 
 ## How to use these notes
 
-- Start with `architecture.md` to understand current data flow.
-- Read `coordinator.md` to see the purpose and usage of the new snapshot.
-- Read `config-flow.md` to understand why feature configuration moved into a registry.
-- Read `tests.md` to understand test changes and validation approach.
+- Read `architecture.md` for a side-by-side view of original vs current data flow.
+- Read `coordinator.md` for the current snapshot model and lifecycle.
+- Read `config-flow.md` for how feature configuration is now organized.
+- Read `tests.md` for what test coverage looks like in the current state.
 
 ## Reviewer checklist
 
-- The coordinator does not change external behavior; it centralizes state.
-- Platform setup uses coordinator snapshots where available.
-- Config flow remains user-facing stable, but internal structure is simplified.
-- Tests emphasize observable behavior instead of implementation details.
+- The coordinator centralizes state, keeping user-facing behavior stable.
+- Platforms prefer coordinator snapshots, with fallbacks where needed.
+- Config flow remains stable for users while internal structure is simplified.
+- Tests emphasize observable behavior across setup and options flows.
