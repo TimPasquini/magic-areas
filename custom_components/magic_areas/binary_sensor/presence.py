@@ -198,6 +198,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def _load_presence_sensors(self) -> None:
         """Load sensors that are relevant for presence sensing."""
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            self._sensors = runtime_data.coordinator.data.presence_sensors.copy()
+            return
 
         self._sensors = self.area.get_presence_sensors()
 

@@ -66,17 +66,21 @@ async def async_setup_entry(
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
+    runtime_data = config_entry.runtime_data
+    data = runtime_data.coordinator.data
+    entities_by_domain = data.entities if data else area.entities
+    magic_entities = data.magic_entities if data else area.magic_entities
 
     # Check feature availability
     if not area.has_feature(MagicAreasFeatures.LIGHT_GROUPS):
         return
 
     # Check if there are any lights
-    if not area.has_entities(LIGHT_DOMAIN):
+    if LIGHT_DOMAIN not in entities_by_domain:
         _LOGGER.debug("%s: No %s entities for area.", area.name, LIGHT_DOMAIN)
         return
 
-    light_entities = [e["entity_id"] for e in area.entities[LIGHT_DOMAIN]]
+    light_entities = [e["entity_id"] for e in entities_by_domain[LIGHT_DOMAIN]]
 
     light_groups = []
 
@@ -132,9 +136,9 @@ async def async_setup_entry(
     if light_groups:
         async_add_entities(light_groups)
 
-    if LIGHT_DOMAIN in area.magic_entities:
+    if LIGHT_DOMAIN in magic_entities:
         cleanup_removed_entries(
-            area.hass, light_groups, area.magic_entities[LIGHT_DOMAIN]
+            area.hass, light_groups, magic_entities[LIGHT_DOMAIN]
         )
 
 

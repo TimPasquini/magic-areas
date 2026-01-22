@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
-from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -62,7 +61,7 @@ async def async_setup_entry(
     if area.is_meta() and area.id == META_AREA_GLOBAL.lower():
         # Try to setup AAMP
         _LOGGER.debug("%s: Setting up Area-Aware media player", area.name)
-        entities_to_add.extend(setup_area_aware_media_player(area))
+        entities_to_add.extend(await setup_area_aware_media_player(area))
 
     if entities_to_add:
         async_add_entities(entities_to_add)
@@ -85,7 +84,7 @@ def setup_media_player_group(area: MagicArea) -> list[Entity]:
     return [AreaMediaPlayerGroup(area, media_player_entities)]
 
 
-def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
+async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
     """Create Area-aware media player."""
     entries = area.hass.config_entries.async_entries(DOMAIN)
 
@@ -93,21 +92,22 @@ def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
     areas_with_media_players = []
 
     for entry in entries:
-        if entry.state != ConfigEntryState.LOADED:
-            continue
-
-        # We need to cast here because we know it's a MagicAreasConfigEntry
-        # but the type system doesn't know that yet
-
         if entry.domain != DOMAIN:
             continue
-        entry = entry
+
+        if not hasattr(entry, "runtime_data"):
+            continue
 
         runtime_data = entry.runtime_data
+        if runtime_data.coordinator.data is None:
+            await runtime_data.coordinator.async_refresh()
+
         if runtime_data.coordinator.data:
             current_area = runtime_data.coordinator.data.area
+            entities_by_domain = runtime_data.coordinator.data.entities
         else:
             current_area = runtime_data.area
+            entities_by_domain = current_area.entities
 
         # Skip meta areas
         if current_area.is_meta():
@@ -123,7 +123,7 @@ def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
             continue
 
         # Skip areas without media player entities
-        if not current_area.has_entities(MEDIA_PLAYER_DOMAIN):
+        if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
             _LOGGER.debug(
                 "%s: Has no media player entities, skipping.", current_area.name
             )

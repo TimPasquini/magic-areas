@@ -46,22 +46,28 @@ async def async_setup_entry(
 
     area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
     assert area is not None
+    runtime_data = config_entry.runtime_data
+    data = runtime_data.coordinator.data
+    entities_by_domain = data.entities if data else area.entities
+    magic_entities = data.magic_entities if data else area.magic_entities
 
     entities_to_add: list[Entity] = []
 
     if area.has_feature(CONF_FEATURE_AGGREGATION):
-        entities_to_add.extend(create_aggregate_sensors(area))
+        entities_to_add.extend(create_aggregate_sensors(area, entities_by_domain))
 
     if entities_to_add:
         async_add_entities(entities_to_add)
 
-    if SENSOR_DOMAIN in area.magic_entities:
+    if SENSOR_DOMAIN in magic_entities:
         cleanup_removed_entries(
-            area.hass, entities_to_add, area.magic_entities[SENSOR_DOMAIN]
+            area.hass, entities_to_add, magic_entities[SENSOR_DOMAIN]
         )
 
 
-def create_aggregate_sensors(area: MagicArea) -> list[Entity]:
+def create_aggregate_sensors(
+    area: MagicArea, entities_by_domain: dict[str, list[dict[str, str]]]
+) -> list[Entity]:
     """Create the aggregate sensors for the area."""
 
     eligible_entities: dict[str, list[str]] = {}
@@ -69,13 +75,13 @@ def create_aggregate_sensors(area: MagicArea) -> list[Entity]:
 
     aggregates: list[Entity] = []
 
-    if SENSOR_DOMAIN not in area.entities:
+    if SENSOR_DOMAIN not in entities_by_domain:
         return []
 
     if not area.has_feature(CONF_FEATURE_AGGREGATION):
         return []
 
-    for entity in area.entities[SENSOR_DOMAIN]:
+    for entity in entities_by_domain[SENSOR_DOMAIN]:
         entity_state = area.hass.states.get(entity[ATTR_ENTITY_ID])
         if not entity_state:
             continue

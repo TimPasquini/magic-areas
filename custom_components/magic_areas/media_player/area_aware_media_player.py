@@ -78,8 +78,15 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
         _LOGGER.debug("%s: Notification devices: %s", area.name, notification_devices)
 
+        runtime_data = getattr(area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            entities_by_domain = runtime_data.coordinator.data.entities
+        else:
+            entities_by_domain = area.entities
+        if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
+            return set()
         area_media_players = [
-            entity["entity_id"] for entity in area.entities[MEDIA_PLAYER_DOMAIN]
+            entity["entity_id"] for entity in entities_by_domain[MEDIA_PLAYER_DOMAIN]
         ]
 
         # Check if media_player entities are notification devices
