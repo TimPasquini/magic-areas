@@ -1,6 +1,7 @@
 """Climate control feature switch."""
 
 import logging
+from typing import Any
 
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
@@ -25,8 +26,8 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
-    MagicAreasFeatures,
 )
+from custom_components.magic_areas.features import CONF_FEATURE_CLIMATE_CONTROL
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoClimateControl,
 )
@@ -49,37 +50,37 @@ class ClimateControlSwitch(SwitchBase):
 
         SwitchBase.__init__(self, area)
 
-        self.climate_entity_id = self.area.feature_config(
-            MagicAreasFeatures.CLIMATE_CONTROL
-        ).get(CONF_CLIMATE_CONTROL_ENTITY_ID, None)
+        feature_config = self._get_feature_config()
+        self.climate_entity_id = feature_config.get(CONF_CLIMATE_CONTROL_ENTITY_ID, None)
 
         if not self.climate_entity_id:
             raise ValueError("Climate entity not set")
 
         self.preset_map = {
-            AreaStates.CLEAR: self.area.feature_config(
-                MagicAreasFeatures.CLIMATE_CONTROL
-            ).get(
+            AreaStates.CLEAR: feature_config.get(
                 CONF_CLIMATE_CONTROL_PRESET_CLEAR, DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR
             ),
-            AreaStates.OCCUPIED: self.area.feature_config(
-                MagicAreasFeatures.CLIMATE_CONTROL
-            ).get(
+            AreaStates.OCCUPIED: feature_config.get(
                 CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
                 DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
             ),
-            AreaStates.SLEEP: self.area.feature_config(
-                MagicAreasFeatures.CLIMATE_CONTROL
-            ).get(
+            AreaStates.SLEEP: feature_config.get(
                 CONF_CLIMATE_CONTROL_PRESET_SLEEP, DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP
             ),
-            AreaStates.EXTENDED: self.area.feature_config(
-                MagicAreasFeatures.CLIMATE_CONTROL
-            ).get(
+            AreaStates.EXTENDED: feature_config.get(
                 CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
                 DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
             ),
         }
+
+    def _get_feature_config(self) -> dict[str, Any]:
+        """Return feature config using coordinator snapshot when available."""
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            return runtime_data.coordinator.data.feature_configs.get(
+                CONF_FEATURE_CLIMATE_CONTROL, {}
+            )
+        return self.area.feature_config(CONF_FEATURE_CLIMATE_CONTROL)
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""

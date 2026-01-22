@@ -28,7 +28,6 @@ from custom_components.magic_areas.features import (
     CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
     CONF_FEATURE_MEDIA_PLAYER_GROUPS,
 )
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.media_player.area_aware_media_player import (
     AreaAwareMediaPlayer,
 )
@@ -47,15 +46,21 @@ async def async_setup_entry(
 ) -> None:
     """Set up the area media player config entry."""
 
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
+    runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
+    data = runtime_data.coordinator.data
+    if data is None:
+        _LOGGER.debug("Skipping media player setup; coordinator data unavailable")
+        return
+    area: MagicArea = data.area
 
     entities_to_add: list[Entity] = []
 
     # Media Player Groups
-    if area.has_feature(CONF_FEATURE_MEDIA_PLAYER_GROUPS):
+    if CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features:
         _LOGGER.debug("%s: Setting up media player groups.", area.name)
-        entities_to_add.extend(setup_media_player_group(area))
+        entities_to_add.extend(setup_media_player_group(area, data.entities))
 
     # Check if we are the Global Meta Area
     if area.is_meta() and area.id == META_AREA_GLOBAL.lower():
@@ -66,20 +71,24 @@ async def async_setup_entry(
     if entities_to_add:
         async_add_entities(entities_to_add)
 
-    if MEDIA_PLAYER_DOMAIN in area.magic_entities:
+    if MEDIA_PLAYER_DOMAIN in data.magic_entities:
         cleanup_removed_entries(
-            area.hass, entities_to_add, area.magic_entities[MEDIA_PLAYER_DOMAIN]
+            area.hass, entities_to_add, data.magic_entities[MEDIA_PLAYER_DOMAIN]
         )
 
 
-def setup_media_player_group(area: MagicArea) -> list[Entity]:
+def setup_media_player_group(
+    area: MagicArea, entities_by_domain: dict[str, list[dict[str, str]]]
+) -> list[Entity]:
     """Create the media player groups."""
     # Check if there are any media player devices
-    if not area.has_entities(MEDIA_PLAYER_DOMAIN):
+    if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
         _LOGGER.debug("%s: No %s entities.", area.name, MEDIA_PLAYER_DOMAIN)
         return []
 
-    media_player_entities = [e["entity_id"] for e in area.entities[MEDIA_PLAYER_DOMAIN]]
+    media_player_entities = [
+        e["entity_id"] for e in entities_by_domain[MEDIA_PLAYER_DOMAIN]
+    ]
 
     return [AreaMediaPlayerGroup(area, media_player_entities)]
 
@@ -101,13 +110,12 @@ async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
         runtime_data = entry.runtime_data
         if runtime_data.coordinator.data is None:
             await runtime_data.coordinator.async_refresh()
-
-        if runtime_data.coordinator.data:
-            current_area = runtime_data.coordinator.data.area
-            entities_by_domain = runtime_data.coordinator.data.entities
-        else:
-            current_area = runtime_data.area
-            entities_by_domain = current_area.entities
+        data = runtime_data.coordinator.data
+        if data is None:
+            _LOGGER.debug("Skipping area %s; no coordinator data", entry.entry_id)
+            continue
+        current_area = data.area
+        entities_by_domain = data.entities
 
         # Skip meta areas
         if current_area.is_meta():
@@ -115,7 +123,7 @@ async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
             continue
 
         # Skip areas with feature not enabled
-        if not current_area.has_feature(CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER):
+        if CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER not in data.enabled_features:
             _LOGGER.debug(
                 "%s: Does not have Area-aware media player feature enabled, skipping.",
                 current_area.name,
@@ -130,8 +138,8 @@ async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
             continue
 
         # Skip areas without notification devices set
-        notification_devices = current_area.feature_config(
-            CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER
+        notification_devices = data.feature_configs.get(
+            CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER, {}
         ).get(CONF_NOTIFICATION_DEVICES)
 
         if not notification_devices:
