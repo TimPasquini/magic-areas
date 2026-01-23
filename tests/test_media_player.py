@@ -232,3 +232,37 @@ async def test_area_aware_media_player(
     # Ensure area MP is NOT playing
 
     # Turn off AAMP
+
+
+async def test_area_aware_media_player_snapshot_fields(
+    hass: HomeAssistant,
+    area_aware_media_player_global_config_entry: MockConfigEntry,
+    area_aware_media_player_area_config_entry: MockConfigEntry,
+) -> None:
+    """Test area-aware media player snapshot fields used by the platform."""
+    await init_integration_helper(
+        hass,
+        [
+            area_aware_media_player_area_config_entry,
+            area_aware_media_player_global_config_entry,
+        ],
+    )
+
+    data = area_aware_media_player_area_config_entry.runtime_data.coordinator.data
+    assert data is not None
+    assert CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER in data.enabled_features
+
+    feature_config = data.feature_configs.get(CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER)
+    assert feature_config is not None
+    assert feature_config[CONF_NOTIFICATION_DEVICES] == [
+        "media_player.media_player_1"
+    ]
+    assert feature_config[CONF_NOTIFY_STATES] == [AreaStates.OCCUPIED]
+
+    await shutdown_integration(
+        hass,
+        [
+            area_aware_media_player_area_config_entry,
+            area_aware_media_player_global_config_entry,
+        ],
+    )

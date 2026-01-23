@@ -120,32 +120,30 @@ to these boundaries.
 
 ### Phase 1: Align boundaries
 
-- inventory platform files that still compute area state directly
-- define which fields must be present in `MagicAreasData`
-- add missing snapshot fields to the coordinator
-- ensure all platforms can use snapshot values
-- add explicit fallbacks where snapshot data might be `None`
+- status: complete
+- snapshot is the single source of truth for platform setup
+- coordinator refresh happens before platform setup (no area fallbacks)
+- `MagicAreasData` includes feature flags and feature configs used by platforms
 
-Planned actions:
+Implemented actions:
 
 - create a snapshot field matrix by platform:
   - sensors: `entities`, `magic_entities`, `config`, aggregates
   - binary sensors: presence data, secondary state data
   - lights: group members, tracking entities, config options
-  - media player: area-aware settings, entity ids
-  - switches: feature flags and entity ids
-- identify where each platform currently reads `MagicArea` directly
-- update coordinator snapshot to include those fields
-- add a single fallback path in each platform (snapshot or area), not both
+- media player: area-aware settings, entity ids
+- switches: feature flags and entity ids
+- identify where each platform reads `MagicArea` directly and migrate to snapshot
+- update coordinator snapshot to include needed fields
+- remove platform fallbacks to `area`
 - ensure coordinator refresh is used before platform setup
 
-Deliverables:
+Deliverables (done):
 
-- snapshot completeness checklist
-- coordinator tests that verify expected snapshot fields
-- platform files updated to prefer snapshot fields
-- design notes for any snapshot fields not yet supported
-- per-platform usage notes (which snapshot fields each platform consumes)
+- snapshot completeness checklist (see snapshot field checklist below)
+- coordinator tests for snapshot fields
+- per-platform snapshot field tests (cover, fan, media player, switch, threshold)
+- platform files use snapshot fields only
 
 ### Phase 2: Extract core domain logic
 
@@ -156,12 +154,15 @@ Deliverables:
 
 Planned actions:
 
-- extract entity filtering logic into `core/entities.py`
-- move presence timeout logic into `core/presence.py`
-- move aggregate calculations into `core/aggregates.py`
-- move meta area resolution into `core/meta.py`
-- keep `base/magic.py` as a compatibility wrapper that calls core modules
-- update coordinator to build snapshot from `core/*` outputs
+- introduce core data types (`AreaDescriptor`, `EntitySnapshot`) for HA-free logic
+- extract feature/config helpers into `core/area_model.py` or `core/config.py`
+- move presence sensor selection into `core/presence.py`
+- split entity list assembly:
+  - adapter keeps registry/state reads in `base/magic.py`
+  - pure grouping/filtering moves to `core/entities.py`
+- move meta area resolution into `core/meta.py` using descriptors + state map
+- keep `base/magic.py` as a compatibility wrapper during extraction
+- update coordinator to build snapshot from `core/*` outputs as modules land
 
 Deliverables:
 
@@ -319,51 +320,19 @@ Use it to guide coordinator updates and platform simplification.
 This section records which platforms still read `MagicArea` directly and what
 snapshot fields or helpers are missing for a clean migration.
 
-### Platforms already using snapshot (with fallback)
+### Platforms using snapshot (no fallback)
 
-- `sensor/__init__.py`
-  - uses snapshot `entities` and `magic_entities` with fallback to area
-  - gap: still depends on `area` when snapshot is missing
-
-- `binary_sensor/__init__.py`
-  - uses snapshot `entities` and `magic_entities` with fallback to area
-  - gap: fallback path still uses direct area reads
-
-- `light.py`
-  - uses snapshot `entities` and `magic_entities` with fallback to area
-  - gap: fallback path still uses direct area reads
-
+- `sensor/__init__.py`, `binary_sensor/__init__.py`, `light.py`
+  - snapshot-only entity wiring with coordinator refresh on setup
 - `binary_sensor/presence.py`
-  - uses snapshot `presence_sensors`
-  - gap: relies on runtime `area` for feature checks
+  - uses snapshot `presence_sensors` and snapshot feature flags
+- `cover.py`, `fan.py`, `media_player/__init__.py`, `switch/__init__.py`,
+  `threshold.py`, `diagnostics.py`
+  - snapshot-only reads with feature flags/configs from `MagicAreasData`
 
 ### Platforms still reading area directly
 
-- `cover.py`
-  - reads `area.entities` and `area.magic_entities`
-  - needs snapshot `entities` and `magic_entities` for cover domain
-
-- `fan.py`
-  - reads `area.entities` and `area.magic_entities`
-  - needs snapshot `entities` and `magic_entities` for fan domain
-
-- `media_player/__init__.py`
-  - reads `area.entities` for media player groups
-  - uses snapshot only when scanning entries for area-aware media player
-  - needs snapshot `entities` for group setup and a snapshot-friendly feature
-    config accessor for area-aware media player settings
-
-- `switch/__init__.py`
-  - reads `area` to check feature flags and add entities
-  - needs snapshot-driven feature enablement flags
-
-- `threshold.py`
-  - reads `area.entities` and `area.feature_config`
-  - needs snapshot `entities` and a helper for feature config access
-
-- `diagnostics.py`
-  - reads `area.entities` and `area.magic_entities`
-  - should prefer snapshot fields for reporting
+- none (Phase 1 complete)
 
 ### Config flow (intentional direct reads)
 
@@ -373,23 +342,14 @@ snapshot fields or helpers are missing for a clean migration.
 
 ### Snapshot field gaps to resolve in Phase 1
 
-- add snapshot accessors for feature config lookups
-  - current pattern: `area.feature_config(feature_key)`
-  - proposed: snapshot helper or derived field for feature configs
-
-- add snapshot-derived feature flags
-  - current pattern: `area.has_feature(feature_key)`
-  - proposed: snapshot `enabled_features` list or mapping
-
-- reduce fallback reliance
-  - once snapshot includes the above helpers, remove direct area reads
+- none (Phase 1 complete)
 
 ## Phase 1 tasks with acceptance criteria
 
 These tasks are the concrete Phase 1 deliverables. Each item lists the
 expected changes and how we verify them.
 
-### Coordinator snapshot extensions
+### Coordinator snapshot extensions (done)
 
 Task:
 - add `enabled_features` and `feature_configs` to `MagicAreasData`
@@ -402,7 +362,7 @@ Acceptance criteria:
 - coordinator tests confirm these values are present and non-empty when
   features are configured
 
-### Cover platform (`cover.py`)
+### Cover platform (`cover.py`) (done)
 
 Task:
 - switch to snapshot `entities` and `magic_entities`
@@ -413,7 +373,7 @@ Acceptance criteria:
 - cover groups still created for each device class
 - tests pass without changes to expected behavior
 
-### Fan platform (`fan.py`)
+### Fan platform (`fan.py`) (done)
 
 Task:
 - switch to snapshot `entities` and `magic_entities`
@@ -424,7 +384,7 @@ Acceptance criteria:
 - fan group creation uses snapshot entity ids
 - tests pass without behavior changes
 
-### Media player platform (`media_player/__init__.py`)
+### Media player platform (`media_player/__init__.py`) (done)
 
 Task:
 - use snapshot `entities` when building media player groups
@@ -435,7 +395,7 @@ Acceptance criteria:
 - area-aware media player logic uses snapshot data when available
 - existing tests pass without behavior changes
 
-### Switch platform (`switch/__init__.py`)
+### Switch platform (`switch/__init__.py`) (done)
 
 Task:
 - use snapshot `enabled_features` for feature gating
@@ -446,7 +406,7 @@ Acceptance criteria:
 - feature switches are still created appropriately
 - cleanup still uses snapshot `magic_entities`
 
-### Threshold platform (`threshold.py`)
+### Threshold platform (`threshold.py`) (done)
 
 Task:
 - use snapshot `entities` for illuminance sensors
@@ -457,7 +417,7 @@ Acceptance criteria:
 - feature configs read via snapshot helper
 - threshold tests still pass
 
-### Diagnostics (`diagnostics.py`)
+### Diagnostics (`diagnostics.py`) (done)
 
 Task:
 - report snapshot `entities` and `magic_entities` instead of area fields
@@ -467,7 +427,7 @@ Acceptance criteria:
 - diagnostics output matches current structure with updated timestamp
 - tests updated only if required for snapshot timestamp field
 
-### Fallback removal
+### Fallback removal (done)
 
 Task:
 - remove snapshot fallback to `area` in platforms after fields are present
@@ -476,6 +436,15 @@ Acceptance criteria:
 - platform code does not branch on snapshot existence
 - coordinator refresh happens before platform setup
 - tests remain green
+
+### Phase 1 completion notes
+
+- snapshot field coverage by platform:
+  - cover: `tests/test_cover.py`
+  - fan: `tests/test_fan.py`
+  - media player (area-aware feature config): `tests/test_media_player.py`
+  - switch (presence hold feature config): `tests/test_switch.py`
+  - threshold (aggregation feature config): `tests/test_threshold.py`
 ## Tests and coverage goals
 
 - all existing tests remain green

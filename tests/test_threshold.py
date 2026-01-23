@@ -34,6 +34,7 @@ from tests.helpers import (
 )
 from tests.helpers import (
     setup_mock_entities,
+    shutdown_integration,
 )
 from tests.mocks import MockSensor
 
@@ -163,3 +164,29 @@ async def test_threshold_sensor_light(
     # Ensure threhsold sensor is cleared
     threshold_sensor_state = hass.states.get(threshold_sensor_id)
     assert threshold_sensor_state.state == STATE_OFF
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_threshold_snapshot_fields(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    entities_sensor_illuminance_multiple: list[SensorEntity],
+) -> None:
+    """Test threshold snapshot fields used by the platform."""
+    await init_integration_helper(hass, [mock_config_entry])
+
+    data = mock_config_entry.runtime_data.coordinator.data
+    assert data is not None
+    assert CONF_FEATURE_AGGREGATION in data.enabled_features
+
+    feature_config = data.feature_configs.get(CONF_FEATURE_AGGREGATION)
+    assert feature_config is not None
+    assert (
+        feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD] == 600
+    )
+    assert (
+        feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS] == 10
+    )
+
+    await shutdown_integration(hass, [mock_config_entry])

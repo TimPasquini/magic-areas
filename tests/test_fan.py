@@ -195,6 +195,26 @@ async def test_fan_group_basic(
     assert_state(fan_group_state, STATE_ON)
 
 
+async def test_fan_snapshot_fields(
+    hass: HomeAssistant,
+    fan_groups_config_entry: MockConfigEntry,
+    entities_fan_multiple: list[MockFan],
+) -> None:
+    """Test fan snapshot fields used by the platform."""
+    await init_integration_helper(hass, [fan_groups_config_entry])
+
+    data = fan_groups_config_entry.runtime_data.coordinator.data
+    assert data is not None
+    assert CONF_FEATURE_FAN_GROUPS in data.enabled_features
+    assert FAN_DOMAIN in data.entities
+
+    entity_ids = {entity["entity_id"] for entity in data.entities[FAN_DOMAIN]}
+    for fan in entities_fan_multiple:
+        assert fan.entity_id in entity_ids
+
+    await shutdown_integration(hass, [fan_groups_config_entry])
+
+
 async def test_fan_group_logic(
     hass: HomeAssistant,
     entities_fan_multiple: list[MockFan],
