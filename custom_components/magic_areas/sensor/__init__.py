@@ -15,6 +15,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -27,7 +28,6 @@ from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
 )
 from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.sensor.base import AreaSensorGroupSensor
 from custom_components.magic_areas.util import cleanup_removed_entries
 
@@ -44,23 +44,21 @@ async def async_setup_entry(
 ) -> None:
     """Set up the area sensor config entry."""
 
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
     runtime_data = config_entry.runtime_data
     if runtime_data.coordinator.data is None:
         await runtime_data.coordinator.async_refresh()
     data = runtime_data.coordinator.data
-    entities_by_domain = (
-        data.entities if data and data.entities else area.entities
-    )
-    magic_entities = (
-        data.magic_entities if data and data.magic_entities else area.magic_entities
-    )
+    if data is None:
+        _LOGGER.debug("Skipping sensor setup; coordinator data unavailable")
+        return
+    area: MagicArea = data.area
+    entities_by_domain = data.entities
+    magic_entities = data.magic_entities
 
     entities_to_add: list[Entity] = []
 
-    if area.has_feature(CONF_FEATURE_AGGREGATION):
-        entities_to_add.extend(create_aggregate_sensors(area, entities_by_domain))
+    if CONF_FEATURE_AGGREGATION in data.enabled_features:
+        entities_to_add.extend(create_aggregate_sensors(data, entities_by_domain))
 
     if entities_to_add:
         async_add_entities(entities_to_add)
@@ -72,9 +70,10 @@ async def async_setup_entry(
 
 
 def create_aggregate_sensors(
-    area: MagicArea, entities_by_domain: dict[str, list[dict[str, str]]]
+    data: MagicAreasData, entities_by_domain: dict[str, list[dict[str, str]]]
 ) -> list[Entity]:
     """Create the aggregate sensors for the area."""
+    area = data.area
 
     eligible_entities: dict[str, list[str]] = {}
     unit_of_measurement_map: dict[str, list[str]] = {}
@@ -84,7 +83,7 @@ def create_aggregate_sensors(
     if SENSOR_DOMAIN not in entities_by_domain:
         return []
 
-    if not area.has_feature(CONF_FEATURE_AGGREGATION):
+    if CONF_FEATURE_AGGREGATION not in data.enabled_features:
         return []
 
     for entity in entities_by_domain[SENSOR_DOMAIN]:
@@ -129,12 +128,15 @@ def create_aggregate_sensors(
 
     # Create aggregates
     for device_class, entities in eligible_entities.items():
-        if len(entities) < area.feature_config(CONF_FEATURE_AGGREGATION).get(
-            CONF_AGGREGATES_MIN_ENTITIES, DEFAULT_AGGREGATES_MIN_ENTITIES
+        if len(entities) < data.feature_configs.get(CONF_FEATURE_AGGREGATION, {}).get(
+            CONF_AGGREGATES_MIN_ENTITIES,
+            DEFAULT_AGGREGATES_MIN_ENTITIES,
         ):
             continue
 
-        if device_class not in area.feature_config(CONF_FEATURE_AGGREGATION).get(
+        if device_class not in data.feature_configs.get(
+            CONF_FEATURE_AGGREGATION, {}
+        ).get(
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
             DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
         ):

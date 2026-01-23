@@ -203,7 +203,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             self._sensors = runtime_data.coordinator.data.presence_sensors.copy()
             return
 
-        self._sensors = self.area.get_presence_sensors()
+        _LOGGER.debug(
+            "%s: No coordinator data; skipping presence sensors", self.area.name
+        )
+        self._sensors = []
 
     # Entity state tracking & reporting
     def _secondary_state_change(self, event: Event[EventStateChangedData]) -> None:

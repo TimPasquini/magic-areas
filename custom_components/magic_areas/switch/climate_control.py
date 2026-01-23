@@ -141,6 +141,7 @@ class ClimateControlSwitch(SwitchBase):
                     ATTR_ENTITY_ID: self.climate_entity_id,
                     ATTR_PRESET_MODE: selected_preset,
                 },
+                blocking=True,
             )
         # pylint: disable-next=broad-exception-caught
         except Exception as e:

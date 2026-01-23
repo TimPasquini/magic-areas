@@ -43,12 +43,13 @@ from custom_components.magic_areas.light_groups import (
 from custom_components.magic_areas.enums import (
     AreaStates,
     LightGroupCategory,
-    MagicAreasFeatures,
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoLightGroups,
 )
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
+from custom_components.magic_areas.features import (
+    CONF_FEATURE_LIGHT_GROUPS,
+)
 from custom_components.magic_areas.util import cleanup_removed_entries
 
 if TYPE_CHECKING:
@@ -64,15 +65,19 @@ async def async_setup_entry(
 ) -> None:
     """Set up the area light config entry."""
 
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
     runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
     data = runtime_data.coordinator.data
-    entities_by_domain = data.entities if data else area.entities
-    magic_entities = data.magic_entities if data else area.magic_entities
+    if data is None:
+        _LOGGER.debug("Skipping light setup; coordinator data unavailable")
+        return
+    area: MagicArea = data.area
+    entities_by_domain = data.entities
+    magic_entities = data.magic_entities
 
     # Check feature availability
-    if not area.has_feature(MagicAreasFeatures.LIGHT_GROUPS):
+    if CONF_FEATURE_LIGHT_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any lights
@@ -81,6 +86,7 @@ async def async_setup_entry(
         return
 
     light_entities = [e["entity_id"] for e in entities_by_domain[LIGHT_DOMAIN]]
+    feature_config = data.feature_configs.get(CONF_FEATURE_LIGHT_GROUPS, {})
 
     light_groups = []
 
@@ -98,9 +104,7 @@ async def async_setup_entry(
         for category in LIGHT_GROUP_CATEGORIES:
             category_lights = [
                 light_entity
-                for light_entity in area.feature_config(
-                    MagicAreasFeatures.LIGHT_GROUPS
-                ).get(category, {})
+                for light_entity in feature_config.get(category, {})
                 if light_entity in light_entities
             ]
 
@@ -111,7 +115,12 @@ async def async_setup_entry(
                     category,
                     category_lights,
                 )
-                light_group_object = AreaLightGroup(area, category_lights, category)
+                light_group_object = AreaLightGroup(
+                    area,
+                    category_lights,
+                    category,
+                    feature_config=feature_config,
+                )
                 light_groups.append(light_group_object)
 
                 # Infer light group entity id from name
@@ -129,6 +138,7 @@ async def async_setup_entry(
                 light_entities,
                 category=LightGroupCategory.ALL,
                 child_ids=light_group_ids,
+                feature_config=feature_config,
             )
         )
 
@@ -212,12 +222,14 @@ class AreaLightGroup(MagicLightGroup):
         entities: list[str],
         category: str | None = None,
         child_ids: list[str] | None = None,
+        feature_config: dict[str, Any] | None = None,
     ) -> None:
         """Initialize light group."""
 
         MagicLightGroup.__init__(self, area, entities, translation_key=category)
 
         self._child_ids = child_ids
+        self._feature_config = feature_config or {}
 
         self.category = category
         self.assigned_states: list[str] = []
@@ -233,10 +245,10 @@ class AreaLightGroup(MagicLightGroup):
 
         # Get assigned states
         if self.category and self.category != LightGroupCategory.ALL:
-            self.assigned_states = area.feature_config(
-                MagicAreasFeatures.LIGHT_GROUPS
-            ).get(LIGHT_GROUP_STATES[self.category], [])
-            self.act_on = area.feature_config(MagicAreasFeatures.LIGHT_GROUPS).get(
+            self.assigned_states = self._feature_config.get(
+                LIGHT_GROUP_STATES[self.category], []
+            )
+            self.act_on = self._feature_config.get(
                 LIGHT_GROUP_ACT_ON[self.category], DEFAULT_LIGHT_GROUP_ACT_ON
             )
 
