@@ -21,7 +21,6 @@ from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoCoverGroups,
 )
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.util import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -38,15 +37,21 @@ async def async_setup_entry(
 ) -> None:
     """Set up the area cover config entry."""
 
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
+    runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
+    data = runtime_data.coordinator.data
+    if data is None:
+        _LOGGER.debug("Skipping cover setup; coordinator data unavailable")
+        return
+    area: MagicArea = data.area
 
     # Check feature availability
-    if not area.has_feature(CONF_FEATURE_COVER_GROUPS):
+    if CONF_FEATURE_COVER_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any covers
-    if not area.has_entities(COVER_DOMAIN):
+    if COVER_DOMAIN not in data.entities:
         _LOGGER.debug("No %s entities for area %s", COVER_DOMAIN, area.name)
         return
 
@@ -55,27 +60,30 @@ async def async_setup_entry(
     # Append None to the list of device classes to catch those covers that
     # don't have a device class assigned (and put them in their own group)
     for device_class in [*COVER_DEVICE_CLASSES, None]:
-        covers_in_device_class = [
-            e["entity_id"]
-            for e in area.entities[COVER_DOMAIN]
+        entities_in_device_class = [
+            e
+            for e in data.entities[COVER_DOMAIN]
             if e.get("device_class") == device_class
         ]
+        cover_ids = [e["entity_id"] for e in entities_in_device_class]
 
-        if any(covers_in_device_class):
+        if any(cover_ids):
             _LOGGER.debug(
                 "Creating %s cover group for %s with covers: %s",
                 device_class,
                 area.name,
-                covers_in_device_class,
+                cover_ids,
             )
-            entities_to_add.append(AreaCoverGroup(area, device_class))
+            entities_to_add.append(
+                AreaCoverGroup(area, device_class, entities_in_device_class)
+            )
 
     if entities_to_add:
         async_add_entities(entities_to_add)
 
-    if COVER_DOMAIN in area.magic_entities:
+    if COVER_DOMAIN in data.magic_entities:
         cleanup_removed_entries(
-            area.hass, entities_to_add, area.magic_entities[COVER_DOMAIN]
+            area.hass, entities_to_add, data.magic_entities[COVER_DOMAIN]
         )
 
 
@@ -84,7 +92,12 @@ class AreaCoverGroup(MagicEntity, CoverGroup):
 
     feature_info = MagicAreasFeatureInfoCoverGroups()
 
-    def __init__(self, area: MagicArea, device_class: str | None) -> None:
+    def __init__(
+        self,
+        area: MagicArea,
+        device_class: str | None,
+        entities: list[dict[str, str]],
+    ) -> None:
         """Initialize the cover group."""
         MagicEntity.__init__(
             self, area, domain=COVER_DOMAIN, translation_key=device_class
@@ -93,11 +106,7 @@ class AreaCoverGroup(MagicEntity, CoverGroup):
             CoverDeviceClass(device_class) if device_class else None
         )
         self._attr_device_class = sensor_device_class
-        self._entities = [
-            e
-            for e in area.entities[COVER_DOMAIN]
-            if e.get("device_class") == device_class
-        ]
+        self._entities = entities
         CoverGroup.__init__(
             self,
             entities=[e["entity_id"] for e in self._entities],

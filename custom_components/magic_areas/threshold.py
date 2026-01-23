@@ -14,6 +14,7 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -35,14 +36,19 @@ from custom_components.magic_areas.feature_info import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_illuminance_threshold(hass: HomeAssistant, area: MagicArea) -> Entity | None:
+def create_illuminance_threshold(
+    hass: HomeAssistant, data: MagicAreasData
+) -> Entity | None:
     """Create threshold light binary sensor based off illuminance aggregate."""
+    area: MagicArea = data.area
 
-    if not area.has_feature(CONF_FEATURE_AGGREGATION):
+    if CONF_FEATURE_AGGREGATION not in data.enabled_features:
         return None
 
-    illuminance_threshold = area.feature_config(CONF_FEATURE_AGGREGATION).get(
-        CONF_AGGREGATES_ILLUMINANCE_THRESHOLD, DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD
+    aggregation_config = data.feature_configs.get(CONF_FEATURE_AGGREGATION, {})
+    illuminance_threshold = aggregation_config.get(
+        CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
+        DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
     )
 
     if illuminance_threshold == 0:
@@ -50,19 +56,19 @@ def create_illuminance_threshold(hass: HomeAssistant, area: MagicArea) -> Entity
 
     if (
         homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        not in area.feature_config(CONF_FEATURE_AGGREGATION).get(
+        not in aggregation_config.get(
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
             DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
         )
     ):
         return None
 
-    if homeassistant.components.sensor.const.DOMAIN not in area.entities:
+    if homeassistant.components.sensor.const.DOMAIN not in data.entities:
         return None
 
     illuminance_sensors = [
         sensor
-        for sensor in area.entities[homeassistant.components.sensor.const.DOMAIN]
+        for sensor in data.entities[homeassistant.components.sensor.const.DOMAIN]
         if ATTR_DEVICE_CLASS in sensor
         and sensor[ATTR_DEVICE_CLASS]
         == homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
@@ -71,9 +77,7 @@ def create_illuminance_threshold(hass: HomeAssistant, area: MagicArea) -> Entity
     if not illuminance_sensors:
         return None
 
-    illuminance_threshold_hysteresis_percentage = area.feature_config(
-        CONF_FEATURE_AGGREGATION
-    ).get(
+    illuminance_threshold_hysteresis_percentage = aggregation_config.get(
         CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
         DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     )

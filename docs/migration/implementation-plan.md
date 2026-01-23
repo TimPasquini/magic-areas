@@ -314,6 +314,168 @@ Use it to guide coordinator updates and platform simplification.
 - `updated_at` for last refresh timestamp
 - `area` for identity metadata (name, id, type)
 
+## Phase 1 snapshot gap assessment (current state)
+
+This section records which platforms still read `MagicArea` directly and what
+snapshot fields or helpers are missing for a clean migration.
+
+### Platforms already using snapshot (with fallback)
+
+- `sensor/__init__.py`
+  - uses snapshot `entities` and `magic_entities` with fallback to area
+  - gap: still depends on `area` when snapshot is missing
+
+- `binary_sensor/__init__.py`
+  - uses snapshot `entities` and `magic_entities` with fallback to area
+  - gap: fallback path still uses direct area reads
+
+- `light.py`
+  - uses snapshot `entities` and `magic_entities` with fallback to area
+  - gap: fallback path still uses direct area reads
+
+- `binary_sensor/presence.py`
+  - uses snapshot `presence_sensors`
+  - gap: relies on runtime `area` for feature checks
+
+### Platforms still reading area directly
+
+- `cover.py`
+  - reads `area.entities` and `area.magic_entities`
+  - needs snapshot `entities` and `magic_entities` for cover domain
+
+- `fan.py`
+  - reads `area.entities` and `area.magic_entities`
+  - needs snapshot `entities` and `magic_entities` for fan domain
+
+- `media_player/__init__.py`
+  - reads `area.entities` for media player groups
+  - uses snapshot only when scanning entries for area-aware media player
+  - needs snapshot `entities` for group setup and a snapshot-friendly feature
+    config accessor for area-aware media player settings
+
+- `switch/__init__.py`
+  - reads `area` to check feature flags and add entities
+  - needs snapshot-driven feature enablement flags
+
+- `threshold.py`
+  - reads `area.entities` and `area.feature_config`
+  - needs snapshot `entities` and a helper for feature config access
+
+- `diagnostics.py`
+  - reads `area.entities` and `area.magic_entities`
+  - should prefer snapshot fields for reporting
+
+### Config flow (intentional direct reads)
+
+- `config_flow.py`
+  - uses `area.entities` for selectors and feature validation
+  - intended to read live registry state; not a snapshot target
+
+### Snapshot field gaps to resolve in Phase 1
+
+- add snapshot accessors for feature config lookups
+  - current pattern: `area.feature_config(feature_key)`
+  - proposed: snapshot helper or derived field for feature configs
+
+- add snapshot-derived feature flags
+  - current pattern: `area.has_feature(feature_key)`
+  - proposed: snapshot `enabled_features` list or mapping
+
+- reduce fallback reliance
+  - once snapshot includes the above helpers, remove direct area reads
+
+## Phase 1 tasks with acceptance criteria
+
+These tasks are the concrete Phase 1 deliverables. Each item lists the
+expected changes and how we verify them.
+
+### Coordinator snapshot extensions
+
+Task:
+- add `enabled_features` and `feature_configs` to `MagicAreasData`
+- populate these from `area.config` / `area.feature_config`
+- provide a small helper in coordinator for safe access
+
+Acceptance criteria:
+- `MagicAreasData` exposes `enabled_features: set[str]` or `list[str]`
+- `MagicAreasData` exposes `feature_configs: dict[str, dict[str, Any]]`
+- coordinator tests confirm these values are present and non-empty when
+  features are configured
+
+### Cover platform (`cover.py`)
+
+Task:
+- switch to snapshot `entities` and `magic_entities`
+- use snapshot feature flags for `CONF_FEATURE_COVER_GROUPS`
+
+Acceptance criteria:
+- no direct read of `area.entities` or `area.magic_entities`
+- cover groups still created for each device class
+- tests pass without changes to expected behavior
+
+### Fan platform (`fan.py`)
+
+Task:
+- switch to snapshot `entities` and `magic_entities`
+- use snapshot feature flags for `CONF_FEATURE_FAN_GROUPS`
+
+Acceptance criteria:
+- no direct read of `area.entities` or `area.magic_entities`
+- fan group creation uses snapshot entity ids
+- tests pass without behavior changes
+
+### Media player platform (`media_player/__init__.py`)
+
+Task:
+- use snapshot `entities` when building media player groups
+- use snapshot feature configs when evaluating area-aware media player settings
+
+Acceptance criteria:
+- no direct read of `area.entities` in `setup_media_player_group`
+- area-aware media player logic uses snapshot data when available
+- existing tests pass without behavior changes
+
+### Switch platform (`switch/__init__.py`)
+
+Task:
+- use snapshot `enabled_features` for feature gating
+- use snapshot `magic_entities` for cleanup
+
+Acceptance criteria:
+- no direct read of `area.has_feature`
+- feature switches are still created appropriately
+- cleanup still uses snapshot `magic_entities`
+
+### Threshold platform (`threshold.py`)
+
+Task:
+- use snapshot `entities` for illuminance sensors
+- use snapshot feature configs for aggregation options
+
+Acceptance criteria:
+- no direct read of `area.entities` inside threshold creation
+- feature configs read via snapshot helper
+- threshold tests still pass
+
+### Diagnostics (`diagnostics.py`)
+
+Task:
+- report snapshot `entities` and `magic_entities` instead of area fields
+- include snapshot `updated_at` in diagnostics
+
+Acceptance criteria:
+- diagnostics output matches current structure with updated timestamp
+- tests updated only if required for snapshot timestamp field
+
+### Fallback removal
+
+Task:
+- remove snapshot fallback to `area` in platforms after fields are present
+
+Acceptance criteria:
+- platform code does not branch on snapshot existence
+- coordinator refresh happens before platform setup
+- tests remain green
 ## Tests and coverage goals
 
 - all existing tests remain green

@@ -19,7 +19,6 @@ from custom_components.magic_areas.features import (
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoFanGroups,
 )
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
 from custom_components.magic_areas.util import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -35,19 +34,25 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Area config entry."""
 
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
+    runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
+    data = runtime_data.coordinator.data
+    if data is None:
+        _LOGGER.debug("Skipping fan setup; coordinator data unavailable")
+        return
+    area: MagicArea = data.area
 
     # Check feature availability
-    if not area.has_feature(CONF_FEATURE_FAN_GROUPS):
+    if CONF_FEATURE_FAN_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any fan entities
-    if not area.has_entities(FAN_DOMAIN):
+    if FAN_DOMAIN not in data.entities:
         _LOGGER.debug("%s: No %s entities for area.", area.name, FAN_DOMAIN)
         return
 
-    fan_entities: list[str] = [e["entity_id"] for e in area.entities[FAN_DOMAIN]]
+    fan_entities: list[str] = [e["entity_id"] for e in data.entities[FAN_DOMAIN]]
 
     fan_groups: list[AreaFanGroup] = []
     try:
@@ -61,8 +66,8 @@ async def async_setup_entry(
             str(e),
         )
 
-    if FAN_DOMAIN in area.magic_entities:
-        cleanup_removed_entries(area.hass, fan_groups, area.magic_entities[FAN_DOMAIN])
+    if FAN_DOMAIN in data.magic_entities:
+        cleanup_removed_entries(area.hass, fan_groups, data.magic_entities[FAN_DOMAIN])
 
 
 class AreaFanGroup(MagicEntity, FanGroup):

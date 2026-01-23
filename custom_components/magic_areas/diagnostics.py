@@ -15,7 +15,18 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: MagicAreasConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    area = entry.runtime_data.area
+    runtime_data = entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
+    data = runtime_data.coordinator.data
+    if data is None:
+        return {
+            "entry": homeassistant.components.diagnostics.async_redact_data(
+                entry.as_dict(), TO_REDACT
+            ),
+            "area": {"error": "Coordinator data unavailable"},
+        }
+    area = data.area
 
     return {
         "entry": homeassistant.components.diagnostics.async_redact_data(
@@ -27,10 +38,11 @@ async def async_get_config_entry_diagnostics(
             "type": area.area_type,
             "states": area.states,
             "meta": area.is_meta(),
-            "entities": area.entities,
-            "magic_entities": area.magic_entities,
+            "entities": data.entities,
+            "magic_entities": data.magic_entities,
             "config": homeassistant.components.diagnostics.async_redact_data(
-                area.config, TO_REDACT
+                data.config, TO_REDACT
             ),
+            "updated_at": data.updated_at.isoformat(),
         },
     }

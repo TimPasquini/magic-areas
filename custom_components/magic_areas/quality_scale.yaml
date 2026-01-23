@@ -14,9 +14,9 @@ rules:
   reauthentication-flow: todo
   
   # Gold
-  diagnostics: done
+  diagnostics: todo
   exception-translations: todo
   icon-translations: todo
   
   # Platinum
-  strict-typing: done
+  strict-typing: todo

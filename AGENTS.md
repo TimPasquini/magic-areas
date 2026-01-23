@@ -32,18 +32,19 @@ rules:
     comment: Integration does not register custom actions.
   
   # Silver (if targeting Silver+)
-  entity-unavailable: done
-  parallel-updates: done
+  entity-unavailable: todo
+  parallel-updates: todo
   
   # Gold (if targeting Gold+)
-  devices: done
-  diagnostics: done
+  devices: todo
+  diagnostics: todo
   
   # Platinum (if targeting Platinum)
-  strict-typing: done
+  strict-typing: todo
 ```
 
 **When Reviewing/Creating Code**: Always check the integration's quality scale level and exemption status before applying rules.
+**When Updating rule implementation**: Do not mark higher tier items complete unless the previous tier has all items marked.
 
 ## Code Review Guidelines
 

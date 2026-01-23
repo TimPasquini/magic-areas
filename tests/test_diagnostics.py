@@ -38,5 +38,6 @@ async def test_diagnostics(
     assert isinstance(area_diag["magic_entities"], dict)
     assert area_diag["config"]["id"] == "**REDACTED**"
     assert area_diag["config"]["name"] == "**REDACTED**"
+    assert "updated_at" in area_diag
 
     await shutdown_integration(hass, [mock_config_entry])
