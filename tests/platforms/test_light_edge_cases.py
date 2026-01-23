@@ -247,41 +247,46 @@ async def test_state_change_secondary_logic(
     )
     assert target_group is not None
 
-    # Mock area object
-    area = target_group.area
-
     # Modify assigned_states for this test
     target_group.assigned_states = [AreaStates.OCCUPIED]
 
-    # Mock area having BRIGHT state
-    area.states = [AreaStates.BRIGHT]
+    # Current area state for testing
+    current_states = [AreaStates.BRIGHT]
 
     # Mock _turn_off to verify it is called
     target_group._turn_off = MagicMock(return_value=True)
 
     # Test: AreaStates.BRIGHT in new_states and OCCUPIED not in new_states
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], current_states)
+    )
     target_group._turn_off.assert_called_once()
 
     # Reset
     target_group._turn_off.reset_mock()
 
     # Test: AreaStates.DARK in new_states -> return False
-    target_group.state_change_secondary(([AreaStates.DARK], []))
+    target_group.state_change_secondary(
+        ([AreaStates.DARK], [], current_states)
+    )
     target_group._turn_off.assert_not_called()
 
     # Test: out_of_priority_states
     target_group.assigned_states = [AreaStates.SLEEP]
-    area.states = [AreaStates.OCCUPIED]
-    target_group.state_change_secondary(([], [AreaStates.SLEEP]))
+    current_states = [AreaStates.OCCUPIED]
+    target_group.state_change_secondary(
+        ([], [AreaStates.SLEEP], current_states)
+    )
     target_group._turn_off.assert_called_once()
 
     # Reset
     target_group._turn_off.reset_mock()
 
     # Test: No new priority states -> return False
-    area.states = [AreaStates.OCCUPIED]
-    target_group.state_change_secondary(([AreaStates.OCCUPIED], []))
+    current_states = [AreaStates.OCCUPIED]
+    target_group.state_change_secondary(
+        ([AreaStates.OCCUPIED], [], current_states)
+    )
     target_group._turn_off.assert_not_called()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry])
@@ -308,8 +313,14 @@ async def test_group_state_changed_logic(
     )
     assert target_group is not None
 
-    # Mock area.is_occupied
-    target_group.area.is_occupied = MagicMock(return_value=False)
+    # Get the area from the coordinator to avoid tight coupling
+    coordinator = hass.config_entries.async_get_entry(
+        light_edge_cases_config_entry.entry_id
+    ).runtime_data.coordinator
+    area = coordinator.data.area
+
+    # Setup test scenario 1: area not occupied (empty states list)
+    area.states = []
     target_group.reset_control = MagicMock()
 
     # Test area not occupied
@@ -317,8 +328,8 @@ async def test_group_state_changed_logic(
     target_group.group_state_changed(event)
     target_group.reset_control.assert_called_once()
 
-    # Test area occupied
-    target_group.area.is_occupied.return_value = True
+    # Setup test scenario 2: area occupied
+    area.states = [AreaStates.OCCUPIED]
     target_group.reset_control.reset_mock()
 
     # Test invalid event (no context)
@@ -392,16 +403,21 @@ async def test_act_on_config(
 
     # 1. Test Occupancy change skip (393-396)
     # act_on is empty, so it should skip occupancy changes
-    target_group.state_change_secondary(([AreaStates.OCCUPIED], []))
+    current_states = []
+    target_group.state_change_secondary(
+        ([AreaStates.OCCUPIED], [], current_states)
+    )
     target_group._turn_on.assert_not_called()
 
     # 2. Test State change skip (403-406)
     # act_on is empty, so it should skip state changes
     # Let's modify assigned_states for this test.
     target_group.assigned_states.append(AreaStates.BRIGHT)
-    target_group.area.states.append(AreaStates.BRIGHT)  # Mock area having the state
+    current_states = [AreaStates.BRIGHT]
 
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], current_states)
+    )
     target_group._turn_on.assert_not_called()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
@@ -434,14 +450,16 @@ async def test_priority_state_preference(
     target_group.assigned_states = [AreaStates.OCCUPIED, AreaStates.SLEEP]
     target_group.act_on = ["occupancy", "state"]
 
-    # Mock area states
-    target_group.area.states = [AreaStates.OCCUPIED, AreaStates.SLEEP]
+    # Current area states
+    current_states = [AreaStates.OCCUPIED, AreaStates.SLEEP]
 
     # Mock _turn_on
     target_group._turn_on = MagicMock(return_value=True)
 
     # Trigger update
-    target_group.state_change_secondary(([AreaStates.SLEEP], []))
+    target_group.state_change_secondary(
+        ([AreaStates.SLEEP], [], current_states)
+    )
     target_group._turn_on.assert_called_once()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
@@ -471,12 +489,14 @@ async def test_dark_state_prevention(
     )
 
     target_group.assigned_states = [AreaStates.OCCUPIED]
-    target_group.area.states = [AreaStates.DARK]
+    current_states = [AreaStates.DARK]
 
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with DARK in new_states
-    target_group.state_change_secondary(([AreaStates.DARK], []))
+    target_group.state_change_secondary(
+        ([AreaStates.DARK], [], current_states)
+    )
 
     # Should return False and NOT call turn_off
     target_group._turn_off.assert_not_called()
@@ -508,12 +528,14 @@ async def test_no_priority_transition(
     )
 
     target_group.assigned_states = [AreaStates.OCCUPIED]
-    target_group.area.states = [AreaStates.EXTENDED]
+    current_states = [AreaStates.EXTENDED]
 
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with EXTENDED in new_states, OCCUPIED in lost_states
-    target_group.state_change_secondary(([AreaStates.EXTENDED], [AreaStates.OCCUPIED]))
+    target_group.state_change_secondary(
+        ([AreaStates.EXTENDED], [AreaStates.OCCUPIED], current_states)
+    )
 
     # Should return False (noop)
     target_group._turn_off.assert_not_called()
@@ -549,12 +571,14 @@ async def test_bright_not_assigned(
     # area has state BRIGHT
 
     target_group.assigned_states = [AreaStates.OCCUPIED]
-    target_group.area.states = [AreaStates.BRIGHT]
+    current_states = [AreaStates.BRIGHT]
 
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with BRIGHT in new_states
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], current_states)
+    )
 
     # Should call turn_off
     target_group._turn_off.assert_called_once()
@@ -581,8 +605,12 @@ async def test_manual_control_detection(
         light_group_id
     )
 
-    # Setup:
-    target_group.area.is_occupied = MagicMock(return_value=True)
+    # Setup: Set area to occupied via coordinator data
+    coordinator = hass.config_entries.async_get_entry(
+        light_edge_cases_config_entry_limited.entry_id
+    ).runtime_data.coordinator
+    area = coordinator.data.area
+    area.states = [AreaStates.OCCUPIED]
 
     # Simulate state change event (manual turn on/off)
     event = MagicMock()

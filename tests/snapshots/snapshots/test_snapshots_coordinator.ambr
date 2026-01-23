@@ -1,0 +1,105 @@
+# serializer version: 1
+# name: test_coordinator_active_areas
+  dict({
+    'active_areas': list([
+    ]),
+    'active_areas_count': 0,
+    'active_areas_type': 'list',
+  })
+# ---
+# name: test_coordinator_config_snapshot
+  dict({
+    'area_id': 'kitchen',
+    'area_type': <AreaType.INTERIOR: 'interior'>,
+    'enabled_features_keys': list([
+    ]),
+    'presence_device_classes': list([
+      <BinarySensorDeviceClass.MOTION: 'motion'>,
+      <BinarySensorDeviceClass.OCCUPANCY: 'occupancy'>,
+      <BinarySensorDeviceClass.PRESENCE: 'presence'>,
+    ]),
+    'presence_platforms': None,
+  })
+# ---
+# name: test_coordinator_data_feature_structure
+  dict({
+    'enabled_features_count': 0,
+    'feature_configs_count': 0,
+    'feature_names': list([
+    ]),
+  })
+# ---
+# name: test_coordinator_metadata
+  dict({
+    'area_id': 'kitchen',
+    'area_last_update_success': True,
+    'has_updated_at': True,
+  })
+# ---
+# name: test_coordinator_snapshot_entities
+  dict({
+    'domain_entity_counts': dict({
+    }),
+    'domains': list([
+    ]),
+    'magic_domain_entity_counts': dict({
+      'binary_sensor': 2,
+    }),
+    'magic_domains': list([
+      'binary_sensor',
+    ]),
+  })
+# ---
+# name: test_coordinator_snapshot_features
+  dict({
+    'enabled_features': list([
+    ]),
+    'feature_config_keys': list([
+    ]),
+    'has_feature_configs': False,
+  })
+# ---
+# name: test_coordinator_snapshot_presence
+  dict({
+    'presence_device_classes': list([
+      <BinarySensorDeviceClass.MOTION: 'motion'>,
+      <BinarySensorDeviceClass.OCCUPANCY: 'occupancy'>,
+      <BinarySensorDeviceClass.PRESENCE: 'presence'>,
+    ]),
+    'presence_device_platforms': list([
+    ]),
+    'presence_sensor_count': 0,
+    'presence_sensors': list([
+    ]),
+  })
+# ---
+# name: test_coordinator_snapshot_structure
+  dict({
+    'active_areas_type': 'list',
+    'area_id': 'kitchen',
+    'area_name': 'kitchen',
+    'config_keys': list([
+      'clear_timeout',
+      'entity_ts',
+      'exclude_entities',
+      'extended_timeout',
+      'features',
+      'id',
+      'include_entities',
+      'name',
+      'presence_sensor_device_class',
+      'type',
+    ]),
+    'enabled_features': list([
+    ]),
+    'entity_domains': list([
+    ]),
+    'feature_configs': dict({
+    }),
+    'has_updated_at': True,
+    'magic_entity_domains': list([
+      'binary_sensor',
+    ]),
+    'presence_sensor_count': 0,
+  })
+# ---

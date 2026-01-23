@@ -2,16 +2,18 @@
 
 import logging
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    STATE_OFF,
     STATE_ON,
     EntityCategory,
 )
-from homeassistant.core import Event, EventStateChangedData
+from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -47,6 +49,8 @@ class FanControlSwitch(SwitchBase):
 
     setpoint: float = 0.0
     tracked_entity_id: str
+    _last_states: list[str]
+    _area_sensor_entity_id: str
 
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Fan control switch."""
@@ -60,12 +64,16 @@ class FanControlSwitch(SwitchBase):
             DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
         )
         self.tracked_entity_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_{self.area.slug}_aggregate_{tracked_device_class}"
+        self._area_sensor_entity_id = (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.area.slug}_area_state"
+        )
 
         self.setpoint = float(
             self.area.feature_config(MagicAreasFeatures.FAN_GROUPS).get(
                 CONF_FAN_GROUPS_SETPOINT, DEFAULT_FAN_GROUPS_SETPOINT
             )
         )
+        self._last_states = []
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
@@ -83,16 +91,21 @@ class FanControlSwitch(SwitchBase):
                 self.aggregate_sensor_state_changed,
             )
         )
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
+            )
+        )
 
     async def aggregate_sensor_state_changed(
         self, event: Event[EventStateChangedData]
     ) -> None:
         """Call update state from track state change event."""
 
-        await self.run_logic(self.area.states)
+        await self.run_logic(self._last_states or self.area.states)
 
     async def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
@@ -105,9 +118,33 @@ class FanControlSwitch(SwitchBase):
             )
             return
 
-        # pylint: disable-next=unused-variable
-        new_states, lost_states = states_tuple
-        await self.run_logic(states=new_states)
+        new_states, lost_states, current_states = states_tuple
+        if not new_states and not lost_states:
+            return
+        self._last_states = current_states
+        await self.run_logic(states=current_states)
+
+    @callback
+    def _area_sensor_state_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Ensure fan group turns off when area is clear."""
+        if not self.is_on:
+            return
+
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+
+        if new_state.state != STATE_OFF:
+            return
+
+        fan_group_entity_id = (
+            f"{FAN_DOMAIN}.magic_areas_fan_groups_{self.area.slug}_fan_group"
+        )
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: fan_group_entity_id}
+            )
+        )
 
     async def run_logic(self, states: list[str]) -> None:
         """Run fan control logic."""
@@ -138,6 +175,12 @@ class FanControlSwitch(SwitchBase):
                 required_state,
                 str(states),
             )
+            fan_group_state = self.hass.states.get(fan_group_entity_id)
+            if fan_group_state and fan_group_state.state == STATE_ON:
+                _LOGGER.debug("%s: Turning off fans due to state mismatch", self.name)
+                await self.hass.services.async_call(
+                    FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: fan_group_entity_id}
+                )
             return
 
         _LOGGER.debug(

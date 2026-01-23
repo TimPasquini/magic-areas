@@ -8,8 +8,11 @@ from homeassistant.components.climate.const import (
     DOMAIN as CLIMATE_DOMAIN,
     SERVICE_SET_PRESET_MODE,
 )
-from homeassistant.const import ATTR_ENTITY_ID, EntityCategory
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.const import ATTR_ENTITY_ID, EntityCategory, STATE_OFF, STATE_ON
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
@@ -44,7 +47,7 @@ class ClimateControlSwitch(SwitchBase):
 
     preset_map: dict[str, str]
     climate_entity_id: str | None
-
+    _area_sensor_entity_id: str
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Climate control switch."""
 
@@ -72,6 +75,9 @@ class ClimateControlSwitch(SwitchBase):
                 DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
             ),
         }
+        self._area_sensor_entity_id = (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.area.slug}_area_state"
+        )
 
     def _get_feature_config(self) -> dict[str, Any]:
         """Return feature config using coordinator snapshot when available."""
@@ -91,9 +97,13 @@ class ClimateControlSwitch(SwitchBase):
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
             )
         )
-
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
+            )
+        )
     async def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
@@ -110,6 +120,12 @@ class ClimateControlSwitch(SwitchBase):
             )
             return
 
+        new_states, lost_states, current_states = states_tuple
+        current_state_set = set(current_states)
+
+        if not new_states and not lost_states:
+            return
+
         priority_states: list[str] = [
             AreaStates.SLEEP,
             AreaStates.EXTENDED,
@@ -117,16 +133,33 @@ class ClimateControlSwitch(SwitchBase):
         ]
 
         # Handle area clear because the other states doesn't matter
-        if self.area.has_state(AreaStates.CLEAR):
+        if AreaStates.CLEAR in new_states:
             if self.preset_map[AreaStates.CLEAR]:
                 await self.apply_preset(AreaStates.CLEAR)
             return
 
         # Handle each state top priority to last, returning early
         for p_state in priority_states:
-            if self.area.has_state(p_state) and self.preset_map[p_state]:
+            if p_state in new_states and self.preset_map[p_state]:
                 await self.apply_preset(p_state)
                 return
+
+    @callback
+    def _area_sensor_state_changed(self, event: Any) -> None:
+        """Handle area sensor state change to keep presets in sync."""
+        if not self.is_on:
+            return
+
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+
+        if new_state.state == STATE_OFF and self.preset_map[AreaStates.CLEAR]:
+            self.hass.async_create_task(self.apply_preset(AreaStates.CLEAR))
+            return
+
+        if new_state.state == STATE_ON and self.preset_map[AreaStates.OCCUPIED]:
+            self.hass.async_create_task(self.apply_preset(AreaStates.OCCUPIED))
 
     async def apply_preset(self, state_name: str) -> None:
         """Set climate entity to given preset."""
@@ -141,6 +174,7 @@ class ClimateControlSwitch(SwitchBase):
                     ATTR_ENTITY_ID: self.climate_entity_id,
                     ATTR_PRESET_MODE: selected_preset,
                 },
+                blocking=True,
             )
         # pylint: disable-next=broad-exception-caught
         except Exception as e:

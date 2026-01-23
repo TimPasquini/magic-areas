@@ -101,18 +101,19 @@ class MagicEntity(RestoreEntity):
         return f"{domain}.{entity_id}"
 
     def _generate_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
-        # Format: magicareas_feature_domain_areaname_name
+        # Format: feature_area_id_[translation]_[extra...]
         if not self.feature_info:
             raise NotImplementedError(f"{self.name}: Feature info not set.")
 
         unique_id_parts = [
-            MAGICAREAS_UNIQUEID_PREFIX,
             self.feature_info.id,
-            domain,
-            self.area.slug,
+            self.area.id,
         ]
 
-        if self._attr_translation_key:
+        if (
+            self._attr_translation_key
+            and self._attr_translation_key != self.feature_info.id
+        ):
             unique_id_parts.append(self._attr_translation_key)
 
         if self._extra_identifiers:
@@ -124,6 +125,11 @@ class MagicEntity(RestoreEntity):
     def should_poll(self) -> bool:
         """If entity should be polled."""
         return False
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return getattr(self.area, "last_update_success", True)
 
     @property
     def device_info(self) -> DeviceInfo:

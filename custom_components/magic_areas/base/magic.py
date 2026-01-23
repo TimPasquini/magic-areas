@@ -5,13 +5,12 @@ import logging
 import random
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     EVENT_HOMEASSISTANT_STARTED,
     STATE_ON,
@@ -42,9 +41,6 @@ from custom_components.magic_areas.area_constants import (
     AREA_TYPE_META,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.area_maps import (
-    CONFIGURABLE_AREA_STATE_MAP,
-)
 from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
     MAGIC_AREAS_COMPONENTS_GLOBAL,
@@ -57,24 +53,30 @@ from custom_components.magic_areas.config_keys import (
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_SECONDARY_STATES,
     CONF_TYPE,
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
-    DEFAULT_PRESENCE_DEVICE_PLATFORMS,
 )
 from custom_components.magic_areas.enums import (
     MagicAreasEvents,
     MetaAreaAutoReloadSettings,
     MetaAreaType,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
+from custom_components.magic_areas.core.config import (
+    has_configured_state,
+    normalize_feature_config,
 )
+from custom_components.magic_areas.core.area_model import AreaDescriptor
+from custom_components.magic_areas.core.entities import (
+    EntitySnapshot,
+    build_entity_dict,
+    group_entities,
+)
+from custom_components.magic_areas.core.meta import (
+    build_meta_presence_sensors,
+    resolve_active_areas,
+    resolve_child_areas,
+)
+from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 if TYPE_CHECKING:
@@ -120,6 +122,9 @@ class MagicArea:
         # Faster lookup lists
         self._area_entities: list[str] = []
         self._area_devices: list[str] = []
+
+        # Track coordinator availability status
+        self.last_update_success: bool = True
 
         # Timestamp for initialization / reload tests
         self.timestamp: datetime = dt_util.utcnow()
@@ -174,55 +179,58 @@ class MagicArea:
         """Return if area is occupied."""
         return self.has_state(AREA_STATE_OCCUPIED)
 
+    def get_current_states(self) -> list[str]:
+        """Return the most recent area states from the area sensor if available."""
+        if self.states:
+            return list(self.states)
+        area_sensor_entity_id = (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.slug}_area_state"
+        )
+        area_sensor_state = self.hass.states.get(area_sensor_entity_id)
+        if (
+            area_sensor_state
+            and "states" in area_sensor_state.attributes
+            and area_sensor_state.attributes["states"]
+        ):
+            normalized: list[str] = []
+            for state in area_sensor_state.attributes["states"]:
+                if isinstance(state, Enum):
+                    normalized.append(str(state.value))
+                else:
+                    normalized.append(str(state))
+            return normalized
+        return list(self.states)
+
     def has_state(self, state: str) -> bool:
         """Check if area has a given state."""
-        return state in self.states
+        value = state.value if isinstance(state, Enum) else state
+        return str(value) in [str(item) for item in self.get_current_states()]
 
     def has_configured_state(self, state: str) -> bool:
         """Check if area supports a given state."""
-        state_opts = CONFIGURABLE_AREA_STATE_MAP.get(state, None)
-
-        if not state_opts:
-            return False
-
-        # state_opts is the config key for the entity (e.g. "sleep_entity")
-        # We need to check if this key is configured in secondary states
-        secondary_states = self.config.get(CONF_SECONDARY_STATES, {})
-
-        if secondary_states.get(state_opts):
-            return True
-
-        return False
+        return has_configured_state(self.config, state)
 
     def has_feature(self, feature: str) -> bool:
         """Check if area has a given feature."""
         enabled_features = self.config.get(CONF_ENABLED_FEATURES)
-
-        # Deal with legacy
-        if isinstance(enabled_features, list):
-            return feature in enabled_features
-
-        # Handle everything else
-        if not isinstance(enabled_features, dict):
+        if enabled_features is not None and not isinstance(enabled_features, (list, dict)):
             self.logger.warning(
                 "%s: Invalid configuration for %s", self.name, CONF_ENABLED_FEATURES
             )
-            return False
-
-        return feature in enabled_features
+        enabled, _ = normalize_feature_config(self.config)
+        return feature in enabled
 
     def feature_config(self, feature: str) -> dict:
         """Return configuration for a given feature."""
-        if not self.has_feature(feature):
+        enabled, feature_configs = normalize_feature_config(self.config)
+        if feature not in enabled:
             self.logger.debug("%s: Feature '%s' not enabled.", self.name, feature)
             return {}
 
-        options = self.config.get(CONF_ENABLED_FEATURES, {})
-
-        if not options:
+        if not feature_configs:
             self.logger.debug("%s: No feature config found for %s", self.name, feature)
 
-        return options.get(feature, {})
+        return feature_configs.get(feature, {})
 
     def available_platforms(self) -> list[str]:
         """Return available platforms to area type."""
@@ -363,21 +371,13 @@ class MagicArea:
 
         # Get latest state and create object
         latest_state = self.hass.states.get(entity_id)
-        entity_dict = {ATTR_ENTITY_ID: entity_id}
-
-        if latest_state:
-            # Need to exclude entity_id if present but latest_state.attributes
-            # is a ReadOnlyDict so we can't remove it, need to iterate and select
-            # all keys that are NOT entity_id
-            for attr_key, attr_value in latest_state.attributes.items():
-                if attr_key != ATTR_ENTITY_ID:
-                    entity_dict[str(attr_key)] = str(attr_value)
-
-        return entity_dict
+        attributes = latest_state.attributes if latest_state else None
+        return build_entity_dict(entity_id, attributes)
 
     def load_entity_list(self, entity_list: list[RegistryEntry]) -> None:
         """Populate entity list with loaded entities."""
         self.logger.debug("%s: Original entity list: %s", self.name, str(entity_list))
+        snapshots: list[EntitySnapshot] = []
 
         for entity in entity_list:
             if entity.entity_id in self._area_entities:
@@ -385,17 +385,19 @@ class MagicArea:
             self.logger.debug("%s: Loading entity: %s", self.name, entity.entity_id)
 
             try:
-                updated_entity = self.get_entity_dict(entity.entity_id)
-
                 if not entity.domain:
                     self.logger.warning(
                         "%s: Entity domain not found for %s", self.name, entity
                     )
                     continue
-                if entity.domain not in self.entities:
-                    self.entities[entity.domain] = []
-
-                self.entities[entity.domain].append(updated_entity)
+                latest_state = self.hass.states.get(entity.entity_id)
+                snapshots.append(
+                    EntitySnapshot(
+                        entity_id=entity.entity_id,
+                        domain=entity.domain,
+                        attributes=latest_state.attributes if latest_state else None,
+                    )
+                )
 
                 self._area_entities.append(entity.entity_id)
 
@@ -409,59 +411,22 @@ class MagicArea:
                     str(err),
                 )
 
+        grouped = group_entities(snapshots)
+        for domain, entities in grouped.items():
+            self.entities.setdefault(domain, []).extend(entities)
+
         # Load our own entities
         self.load_magic_entities()
 
     def get_presence_sensors(self) -> list[str]:
         """Return list of entities used for presence tracking."""
-
-        sensors: list[str] = []
-
-        valid_presence_platforms = self.config.get(
-            CONF_PRESENCE_DEVICE_PLATFORMS, DEFAULT_PRESENCE_DEVICE_PLATFORMS
+        enabled, _ = normalize_feature_config(self.config)
+        return build_presence_sensors(
+            entities_by_domain=self.entities,
+            config=self.config,
+            slug=self.slug,
+            enabled_features=enabled,
         )
-
-        for component, entities in self.entities.items():
-            if component not in valid_presence_platforms:
-                continue
-
-            for entity in entities:
-                if not entity:
-                    continue
-
-                if component == BINARY_SENSOR_DOMAIN:
-                    if ATTR_DEVICE_CLASS not in entity:
-                        continue
-
-                    if entity[ATTR_DEVICE_CLASS] not in self.config.get(
-                        CONF_PRESENCE_SENSOR_DEVICE_CLASS, []
-                    ):
-                        continue
-
-                sensors.append(entity[ATTR_ENTITY_ID])
-
-        # Append presence_hold switch as a presence_sensor
-        if self.has_feature(CONF_FEATURE_PRESENCE_HOLD):
-            presence_hold_switch_id = (
-                f"{SWITCH_DOMAIN}.magic_areas_presence_hold_{self.slug}"
-            )
-            sensors.append(presence_hold_switch_id)
-
-        # Append BLE Tracker monitor as a presence_sensor
-        if self.has_feature(CONF_FEATURE_BLE_TRACKERS):
-            ble_tracker_sensor_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_{self.slug}_ble_tracker_monitor"
-            sensors.append(ble_tracker_sensor_id)
-
-        # Append Wasp In The Box sensor as presence monitor
-        if self.has_feature(CONF_FEATURE_AGGREGATION) and self.has_feature(
-            CONF_FEATURE_WASP_IN_A_BOX
-        ):
-            wasp_in_the_box_sensor_id = (
-                f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{self.slug}"
-            )
-            sensors.append(wasp_in_the_box_sensor_id)
-
-        return sensors
 
     async def initialize(self, _: Any = None) -> None:
         """Initialize area."""
@@ -573,33 +538,52 @@ class MagicMetaArea(MagicArea):
         super().__init__(hass, area, config)
         self.child_areas: list[str] = self.get_child_areas()
 
+    def _collect_area_descriptors(self) -> list[AreaDescriptor]:
+        """Return descriptors for all loaded areas."""
+        entries = self.hass.config_entries.async_entries("magic_areas")
+        descriptors: list[AreaDescriptor] = []
+
+        for entry in entries:
+            if entry.state != ConfigEntryState.LOADED:
+                continue
+
+            if entry.domain != "magic_areas":
+                continue
+
+            area: MagicArea = entry.runtime_data.area
+            area_type = area.config.get(CONF_TYPE, area.id)
+            descriptors.append(
+                AreaDescriptor(
+                    id=area.id,
+                    slug=area.slug,
+                    floor_id=area.floor_id,
+                    area_type=str(area_type),
+                    is_meta=area.is_meta(),
+                )
+            )
+
+        return descriptors
+
     def get_presence_sensors(self) -> list[str]:
         """Return list of entities used for presence tracking."""
-
-        sensors: list[str] = []
-
-        # MetaAreas track their children
-        for child_area in self.child_areas:
-            entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{child_area}_area_state"
-            sensors.append(entity_id)
-        return sensors
+        return build_meta_presence_sensors(self.child_areas)
 
     def get_active_areas(self) -> list[str]:
         """Return areas that are occupied."""
-
-        active_areas = []
+        state_map: dict[str, str] = {}
 
         for area in self.child_areas:
             try:
-                entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
+                entity_id = (
+                    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
+                )
                 entity = self.hass.states.get(entity_id)
 
                 if not entity:
                     self.logger.debug("%s: Unable to get area state entity.", area)
                     continue
 
-                if entity.state == STATE_ON:
-                    active_areas.append(area)
+                state_map[area] = entity.state
 
             # Adding pylint exception because this is a last-resort hail-mary catch-all
             # pylint: disable-next=broad-exception-caught
@@ -608,39 +592,18 @@ class MagicMetaArea(MagicArea):
                     "%s: Unable to get active area state: %s", area, str(e)
                 )
 
-        return active_areas
+        return resolve_active_areas(self.child_areas, state_map)
 
     def get_child_areas(self) -> list[str]:
         """Return areas that a Meta area is watching."""
-        entries = self.hass.config_entries.async_entries("magic_areas")
-        areas: list[str] = []
-
-        for entry in entries:
-            if entry.state != ConfigEntryState.LOADED:
-                continue
-
-            # We need to cast here because we know it's a MagicAreasConfigEntry
-            # but the type system doesn't know that yet
-            if entry.domain != "magic_areas":
-                continue
-            entry = entry
-
-            area: MagicArea = entry.runtime_data.area
-
-            if area.is_meta():
-                continue
-
-            if self.floor_id:
-                if self.floor_id == area.floor_id:
-                    areas.append(area.slug)
-            else:
-                if (
-                    self.id == MetaAreaType.GLOBAL
-                    or area.config.get(CONF_TYPE) == self.id
-                ):
-                    areas.append(area.slug)
-
-        return areas
+        meta_descriptor = AreaDescriptor(
+            id=self.id,
+            slug=self.slug,
+            floor_id=self.floor_id,
+            area_type=str(self.id),
+            is_meta=True,
+        )
+        return resolve_child_areas(meta_descriptor, self._collect_area_descriptors())
 
     async def initialize(self, _: Any = None) -> None:
         """Initialize Meta area."""

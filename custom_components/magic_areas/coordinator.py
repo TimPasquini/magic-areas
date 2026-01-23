@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
-from enum import Enum
 from typing import Any
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -16,8 +16,13 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.magic import MagicArea, MagicMetaArea
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.core.config import normalize_feature_config
+from custom_components.magic_areas.core.meta import (
+    build_meta_presence_sensors,
+    resolve_active_areas,
+)
+from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,46 +69,39 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
                 self.area.child_areas = self.area.get_child_areas()
             await self.area.load_entities()
         except Exception as err:  # pylint: disable=broad-exception-caught
+            self.area.last_update_success = False
             raise UpdateFailed(f"Unable to update area data: {err}") from err
+        else:
+            self.area.last_update_success = True
 
-        enabled_features, feature_configs = self._normalize_feature_config(
-            self.area.config
+        enabled_features, feature_configs = normalize_feature_config(self.area.config)
+        presence_sensors = build_presence_sensors(
+            entities_by_domain=self.area.entities,
+            config=self.area.config,
+            slug=self.area.slug,
+            enabled_features=enabled_features,
         )
         active_areas: list[str] = []
         if isinstance(self.area, MagicMetaArea):
-            active_areas = self.area.get_active_areas()
+            presence_sensors = build_meta_presence_sensors(self.area.child_areas)
+            state_map: dict[str, str] = {}
+            for area_id in self.area.child_areas:
+                entity_id = (
+                    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area_id}_area_state"
+                )
+                area_state = self.hass.states.get(entity_id)
+                if area_state:
+                    state_map[area_id] = area_state.state
+            active_areas = resolve_active_areas(self.area.child_areas, state_map)
 
         return MagicAreasData(
             area=self.area,
             entities=self.area.entities,
             magic_entities=self.area.magic_entities,
-            presence_sensors=self.area.get_presence_sensors(),
+            presence_sensors=presence_sensors,
             active_areas=active_areas,
             config=self.area.config,
             enabled_features=enabled_features,
             feature_configs=feature_configs,
             updated_at=dt_util.utcnow(),
         )
-
-    @staticmethod
-    def _normalize_feature_config(
-        config: dict[str, Any],
-    ) -> tuple[set[str], dict[str, dict[str, Any]]]:
-        """Return enabled features and normalized feature config map."""
-        raw_features = config.get(CONF_ENABLED_FEATURES, {})
-
-        def _normalize_key(feature: Any) -> str:
-            if isinstance(feature, Enum):
-                return str(feature.value)
-            return str(feature)
-
-        if isinstance(raw_features, list):
-            normalized = {_normalize_key(feature) for feature in raw_features}
-            return normalized, {feature: {} for feature in normalized}
-        if isinstance(raw_features, dict):
-            normalized = {_normalize_key(feature) for feature in raw_features}
-            return normalized, {
-                _normalize_key(feature): dict(values)
-                for feature, values in raw_features.items()
-            }
-        return set(), {}

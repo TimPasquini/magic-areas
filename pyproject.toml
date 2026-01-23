@@ -161,6 +161,27 @@ log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(
 log_date_format = "%Y-%m-%d %H:%M:%S"
 log_cli = false
 asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--cov=custom_components",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:asynctest.*:",
+]
+
+[tool.coverage.run]
+source = ["custom_components"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplemented\\(\\)",
+    "if __name__ == '__main__':",
+    "main\\(\\)",
+]
+show_missing = true
+# TODO: Restore coverage threshold
+# fail_under = 93
 
 [tool.ruff]
 target-version = "py313"

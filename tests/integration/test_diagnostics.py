@@ -1,10 +1,15 @@
 """Test the diagnostics module."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.diagnostics import async_get_config_entry_diagnostics
+from custom_components.magic_areas.core_constants import DOMAIN
+from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
+    get_basic_config_entry_data,
     init_integration as init_integration_helper,
     shutdown_integration,
 )
@@ -41,3 +46,31 @@ async def test_diagnostics(
     assert "updated_at" in area_diag
 
     await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_diagnostics_coordinator_data_unavailable(
+    hass: HomeAssistant,
+) -> None:
+    """Test diagnostics when coordinator data is unavailable."""
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+    config_entry.add_to_hass(hass)
+
+    # Mock coordinator that returns None for data
+    from custom_components.magic_areas.models import MagicAreasRuntimeData
+
+    mock_coordinator = AsyncMock()
+    mock_coordinator.data = None
+    mock_coordinator.async_refresh = AsyncMock()  # Returns None implicitly
+
+    # Create a minimal runtime data mock
+    runtime_data = MagicMock()
+    runtime_data.coordinator = mock_coordinator
+    config_entry.runtime_data = runtime_data
+
+    diagnostics = await async_get_config_entry_diagnostics(hass, config_entry)
+
+    # Should return error response when data unavailable
+    assert "entry" in diagnostics
+    assert "area" in diagnostics
+    assert diagnostics["area"] == {"error": "Coordinator data unavailable"}

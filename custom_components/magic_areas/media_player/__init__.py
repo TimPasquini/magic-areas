@@ -33,7 +33,7 @@ from custom_components.magic_areas.media_player.area_aware_media_player import (
 )
 from custom_components.magic_areas.util import cleanup_removed_entries
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

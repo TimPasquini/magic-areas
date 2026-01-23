@@ -1,7 +1,7 @@
 # Test coverage differences
 
-This document outlines how the current test suite differs from the original
-fork baseline and how it supports the HA Bronze tier requirements.
+This document outlines how the test suite differs from the fork baseline
+(commit `d7b5779`) and how it supports the HA Bronze tier requirements.
 
 ## Bronze alignment
 
@@ -11,32 +11,46 @@ The Bronze tier requires:
 - baseline coding standards
 - stable, documented behavior for new users
 
-The current suite validates UI setup paths, configuration options, and runtime
+The suite validates UI setup paths, configuration options, and runtime
 behavior so baseline requirements are demonstrably met.
 
-## Current test scope
+## Current test scope (delta summary)
 
-Compared to the original baseline, the current suite covers more of the
-integration surface area. The list below reflects the present scope and how it
-maps to runtime behavior.
+Compared to the fork baseline, the suite now covers:
+
+- coordinator snapshot creation and platform gating
+- config flow and options flow for all feature steps
+- core helper logic for config normalization, presence selection, and entity
+  grouping
+- platform snapshot usage across all supported domains
+- availability behavior driven by coordinator refresh
+- expanded edge cases for lights, presence, and control switches
+
+## Coverage by area
 
 ### Core integration setup and lifecycle
 
-- `tests/test_component_init.py`: entry setup, reload behavior, and coordinator setup/teardown paths.
+- `tests/test_component_init.py`: entry setup, reload behavior, and coordinator
+  setup/teardown paths.
 - `tests/test_init.py`: migration and entry setup expectations.
 - `tests/test_cleanup.py`: unload paths and teardown stability.
 - `tests/test_area_reload.py`: reload behavior when registry changes occur.
 - `tests/test_helpers_area.py`: area helper behavior and runtime data access.
+- `tests/test_availability.py`: coordinator-driven availability behavior.
 
 ### Config flow and options flow
 
-- `tests/test_config_flow.py`: full options flow coverage, error paths, selectors, and feature configuration steps.
+- `tests/test_config_flow.py`: full options flow coverage, error paths,
+  selectors, and feature configuration steps.
 - `tests/test_exceptions.py`: config flow and setup exceptions.
 - `tests/AGENTS.md`: testing guidelines reinforced to avoid HA API drift.
 
 ### Coordinator and snapshot behavior
 
 - `tests/test_coordinator.py`: snapshot creation and update failure handling.
+- `tests/test_core_config.py`: core feature config normalization.
+- `tests/test_core_presence.py`: core presence sensor selection.
+- `tests/test_core_entities.py`: core entity grouping and normalization.
 
 ### Sensor and aggregate behavior
 
@@ -64,14 +78,18 @@ maps to runtime behavior.
 
 ### Media player and audio features
 
-- `tests/test_media_player.py`: area-aware media player behavior and notifications.
+- `tests/test_media_player.py`: area-aware media player behavior and
+  notifications.
 
 ### Switches and controls
 
 - `tests/test_switch.py`: switch behavior for control features.
 - `tests/test_switch_setup.py`: setup error handling and cleanup.
 - `tests/test_switch_media_player_control.py`: media player control switch logic.
-- `tests/test_fan_setup.py`, `tests/test_cover_setup.py`: platform setup error handling.
+- `tests/test_fan_setup.py`, `tests/test_cover_setup.py`: platform setup error
+  handling.
+- `tests/test_climate_control.py`: climate control behaviors.
+- `tests/test_cover.py`, `tests/test_fan.py`: platform feature behavior.
 
 ### Supporting fixtures and utilities
 
@@ -79,13 +97,36 @@ maps to runtime behavior.
 - `tests/helpers.py`: integration and registry setup helpers.
 - `tests/mocks.py`: updated mocks for stable entity behavior.
 - `tests/const.py`: test constants and mock area definitions.
+- `tests/test_diagnostics.py`: diagnostics output and redaction.
+- `tests/test_icons.py`: icon handling.
+- `tests/test_restore.py`: restore behaviors.
+- `tests/test_timer.py`: timer behavior.
+- `tests/test_magic.py`: core integration behaviors.
 
-## Why this improves Bronze readiness
+## Delta map (tests to changes)
 
-- UI setup paths and options flow are comprehensively tested.
-- Platform setup logic is exercised through integration-level tests.
-- Coordinator snapshots are validated so runtime behavior is deterministic.
-- Tests confirm stable, user-visible behavior rather than internal details.
+This map ties key deltas to the tests that now cover them.
+
+- Coordinator snapshot gating and availability:
+  - `tests/test_coordinator.py`
+  - `tests/test_availability.py`
+- Core helper extraction:
+  - `tests/test_core_config.py`
+  - `tests/test_core_presence.py`
+  - `tests/test_core_entities.py`
+- Platform snapshot usage:
+  - `tests/test_cover.py`
+  - `tests/test_fan.py`
+  - `tests/test_media_player.py`
+  - `tests/test_switch.py`
+  - `tests/test_threshold.py`
+- Event payload updates and state-change handling:
+  - `tests/test_light_complex.py`
+  - `tests/test_light_edge_cases.py`
+  - `tests/test_switch.py`
+- Identity and migration changes:
+  - `tests/test_init.py`
+  - `tests/test_magic.py`
 
 ## Guidance for future tests
 

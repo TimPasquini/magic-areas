@@ -475,7 +475,7 @@ async def test_event_filtering(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         "other_area",
-        ([], []),
+        ([], [], []),
     )
     await hass.async_block_till_done()
     # No assertion, just coverage of the early return

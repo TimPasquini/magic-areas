@@ -131,6 +131,26 @@ async def test_cover_group_basic(
             )
 
 
+async def test_cover_snapshot_fields(
+    hass: HomeAssistant,
+    cover_groups_config_entry: MockConfigEntry,
+    entities_sensor_cover_all_classes_multiple: list[MockCover],
+) -> None:
+    """Test cover snapshot fields used by the platform."""
+    await init_integration_helper(hass, [cover_groups_config_entry])
+
+    data = cover_groups_config_entry.runtime_data.coordinator.data
+    assert data is not None
+    assert CONF_FEATURE_COVER_GROUPS in data.enabled_features
+    assert COVER_DOMAIN in data.entities
+
+    entity_ids = {entity["entity_id"] for entity in data.entities[COVER_DOMAIN]}
+    for cover in entities_sensor_cover_all_classes_multiple:
+        assert cover.entity_id in entity_ids
+
+    await shutdown_integration(hass, [cover_groups_config_entry])
+
+
 async def test_cover_group_update(
     hass: HomeAssistant,
     entities_sensor_cover_all_classes_multiple: list[MockCover],

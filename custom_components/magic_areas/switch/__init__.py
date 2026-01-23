@@ -55,7 +55,7 @@ async def async_setup_entry(
     if CONF_FEATURE_PRESENCE_HOLD in data.enabled_features and not area.is_meta():
         try:
             switch_entities.append(PresenceHoldSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "%s: Error loading presence hold switch: %s", area.name, str(e)
             )
@@ -63,7 +63,7 @@ async def async_setup_entry(
     if CONF_FEATURE_LIGHT_GROUPS in data.enabled_features and not area.is_meta():
         try:
             switch_entities.append(LightControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "%s: Error loading light control switch: %s", area.name, str(e)
             )
@@ -74,7 +74,7 @@ async def async_setup_entry(
     ):
         try:
             switch_entities.append(MediaPlayerControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "%s: Error loading media player control switch: %s", area.name, str(e)
             )
@@ -82,13 +82,13 @@ async def async_setup_entry(
     if CONF_FEATURE_FAN_GROUPS in data.enabled_features and not area.is_meta():
         try:
             switch_entities.append(FanControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error("%s: Error loading fan control switch: %s", area.name, str(e))
 
     if CONF_FEATURE_CLIMATE_CONTROL in data.enabled_features:
         try:
             switch_entities.append(ClimateControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "%s: Error loading climate control switch: %s", area.name, str(e)
             )

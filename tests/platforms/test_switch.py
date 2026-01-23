@@ -221,7 +221,7 @@ async def test_media_player_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,  # area_id
-        ([AreaStates.CLEAR], []),  # (new_states, lost_states)
+        ([AreaStates.CLEAR], [], [AreaStates.CLEAR]),  # (new_states, lost_states, current_states)
     )
     await hass.async_block_till_done()
 
@@ -229,6 +229,24 @@ async def test_media_player_control_switch(
     assert calls[0].data[ATTR_ENTITY_ID] == (
         f"{MEDIA_PLAYER_DOMAIN}.magic_areas_media_player_groups_{DEFAULT_MOCK_AREA}_media_player_group"
     )
+
+
+async def test_switch_snapshot_fields_presence_hold(
+    hass: HomeAssistant,
+    presence_hold_config_entry: MockConfigEntry,
+) -> None:
+    """Test switch snapshot fields used by the platform."""
+    await init_integration_helper(hass, [presence_hold_config_entry])
+
+    data = presence_hold_config_entry.runtime_data.coordinator.data
+    assert data is not None
+    assert CONF_FEATURE_PRESENCE_HOLD in data.enabled_features
+
+    feature_config = data.feature_configs.get(CONF_FEATURE_PRESENCE_HOLD)
+    assert feature_config is not None
+    assert feature_config[CONF_PRESENCE_HOLD_TIMEOUT] == 1
+
+    await shutdown_integration(hass, [presence_hold_config_entry])
 
 
 async def test_presence_hold_switch_timeout(
@@ -356,7 +374,7 @@ async def test_fan_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], []),
+        ([AreaStates.CLEAR], [], list(area.states)),
     )
     await hass.async_block_till_done()
 
@@ -371,7 +389,7 @@ async def test_fan_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR]),
+        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, mock_fan.entity_id, STATE_OFF)

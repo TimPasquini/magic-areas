@@ -1,4 +1,12 @@
-"""Fixtures for tests."""
+"""Fixtures for tests.
+
+Fixtures are organized into sections:
+- Core fixtures: Enable integration testing in HA environment
+- Autouse fixtures: Applied to all tests automatically
+- Timer fixtures: For tests involving async timers/delays
+- Config entry fixtures: Mock configuration entries for areas
+- Entity fixtures: Pre-built mock entities for platforms
+"""
 
 from collections.abc import AsyncGenerator
 import logging
@@ -47,28 +55,56 @@ from tests.mocks import MockBinarySensor, MockLight
 
 _LOGGER = logging.getLogger(__name__)
 
-# Fixtures
+# ============================================================================
+# CORE FIXTURES - Applied automatically to all tests
+# ============================================================================
 
 
 @pytest.fixture(autouse=True)
 async def auto_enable_custom_integrations(
     enable_custom_integrations: None,
 ) -> AsyncGenerator[None, None]:
-    """Enable custom integration."""
+    """Enable custom integration in test environment.
+
+    This fixture is automatically applied to all tests. It allows the Magic Areas
+    custom integration to be loaded during testing. Required for all integration
+    tests.
+
+    Status: MUST KEEP - Required for all tests
+    """
     _ = enable_custom_integrations  # unused
     yield
 
 
 @pytest.fixture(autouse=True)
 def mock_http_start_server():
-    """Mock HTTP start server to prevent socket binding."""
+    """Mock HTTP start server to prevent socket binding.
+
+    This fixture is automatically applied to all tests. It patches the HTTP
+    server startup to prevent tests from attempting to bind to actual network
+    sockets, which would fail in test environments.
+
+    Status: MUST KEEP - Prevents network binding errors
+    """
     with patch("homeassistant.components.http.start_http_server_and_save_config"):
         yield
 
 
 @pytest.fixture(autouse=True)
 def patch_reload_settings():
-    """Patch reload settings to be instant."""
+    """Patch meta-area reload settings for instant reload during testing.
+
+    This fixture is automatically applied to all tests. It sets reload delays
+    to 0, allowing meta-area reload logic to execute immediately without waiting.
+    This is critical for test speed and determinism.
+
+    Patched settings:
+    - MetaAreaAutoReloadSettings.DELAY = 0
+    - MetaAreaAutoReloadSettings.DELAY_MULTIPLIER = 1
+    - MetaAreaAutoReloadSettings.THROTTLE = 0
+
+    Status: SHOULD REVIEW - Needed only by tests that reload meta-areas
+    """
     with patch(
         "custom_components.magic_areas.base.magic.MetaAreaAutoReloadSettings"
     ) as mock_settings:
@@ -78,12 +114,30 @@ def patch_reload_settings():
         yield
 
 
-# Timer-related
+# ============================================================================
+# TIMER FIXTURES - For tests involving async timers and delayed callbacks
+# ============================================================================
 
 
 @pytest.fixture
 def patch_async_call_later(hass):
-    """Automatically patch async_call_later for ReusableTimer tests."""
+    """Patch async_call_later to execute immediately for faster testing.
+
+    Use this fixture when your test involves:
+    - Timer-based presence clearing (CONF_CLEAR_TIMEOUT)
+    - Extended presence timeouts (CONF_EXTENDED_TIMEOUT)
+    - ReusableTimer logic
+    - Switch base timer operations
+
+    This fixture makes timers execute immediately instead of waiting, which
+    speeds up tests significantly. Without this fixture, timer tests would
+    need to use hass.async_block_till_done() extensively.
+
+    Example:
+        async def test_timeout(hass, patch_async_call_later):
+            # Timer will execute immediately
+            await asyncio.sleep(10)  # No actual delay needed
+    """
     with (
         patch(
             "custom_components.magic_areas.helpers.timer.async_call_later",
@@ -97,12 +151,26 @@ def patch_async_call_later(hass):
         yield
 
 
-# Config entries
+# ============================================================================
+# CONFIG ENTRY FIXTURES - Pre-built mock configuration entries
+# ============================================================================
 
 
 @pytest.fixture
 async def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
-    """Fixture for mock configuration entry."""
+    """Create a mock config entry for the default test area.
+
+    Creates a single configuration entry for DEFAULT_MOCK_AREA with basic
+    settings. This is the most common fixture for single-area tests.
+
+    Returns:
+        MockConfigEntry: A configured entry ready for use in tests
+
+    Example:
+        async def test_something(hass, mock_config_entry, init_integration):
+            # Test with the configured area
+            pass
+    """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     # Set unique_id to match the area ID from the data
     area_id = data.get(CONF_ID, DEFAULT_MOCK_AREA.value)
@@ -115,7 +183,22 @@ async def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
 
 @pytest.fixture(name="all_areas_with_meta_config_entry")
 async def mock_config_entry_all_areas_with_meta_config_entry() -> list[MockConfigEntry]:
-    """Fixture for mock configuration entry."""
+    """Create mock config entries for all test areas with aggregation enabled.
+
+    Creates configuration entries for all MockAreaIds (bedroom, kitchen, etc.)
+    and enables the CONF_FEATURE_AGGREGATION feature with default settings.
+
+    This fixture is useful for meta-area and aggregation tests where you need
+    multiple areas with consistent feature configurations.
+
+    Returns:
+        list[MockConfigEntry]: One entry per area with aggregation enabled
+
+    Example:
+        async def test_meta_area(hass, all_areas_with_meta_config_entry, init_integration):
+            # Test with all areas set up and aggregation enabled
+            pass
+    """
 
     config_entries: list[MockConfigEntry] = []
     for area_entry in MockAreaIds:
@@ -141,7 +224,9 @@ async def mock_config_entry_all_areas_with_meta_config_entry() -> list[MockConfi
     return config_entries
 
 
-# Entities
+# ============================================================================
+# ENTITY FIXTURES - Pre-built mock entities for different platforms
+# ============================================================================
 
 
 @pytest.fixture(name="entities_binary_sensor_motion_one")
