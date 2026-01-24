@@ -260,20 +260,26 @@ async def test_state_change_secondary_logic(
     target_group._turn_off = MagicMock(return_value=True)
 
     # Test: AreaStates.BRIGHT in new_states and OCCUPIED not in new_states
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], list(area.states))
+    )
     target_group._turn_off.assert_called_once()
 
     # Reset
     target_group._turn_off.reset_mock()
 
     # Test: AreaStates.DARK in new_states -> return False
-    target_group.state_change_secondary(([AreaStates.DARK], []))
+    target_group.state_change_secondary(
+        ([AreaStates.DARK], [], list(area.states))
+    )
     target_group._turn_off.assert_not_called()
 
     # Test: out_of_priority_states
     target_group.assigned_states = [AreaStates.SLEEP]
     area.states = [AreaStates.OCCUPIED]
-    target_group.state_change_secondary(([], [AreaStates.SLEEP]))
+    target_group.state_change_secondary(
+        ([], [AreaStates.SLEEP], list(area.states))
+    )
     target_group._turn_off.assert_called_once()
 
     # Reset
@@ -281,7 +287,9 @@ async def test_state_change_secondary_logic(
 
     # Test: No new priority states -> return False
     area.states = [AreaStates.OCCUPIED]
-    target_group.state_change_secondary(([AreaStates.OCCUPIED], []))
+    target_group.state_change_secondary(
+        ([AreaStates.OCCUPIED], [], list(area.states))
+    )
     target_group._turn_off.assert_not_called()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry])
@@ -392,7 +400,9 @@ async def test_act_on_config(
 
     # 1. Test Occupancy change skip (393-396)
     # act_on is empty, so it should skip occupancy changes
-    target_group.state_change_secondary(([AreaStates.OCCUPIED], []))
+    target_group.state_change_secondary(
+        ([AreaStates.OCCUPIED], [], list(target_group.area.states))
+    )
     target_group._turn_on.assert_not_called()
 
     # 2. Test State change skip (403-406)
@@ -401,7 +411,9 @@ async def test_act_on_config(
     target_group.assigned_states.append(AreaStates.BRIGHT)
     target_group.area.states.append(AreaStates.BRIGHT)  # Mock area having the state
 
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], list(target_group.area.states))
+    )
     target_group._turn_on.assert_not_called()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
@@ -441,7 +453,9 @@ async def test_priority_state_preference(
     target_group._turn_on = MagicMock(return_value=True)
 
     # Trigger update
-    target_group.state_change_secondary(([AreaStates.SLEEP], []))
+    target_group.state_change_secondary(
+        ([AreaStates.SLEEP], [], list(target_group.area.states))
+    )
     target_group._turn_on.assert_called_once()
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
@@ -476,7 +490,9 @@ async def test_dark_state_prevention(
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with DARK in new_states
-    target_group.state_change_secondary(([AreaStates.DARK], []))
+    target_group.state_change_secondary(
+        ([AreaStates.DARK], [], list(target_group.area.states))
+    )
 
     # Should return False and NOT call turn_off
     target_group._turn_off.assert_not_called()
@@ -513,7 +529,9 @@ async def test_no_priority_transition(
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with EXTENDED in new_states, OCCUPIED in lost_states
-    target_group.state_change_secondary(([AreaStates.EXTENDED], [AreaStates.OCCUPIED]))
+    target_group.state_change_secondary(
+        ([AreaStates.EXTENDED], [AreaStates.OCCUPIED], list(target_group.area.states))
+    )
 
     # Should return False (noop)
     target_group._turn_off.assert_not_called()
@@ -554,7 +572,9 @@ async def test_bright_not_assigned(
     target_group._turn_off = MagicMock(return_value=True)
 
     # Trigger with BRIGHT in new_states
-    target_group.state_change_secondary(([AreaStates.BRIGHT], []))
+    target_group.state_change_secondary(
+        ([AreaStates.BRIGHT], [], list(target_group.area.states))
+    )
 
     # Should call turn_off
     target_group._turn_off.assert_called_once()

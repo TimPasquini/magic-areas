@@ -23,7 +23,7 @@ class LightGroupCategory(StrEnum):
 
 class MagicConfigEntryVersion(IntEnum):
     MAJOR = 2
-    MINOR = 1
+    MINOR = 2
 
 
 class MagicAreasFeatures(StrEnum):

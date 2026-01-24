@@ -221,7 +221,7 @@ async def test_media_player_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,  # area_id
-        ([AreaStates.CLEAR], []),  # (new_states, lost_states)
+        ([AreaStates.CLEAR], [], [AreaStates.CLEAR]),  # (new_states, lost_states, current_states)
     )
     await hass.async_block_till_done()
 
@@ -374,7 +374,7 @@ async def test_fan_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], []),
+        ([AreaStates.CLEAR], [], list(area.states)),
     )
     await hass.async_block_till_done()
 
@@ -389,7 +389,7 @@ async def test_fan_control_switch(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR]),
+        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, mock_fan.entity_id, STATE_OFF)

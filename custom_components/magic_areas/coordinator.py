@@ -63,7 +63,10 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
                 self.area.child_areas = self.area.get_child_areas()
             await self.area.load_entities()
         except Exception as err:  # pylint: disable=broad-exception-caught
+            self.area.last_update_success = False
             raise UpdateFailed(f"Unable to update area data: {err}") from err
+        else:
+            self.area.last_update_success = True
 
         enabled_features, feature_configs = normalize_feature_config(self.area.config)
         active_areas: list[str] = []

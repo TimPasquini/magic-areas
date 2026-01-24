@@ -1,6 +1,6 @@
 # GitHub Copilot & Claude Code Instructions
 
-This repository contains the core of Home Assistant, a Python 3 based home automation application.
+This repository contains a Home Assistant custom integration (`custom_components/magic_areas`).
 
 ## Integration Quality Scale
 
@@ -97,11 +97,11 @@ rules:
 ### Core Locations
 - Shared constants: `homeassistant/const.py` (use these instead of hardcoding)
 - Integration structure:
-  - `homeassistant/components/{domain}/const.py` - Constants
-  - `homeassistant/components/{domain}/models.py` - Data models
-  - `homeassistant/components/{domain}/coordinator.py` - Update coordinator
-  - `homeassistant/components/{domain}/config_flow.py` - Configuration flow
-  - `homeassistant/components/{domain}/{platform}.py` - Platform implementations
+  - `custom_components/{domain}/const.py` - Constants
+  - `custom_components/{domain}/models.py` - Data models
+  - `custom_components/{domain}/coordinator.py` - Update coordinator
+  - `custom_components/{domain}/config_flow.py` - Configuration flow
+  - `custom_components/{domain}/{platform}.py` - Platform implementations
 
 ### Common Modules
 - **coordinator.py**: Centralize data fetching logic
@@ -828,7 +828,7 @@ rules:
 
 ## Testing Requirements
 
-- **Location**: `tests/components/{domain}/`
+- **Location**: `tests/`
 - **Coverage Requirement**: Above 95% test coverage for all modules
 - **Best Practices**:
   - Use pytest fixtures from `tests.common`
@@ -858,8 +858,8 @@ rules:
 ### Testing
 - **Integration-specific tests** (recommended):
   ```bash
-  pytest ./tests/components/<integration_domain> \
-    --cov=homeassistant.components.<integration_domain> \
+  pytest ./tests \
+    --cov=custom_components.<integration_domain> \
     --cov-report term-missing \
     --durations-min=1 \
     --durations=0 \
@@ -895,14 +895,14 @@ rules:
   ```
 
 ### File Locations
-- **Integration code**: `./homeassistant/components/<integration_domain>/`
-- **Integration tests**: `./tests/components/<integration_domain>/`
+- **Integration code**: `./custom_components/<integration_domain>/`
+- **Integration tests**: `./tests/`
 
 ## Integration Templates
 
 ### Standard Integration Structure
 ```
-homeassistant/components/my_integration/
+custom_components/my_integration/
 ├── __init__.py          # Entry point with async_setup_entry
 ├── manifest.json        # Integration metadata and dependencies
 ├── const.py            # Domain and constants
@@ -1161,13 +1161,13 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 ### Validation Commands
 ```bash
 # Check specific integration
-python -m script.hassfest --integration-path homeassistant/components/my_integration
+python -m script.hassfest --integration-path custom_components/my_integration
 
 # Validate quality scale
 # Check quality_scale.yaml against current rules
 
 # Run integration tests with coverage
-pytest ./tests/components/my_integration \
-  --cov=homeassistant.components.my_integration \
+pytest ./tests \
+  --cov=custom_components.my_integration \
   --cov-report term-missing
 ```

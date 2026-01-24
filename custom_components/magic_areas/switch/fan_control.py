@@ -47,6 +47,7 @@ class FanControlSwitch(SwitchBase):
 
     setpoint: float = 0.0
     tracked_entity_id: str
+    _last_states: list[str]
 
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Fan control switch."""
@@ -66,6 +67,7 @@ class FanControlSwitch(SwitchBase):
                 CONF_FAN_GROUPS_SETPOINT, DEFAULT_FAN_GROUPS_SETPOINT
             )
         )
+        self._last_states = []
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
@@ -89,10 +91,10 @@ class FanControlSwitch(SwitchBase):
     ) -> None:
         """Call update state from track state change event."""
 
-        await self.run_logic(self.area.states)
+        await self.run_logic(self._last_states or self.area.states)
 
     async def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
@@ -106,8 +108,9 @@ class FanControlSwitch(SwitchBase):
             return
 
         # pylint: disable-next=unused-variable
-        new_states, lost_states = states_tuple
-        await self.run_logic(states=new_states)
+        _new_states, _lost_states, current_states = states_tuple
+        self._last_states = current_states
+        await self.run_logic(states=current_states)
 
     async def run_logic(self, states: list[str]) -> None:
         """Run fan control logic."""

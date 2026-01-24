@@ -131,7 +131,7 @@ patch.object(EventBus, "async_listen_once", autospec=True)
 or
 
 ```python
-patch("custom_components.magic_areas.magic.EventBus.async_listen_once")
+patch("custom_components.magic_areas.base.magic.EventBus.async_listen_once")
 ```
 
 With `autospec=True`, remember:
@@ -385,4 +385,3 @@ Only after answering “no” to all should production code be changed.
 
 **Goal:**  
 Tests should validate *integration behavior under modern Home Assistant*, not freeze old internals in place.
-

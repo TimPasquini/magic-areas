@@ -44,7 +44,6 @@ class ClimateControlSwitch(SwitchBase):
 
     preset_map: dict[str, str]
     climate_entity_id: str | None
-
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Climate control switch."""
 
@@ -91,9 +90,8 @@ class ClimateControlSwitch(SwitchBase):
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
             )
         )
-
     async def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
@@ -110,6 +108,9 @@ class ClimateControlSwitch(SwitchBase):
             )
             return
 
+        _new_states, _lost_states, current_states = states_tuple
+        current_state_set = set(current_states)
+
         priority_states: list[str] = [
             AreaStates.SLEEP,
             AreaStates.EXTENDED,
@@ -117,14 +118,14 @@ class ClimateControlSwitch(SwitchBase):
         ]
 
         # Handle area clear because the other states doesn't matter
-        if self.area.has_state(AreaStates.CLEAR):
+        if AreaStates.CLEAR in current_state_set:
             if self.preset_map[AreaStates.CLEAR]:
                 await self.apply_preset(AreaStates.CLEAR)
             return
 
         # Handle each state top priority to last, returning early
         for p_state in priority_states:
-            if self.area.has_state(p_state) and self.preset_map[p_state]:
+            if p_state in current_state_set and self.preset_map[p_state]:
                 await self.apply_preset(p_state)
                 return
 

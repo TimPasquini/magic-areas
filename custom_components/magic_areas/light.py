@@ -315,7 +315,7 @@ class AreaLightGroup(MagicLightGroup):
 
     @callback
     def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool:
         """Handle area state change event."""
         if area_id != self.area.id:
@@ -345,10 +345,12 @@ class AreaLightGroup(MagicLightGroup):
         # Handle light category
         return self.state_change_secondary(states_tuple)
 
-    def state_change_primary(self, states_tuple: tuple[list[str], list[str]]) -> bool:
+    def state_change_primary(
+        self, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> bool:
         """Handle primary state change."""
         # pylint: disable-next=unused-variable
-        new_states, lost_states = states_tuple
+        new_states, lost_states, _current_states = states_tuple
 
         # If area clear
         if AreaStates.CLEAR in new_states:
@@ -358,9 +360,12 @@ class AreaLightGroup(MagicLightGroup):
 
         return False
 
-    def state_change_secondary(self, states_tuple: tuple[list[str], list[str]]) -> bool:
+    def state_change_secondary(
+        self, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> bool:
         """Handle secondary state change."""
-        new_states, lost_states = states_tuple
+        new_states, lost_states, current_states = states_tuple
+        current_state_set = set(current_states)
 
         if AreaStates.CLEAR in new_states:
             self.logger.debug(
@@ -370,7 +375,7 @@ class AreaLightGroup(MagicLightGroup):
             return False
 
         if (
-            self.area.has_state(AreaStates.BRIGHT)
+            AreaStates.BRIGHT in current_state_set
             and AreaStates.BRIGHT not in self.assigned_states
         ):
             # Only turn off lights when bright if the room was already occupied
@@ -393,7 +398,7 @@ class AreaLightGroup(MagicLightGroup):
             return False
 
         # If area clear, do nothing (main group will)
-        if not self.area.is_occupied():
+        if AreaStates.OCCUPIED not in current_state_set:
             self.logger.debug("%s: Area not occupied, ignoring.", self.name)
             return False
 
@@ -408,10 +413,10 @@ class AreaLightGroup(MagicLightGroup):
         # Calculate valid states (if area has states we listen to)
         # and check if area is under one or more priority state
         valid_states = [
-            state for state in self.assigned_states if self.area.has_state(state)
+            state for state in self.assigned_states if state in current_state_set
         ]
         has_priority_states = any(
-            self.area.has_state(state) for state in AREA_PRIORITY_STATES
+            state in current_state_set for state in AREA_PRIORITY_STATES
         )
         non_priority_states = [
             state for state in valid_states if state not in AREA_PRIORITY_STATES

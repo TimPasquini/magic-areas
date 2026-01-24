@@ -118,7 +118,7 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], []),
+        ([AreaStates.OCCUPIED], [], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)
@@ -129,7 +129,7 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], [AreaStates.OCCUPIED]),
+        ([AreaStates.CLEAR], [AreaStates.OCCUPIED], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
@@ -140,7 +140,7 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.BRIGHT], []),
+        ([AreaStates.BRIGHT], [], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
@@ -151,7 +151,7 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR]),
+        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], list(area.states)),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)

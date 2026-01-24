@@ -112,6 +112,9 @@ class MagicArea:
         self._area_entities: list[str] = []
         self._area_devices: list[str] = []
 
+        # Track coordinator availability status
+        self.last_update_success: bool = True
+
         # Timestamp for initialization / reload tests
         self.timestamp: datetime = dt_util.utcnow()
         self.reloading: bool = False

@@ -45,7 +45,7 @@ class MediaPlayerControlSwitch(SwitchBase):
         )
 
     async def area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
@@ -63,7 +63,7 @@ class MediaPlayerControlSwitch(SwitchBase):
             return
 
         # pylint: disable-next=unused-variable
-        new_states, lost_states = states_tuple
+        new_states, lost_states, _current_states = states_tuple
 
         if AreaStates.CLEAR in new_states:
             _LOGGER.debug("%s: Area clear, turning off media players.", self.name)

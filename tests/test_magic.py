@@ -38,6 +38,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.core_constants import (
     DOMAIN,
 )
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
 from custom_components.magic_areas.features import (
     CONF_FEATURE_LIGHT_GROUPS,
 )
@@ -65,7 +66,7 @@ async def test_magic_area_initialization_wait_for_start(
             data=data,
             unique_id=data[CONF_ID],
             version=2,
-            minor_version=1,
+            minor_version=MagicConfigEntryVersion.MINOR,
         )
         mock_config_entry.add_to_hass(hass)
 

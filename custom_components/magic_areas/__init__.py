@@ -15,11 +15,15 @@ from homeassistant.helpers.entity_registry import (
     EVENT_ENTITY_REGISTRY_UPDATED,
     EventEntityRegistryUpdatedData,
 )
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.components import MAGICAREAS_UNIQUEID_PREFIX
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
+    CONF_ID,
     CONF_RELOAD_ON_REGISTRY_CHANGE,
     DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
 )
@@ -33,6 +37,74 @@ from custom_components.magic_areas.models import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _compute_unique_id_from_entity_id(
+    *, entity_id: str, area_id: str, area_slug: str
+) -> str | None:
+    """Compute the new unique_id format from a legacy entity_id."""
+    _, _, entity_name = entity_id.partition(".")
+    prefix = f"{MAGICAREAS_UNIQUEID_PREFIX}_"
+    if not entity_name.startswith(prefix):
+        return None
+
+    remainder = entity_name[len(prefix) :]
+    marker = f"_{area_slug}_"
+    if marker in remainder:
+        feature_id, suffix = remainder.split(marker, 1)
+    elif remainder.endswith(f"_{area_slug}"):
+        feature_id = remainder[: -(len(area_slug) + 1)]
+        suffix = ""
+    else:
+        return None
+
+    if not feature_id:
+        return None
+
+    if suffix:
+        return f"{feature_id}_{area_id}_{suffix}"
+    return f"{feature_id}_{area_id}"
+
+
+async def _async_migrate_unique_ids(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> None:
+    """Migrate Magic Areas entity unique_ids to the new format."""
+    area_id = config_entry.data.get(CONF_ID)
+    if not area_id:
+        return
+
+    area_slug = slugify(config_entry.data.get(ATTR_NAME, area_id))
+    entity_registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(
+        entity_registry, config_entry.entry_id
+    )
+
+    for entry in entries:
+        if entry.unique_id and not entry.unique_id.startswith(
+            f"{MAGICAREAS_UNIQUEID_PREFIX}_"
+        ):
+            continue
+
+        new_unique_id = _compute_unique_id_from_entity_id(
+            entity_id=entry.entity_id,
+            area_id=area_id,
+            area_slug=area_slug,
+        )
+        if not new_unique_id or new_unique_id == entry.unique_id:
+            continue
+
+        try:
+            entity_registry.async_update_entity(
+                entry.entity_id, new_unique_id=new_unique_id
+            )
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning(
+                "%s: Unable to migrate unique_id for %s: %s",
+                config_entry.data.get(ATTR_NAME, area_id),
+                entry.entity_id,
+                err,
+            )
 
 
 async def async_setup_entry(
@@ -193,6 +265,9 @@ async def async_migrate_entry(
         )
 
         return False
+
+    if config_entry.minor_version < MagicConfigEntryVersion.MINOR:
+        await _async_migrate_unique_ids(hass, config_entry)
 
     hass.config_entries.async_update_entry(
         config_entry,

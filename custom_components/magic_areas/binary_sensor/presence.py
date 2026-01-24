@@ -313,6 +313,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
     ) -> None:
         """Fire an event reporting area state change."""
         new_states, lost_states = states_tuple
+        current_states = list(self.area.states.copy())
         _LOGGER.debug(
             "%s: Reporting state change (new states: %s/lost states: %s)",
             self.area.name,
@@ -323,7 +324,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             self.hass,
             MagicAreasEvents.AREA_STATE_CHANGED,
             self.area.id,
-            (list(new_states), list(lost_states)),
+            (list(new_states), list(lost_states), current_states),
         )
 
     # Area state calculations
@@ -672,12 +673,12 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
 
     # Area change handlers
     def _area_state_changed(
-        self, area_id: str, states_tuple: tuple[list[str], list[str]]
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
         # pylint: disable-next=unused-variable
-        new_states, old_states = states_tuple
+        new_states, old_states, _current_states = states_tuple
 
         if area_id != self.area.id:
             _LOGGER.debug(
