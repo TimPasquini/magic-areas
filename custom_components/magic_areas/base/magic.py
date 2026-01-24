@@ -64,6 +64,7 @@ from custom_components.magic_areas.core.config import (
     has_configured_state,
     normalize_feature_config,
 )
+from custom_components.magic_areas.core.entities import build_entity_dict
 from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
@@ -333,17 +334,8 @@ class MagicArea:
 
         # Get latest state and create object
         latest_state = self.hass.states.get(entity_id)
-        entity_dict = {ATTR_ENTITY_ID: entity_id}
-
-        if latest_state:
-            # Need to exclude entity_id if present but latest_state.attributes
-            # is a ReadOnlyDict so we can't remove it, need to iterate and select
-            # all keys that are NOT entity_id
-            for attr_key, attr_value in latest_state.attributes.items():
-                if attr_key != ATTR_ENTITY_ID:
-                    entity_dict[str(attr_key)] = str(attr_value)
-
-        return entity_dict
+        attributes = latest_state.attributes if latest_state else None
+        return build_entity_dict(entity_id, attributes)
 
     def load_entity_list(self, entity_list: list[RegistryEntry]) -> None:
         """Populate entity list with loaded entities."""
