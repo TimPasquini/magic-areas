@@ -8,10 +8,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     EVENT_HOMEASSISTANT_STARTED,
     STATE_ON,
@@ -42,9 +40,6 @@ from custom_components.magic_areas.area_constants import (
     AREA_TYPE_META,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.area_maps import (
-    CONFIGURABLE_AREA_STATE_MAP,
-)
 from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
     MAGIC_AREAS_COMPONENTS_GLOBAL,
@@ -57,24 +52,19 @@ from custom_components.magic_areas.config_keys import (
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_SECONDARY_STATES,
     CONF_TYPE,
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
-    DEFAULT_PRESENCE_DEVICE_PLATFORMS,
 )
 from custom_components.magic_areas.enums import (
     MagicAreasEvents,
     MetaAreaAutoReloadSettings,
     MetaAreaType,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
+from custom_components.magic_areas.core.config import (
+    has_configured_state,
+    normalize_feature_config,
 )
+from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 if TYPE_CHECKING:
@@ -180,49 +170,29 @@ class MagicArea:
 
     def has_configured_state(self, state: str) -> bool:
         """Check if area supports a given state."""
-        state_opts = CONFIGURABLE_AREA_STATE_MAP.get(state, None)
-
-        if not state_opts:
-            return False
-
-        # state_opts is the config key for the entity (e.g. "sleep_entity")
-        # We need to check if this key is configured in secondary states
-        secondary_states = self.config.get(CONF_SECONDARY_STATES, {})
-
-        if secondary_states.get(state_opts):
-            return True
-
-        return False
+        return has_configured_state(self.config, state)
 
     def has_feature(self, feature: str) -> bool:
         """Check if area has a given feature."""
         enabled_features = self.config.get(CONF_ENABLED_FEATURES)
-
-        # Deal with legacy
-        if isinstance(enabled_features, list):
-            return feature in enabled_features
-
-        # Handle everything else
-        if not isinstance(enabled_features, dict):
+        if enabled_features is not None and not isinstance(enabled_features, (list, dict)):
             self.logger.warning(
                 "%s: Invalid configuration for %s", self.name, CONF_ENABLED_FEATURES
             )
-            return False
-
-        return feature in enabled_features
+        enabled, _ = normalize_feature_config(self.config)
+        return feature in enabled
 
     def feature_config(self, feature: str) -> dict:
         """Return configuration for a given feature."""
-        if not self.has_feature(feature):
+        enabled, feature_configs = normalize_feature_config(self.config)
+        if feature not in enabled:
             self.logger.debug("%s: Feature '%s' not enabled.", self.name, feature)
             return {}
 
-        options = self.config.get(CONF_ENABLED_FEATURES, {})
-
-        if not options:
+        if not feature_configs:
             self.logger.debug("%s: No feature config found for %s", self.name, feature)
 
-        return options.get(feature, {})
+        return feature_configs.get(feature, {})
 
     def available_platforms(self) -> list[str]:
         """Return available platforms to area type."""
@@ -414,54 +384,13 @@ class MagicArea:
 
     def get_presence_sensors(self) -> list[str]:
         """Return list of entities used for presence tracking."""
-
-        sensors: list[str] = []
-
-        valid_presence_platforms = self.config.get(
-            CONF_PRESENCE_DEVICE_PLATFORMS, DEFAULT_PRESENCE_DEVICE_PLATFORMS
+        enabled, _ = normalize_feature_config(self.config)
+        return build_presence_sensors(
+            entities_by_domain=self.entities,
+            config=self.config,
+            slug=self.slug,
+            enabled_features=enabled,
         )
-
-        for component, entities in self.entities.items():
-            if component not in valid_presence_platforms:
-                continue
-
-            for entity in entities:
-                if not entity:
-                    continue
-
-                if component == BINARY_SENSOR_DOMAIN:
-                    if ATTR_DEVICE_CLASS not in entity:
-                        continue
-
-                    if entity[ATTR_DEVICE_CLASS] not in self.config.get(
-                        CONF_PRESENCE_SENSOR_DEVICE_CLASS, []
-                    ):
-                        continue
-
-                sensors.append(entity[ATTR_ENTITY_ID])
-
-        # Append presence_hold switch as a presence_sensor
-        if self.has_feature(CONF_FEATURE_PRESENCE_HOLD):
-            presence_hold_switch_id = (
-                f"{SWITCH_DOMAIN}.magic_areas_presence_hold_{self.slug}"
-            )
-            sensors.append(presence_hold_switch_id)
-
-        # Append BLE Tracker monitor as a presence_sensor
-        if self.has_feature(CONF_FEATURE_BLE_TRACKERS):
-            ble_tracker_sensor_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_{self.slug}_ble_tracker_monitor"
-            sensors.append(ble_tracker_sensor_id)
-
-        # Append Wasp In The Box sensor as presence monitor
-        if self.has_feature(CONF_FEATURE_AGGREGATION) and self.has_feature(
-            CONF_FEATURE_WASP_IN_A_BOX
-        ):
-            wasp_in_the_box_sensor_id = (
-                f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{self.slug}"
-            )
-            sensors.append(wasp_in_the_box_sensor_id)
-
-        return sensors
 
     async def initialize(self, _: Any = None) -> None:
         """Initialize area."""
