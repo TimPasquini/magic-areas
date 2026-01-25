@@ -1,29 +1,16 @@
 """Sensor controls for magic areas."""
 
 import logging
-from collections import Counter
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
-from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
-    ATTR_ENTITY_ID,
-    ATTR_UNIT_OF_MEASUREMENT,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.coordinator import MagicAreasData
-from custom_components.magic_areas.config_keys import (
-    CONF_AGGREGATES_MIN_ENTITIES,
-    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-    DEFAULT_AGGREGATES_MIN_ENTITIES,
-)
-from custom_components.magic_areas.defaults import (
-    DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-)
+from custom_components.magic_areas.core.aggregates import build_sensor_aggregates
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
 )
@@ -75,98 +62,36 @@ def create_aggregate_sensors(
     """Create the aggregate sensors for the area."""
     area = data.area
 
-    eligible_entities: dict[str, list[str]] = {}
-    unit_of_measurement_map: dict[str, list[str]] = {}
-
     aggregates: list[Entity] = []
 
-    if SENSOR_DOMAIN not in entities_by_domain:
-        return []
+    aggregate_specs = build_sensor_aggregates(
+        entities_by_domain=entities_by_domain,
+        feature_configs=data.feature_configs,
+        enabled_features=data.enabled_features,
+    )
 
-    if CONF_FEATURE_AGGREGATION not in data.enabled_features:
-        return []
-
-    for entity in entities_by_domain[SENSOR_DOMAIN]:
-        entity_state = area.hass.states.get(entity[ATTR_ENTITY_ID])
-        if not entity_state:
-            continue
-
-        if (
-            ATTR_DEVICE_CLASS not in entity_state.attributes
-            or not entity_state.attributes[ATTR_DEVICE_CLASS]
-        ):
-            _LOGGER.debug(
-                "Entity %s does not have device_class defined",
-                entity[ATTR_ENTITY_ID],
-            )
-            continue
-
-        if (
-            ATTR_UNIT_OF_MEASUREMENT not in entity_state.attributes
-            or not entity_state.attributes[ATTR_UNIT_OF_MEASUREMENT]
-        ):
-            _LOGGER.debug(
-                "Entity %s does not have unit_of_measurement defined",
-                entity[ATTR_ENTITY_ID],
-            )
-            continue
-
-        device_class = entity_state.attributes[ATTR_DEVICE_CLASS]
-
-        # Dictionary of sensors by device class.
-        if device_class not in eligible_entities:
-            eligible_entities[device_class] = []
-
-        # Dictionary of seen unit of measurements by device class.
-        if device_class not in unit_of_measurement_map:
-            unit_of_measurement_map[device_class] = []
-
-        unit_of_measurement_map[device_class].append(
-            entity_state.attributes[ATTR_UNIT_OF_MEASUREMENT]
-        )
-        eligible_entities[device_class].append(entity[ATTR_ENTITY_ID])
-
-    # Create aggregates
-    for device_class, entities in eligible_entities.items():
-        if len(entities) < data.feature_configs.get(CONF_FEATURE_AGGREGATION, {}).get(
-            CONF_AGGREGATES_MIN_ENTITIES,
-            DEFAULT_AGGREGATES_MIN_ENTITIES,
-        ):
-            continue
-
-        if device_class not in data.feature_configs.get(
-            CONF_FEATURE_AGGREGATION, {}
-        ).get(
-            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-            DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-        ):
-            continue
-
+    for spec in aggregate_specs:
         _LOGGER.debug(
             "%s: Creating aggregate sensor for device_class '%s' with %d entities",
             area.slug,
-            device_class,
-            len(entities),
+            spec.device_class,
+            len(spec.entity_ids),
         )
 
         try:
-            # Infer most-popular unit of measurement
-            unit_of_measurements = Counter(unit_of_measurement_map[device_class])
-            most_common_unit_of_measurement = unit_of_measurements.most_common(1)[0][0]
-
             aggregates.append(
                 AreaAggregateSensor(
                     area=area,
-                    device_class=device_class,
-                    entity_ids=entities,
-                    unit_of_measurement=most_common_unit_of_measurement,
+                    device_class=spec.device_class,
+                    entity_ids=spec.entity_ids,
+                    unit_of_measurement=spec.unit_of_measurement,
                 )
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "%s: Error creating '%s' aggregate sensor: %s",
                 area.slug,
-                device_class,
+                spec.device_class,
                 str(e),
             )
 

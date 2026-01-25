@@ -120,8 +120,11 @@ class ClimateControlSwitch(SwitchBase):
             )
             return
 
-        _new_states, _lost_states, current_states = states_tuple
+        new_states, lost_states, current_states = states_tuple
         current_state_set = set(current_states)
+
+        if not new_states and not lost_states:
+            return
 
         priority_states: list[str] = [
             AreaStates.SLEEP,
@@ -130,14 +133,14 @@ class ClimateControlSwitch(SwitchBase):
         ]
 
         # Handle area clear because the other states doesn't matter
-        if AreaStates.CLEAR in current_state_set:
+        if AreaStates.CLEAR in new_states:
             if self.preset_map[AreaStates.CLEAR]:
                 await self.apply_preset(AreaStates.CLEAR)
             return
 
         # Handle each state top priority to last, returning early
         for p_state in priority_states:
-            if p_state in current_state_set and self.preset_map[p_state]:
+            if p_state in new_states and self.preset_map[p_state]:
                 await self.apply_preset(p_state)
                 return
 

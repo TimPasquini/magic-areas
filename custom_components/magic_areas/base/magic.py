@@ -5,6 +5,7 @@ import logging
 import random
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -65,7 +66,11 @@ from custom_components.magic_areas.core.config import (
     normalize_feature_config,
 )
 from custom_components.magic_areas.core.area_model import AreaDescriptor
-from custom_components.magic_areas.core.entities import build_entity_dict
+from custom_components.magic_areas.core.entities import (
+    EntitySnapshot,
+    build_entity_dict,
+    group_entities,
+)
 from custom_components.magic_areas.core.meta import (
     build_meta_presence_sensors,
     resolve_active_areas,
@@ -174,9 +179,32 @@ class MagicArea:
         """Return if area is occupied."""
         return self.has_state(AREA_STATE_OCCUPIED)
 
+    def get_current_states(self) -> list[str]:
+        """Return the most recent area states from the area sensor if available."""
+        if self.states:
+            return list(self.states)
+        area_sensor_entity_id = (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.slug}_area_state"
+        )
+        area_sensor_state = self.hass.states.get(area_sensor_entity_id)
+        if (
+            area_sensor_state
+            and "states" in area_sensor_state.attributes
+            and area_sensor_state.attributes["states"]
+        ):
+            normalized: list[str] = []
+            for state in area_sensor_state.attributes["states"]:
+                if isinstance(state, Enum):
+                    normalized.append(str(state.value))
+                else:
+                    normalized.append(str(state))
+            return normalized
+        return list(self.states)
+
     def has_state(self, state: str) -> bool:
         """Check if area has a given state."""
-        return state in self.states
+        value = state.value if isinstance(state, Enum) else state
+        return str(value) in [str(item) for item in self.get_current_states()]
 
     def has_configured_state(self, state: str) -> bool:
         """Check if area supports a given state."""
@@ -349,6 +377,7 @@ class MagicArea:
     def load_entity_list(self, entity_list: list[RegistryEntry]) -> None:
         """Populate entity list with loaded entities."""
         self.logger.debug("%s: Original entity list: %s", self.name, str(entity_list))
+        snapshots: list[EntitySnapshot] = []
 
         for entity in entity_list:
             if entity.entity_id in self._area_entities:
@@ -356,17 +385,19 @@ class MagicArea:
             self.logger.debug("%s: Loading entity: %s", self.name, entity.entity_id)
 
             try:
-                updated_entity = self.get_entity_dict(entity.entity_id)
-
                 if not entity.domain:
                     self.logger.warning(
                         "%s: Entity domain not found for %s", self.name, entity
                     )
                     continue
-                if entity.domain not in self.entities:
-                    self.entities[entity.domain] = []
-
-                self.entities[entity.domain].append(updated_entity)
+                latest_state = self.hass.states.get(entity.entity_id)
+                snapshots.append(
+                    EntitySnapshot(
+                        entity_id=entity.entity_id,
+                        domain=entity.domain,
+                        attributes=latest_state.attributes if latest_state else None,
+                    )
+                )
 
                 self._area_entities.append(entity.entity_id)
 
@@ -379,6 +410,10 @@ class MagicArea:
                     entity,
                     str(err),
                 )
+
+        grouped = group_entities(snapshots)
+        for domain, entities in grouped.items():
+            self.entities.setdefault(domain, []).extend(entities)
 
         # Load our own entities
         self.load_magic_entities()

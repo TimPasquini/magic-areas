@@ -62,8 +62,9 @@ class MediaPlayerControlSwitch(SwitchBase):
             )
             return
 
-        # pylint: disable-next=unused-variable
         new_states, lost_states, _current_states = states_tuple
+        if not new_states and not lost_states:
+            return
 
         if AreaStates.CLEAR in new_states:
             _LOGGER.debug("%s: Area clear, turning off media players.", self.name)

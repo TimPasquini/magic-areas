@@ -118,8 +118,9 @@ class FanControlSwitch(SwitchBase):
             )
             return
 
-        # pylint: disable-next=unused-variable
-        _new_states, _lost_states, current_states = states_tuple
+        new_states, lost_states, current_states = states_tuple
+        if not new_states and not lost_states:
+            return
         self._last_states = current_states
         await self.run_logic(states=current_states)
 

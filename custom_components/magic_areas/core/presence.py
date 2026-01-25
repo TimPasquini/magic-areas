@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 
 from custom_components.magic_areas.config_keys import (
@@ -35,6 +36,10 @@ def build_presence_sensors(
     valid_presence_platforms = config.get(
         CONF_PRESENCE_DEVICE_PLATFORMS, DEFAULT_PRESENCE_DEVICE_PLATFORMS
     )
+    allowed_device_classes = [
+        dc.value if isinstance(dc, Enum) else dc
+        for dc in config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS, [])
+    ]
 
     for component, entities in entities_by_domain.items():
         if component not in valid_presence_platforms:
@@ -48,9 +53,7 @@ def build_presence_sensors(
                 if ATTR_DEVICE_CLASS not in entity:
                     continue
 
-                if entity[ATTR_DEVICE_CLASS] not in config.get(
-                    CONF_PRESENCE_SENSOR_DEVICE_CLASS, []
-                ):
+                if entity[ATTR_DEVICE_CLASS] not in allowed_device_classes:
                     continue
 
             sensors.append(entity[ATTR_ENTITY_ID])
