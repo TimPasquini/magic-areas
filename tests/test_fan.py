@@ -59,6 +59,41 @@ from tests.mocks import MockBinarySensor, MockFan, MockSensor
 SETPOINT_VALUE = 30.0
 SENSOR_INITIAL_VALUE = 25
 
+
+def _assert_state_with_context(
+    hass: HomeAssistant,
+    entity_id: str,
+    expected_value: str,
+    *,
+    context: str,
+    motion_sensor_entity_id: str,
+    area_sensor_entity_id: str,
+    fan_control_entity_id: str,
+    temperature_sensor_entity_id: str,
+    tracked_entity_id: str,
+) -> None:
+    """Assert entity state with context dump for debugging failures."""
+    entity_state = hass.states.get(entity_id)
+    if not entity_state:
+        raise AssertionError(f"{context}: missing state for {entity_id}")
+
+    if entity_state.state != expected_value:
+        motion_state = hass.states.get(motion_sensor_entity_id)
+        area_state = hass.states.get(area_sensor_entity_id)
+        switch_state = hass.states.get(fan_control_entity_id)
+        temperature_state = hass.states.get(temperature_sensor_entity_id)
+        tracked_state = hass.states.get(tracked_entity_id)
+        debug_details = (
+            f"{context}: {entity_id} expected={expected_value} actual={entity_state.state}; "
+            f"motion_state={getattr(motion_state, 'state', None)}; "
+            f"area_state={getattr(area_state, 'state', None)}; "
+            f"switch_state={getattr(switch_state, 'state', None)}; "
+            f"temperature_state={getattr(temperature_state, 'state', None)}; "
+            f"tracked_state={getattr(tracked_state, 'state', None)}; "
+            f"area_attrs={getattr(area_state, 'attributes', None)}"
+        )
+        raise AssertionError(debug_details)
+
 # Fixtures
 
 
@@ -272,7 +307,17 @@ async def test_fan_group_logic(
     assert_state(area_sensor_state, STATE_OFF)
 
     fan_group_state = hass.states.get(fan_group_entity_id)
-    assert_state(fan_group_state, STATE_OFF)
+    _assert_state_with_context(
+        hass,
+        fan_group_entity_id,
+        STATE_OFF,
+        context="fan control on, reset after occupancy clear",
+        motion_sensor_entity_id=motion_sensor_entity_id,
+        area_sensor_entity_id=area_sensor_entity_id,
+        fan_control_entity_id=fan_control_entity_id,
+        temperature_sensor_entity_id=temperature_sensor_entity_id,
+        tracked_entity_id=tracked_entity_id,
+    )
 
     # Set tracked sensor over setpoint
     hass.states.async_set(
@@ -306,7 +351,17 @@ async def test_fan_group_logic(
     assert_state(area_sensor_state, STATE_OFF)
 
     fan_group_state = hass.states.get(fan_group_entity_id)
-    assert_state(fan_group_state, STATE_OFF)
+    _assert_state_with_context(
+        hass,
+        fan_group_entity_id,
+        STATE_OFF,
+        context="fan control on, reset after occupancy clear (second cycle)",
+        motion_sensor_entity_id=motion_sensor_entity_id,
+        area_sensor_entity_id=area_sensor_entity_id,
+        fan_control_entity_id=fan_control_entity_id,
+        temperature_sensor_entity_id=temperature_sensor_entity_id,
+        tracked_entity_id=tracked_entity_id,
+    )
 
     # Turn on fan control
     await hass.services.async_call(
@@ -338,7 +393,17 @@ async def test_fan_group_logic(
     assert_state(area_sensor_state, STATE_OFF)
 
     fan_group_state = hass.states.get(fan_group_entity_id)
-    assert_state(fan_group_state, STATE_OFF)
+    _assert_state_with_context(
+        hass,
+        fan_group_entity_id,
+        STATE_OFF,
+        context="fan control on, reset after occupancy clear (third cycle)",
+        motion_sensor_entity_id=motion_sensor_entity_id,
+        area_sensor_entity_id=area_sensor_entity_id,
+        fan_control_entity_id=fan_control_entity_id,
+        temperature_sensor_entity_id=temperature_sensor_entity_id,
+        tracked_entity_id=tracked_entity_id,
+    )
 
     # Fan control on, initially under setpoint but then over
     # > Set temperature back to initial value

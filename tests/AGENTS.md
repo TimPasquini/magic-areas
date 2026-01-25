@@ -383,5 +383,18 @@ Only after answering “no” to all should production code be changed.
 
 ---
 
+## Default test failure feedback expectation
+
+When a test fails, **improve the failure feedback by default** before changing
+production code. That means:\n
+- include the relevant entity states in the assertion message\n
+- include related sensor/switch states that drive the behavior\n
+- include key attributes that explain why a state was chosen\n
+- include context about the transition under test (e.g., “occupied→clear”)\n
+
+Prefer small helper assertions that gather state context and throw a single,
+informative `AssertionError` rather than multiple chained asserts. This makes
+future failures faster to diagnose and reduces regressions when behavior shifts.
+
 **Goal:**  
 Tests should validate *integration behavior under modern Home Assistant*, not freeze old internals in place.

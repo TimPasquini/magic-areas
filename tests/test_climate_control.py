@@ -33,9 +33,12 @@ from custom_components.magic_areas.core_constants import (
 )
 from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
+    MagicAreasEvents,
 )
 
 from tests.const import DEFAULT_MOCK_AREA
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
 from tests.helpers import (
     assert_attribute,
     assert_state,
@@ -43,6 +46,7 @@ from tests.helpers import (
     init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+    wait_for_state,
 )
 from tests.mocks import MockBinarySensor, MockClimate
 
@@ -56,6 +60,75 @@ CLIMATE_CONTROL_SWITCH_ENTITY_ID = (
     f"{SWITCH_DOMAIN}.magic_areas_climate_control_{DEFAULT_MOCK_AREA}"
 )
 AREA_SENSOR_ENTITY_ID = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
+
+def _assert_attribute_with_context(
+    hass: HomeAssistant,
+    entity_id: str,
+    attribute_key: str,
+    expected_value: str,
+    *,
+    context: str,
+    area_events: list[tuple[str, list[str], list[str], list[str]]] | None = None,
+    preset_calls: list[str] | None = None,
+) -> None:
+    """Assert entity attribute with context dump for debugging failures."""
+    entity_state = hass.states.get(entity_id)
+    if not entity_state:
+        raise AssertionError(
+            f"{context}: missing state for {entity_id}"
+        )
+
+    actual_value = str(entity_state.attributes.get(attribute_key))
+    if actual_value != expected_value:
+        motion_state = hass.states.get("binary_sensor.motion_sensor")
+        area_state = hass.states.get(AREA_SENSOR_ENTITY_ID)
+        switch_state = hass.states.get(CLIMATE_CONTROL_SWITCH_ENTITY_ID)
+        debug_details = (
+            f"{context}: {entity_id}.{attribute_key} expected={expected_value} "
+            f"actual={actual_value}; "
+            f"climate_state={entity_state.state}; "
+            f"motion_state={getattr(motion_state, 'state', None)}; "
+            f"area_state={getattr(area_state, 'state', None)}; "
+            f"switch_state={getattr(switch_state, 'state', None)}; "
+            f"area_attrs={getattr(area_state, 'attributes', None)}"
+        )
+        if area_events is not None:
+            debug_details = f"{debug_details}; area_events={area_events}"
+        if preset_calls is not None:
+            debug_details = f"{debug_details}; preset_calls={preset_calls}"
+        raise AssertionError(debug_details)
+
+
+async def _wait_for_attribute(
+    hass: HomeAssistant,
+    entity_id: str,
+    attribute_key: str,
+    expected_value: str,
+    *,
+    context: str | None = None,
+    area_events: list[tuple[str, list[str], list[str], list[str]]] | None = None,
+    preset_calls: list[str] | None = None,
+    attempts: int = 20,
+    delay: float = 0.1,
+) -> None:
+    """Wait for an entity attribute to reach a specific value."""
+    for _ in range(attempts):
+        state = hass.states.get(entity_id)
+        if state and str(state.attributes.get(attribute_key)) == expected_value:
+            return
+        await asyncio.sleep(delay)
+        await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    actual = None if not state else str(state.attributes.get(attribute_key))
+    details = f"{entity_id}.{attribute_key} expected={expected_value} actual={actual}"
+    if context:
+        details = f"{context}: {details}"
+    if area_events is not None:
+        details = f"{details}; area_events={area_events}"
+    if preset_calls is not None:
+        details = f"{details}; preset_calls={preset_calls}"
+    raise AssertionError(details)
 
 
 # Fixtures
@@ -185,43 +258,99 @@ async def test_climate_control_logic(
 
     # @TODO test control off, ensure nothing happens
 
-    # Turn on climate control
-    await hass.services.async_call(
-        SWITCH_DOMAIN,
-        SERVICE_TURN_ON,
-        {ATTR_ENTITY_ID: CLIMATE_CONTROL_SWITCH_ENTITY_ID},
+    # Capture area state change events for debug context
+    area_events: list[tuple[str, list[str], list[str], list[str]]] = []
+
+    def _record_area_event(
+        area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> None:
+        new_states, lost_states, current_states = states_tuple
+        area_events.append((area_id, new_states, lost_states, current_states))
+
+    remove_event_listener = async_dispatcher_connect(
+        hass, MagicAreasEvents.AREA_STATE_CHANGED, _record_area_event
     )
-    await hass.async_block_till_done()
+    preset_calls: list[str] = []
+    switch_entity = hass.data["entity_components"]["switch"].get_entity(
+        CLIMATE_CONTROL_SWITCH_ENTITY_ID
+    )
+    if switch_entity is None:
+        raise AssertionError("climate control switch entity not found")
+    original_apply_preset = switch_entity.apply_preset
 
-    # Area occupied, preset should be PRESET_NONE
-    hass.states.async_set(motion_sensor_entity_id, STATE_ON)
-    await hass.async_block_till_done()
+    async def _wrapped_apply_preset(state_name: str) -> None:
+        preset_calls.append(state_name)
+        await original_apply_preset(state_name)
 
-    motion_sensor_state = hass.states.get(motion_sensor_entity_id)
-    assert_state(motion_sensor_state, STATE_ON)
+    switch_entity.apply_preset = _wrapped_apply_preset
 
-    area_sensor_state = hass.states.get(AREA_SENSOR_ENTITY_ID)
-    assert_state(area_sensor_state, STATE_ON)
+    try:
+        # Turn on climate control
+        await hass.services.async_call(
+            SWITCH_DOMAIN,
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: CLIMATE_CONTROL_SWITCH_ENTITY_ID},
+        )
+        await hass.async_block_till_done()
+        await wait_for_state(hass, CLIMATE_CONTROL_SWITCH_ENTITY_ID, STATE_ON)
 
-    climate_state = hass.states.get(MOCK_CLIMATE_ENTITY_ID)
-    assert_attribute(climate_state, ATTR_PRESET_MODE, PRESET_NONE)
-
-    # Area clear, preset should be PRESET_AWAY
-    hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
-    await hass.async_block_till_done()
-
-    motion_sensor_state = hass.states.get(motion_sensor_entity_id)
-    assert_state(motion_sensor_state, STATE_OFF)
-
-    area_sensor_state = hass.states.get(AREA_SENSOR_ENTITY_ID)
-    assert_state(area_sensor_state, STATE_OFF)
-
-    # A bit of voodoo waiting for the climate group to act
-    # I know this is lame and kinda hail-mary but hey! if you know
-    # how to fix it, let me know!
-    for _i in range(100):
-        await asyncio.sleep(0.1)
+        # Area occupied, preset should be PRESET_NONE
+        hass.states.async_set(motion_sensor_entity_id, STATE_ON)
         await hass.async_block_till_done()
 
-    climate_state = hass.states.get(MOCK_CLIMATE_ENTITY_ID)
-    assert_attribute(climate_state, ATTR_PRESET_MODE, PRESET_AWAY)
+        motion_sensor_state = hass.states.get(motion_sensor_entity_id)
+        assert_state(motion_sensor_state, STATE_ON)
+
+        area_sensor_state = hass.states.get(AREA_SENSOR_ENTITY_ID)
+        assert_state(area_sensor_state, STATE_ON)
+
+        await _wait_for_attribute(
+            hass,
+            MOCK_CLIMATE_ENTITY_ID,
+            ATTR_PRESET_MODE,
+            PRESET_NONE,
+            context="occupied transition",
+            area_events=area_events,
+            preset_calls=preset_calls,
+        )
+        _assert_attribute_with_context(
+            hass,
+            MOCK_CLIMATE_ENTITY_ID,
+            ATTR_PRESET_MODE,
+            PRESET_NONE,
+            context="occupied transition",
+            area_events=area_events,
+            preset_calls=preset_calls,
+        )
+
+        # Area clear, preset should be PRESET_AWAY
+        hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
+        await hass.async_block_till_done()
+
+        motion_sensor_state = hass.states.get(motion_sensor_entity_id)
+        assert_state(motion_sensor_state, STATE_OFF)
+
+        area_sensor_state = hass.states.get(AREA_SENSOR_ENTITY_ID)
+        assert_state(area_sensor_state, STATE_OFF)
+
+        await _wait_for_attribute(
+            hass,
+            MOCK_CLIMATE_ENTITY_ID,
+            ATTR_PRESET_MODE,
+            PRESET_AWAY,
+            context="clear transition",
+            area_events=area_events,
+            preset_calls=preset_calls,
+        )
+        _assert_attribute_with_context(
+            hass,
+            MOCK_CLIMATE_ENTITY_ID,
+            ATTR_PRESET_MODE,
+            PRESET_AWAY,
+            context="clear transition",
+            area_events=area_events,
+            preset_calls=preset_calls,
+        )
+    finally:
+        switch_entity.apply_preset = original_apply_preset
+        remove_event_listener()

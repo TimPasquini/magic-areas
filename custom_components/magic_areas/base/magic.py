@@ -64,7 +64,13 @@ from custom_components.magic_areas.core.config import (
     has_configured_state,
     normalize_feature_config,
 )
+from custom_components.magic_areas.core.area_model import AreaDescriptor
 from custom_components.magic_areas.core.entities import build_entity_dict
+from custom_components.magic_areas.core.meta import (
+    build_meta_presence_sensors,
+    resolve_active_areas,
+    resolve_child_areas,
+)
 from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
@@ -497,33 +503,52 @@ class MagicMetaArea(MagicArea):
         super().__init__(hass, area, config)
         self.child_areas: list[str] = self.get_child_areas()
 
+    def _collect_area_descriptors(self) -> list[AreaDescriptor]:
+        """Return descriptors for all loaded areas."""
+        entries = self.hass.config_entries.async_entries("magic_areas")
+        descriptors: list[AreaDescriptor] = []
+
+        for entry in entries:
+            if entry.state != ConfigEntryState.LOADED:
+                continue
+
+            if entry.domain != "magic_areas":
+                continue
+
+            area: MagicArea = entry.runtime_data.area
+            area_type = area.config.get(CONF_TYPE, area.id)
+            descriptors.append(
+                AreaDescriptor(
+                    id=area.id,
+                    slug=area.slug,
+                    floor_id=area.floor_id,
+                    area_type=str(area_type),
+                    is_meta=area.is_meta(),
+                )
+            )
+
+        return descriptors
+
     def get_presence_sensors(self) -> list[str]:
         """Return list of entities used for presence tracking."""
-
-        sensors: list[str] = []
-
-        # MetaAreas track their children
-        for child_area in self.child_areas:
-            entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{child_area}_area_state"
-            sensors.append(entity_id)
-        return sensors
+        return build_meta_presence_sensors(self.child_areas)
 
     def get_active_areas(self) -> list[str]:
         """Return areas that are occupied."""
-
-        active_areas = []
+        state_map: dict[str, str] = {}
 
         for area in self.child_areas:
             try:
-                entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
+                entity_id = (
+                    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
+                )
                 entity = self.hass.states.get(entity_id)
 
                 if not entity:
                     self.logger.debug("%s: Unable to get area state entity.", area)
                     continue
 
-                if entity.state == STATE_ON:
-                    active_areas.append(area)
+                state_map[area] = entity.state
 
             # Adding pylint exception because this is a last-resort hail-mary catch-all
             # pylint: disable-next=broad-exception-caught
@@ -532,39 +557,18 @@ class MagicMetaArea(MagicArea):
                     "%s: Unable to get active area state: %s", area, str(e)
                 )
 
-        return active_areas
+        return resolve_active_areas(self.child_areas, state_map)
 
     def get_child_areas(self) -> list[str]:
         """Return areas that a Meta area is watching."""
-        entries = self.hass.config_entries.async_entries("magic_areas")
-        areas: list[str] = []
-
-        for entry in entries:
-            if entry.state != ConfigEntryState.LOADED:
-                continue
-
-            # We need to cast here because we know it's a MagicAreasConfigEntry
-            # but the type system doesn't know that yet
-            if entry.domain != "magic_areas":
-                continue
-            entry = entry
-
-            area: MagicArea = entry.runtime_data.area
-
-            if area.is_meta():
-                continue
-
-            if self.floor_id:
-                if self.floor_id == area.floor_id:
-                    areas.append(area.slug)
-            else:
-                if (
-                    self.id == MetaAreaType.GLOBAL
-                    or area.config.get(CONF_TYPE) == self.id
-                ):
-                    areas.append(area.slug)
-
-        return areas
+        meta_descriptor = AreaDescriptor(
+            id=self.id,
+            slug=self.slug,
+            floor_id=self.floor_id,
+            area_type=str(self.id),
+            is_meta=True,
+        )
+        return resolve_child_areas(meta_descriptor, self._collect_area_descriptors())
 
     async def initialize(self, _: Any = None) -> None:
         """Initialize Meta area."""
