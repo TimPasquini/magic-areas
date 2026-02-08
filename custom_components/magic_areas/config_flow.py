@@ -12,25 +12,14 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
-from homeassistant.components.climate.const import ATTR_PRESET_MODES
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.area_registry import async_get as areareg_async_get
-from homeassistant.helpers.entity_registry import async_get as entityreg_async_get
 from homeassistant.helpers.floor_registry import async_get as floorreg_async_get
 from homeassistant.helpers.selector import (
-    BooleanSelector,
-    BooleanSelectorConfig,
-    EntitySelector,
-    EntitySelectorConfig,
-    NumberSelector,
-    NumberSelectorConfig,
     NumberSelectorMode,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
 )
 from homeassistant.util import slugify
 
@@ -52,6 +41,10 @@ from custom_components.magic_areas.config_flow_filters import (
 from custom_components.magic_areas.config_flows.feature_registry import (
     FEATURE_REGISTRY,
     FeatureConfig,
+)
+from custom_components.magic_areas.config_flows.helpers import (
+    errors_from_validation,
+    handle_step_validation,
 )
 from custom_components.magic_areas.config_keys import (
     ALL_PRESENCE_DEVICE_PLATFORMS,
@@ -81,7 +74,7 @@ from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
     CalculationMode,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     ADDITIONAL_LIGHT_TRACKING_ENTITIES,
     DOMAIN,
 )
@@ -130,6 +123,18 @@ from custom_components.magic_areas.schemas.features import (
     CONFIGURABLE_FEATURES,
     NON_CONFIGURABLE_FEATURES_META,
 )
+from custom_components.magic_areas.schemas.feature_builders import (
+    build_climate_preset_selectors_and_validators,
+    NoEntitySelectedError,
+    InvalidEntityError,
+    NoPresetSupportError,
+)
+from custom_components.magic_areas.schemas.selectors import (
+    build_selector_boolean,
+    build_selector_entity_simple,
+    build_selector_number,
+    build_selector_select,
+)
 from custom_components.magic_areas.schemas.validation import (
     OPTIONS_AREA,
     OPTIONS_AREA_META,
@@ -150,61 +155,45 @@ class ConfigBase:
 
     config_entry: MagicAreasConfigEntry | None = None
 
-    # Selector builder
+    # Selector builder - delegated to schemas.selectors module
     @staticmethod
-    def _build_selector_boolean() -> BooleanSelector:
+    def _build_selector_boolean():  # type: ignore[no-untyped-def]
         """Build a boolean toggle selector."""
-        return BooleanSelector(BooleanSelectorConfig())
+        return build_selector_boolean()
 
     @staticmethod
-    def _build_selector_select(
+    def _build_selector_select(  # type: ignore[no-untyped-def]
         options: list | None = None,
         multiple: bool = False,
         translation_key: str = EMPTY_STRING,
-    ) -> SelectSelector:
+    ):
         """Build a <select> selector."""
-        if not options:
-            options = []
-
-        return SelectSelector(
-            SelectSelectorConfig(
-                options=options,
-                multiple=multiple,
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key=translation_key,
-            )
-        )
+        return build_selector_select(options, multiple, translation_key)
 
     @staticmethod
-    def _build_selector_entity_simple(
+    def _build_selector_entity_simple(  # type: ignore[no-untyped-def]
         options: list | None = None,
         multiple: bool = False,
-    ) -> "NullableEntitySelector":
+    ):
         """Build a <select> selector with predefined settings."""
-        if not options:
-            options = []
-        return NullableEntitySelector(
-            EntitySelectorConfig(include_entities=options, multiple=multiple)
-        )
+        return build_selector_entity_simple(options, multiple)
 
     @staticmethod
-    def _build_selector_number(
+    def _build_selector_number(  # type: ignore[no-untyped-def]
         *,
         min_value: float = 0,
         max_value: float = 9999,
         mode: NumberSelectorMode = NumberSelectorMode.BOX,
         step: float = 1,
         unit_of_measurement: str = "seconds",
-    ) -> NumberSelector:
+    ):
         """Build a number selector."""
-        return NumberSelector(
-            NumberSelectorConfig(
-                min=min_value,
-                max=max_value,
-                mode=mode,
-                step=step,
-                unit_of_measurement=unit_of_measurement,
-            )
+        return build_selector_number(
+            min_value=min_value,
+            max_value=max_value,
+            mode=mode,
+            step=step,
+            unit_of_measurement=unit_of_measurement,
         )
 
     def _build_options_schema(
@@ -263,23 +252,7 @@ class ConfigBase:
         validation: vol.MultipleInvalid,
     ) -> dict[str, str]:
         """Return errors mapping from voluptuous validation."""
-        return {
-            str(error.path[0]): str(error.msg)
-            for error in validation.errors
-            if isinstance(error, vol.Invalid) and error.path
-        }
-
-
-class NullableEntitySelector(EntitySelector):
-    """Entity selector that supports null values."""
-
-    def __call__(self, data: Any) -> Any:
-        """Validate the passed selection, if passed."""
-
-        if data in (None, ""):
-            return data
-
-        return super().__call__(data)  # type: ignore
+        return errors_from_validation(validation)
 
 
 class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
@@ -681,43 +654,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather basic settings for the area."""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            _LOGGER.debug(
-                "OptionsFlow: Validating area %s base config: %s",
-                self.area.name,
-                str(user_input),
-            )
-            options_schema = (
-                META_AREA_BASIC_OPTIONS_SCHEMA
-                if self.area.is_meta()
-                else REGULAR_AREA_BASIC_OPTIONS_SCHEMA
-            )
-            try:
-                self.area_options.update(options_schema(user_input))
-            except vol.MultipleInvalid as validation:
-                errors = self._errors_from_validation(validation)
-                _LOGGER.debug(
-                    "OptionsFlow: Found the following errors for area %s: %s",
-                    self.area.name,
-                    str(errors),
-                )
-            # Adding pylint exception because this is a last-resort hail-mary catch-all
-            # pylint: disable-next=broad-exception-caught
-            except Exception as e:
-                _LOGGER.warning(
-                    "OptionsFlow: Unexpected error caught on area %s: %s",
-                    self.area.name,
-                    str(e),
-                )
-            else:
-                _LOGGER.debug(
-                    "OptionsFlow: Saving area %s base config: %s",
-                    self.area.name,
-                    str(self.area_options),
-                )
-                # noinspection PyTypeChecker
-                return await self.async_step_show_menu()
+        # Handle validation and saving
+        options_schema = (
+            META_AREA_BASIC_OPTIONS_SCHEMA
+            if self.area.is_meta()
+            else REGULAR_AREA_BASIC_OPTIONS_SCHEMA
+        )
+
+        errors, validated = await handle_step_validation(
+            user_input=user_input,
+            schema=options_schema,
+            area_name=self.area.name,
+            step_name="area_config",
+            area_options=self.area_options,
+            on_success=self.async_step_show_menu,
+        )
+
+        if validated:
+            # noinspection PyTypeChecker
+            return await self.async_step_show_menu()
 
         all_selectors = {
             CONF_TYPE: self._build_selector_select(
@@ -730,17 +685,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             CONF_EXCLUDE_ENTITIES: self._build_selector_entity_simple(
                 self.all_area_entities, multiple=True
             ),
-            CONF_RELOAD_ON_REGISTRY_CHANGE: self._build_selector_boolean(),
-            CONF_IGNORE_DIAGNOSTIC_ENTITIES: self._build_selector_boolean(),
+            CONF_RELOAD_ON_REGISTRY_CHANGE: self._build_selector_boolean(),  # type: ignore[no-untyped-call]
+            CONF_IGNORE_DIAGNOSTIC_ENTITIES: self._build_selector_boolean(),  # type: ignore[no-untyped-call]
         }
 
         options = OPTIONS_AREA_META if self.area.is_meta() else OPTIONS_AREA
-        selectors = {}
 
-        # Apply options for given area type (regular/meta)
-        option_keys = [option[0] for option in options]
-        for option_key in option_keys:
-            selectors[option_key] = all_selectors[option_key]
+        # Filter selectors to match area type options
+        selectors = {opt[0]: all_selectors[opt[0]] for opt in options}
 
         data_schema = self._build_options_schema(
             options=options, saved_options=self.area_options, selectors=selectors
@@ -757,43 +709,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather basic settings for the area."""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            _LOGGER.debug(
-                "OptionsFlow: Validating area %s presence tracking config: %s",
-                self.area.name,
-                str(user_input),
-            )
-            options_schema = (
-                META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA
-                if self.area.is_meta()
-                else REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA
-            )
-            try:
-                self.area_options.update(options_schema(user_input))
-            except vol.MultipleInvalid as validation:
-                errors = self._errors_from_validation(validation)
-                _LOGGER.debug(
-                    "OptionsFlow: Found the following errors for area %s: %s",
-                    self.area.name,
-                    str(errors),
-                )
-            # Adding pylint exception because this is a last-resort hail-mary catch-all
-            # pylint: disable-next=broad-exception-caught
-            except Exception as e:
-                _LOGGER.warning(
-                    "OptionsFlow: Unexpected error caught on area %s: %s",
-                    self.area.name,
-                    str(e),
-                )
-            else:
-                _LOGGER.debug(
-                    "OptionsFlow: Saving area %s base config: %s",
-                    self.area.name,
-                    str(self.area_options),
-                )
-                # noinspection PyTypeChecker
-                return await self.async_step_show_menu()
+        # Handle validation and saving
+        options_schema = (
+            META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA
+            if self.area.is_meta()
+            else REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA
+        )
+
+        errors, validated = await handle_step_validation(
+            user_input=user_input,
+            schema=options_schema,
+            area_name=self.area.name,
+            step_name="presence_tracking",
+            area_options=self.area_options,
+            on_success=self.async_step_show_menu,
+        )
+
+        if validated:
+            # noinspection PyTypeChecker
+            return await self.async_step_show_menu()
 
         all_selectors = {
             CONF_PRESENCE_DEVICE_PLATFORMS: self._build_selector_select(
@@ -815,12 +749,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             if self.area.is_meta()
             else OPTIONS_PRESENCE_TRACKING
         )
-        selectors = {}
 
-        # Apply options for given area type (regular/meta)
-        option_keys = [option[0] for option in options]
-        for option_key in option_keys:
-            selectors[option_key] = all_selectors[option_key]
+        # Filter selectors to match area type options
+        selectors = {opt[0]: all_selectors[opt[0]] for opt in options}
 
         data_schema = self._build_options_schema(
             options=options, saved_options=self.area_options, selectors=selectors
@@ -837,45 +768,26 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather secondary states settings for the area."""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            _LOGGER.debug(
-                "OptionsFlow: Validating area %s secondary states config: %s",
-                self.area.name,
-                str(user_input),
-            )
-            area_state_schema = (
-                META_AREA_SECONDARY_STATES_SCHEMA
-                if self.area.is_meta()
-                else SECONDARY_STATES_SCHEMA
-            )
-            try:
-                self.area_options[CONF_SECONDARY_STATES].update(
-                    area_state_schema(user_input)
-                )
-            except vol.MultipleInvalid as validation:
-                errors = self._errors_from_validation(validation)
-                _LOGGER.debug(
-                    "OptionsFlow: Found the following errors for area %s: %s",
-                    self.area.name,
-                    str(errors),
-                )
-            # Adding pylint exception because this is a last-resort hail-mary catch-all
-            # pylint: disable-next=broad-exception-caught
-            except Exception as e:
-                _LOGGER.warning(
-                    "OptionsFlow: Unexpected error caught for area %s: %s",
-                    self.area.name,
-                    str(e),
-                )
-            else:
-                _LOGGER.debug(
-                    "OptionsFlow: Saving area secondary state config for area %s: %s",
-                    self.area.name,
-                    str(self.area_options),
-                )
-                # noinspection PyTypeChecker
-                return await self.async_step_show_menu()
+        # Handle validation and saving
+        area_state_schema = (
+            META_AREA_SECONDARY_STATES_SCHEMA
+            if self.area.is_meta()
+            else SECONDARY_STATES_SCHEMA
+        )
+
+        errors, validated = await handle_step_validation(
+            user_input=user_input,
+            schema=area_state_schema,
+            area_name=self.area.name,
+            step_name="secondary_states",
+            area_options=self.area_options,
+            config_key=CONF_SECONDARY_STATES,
+            on_success=self.async_step_show_menu,
+        )
+
+        if validated:
+            # noinspection PyTypeChecker
+            return await self.async_step_show_menu()
 
         # noinspection PyTypeChecker
         return self.async_show_form(
@@ -1185,51 +1097,28 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             ATTR_ENTITY_ID
         )  # backward/alternate storage
 
-        if not climate_entity_id:
+        # Build dynamic selectors and validators based on climate entity capabilities
+        try:
+            selectors, dynamic_validators = build_climate_preset_selectors_and_validators(
+                self.hass,
+                climate_entity_id,
+                self._build_selector_select,
+                preset_config_keys=(
+                    CONF_CLIMATE_CONTROL_PRESET_CLEAR,
+                    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
+                    CONF_CLIMATE_CONTROL_PRESET_SLEEP,
+                    CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
+                ),
+            )
+        except NoEntitySelectedError:
             # noinspection PyTypeChecker
             return self.async_abort(reason="no_entity_selected")
-
-        entity_registry = entityreg_async_get(self.hass)
-        entity_object = entity_registry.async_get(climate_entity_id)
-
-        if not entity_object:
+        except InvalidEntityError:
             # noinspection PyTypeChecker
             return self.async_abort(reason="invalid_entity")
-
-        caps = entity_object.capabilities or {}
-        preset_modes = caps.get(ATTR_PRESET_MODES)
-
-        if not preset_modes:
+        except NoPresetSupportError:
             # noinspection PyTypeChecker
             return self.async_abort(reason="climate_no_preset_support")
-
-        available_preset_modes = EMPTY_ENTRY + list(preset_modes)
-
-        selectors = {
-            CONF_CLIMATE_CONTROL_PRESET_CLEAR: self._build_selector_select(
-                available_preset_modes,
-                translation_key=SelectorTranslationKeys.CLIMATE_PRESET_LIST,
-            ),
-            CONF_CLIMATE_CONTROL_PRESET_OCCUPIED: self._build_selector_select(
-                available_preset_modes,
-                translation_key=SelectorTranslationKeys.CLIMATE_PRESET_LIST,
-            ),
-            CONF_CLIMATE_CONTROL_PRESET_SLEEP: self._build_selector_select(
-                available_preset_modes,
-                translation_key=SelectorTranslationKeys.CLIMATE_PRESET_LIST,
-            ),
-            CONF_CLIMATE_CONTROL_PRESET_EXTENDED: self._build_selector_select(
-                available_preset_modes,
-                translation_key=SelectorTranslationKeys.CLIMATE_PRESET_LIST,
-            ),
-        }
-
-        dynamic_validators = {
-            CONF_CLIMATE_CONTROL_PRESET_CLEAR: vol.In(available_preset_modes),
-            CONF_CLIMATE_CONTROL_PRESET_OCCUPIED: vol.In(available_preset_modes),
-            CONF_CLIMATE_CONTROL_PRESET_SLEEP: vol.In(available_preset_modes),
-            CONF_CLIMATE_CONTROL_PRESET_EXTENDED: vol.In(available_preset_modes),
-        }
 
         # noinspection PyTypeChecker
         return await self.do_feature_config(

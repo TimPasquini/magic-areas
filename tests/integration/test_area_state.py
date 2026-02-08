@@ -33,7 +33,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_SECONDARY_STATES,
     CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import (

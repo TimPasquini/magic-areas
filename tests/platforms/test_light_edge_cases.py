@@ -20,7 +20,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import (
@@ -249,6 +249,12 @@ async def test_state_change_secondary_logic(
 
     # Modify assigned_states for this test
     target_group.assigned_states = [AreaStates.OCCUPIED]
+    # Rebuild policy after modifying assigned_states
+    from custom_components.magic_areas.core.light_control import build_light_group_policy
+    target_group.policy = build_light_group_policy(
+        assigned_states=target_group.assigned_states,
+        act_on_modes=target_group.act_on,
+    )
 
     # Current area state for testing
     current_states = [AreaStates.BRIGHT]
@@ -273,6 +279,11 @@ async def test_state_change_secondary_logic(
 
     # Test: out_of_priority_states
     target_group.assigned_states = [AreaStates.SLEEP]
+    # Rebuild policy after modifying assigned_states
+    target_group.policy = build_light_group_policy(
+        assigned_states=target_group.assigned_states,
+        act_on_modes=target_group.act_on,
+    )
     current_states = [AreaStates.OCCUPIED]
     target_group.state_change_secondary(
         ([], [AreaStates.SLEEP], current_states)
@@ -449,6 +460,12 @@ async def test_priority_state_preference(
     # Setup:
     target_group.assigned_states = [AreaStates.OCCUPIED, AreaStates.SLEEP]
     target_group.act_on = ["occupancy", "state"]
+    # Rebuild policy after modifying assigned_states
+    from custom_components.magic_areas.core.light_control import build_light_group_policy
+    target_group.policy = build_light_group_policy(
+        assigned_states=target_group.assigned_states,
+        act_on_modes=target_group.act_on,
+    )
 
     # Current area states
     current_states = [AreaStates.OCCUPIED, AreaStates.SLEEP]

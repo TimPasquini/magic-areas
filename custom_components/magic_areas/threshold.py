@@ -10,9 +10,11 @@ import homeassistant.components.sensor.const
 from homeassistant.components.threshold.binary_sensor import ThresholdSensor
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.config_keys import (
@@ -88,7 +90,23 @@ def create_illuminance_threshold(
             illuminance_threshold_hysteresis_percentage / 100
         )
 
-    illuminance_aggregate_entity_id = f"{homeassistant.components.sensor.const.DOMAIN}.magic_areas_aggregates_{area.slug}_aggregate_illuminance"
+    # Resolve illuminance aggregate entity ID from snapshot
+    illuminance_aggregate_entity_id = data.entity_references.aggregates_by_device_class.get(
+        homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
+    )
+    if not illuminance_aggregate_entity_id:
+        # Try direct entity registry lookup (aggregate may be registered but not yet in snapshot)
+        illuminance_aggregate_entity_id = er.async_get(hass).async_get_entity_id(
+            homeassistant.components.sensor.const.DOMAIN,
+            DOMAIN,
+            f"aggregates_{area.id}_aggregate_illuminance",
+        )
+    if not illuminance_aggregate_entity_id:
+        _LOGGER.debug(
+            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
+            area.slug,
+        )
+        return None
 
     _LOGGER.debug(
         "Creating illuminance threshold sensor for area '%s': Threshold: %d, Hysteresis: %d (%d%%)",

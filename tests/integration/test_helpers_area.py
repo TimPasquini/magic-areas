@@ -4,7 +4,7 @@ from homeassistant.const import ATTR_ID
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.helpers.area import (
     get_area_from_config_entry,
     get_magic_area_for_config_entry,

@@ -7,7 +7,6 @@ from typing import Iterable
 from homeassistant.const import STATE_ON
 
 from custom_components.magic_areas.enums import MetaAreaType
-from custom_components.magic_areas.ha_domains import BINARY_SENSOR_DOMAIN
 from custom_components.magic_areas.core.area_model import AreaDescriptor
 
 
@@ -33,14 +32,6 @@ def resolve_child_areas(
             child_areas.append(area.slug)
 
     return child_areas
-
-
-def build_meta_presence_sensors(child_slugs: Iterable[str]) -> list[str]:
-    """Return presence tracker entity ids for meta areas."""
-    return [
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{slug}_area_state"
-        for slug in child_slugs
-    ]
 
 
 def resolve_active_areas(

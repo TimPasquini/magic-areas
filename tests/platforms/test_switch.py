@@ -23,6 +23,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys import (
+    CONF_AGGREGATES_MIN_ENTITIES,
     CONF_CLEAR_TIMEOUT,
     CONF_ENABLED_FEATURES,
     CONF_EXTENDED_TIMEOUT,
@@ -32,11 +33,12 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_SECONDARY_STATES,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import AreaStates, MagicAreasEvents
 from custom_components.magic_areas.features import (
+    CONF_FEATURE_AGGREGATION,
     CONF_FEATURE_FAN_GROUPS,
     CONF_FEATURE_LIGHT_GROUPS,
     CONF_FEATURE_MEDIA_PLAYER_GROUPS,
@@ -151,6 +153,9 @@ def mock_config_entry_fan_control() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
+                CONF_FEATURE_AGGREGATION: {
+                    CONF_AGGREGATES_MIN_ENTITIES: 1,
+                },
                 CONF_FEATURE_FAN_GROUPS: {
                     CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.OCCUPIED,
                     CONF_FAN_GROUPS_SETPOINT: 25.0,
@@ -173,6 +178,7 @@ async def setup_entities_fan_control(
         unique_id="temp_sensor_1",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_value=20.0,
+        native_unit_of_measurement="°C",
     )
 
     await setup_mock_entities(hass, FAN_DOMAIN, {DEFAULT_MOCK_AREA: [mock_fan]})
@@ -339,11 +345,8 @@ async def test_fan_control_switch(
     """Test fan control switch logic."""
     mock_fan, mock_sensor = entities_fan_control
 
-    # Setup aggregate sensor that the switch tracks
+    # The aggregate sensor is created by the integration (aggregates feature enabled)
     aggregate_sensor_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_{SensorDeviceClass.TEMPERATURE}"
-
-    # Pre-create the aggregate sensor state so the switch finds it on init
-    hass.states.async_set(aggregate_sensor_id, "20.0")
 
     await init_integration_helper(hass, [fan_control_config_entry])
     await hass.async_start()

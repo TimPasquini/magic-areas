@@ -67,7 +67,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.area_maps import (
     CONFIGURABLE_AREA_STATE_MAP,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     ONE_MINUTE,
     UPDATE_INTERVAL,
 )
@@ -656,6 +656,41 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
 
         self._setup_tracking_listeners()
 
+        # Listen for coordinator updates to pick up new presence sensors
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and hasattr(runtime_data, "coordinator"):
+            self.async_on_remove(
+                runtime_data.coordinator.async_add_listener(
+                    self._handle_coordinator_update
+                )
+            )
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Re-read presence sensors when coordinator refreshes."""
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if not runtime_data or not runtime_data.coordinator.data:
+            return
+
+        new_sensors = runtime_data.coordinator.data.presence_sensors.copy()
+        if set(new_sensors) == set(self._sensors):
+            return
+
+        added = set(new_sensors) - set(self._sensors)
+        self._sensors = new_sensors
+
+        # Track newly added sensors for state changes
+        if added:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, list(added), self._sensor_state_change
+                )
+            )
+
+        # Update attributes with new sensor list
+        self._attr_extra_state_attributes.update(self.get_metadata())
+        self.schedule_update_ha_state()
+
     # Helpers
 
     async def _load_attributes(self) -> None:
@@ -731,10 +766,18 @@ class MetaAreaStateBinarySensor(AreaStateBinarySensor):
         child_areas: list[str] = self.area.get_child_areas()
         states_list: list[str] = []
 
+        from homeassistant.helpers import entity_registry as er
+        from custom_components.magic_areas.const import DOMAIN
+
+        entity_registry = er.async_get(self.hass)
         for area_slug in child_areas:
-            area_entity_id: str = (
-                f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area_slug}_area_state"
+            area_entity_id = entity_registry.async_get_entity_id(
+                BINARY_SENSOR_DOMAIN,
+                DOMAIN,
+                f"presence_tracking_{area_slug}_area_state",
             )
+            if not area_entity_id:
+                continue
             area_state = self.hass.states.get(area_entity_id)
 
             if not area_state:

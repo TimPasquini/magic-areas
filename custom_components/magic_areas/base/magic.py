@@ -13,7 +13,6 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     EVENT_HOMEASSISTANT_STARTED,
-    STATE_ON,
     EntityCategory,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -48,6 +47,7 @@ from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
 )
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_EXCLUDE_ENTITIES,
@@ -72,7 +72,6 @@ from custom_components.magic_areas.core.entities import (
     group_entities,
 )
 from custom_components.magic_areas.core.meta import (
-    build_meta_presence_sensors,
     resolve_active_areas,
     resolve_child_areas,
 )
@@ -183,9 +182,15 @@ class MagicArea:
         """Return the most recent area states from the area sensor if available."""
         if self.states:
             return list(self.states)
-        area_sensor_entity_id = (
-            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.slug}_area_state"
-        )
+        # Resolve area state sensor from entity references
+        area_sensor_entity_id = None
+        runtime_data = getattr(self.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            area_sensor_entity_id = (
+                runtime_data.coordinator.data.entity_references.area_state_sensor
+            )
+        if not area_sensor_entity_id:
+            return list(self.states)
         area_sensor_state = self.hass.states.get(area_sensor_entity_id)
         if (
             area_sensor_state
@@ -566,17 +571,36 @@ class MagicMetaArea(MagicArea):
 
     def get_presence_sensors(self) -> list[str]:
         """Return list of entities used for presence tracking."""
-        return build_meta_presence_sensors(self.child_areas)
+        entity_registry = entityreg_async_get(self.hass)
+        sensors: list[str] = []
+        for child_area_id in self.child_areas:
+            entity_id = entity_registry.async_get_entity_id(
+                BINARY_SENSOR_DOMAIN,
+                DOMAIN,
+                f"presence_tracking_{child_area_id}_area_state",
+            )
+            if entity_id:
+                sensors.append(entity_id)
+        return sensors
 
     def get_active_areas(self) -> list[str]:
         """Return areas that are occupied."""
+        entity_registry = entityreg_async_get(self.hass)
         state_map: dict[str, str] = {}
 
         for area in self.child_areas:
             try:
-                entity_id = (
-                    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area}_area_state"
+                entity_id = entity_registry.async_get_entity_id(
+                    BINARY_SENSOR_DOMAIN,
+                    DOMAIN,
+                    f"presence_tracking_{area}_area_state",
                 )
+                if not entity_id:
+                    self.logger.debug(
+                        "%s: Area state sensor not in entity registry.", area
+                    )
+                    continue
+
                 entity = self.hass.states.get(entity_id)
 
                 if not entity:

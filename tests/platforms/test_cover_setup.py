@@ -8,7 +8,8 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.coordinator import MagicAreasData
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.core.entity_ids import EntityReferences
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.cover import async_setup_entry
 from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
 from custom_components.magic_areas.models import MagicAreasRuntimeData
@@ -29,6 +30,7 @@ async def test_cover_setup_no_entities(hass: HomeAssistant) -> None:
         config={},
         enabled_features={CONF_FEATURE_COVER_GROUPS},
         feature_configs={CONF_FEATURE_COVER_GROUPS: {}},
+        entity_references=EntityReferences(),
         updated_at=datetime.now(UTC),
     )
     coordinator = MagicMock()
@@ -59,6 +61,7 @@ async def test_cover_setup_cleanup_removed_entries(hass: HomeAssistant) -> None:
         config={},
         enabled_features={CONF_FEATURE_COVER_GROUPS},
         feature_configs={CONF_FEATURE_COVER_GROUPS: {}},
+        entity_references=EntityReferences(),
         updated_at=datetime.now(UTC),
     )
     coordinator = MagicMock()

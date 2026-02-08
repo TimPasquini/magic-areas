@@ -12,7 +12,7 @@ from homeassistant.components.group.cover import CoverGroup
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
@@ -87,7 +87,7 @@ async def async_setup_entry(
         )
 
 
-class AreaCoverGroup(MagicEntity, CoverGroup):
+class AreaCoverGroup(MagicGroupEntity, CoverGroup):
     """Cover group for handling all the covers in the area."""
 
     feature_info = MagicAreasFeatureInfoCoverGroups()
@@ -99,8 +99,13 @@ class AreaCoverGroup(MagicEntity, CoverGroup):
         entities: list[dict[str, str]],
     ) -> None:
         """Initialize the cover group."""
-        MagicEntity.__init__(
-            self, area, domain=COVER_DOMAIN, translation_key=device_class
+        entity_ids = [e["entity_id"] for e in entities]
+        MagicGroupEntity.__init__(
+            self,
+            area=area,
+            domain=COVER_DOMAIN,
+            member_entity_ids=entity_ids,
+            translation_key=device_class,
         )
         sensor_device_class: CoverDeviceClass | None = (
             CoverDeviceClass(device_class) if device_class else None
@@ -109,7 +114,7 @@ class AreaCoverGroup(MagicEntity, CoverGroup):
         self._entities = entities
         CoverGroup.__init__(
             self,
-            entities=[e["entity_id"] for e in self._entities],
+            entities=self.member_entity_ids,
             name=EMPTY_STRING,
             unique_id=self._attr_unique_id,
         )

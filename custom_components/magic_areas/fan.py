@@ -8,9 +8,9 @@ from homeassistant.components.group.fan import FanGroup
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     EMPTY_STRING,
 )
 from custom_components.magic_areas.features import (
@@ -70,17 +70,22 @@ async def async_setup_entry(
         cleanup_removed_entries(area.hass, fan_groups, data.magic_entities[FAN_DOMAIN])
 
 
-class AreaFanGroup(MagicEntity, FanGroup):
+class AreaFanGroup(MagicGroupEntity, FanGroup):
     """Fan Group."""
 
     feature_info = MagicAreasFeatureInfoFanGroups()
 
     def __init__(self, area: MagicArea, entities: list[str]) -> None:
         """Init the fan group for the area."""
-        MagicEntity.__init__(self, area=area, domain=FAN_DOMAIN)
+        MagicGroupEntity.__init__(
+            self,
+            area=area,
+            domain=FAN_DOMAIN,
+            member_entity_ids=entities,
+        )
         FanGroup.__init__(
             self,
-            entities=entities,
+            entities=self.member_entity_ids,
             name=EMPTY_STRING,
             unique_id=self.unique_id,
         )

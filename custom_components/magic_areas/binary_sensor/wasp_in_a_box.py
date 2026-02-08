@@ -21,7 +21,7 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_WASP_IN_A_BOX_DELAY,
     DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     ONE_MINUTE,
 )
 from custom_components.magic_areas.defaults import (
@@ -29,9 +29,6 @@ from custom_components.magic_areas.defaults import (
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoWaspInABox,
-)
-from custom_components.magic_areas.enums import (
-    MagicAreasFeatures,
 )
 from custom_components.magic_areas.policy import (
     WASP_IN_A_BOX_BOX_DEVICE_CLASSES,
@@ -56,13 +53,15 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         MagicEntity.__init__(self, area, domain=BINARY_SENSOR_DOMAIN)
         BinarySensorEntity.__init__(self)
 
-        self._delay: int = self.area.feature_config(
-            MagicAreasFeatures.WASP_IN_A_BOX
-        ).get(CONF_WASP_IN_A_BOX_DELAY, DEFAULT_WASP_IN_A_BOX_DELAY)
+        feature_config = self.get_feature_config()
 
-        self._wasp_timeout: int = self.area.feature_config(
-            MagicAreasFeatures.WASP_IN_A_BOX
-        ).get(CONF_WASP_IN_A_BOX_WASP_TIMEOUT, DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT)
+        self._delay: int = feature_config.get(
+            CONF_WASP_IN_A_BOX_DELAY, DEFAULT_WASP_IN_A_BOX_DELAY
+        )
+
+        self._wasp_timeout: int = feature_config.get(
+            CONF_WASP_IN_A_BOX_WASP_TIMEOUT, DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT
+        )
 
         self._attr_device_class = BinarySensorDeviceClass.PRESENCE
         self._attr_extra_state_attributes = {
@@ -82,27 +81,54 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         await super().async_added_to_hass()
         await self.restore_state()
 
-        # Check entities exist
-        wasp_device_classes = self.area.feature_config(
-            MagicAreasFeatures.WASP_IN_A_BOX
-        ).get(
+        # Resolve aggregate sensor entity IDs from coordinator snapshot or entity registry
+        from homeassistant.helpers import entity_registry as er
+        from custom_components.magic_areas.const import DOMAIN
+
+        entity_refs = None
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            entity_refs = runtime_data.coordinator.data.entity_references
+
+        entity_registry = er.async_get(self.hass)
+
+        feature_config = self.get_feature_config()
+        wasp_device_classes = feature_config.get(
             CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
             DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
         )
 
         for device_class in wasp_device_classes:
-            dc_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{self.area.slug}_aggregate_{device_class}"
-            dc_state = self.hass.states.get(dc_entity_id)
-            if not dc_state:
-                continue
-            self._wasp_sensors.append(dc_entity_id)
+            dc_entity_id = (
+                entity_refs.binary_aggregates_by_device_class.get(device_class)
+                if entity_refs
+                else None
+            )
+            if not dc_entity_id:
+                dc_entity_id = entity_registry.async_get_entity_id(
+                    BINARY_SENSOR_DOMAIN, DOMAIN,
+                    f"aggregates_{self.area.id}_aggregate_{device_class}",
+                )
+            if dc_entity_id:
+                dc_state = self.hass.states.get(dc_entity_id)
+                if dc_state:
+                    self._wasp_sensors.append(dc_entity_id)
 
         for device_class in WASP_IN_A_BOX_BOX_DEVICE_CLASSES:
-            dc_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{self.area.slug}_aggregate_{device_class}"
-            dc_state = self.hass.states.get(dc_entity_id)
-            if not dc_state:
-                continue
-            self._box_sensors.append(dc_entity_id)
+            dc_entity_id = (
+                entity_refs.binary_aggregates_by_device_class.get(device_class)
+                if entity_refs
+                else None
+            )
+            if not dc_entity_id:
+                dc_entity_id = entity_registry.async_get_entity_id(
+                    BINARY_SENSOR_DOMAIN, DOMAIN,
+                    f"aggregates_{self.area.id}_aggregate_{device_class}",
+                )
+            if dc_entity_id:
+                dc_state = self.hass.states.get(dc_entity_id)
+                if dc_state:
+                    self._box_sensors.append(dc_entity_id)
 
         # Initialize timer if timeout configured
         if self._wasp_timeout > 0:

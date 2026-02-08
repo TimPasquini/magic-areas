@@ -13,7 +13,7 @@ from custom_components.magic_areas.binary_sensor import (
     create_health_sensors,
     create_aggregate_sensors,
 )
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.features import (
     CONF_FEATURE_WASP_IN_A_BOX,
     CONF_FEATURE_AGGREGATION,

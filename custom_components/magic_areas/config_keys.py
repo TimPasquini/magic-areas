@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .core_constants import EMPTY_STRING
+from .const import EMPTY_STRING
 from .area_constants import AREA_STATE_EXTENDED, AREA_TYPE_INTERIOR
 from .enums import CalculationMode
 from .ha_domains import (

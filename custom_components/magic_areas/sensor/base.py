@@ -11,12 +11,12 @@ from homeassistant.components.sensor.const import (
     SensorStateClass,
 )
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
 )
-from custom_components.magic_areas.core_constants import DEFAULT_SENSOR_PRECISION
+from custom_components.magic_areas.const import DEFAULT_SENSOR_PRECISION
 from custom_components.magic_areas.policy import (
     AGGREGATE_MODE_SUM,
     AGGREGATE_MODE_TOTAL_INCREASING_SENSOR,
@@ -26,7 +26,7 @@ from custom_components.magic_areas.policy import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class AreaSensorGroupSensor(MagicEntity, SensorGroup):
+class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
     """Sensor for the magic area, group sensor with all the stuff in it."""
 
     def __init__(
@@ -38,8 +38,12 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
     ) -> None:
         """Initialize an area sensor group sensor."""
 
-        MagicEntity.__init__(
-            self, area=area, domain=SENSOR_DOMAIN, translation_key=device_class
+        MagicGroupEntity.__init__(
+            self,
+            area=area,
+            domain=SENSOR_DOMAIN,
+            member_entity_ids=entity_ids,
+            translation_key=device_class,
         )
 
         # Resolve unit of measurement
@@ -68,7 +72,7 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
             area.hass,
             name=EMPTY_STRING,
             unique_id=self._attr_unique_id,
-            entity_ids=entity_ids,
+            entity_ids=self.member_entity_ids,
             unit_of_measurement=final_unit_of_measurement,
             device_class=sensor_device_class,
             state_class=state_class,
@@ -76,8 +80,3 @@ class AreaSensorGroupSensor(MagicEntity, SensorGroup):
             ignore_non_numeric=True,
         )
         delattr(self, "_attr_name")
-
-    async def async_added_to_hass(self) -> None:
-        """Register listeners."""
-        await super().async_added_to_hass()
-        self.async_write_ha_state()

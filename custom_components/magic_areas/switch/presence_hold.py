@@ -25,7 +25,10 @@ class PresenceHoldSwitch(ResettableSwitchBase):
     def __init__(self, area: MagicArea) -> None:
         """Initialize the switch."""
 
-        timeout = area.feature_config(MagicAreasFeatures.PRESENCE_HOLD).get(
+        # Get timeout from feature config before calling parent __init__
+        # We can't use self.get_feature_config() here since self doesn't exist yet
+        feature_config = area.feature_config(MagicAreasFeatures.PRESENCE_HOLD)
+        timeout = feature_config.get(
             CONF_PRESENCE_HOLD_TIMEOUT, DEFAULT_PRESENCE_HOLD_TIMEOUT
         )
 

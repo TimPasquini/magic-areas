@@ -29,7 +29,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.features import (

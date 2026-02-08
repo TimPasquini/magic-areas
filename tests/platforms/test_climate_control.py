@@ -28,7 +28,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_ENABLED_FEATURES,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import (

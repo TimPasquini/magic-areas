@@ -11,7 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
 )
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.features import (
     CONF_FEATURE_AGGREGATION,
     CONF_FEATURE_FAN_GROUPS,

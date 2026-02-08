@@ -2,7 +2,6 @@
 
 from custom_components.magic_areas.core.area_model import AreaDescriptor
 from custom_components.magic_areas.core.meta import (
-    build_meta_presence_sensors,
     resolve_active_areas,
     resolve_child_areas,
 )
@@ -73,15 +72,6 @@ def test_resolve_child_areas_floor() -> None:
     ]
 
     assert resolve_child_areas(meta_area, areas) == ["kitchen"]
-
-
-def test_build_meta_presence_sensors() -> None:
-    """Meta presence sensors are derived from child slugs."""
-    sensors = build_meta_presence_sensors(["kitchen", "yard"])
-    assert sensors == [
-        "binary_sensor.magic_areas_presence_tracking_kitchen_area_state",
-        "binary_sensor.magic_areas_presence_tracking_yard_area_state",
-    ]
 
 
 def test_resolve_active_areas() -> None:

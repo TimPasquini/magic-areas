@@ -1,5 +1,6 @@
 """The basic entities for magic areas."""
 
+from collections.abc import Callable
 import logging
 
 from homeassistant.const import STATE_OFF, STATE_ON
@@ -7,7 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.area_constants import (
@@ -149,6 +150,28 @@ class MagicEntity(RestoreEntity):
             ),
         )
 
+    def get_feature_config(self) -> dict:
+        """Get feature config from coordinator snapshot with fallback.
+
+        Reads from coordinator snapshot when available (preferred),
+        falls back to area.feature_config() during initialization.
+
+        Returns:
+            Feature configuration dict (empty if feature not enabled)
+        """
+        if not self.feature_info:
+            return {}
+
+        # Try coordinator snapshot first (single source of truth)
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            return runtime_data.coordinator.data.feature_configs.get(
+                self.feature_info.id, {}
+            )
+
+        # Fallback to area method (during init before coordinator ready)
+        return self.area.feature_config(self.feature_info.id)
+
     async def restore_state(self) -> None:
         """Restore the state of the entity."""
         last_state = await self.async_get_last_state()
@@ -166,6 +189,140 @@ class MagicEntity(RestoreEntity):
             self._attr_extra_state_attributes = dict(last_state.attributes)
 
         self.schedule_update_ha_state()
+
+
+class MagicGroupEntity(MagicEntity):
+    """Base class for all Magic Areas group entities.
+
+    Provides standardized lifecycle management for group entities:
+    - Consistent setup/teardown pattern
+    - Member entity tracking
+    - Listener cleanup on removal
+    - Single place for group-wide behavior changes
+
+    This eliminates the inconsistencies that cause flaky group tests.
+    """
+
+    _member_entity_ids: list[str]
+    _group_listeners: list[tuple[str, Callable[[], None]]]
+
+    def __init__(
+        self,
+        area: MagicArea,
+        domain: str,
+        member_entity_ids: list[str],
+        translation_key: str | None = None,
+        extra_identifiers: list[str] | None = None,
+    ) -> None:
+        """Initialize group entity.
+
+        Args:
+            area: Magic area instance
+            domain: Home Assistant domain (light, sensor, etc.)
+            member_entity_ids: List of entity IDs in this group
+            translation_key: Optional translation key
+            extra_identifiers: Optional extra unique ID identifiers
+        """
+        super().__init__(area, domain, translation_key, extra_identifiers)
+        self._member_entity_ids = member_entity_ids
+        self._group_listeners = []
+
+    async def async_added_to_hass(self) -> None:
+        """Set up group entity with standard lifecycle.
+
+        This ensures all group entities follow the same setup pattern:
+        1. Parent setup (MagicEntity)
+        2. Group-specific setup (subclass hook)
+        3. Initial state write
+
+        Override _async_setup_group() for group-specific setup, not this method.
+        """
+        await super().async_added_to_hass()
+
+        # Call hook for subclass-specific setup
+        await self._async_setup_group()
+
+        # Write initial state (always last to ensure state is calculated)
+        self.async_write_ha_state()
+
+    async def _async_setup_group(self) -> None:
+        """Hook for subclass-specific group setup.
+
+        Override this in subclasses that need custom setup logic.
+        Called during async_added_to_hass before initial state write.
+        """
+        pass
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Tear down group entity with standard lifecycle.
+
+        This ensures all group entities follow the same teardown pattern:
+        1. Clean up tracked listeners
+        2. Group-specific cleanup (subclass hook)
+        3. Parent cleanup (MagicEntity)
+
+        Override _async_teardown_group() for group-specific cleanup, not this method.
+        """
+        # Clean up all tracked listeners
+        for listener_name, remove_callback in self._group_listeners:
+            _LOGGER.debug(
+                "%s: Removing listener: %s",
+                self.name,
+                listener_name,
+            )
+            try:
+                remove_callback()
+            except Exception as err:
+                _LOGGER.warning(
+                    "%s: Error removing listener %s: %s",
+                    self.name,
+                    listener_name,
+                    err,
+                )
+
+        self._group_listeners.clear()
+
+        # Call hook for subclass-specific cleanup
+        await self._async_teardown_group()
+
+        await super().async_will_remove_from_hass()
+
+    async def _async_teardown_group(self) -> None:
+        """Hook for subclass-specific group cleanup.
+
+        Override this in subclasses that need custom cleanup logic.
+        Called during async_will_remove_from_hass after listener cleanup.
+        """
+        pass
+
+    def track_group_listener(
+        self, remove_callback: Callable[[], None], name: str = "unnamed"
+    ) -> None:
+        """Track a listener for automatic cleanup on entity removal.
+
+        Use this to register any state listeners, event subscriptions, etc.
+        that need cleanup when the group entity is removed.
+
+        Args:
+            remove_callback: Function to call to remove the listener
+            name: Descriptive name for debugging (e.g., "state_change_listener")
+
+        Example:
+            remove = async_track_state_change_event(...)
+            self.track_group_listener(remove, "member_state_tracking")
+        """
+        self._group_listeners.append((name, remove_callback))
+        _LOGGER.debug(
+            "%s: Tracking listener: %s (total: %d)",
+            self.name,
+            name,
+            len(self._group_listeners),
+        )
+
+    @property
+    def member_entity_ids(self) -> list[str]:
+        """Return member entity IDs for this group."""
+        return self._member_entity_ids
 
 
 class BinaryMagicEntity(MagicEntity):

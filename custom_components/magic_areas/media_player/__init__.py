@@ -12,13 +12,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from custom_components.magic_areas.area_constants import (
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
     EMPTY_STRING,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.feature_info import (
@@ -167,17 +167,22 @@ async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
     return [AreaAwareMediaPlayer(area, areas_with_media_players)]
 
 
-class AreaMediaPlayerGroup(MagicEntity, MediaPlayerGroup):
+class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
     """Media player group."""
 
     feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
 
     def __init__(self, area: MagicArea, entities: list[str]) -> None:
         """Initialize media player group."""
-        MagicEntity.__init__(self, area, domain=MEDIA_PLAYER_DOMAIN)
+        MagicGroupEntity.__init__(
+            self,
+            area=area,
+            domain=MEDIA_PLAYER_DOMAIN,
+            member_entity_ids=entities,
+        )
         MediaPlayerGroup.__init__(
             self,
             name=EMPTY_STRING,
             unique_id=self._attr_unique_id,
-            entities=entities,
+            entities=self.member_entity_ids,
         )

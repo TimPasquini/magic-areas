@@ -9,7 +9,8 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.coordinator import MagicAreasData
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.core.entity_ids import EntityReferences
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.features import CONF_FEATURE_PRESENCE_HOLD
 from custom_components.magic_areas.switch import async_setup_entry
 from custom_components.magic_areas.models import MagicAreasRuntimeData
@@ -34,6 +35,7 @@ async def test_switch_setup_presence_hold_error(
         config={},
         enabled_features={CONF_FEATURE_PRESENCE_HOLD},
         feature_configs={CONF_FEATURE_PRESENCE_HOLD: {}},
+        entity_references=EntityReferences(),
         updated_at=datetime.now(UTC),
     )
     coordinator = MagicMock()

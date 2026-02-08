@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_registry import (
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from tests.const import MockAreaIds

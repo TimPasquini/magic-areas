@@ -23,12 +23,60 @@ This repository is **forked from upstream** (baseline commit `d7b5779`) with sig
 - Entity identity migration
 - Test coverage expansions
 
-**For detailed migration context**, see:
+**For detailed context**, see:
 - `/docs/migration/README.md` - Migration overview and delta inventory
 - `/docs/migration/architecture.md` - Runtime architecture and event flow changes
 - `/docs/migration/coordinator.md` - Snapshot model and availability semantics
 - `/docs/migration/config-flow.md` - Config flow restructuring
 - `/docs/migration/tests.md` - Test coverage delta mapping
+- `docs/contributing/implementation-plan.md` - **Phased refactoring roadmap (CRITICAL - read this)**
+- `docs/contributing/design-philosophy.md` - Home Assistant integration patterns and philosophy
+
+## Project Setup Standards
+
+**CRITICAL: This project uses `uv` for modern Python package management.**
+
+### Purpose
+This repository is a Home Assistant custom integration implemented as a modern Python package. Development tooling, dependency resolution, linting, formatting, typing, and testing are owned by **uv** via `pyproject.toml`. Home Assistant runtime behavior and dependencies are owned exclusively by `manifest.json`.
+
+### Standards
+- Python packaging: PEP 517, 518, 621, 440, 508
+- Home Assistant custom integration guidelines
+- Async-only, no blocking I/O
+- **No setup.py**
+- **No requirements.txt**
+- **No runtime dependency installation**
+
+### Authoritative Files
+- `pyproject.toml` - Build metadata, dev dependencies, tooling configuration
+- `uv.lock` - Single source of truth for resolved dependencies
+- `custom_components/<domain>/manifest.json` - Runtime dependencies and HA metadata
+
+### Dependency Rules (CRITICAL)
+- **Development dependencies**: Live in `pyproject.toml`, resolved by `uv`
+- **Runtime dependencies**: Live ONLY in `manifest.json`
+- **No dev-only packages** may be imported by integration code
+- Dependency versions must not be duplicated or pinned across systems
+
+### Documentation Placement
+- **Developer-only docs**: `custom_components/<domain>/docs/` (ignored by HA at runtime)
+- **User-facing docs**: Repository root (e.g., `README.md`, `/docs/`)
+- **manifest.json** links to user documentation via `"documentation"` field
+
+### Tooling (configured in pyproject.toml)
+- **ruff**: Linting and formatting
+- **mypy**: Strict typing (ignore missing imports acceptable)
+- **pytest** + pytest-asyncio
+- **pytest-homeassistant-custom-component**
+
+### Invariants
+- `uv.lock` must be reproducible in CI
+- No implicit global state
+- No network access during tests unless explicitly mocked
+- Formatting and linting must pass with no local overrides
+
+### Goal
+Maximize determinism, minimize duplication, and ensure the integration can be developed with `uv` while remaining fully compliant with Home Assistant's runtime model.
 
 ## Development Commands
 
@@ -141,7 +189,124 @@ Platform handlers (light groups, climate control, fan control, media player)
 
 This ensures handlers see consistent state even during concurrent updates.
 
-## Code Organization
+## 🚨 CRITICAL: Refactoring Guidelines (Active Decomposition Phase)
+
+**This integration is currently mid-refactor in the DECOMPOSITION phase.**
+
+### Current Phase: Decomposition
+
+The integration is being actively refactored from several very large, monolithic modules into smaller, more focused files. **This has intentionally increased the number of files and directories.** The resulting file sprawl is **expected and temporary**.
+
+**Primary Goal**: Expose logical seams, clarify responsibility boundaries, and make future recomposition possible without changing runtime behavior.
+
+### What This Means for Development
+
+**In the decomposition phase:**
+- Large files are split even if the final structure is not yet known
+- File count and directory depth may temporarily increase
+- Names and locations may be provisional
+- **Architectural clarity is more important than visual neatness**
+
+**DO NOT:**
+- ❌ Attempt to optimize or finalize structure during this phase
+- ❌ Collapse files to reduce visual clutter
+- ❌ Create generic "utils" modules as dumping grounds
+- ❌ Prematurely recombine files
+- ❌ Consolidate solely to reduce file count
+- ❌ Optimize for aesthetics instead of clarity
+- ❌ Mix Home Assistant glue with domain logic
+
+**DO:**
+- ✅ Preserve behavior exactly (structural changes must not alter logic)
+- ✅ Prefer smaller, single-responsibility files over merged abstractions
+- ✅ Keep imports directional (avoid circular dependencies)
+- ✅ Make ownership clear (if a change makes ownership less clear, it's wrong)
+- ✅ Split files even if you're not sure of the final structure
+
+### Home Assistant Doesn't Care About
+
+Home Assistant evaluates integrations based on **runtime behavior**, not internal organization. While refactoring:
+- ✅ Imports must remain valid
+- ✅ Config flows must remain stable
+- ✅ Entities must register correctly
+- ✅ Async patterns must be preserved
+
+Home Assistant **does not care** about:
+- Internal folder count
+- File naming symmetry
+- Temporary fragmentation
+- Intermediate layouts
+
+### File Responsibility Model
+
+Every file should clearly belong to one primary responsibility category:
+
+- **Models**: Data structures, representations, and state shapes
+- **Policy**: Decision-making, rules, feature logic
+- **Adapters**: Home Assistant-facing glue (entities, platforms, config flow)
+- **Plumbing**: Lifecycle, coordination, orchestration
+
+**Files that do not clearly fit one category should remain separate** until their role becomes obvious.
+
+### When to Advance to Recomposition
+
+The project is ready to move from decomposition to recomposition when:
+- ✅ Each file's responsibility is obvious
+- ✅ Duplicate concepts are visible and understood
+- ✅ Import direction is mostly one-way
+- ✅ Feature logic has a clear home
+- ✅ Constants usage patterns are stable
+
+**Until these conditions are met, continue to favor clarity and separation over consolidation.**
+
+### Reorganization Constraints
+
+When eventually recomposing files:
+- No runtime behavior changes permitted
+- All imports must remain under `custom_components.magic_areas`
+- Platform modules must remain thin and declarative
+- Coordinators own data fetching and update logic
+- Entities must not perform I/O or policy decisions
+- Constants must be centralized and deduplicated
+- Config flow logic must remain isolated from core logic
+
+### Intent
+
+**Expose structure first. Recombine deliberately later. Clarity precedes elegance.**
+
+## Target Architecture (from docs/contributing/implementation-plan.md)
+
+The refactoring is moving toward this **target module layout**:
+
+### Target: custom_components/magic_areas/core/ (HA-free helpers)
+- **Purpose**: Area model, state evaluation, entity assembly, derived values
+- **Key principle**: No HA entity classes or registry calls (pure logic)
+- **Modules**:
+  - `core/area_model.py` - Core representation of MagicArea state
+  - `core/entities.py` - Normalized entity list assembly by domain
+  - `core/presence.py` - Presence, timeouts, and secondary states
+  - `core/aggregates.py` - Aggregate sensor logic
+  - `core/meta.py` - Meta area orchestration and child area resolution
+  - `core/config.py` - Feature configuration normalization
+
+### Target: coordinator.py
+- Owns snapshot construction and refresh lifecycle
+- Exposes `MagicAreasData` as the **only read model** for platforms
+- Translates `MagicArea` into snapshot fields used by entities
+- No platform-specific filtering outside snapshot building
+
+### Target: platforms/ (entity wiring only)
+- Convert snapshot data into entity instances only
+- No domain logic beyond HA entity wiring
+- Use shared base entity classes where possible
+- All entity filtering snapshot-based, not registry-based
+
+### Target: config/ (schemas and validation)
+- Schemas, validation, and feature metadata
+- Config flow helpers and selectors
+- Reusable option-building helpers with consistent patterns
+
+## Current Code Organization (transitioning to target)
 
 ### Core Modules (custom_components/magic_areas/)
 
@@ -230,24 +395,82 @@ Features are individually enabled and configured per area:
 
 Configuration stored per-area in ConfigEntry data/options.
 
-### Current Refactoring (core-rebuild)
+### Current Refactoring (core-rebuild) - Phased Implementation Plan
 
-**Active refactoring phase** extracting pure helper functions from MagicArea class to:
-- Improve testability (pure functions are easier to unit test)
-- Stabilize internal APIs
-- Allow testing pure logic independently (without HA framework overhead)
-- Use immutable data structures in coordinator snapshots
+**CRITICAL: This is a structured, multi-phase refactoring** documented in `docs/contributing/implementation-plan.md`.
 
-Note: Platform and integration code still uses HA's testing framework (`pytest-homeassistant-custom-component`). Pure helpers in `core/` are extracted specifically to be testable as simple unit tests, which is faster and more maintainable.
+**Current Status:** Phase 1 complete, **Phase 2 in progress**
 
-**Recent commits (from git log):**
-- `be8e420` - temp guidance docs
-- `6ee9616` - refactor: align coordinator snapshot helpers
-- `de14e38` - refactor: extract aggregates core and stabilize area events
-- `3b45b3e` - refactor: introduce core meta helpers and stabilize area-driven controls
-- `38880a4` - refactor: align state handling and document migration deltas
+#### Goals (from docs/contributing/implementation-plan.md)
+- Reduce cross-module coupling and duplicated logic
+- Centralize runtime data shaping in coordinator snapshot
+- Keep platform files focused on entity wiring only
+- Preserve current user-facing behavior and config flow UX
+- Improve testability by isolating domain logic from HA entity classes
+- Make future feature additions require changes in one place (core or config)
+- Keep identifiers stable and HA-aligned (durable unique_id, no domain in unique_id)
+- Align availability semantics with coordinator outcomes
 
-**See `/docs/migration/` for the full context** of architectural changes from the fork baseline.
+#### Non-Goals (IMPORTANT - DO NOT DO THESE)
+- Redesign user-facing features or behavior
+- Change config entry data format unless required by HA
+- Remove features or reduce existing platform coverage
+- Introduce new platforms during refactor
+- Rewrite tests for style or aesthetic changes
+
+#### Constraints
+- Python 3.13+
+- HA integration patterns (config flow, options flow, coordinator, entities)
+- Strict typing kept consistent with platinum goal
+- **Tests remain green throughout refactors**
+- **No breaking changes to existing config entry data**
+- Avoid large-scale renames that make diffs hard to review
+
+#### Refactoring Phases
+
+**Phase 1: Align boundaries** ✅ COMPLETE
+- Snapshot is single source of truth for platform setup
+- Coordinator refresh before platform setup (no area fallbacks)
+- All platforms now read snapshot fields only
+
+**Phase 2: Extract core domain logic** ✅ COMPLETE (2026-02-08)
+- Split `base/magic.py` into focused modules (presence, aggregates, meta state)
+- Keep pure logic modules free of HA entity references
+- Update coordinator to call these modules
+- Consolidate filtering and derived-state rules into core modules
+
+**Phase 2 Completed:**
+- ✅ Core helpers extracted for config, presence, entity grouping
+- ✅ Aggregates logic extracted (`core/aggregates.py` - 90% coverage)
+- ✅ Unique ID format updated with migration support and tests
+- ✅ Entity availability follows coordinator refresh
+- ✅ `base/magic.py` reduced to orchestration (88% coverage)
+- ✅ Event handlers use payload snapshots (no stale reads)
+- ✅ 95% overall test coverage (235 tests passing)
+
+**Phase 3: Simplify platform adapters** ✅ COMPLETE
+- Extracted state priority logic (`core/state_priority.py`)
+- Extracted climate/fan control policy (`core/climate_control.py`, `core/fan_control.py`)
+- Extracted light group control logic (`core/light_control.py`)
+- Platform files reduced to HA service calls and event wiring
+- 95% coverage maintained
+
+**Phase 4: Config flow modularization** ✅ COMPLETE
+- Extracted selector builders (`schemas/selectors.py`)
+- Extracted climate preset builder (`schemas/feature_builders.py`)
+- Extracted validation helpers (`config_flows/helpers.py`)
+- Config flow reduced from 1319 → 1209 lines (110 lines removed)
+
+**Phase 5: Repository alignment & cleanup** ✅ COMPLETE (2026-02-11)
+- Removed all legacy packaging files (requirements*, setup.cfg, tox.ini, etc.)
+- Removed obsolete directories (scripts/, config/, base/)
+- Renamed `core_constants.py` → `const.py` (HA convention)
+- Organized documentation in `docs/contributing/`
+- Fixed hacs.json (added missing domain field)
+- Removed 36 unused imports, fixed deprecated ruff config
+- 340 tests passing, 95% coverage maintained
+
+**See `/docs/migration/` for architectural changes** and **`docs/contributing/docs/contributing/implementation-plan.md` for detailed roadmap**.
 
 ## Test Structure & Patterns
 
@@ -370,6 +593,75 @@ config_entry.options:
 ```
 
 See `config_flow.py` for configuration structure details.
+
+## Home Assistant Integration Patterns Reference
+
+This section captures essential Home Assistant patterns. For comprehensive HA guidelines, see the original `AGENTS.md` in repository history.
+
+### Quality Scale (Bronze Tier - Current Target)
+
+Home Assistant uses a quality scale: Bronze (baseline) → Silver → Gold → Platinum
+
+**This integration targets Bronze tier**. Key Bronze requirements:
+- ✅ UI config flow with automated tests
+- ✅ Unique IDs for all entities
+- ✅ DataUpdateCoordinator pattern
+- ✅ Async-only, no blocking I/O
+- ✅ Proper availability semantics
+- ✅ Type hints (working toward Platinum strict typing)
+
+### Critical HA Rules
+
+**Async Programming**:
+- All I/O operations must be async
+- No blocking calls in event loop
+- Use `await hass.async_add_executor_job()` for blocking operations
+- Group operations with `asyncio.gather()` instead of awaiting in loops
+
+**Entity Patterns**:
+- Properties must be cheap, memory-only reads (no I/O)
+- Use `unique_id` for entity registry (durable, no domain prefix)
+- Entities link to devices via `device_info`
+- Mark unavailable when data cannot be fetched (don't show stale state)
+
+**DataUpdateCoordinator**:
+- Single coordinator per config entry
+- Centralized data fetching
+- Entities read coordinator data (no direct polling)
+- `coordinator.data` is the single source of truth
+
+**Config Entry Runtime Data**:
+```python
+type MyIntegrationConfigEntry = ConfigEntry[MyClient]
+
+async def async_setup_entry(hass: HomeAssistant, entry: MyIntegrationConfigEntry) -> bool:
+    client = MyClient(entry.data[CONF_HOST])
+    entry.runtime_data = client
+```
+
+**Import Rules**:
+- Use shared constants from `homeassistant.const` when available
+- No circular dependencies
+- Keep imports directional (core → helpers → platforms)
+
+### Code Quality Standards
+
+**Formatting & Linting**:
+- **ruff**: Primary linter and formatter
+- **mypy**: Strict type checking
+- **pytest**: Testing framework
+- Address issues at the source before using suppressions
+
+**Python Requirements**:
+- Python 3.13+ (use modern features: pattern matching, type hints, dataclasses)
+- American English for all code/comments/docs
+- Sentence case for user-facing messages
+
+**Testing**:
+- All Bronze tier integrations require automated tests
+- Use pytest with fixtures
+- Mock external I/O
+- Aim for 95%+ coverage
 
 ## Debugging Tips
 

@@ -62,18 +62,20 @@ From `implementation-plan.md`:
 - Coordinator refresh before platform setup (no area fallbacks)
 - All platforms now read snapshot fields only
 
-### Phase 2: Extract Core Domain Logic 🔄 IN PROGRESS
+### Phase 2: Extract Core Domain Logic ✅ COMPLETE
 - Split `base/magic.py` into focused modules
 - Keep pure logic modules free of HA entity references
 - Update coordinator to call these modules
 - Consolidate filtering and derived-state rules
 
-**Current Progress:**
+**Completed (2026-02-08):**
 - ✅ Core helpers extracted for config, presence, entity grouping
+- ✅ Aggregates logic extracted (`core/aggregates.py` - 90% coverage)
 - ✅ Unique ID format updated with migration support
 - ✅ Entity availability follows coordinator refresh
-- 🔄 Aggregates logic extraction ongoing
-- 🔄 Reducing `base/magic.py` to orchestration only
+- ✅ `base/magic.py` reduced to orchestration (88% coverage)
+- ✅ Event handlers use payload snapshots (no stale reads)
+- ✅ 95% overall test coverage (235 tests passing)
 
 ### Phase 3-5: Future Phases
 - **Phase 3**: Simplify platform adapters
@@ -278,12 +280,13 @@ Follow conventional commits:
 
 **Tests are the safety net during refactoring.** All tests must pass after every change.
 
-**Current Test Status (Phase 2 Ready):**
-- ✅ **182 tests passing** with 95% code coverage
+**Current Test Status (Phase 2 Complete):**
+- ✅ **235 tests passing** with 95% code coverage
+- ✅ **Core modules: 90-100% coverage** - Pure logic fully tested
 - ✅ **0 tight coupling to MagicArea internals** - All tests use coordinator.data
 - ✅ **Config flow split into 4 files** - 51 tests organized by purpose
 - ✅ **Fixtures documented** - Clear purpose and usage
-- ✅ **Ready for decomposition** - Tests won't break when MagicArea is split
+- ✅ **Migration and availability tests** - Identity and coordinator behavior verified
 
 ### How Tests Work During Decomposition
 

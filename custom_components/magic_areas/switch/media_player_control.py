@@ -25,18 +25,34 @@ class MediaPlayerControlSwitch(SwitchBase):
     feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
     _attr_entity_category = EntityCategory.CONFIG
 
-    media_player_group_id: str
+    media_player_group_id: str | None
 
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Climate control switch."""
 
         SwitchBase.__init__(self, area)
 
-        self.media_player_group_id = f"{MEDIA_PLAYER_DOMAIN}.magic_areas_media_player_groups_{self.area.slug}_media_player_group"
+        # Entity ID resolved in async_added_to_hass from coordinator snapshot
+        self.media_player_group_id = None
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
+
+        # Resolve media player group ID from coordinator snapshot or entity registry
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            self.media_player_group_id = (
+                runtime_data.coordinator.data.entity_references.media_player_group
+            )
+        if not self.media_player_group_id:
+            from homeassistant.helpers import entity_registry as er
+            from custom_components.magic_areas.const import DOMAIN
+
+            self.media_player_group_id = er.async_get(self.hass).async_get_entity_id(
+                MEDIA_PLAYER_DOMAIN, DOMAIN,
+                f"media_player_groups_{self.area.id}_media_player_group",
+            )
 
         self.async_on_remove(
             async_dispatcher_connect(
@@ -67,6 +83,12 @@ class MediaPlayerControlSwitch(SwitchBase):
             return
 
         if AreaStates.CLEAR in new_states:
+            if not self.media_player_group_id:
+                _LOGGER.debug(
+                    "%s: No media player group ID resolved, cannot turn off",
+                    self.name,
+                )
+                return
             _LOGGER.debug("%s: Area clear, turning off media players.", self.name)
             await self.hass.services.async_call(
                 MEDIA_PLAYER_DOMAIN,

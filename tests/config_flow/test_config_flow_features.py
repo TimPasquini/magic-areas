@@ -49,8 +49,11 @@ from custom_components.magic_areas.area_maps import (
 from custom_components.magic_areas.base.magic import MagicArea, MagicMetaArea
 from custom_components.magic_areas.config_flow import (
     ConfigBase,
-    NullableEntitySelector,
+
     OptionsFlowHandler,
+)
+from custom_components.magic_areas.schemas.selectors import (
+    NullableEntitySelector,
 )
 from custom_components.magic_areas.config_flows.feature_registry import (
     FeatureConfig,
@@ -84,7 +87,7 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_EXTENDED_TIMEOUT,
     DEFAULT_SLEEP_TIMEOUT,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     ADDITIONAL_LIGHT_TRACKING_ENTITIES,
     DOMAIN,
 )

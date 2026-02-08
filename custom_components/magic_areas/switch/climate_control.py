@@ -8,7 +8,7 @@ from homeassistant.components.climate.const import (
     DOMAIN as CLIMATE_DOMAIN,
     SERVICE_SET_PRESET_MODE,
 )
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+
 from homeassistant.const import ATTR_ENTITY_ID, EntityCategory, STATE_OFF, STATE_ON
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -17,20 +17,15 @@ from homeassistant.helpers.event import async_track_state_change_event
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
-    CONF_CLIMATE_CONTROL_PRESET_CLEAR,
-    CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
-    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
-    CONF_CLIMATE_CONTROL_PRESET_SLEEP,
-    DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
-    DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
-    DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
-    DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
+)
+from custom_components.magic_areas.core.climate_control import (
+    build_preset_policy,
+    ClimatePresetPolicy,
 )
 from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_CLIMATE_CONTROL
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoClimateControl,
 )
@@ -45,63 +40,56 @@ class ClimateControlSwitch(SwitchBase):
     feature_info = MagicAreasFeatureInfoClimateControl()
     _attr_entity_category = EntityCategory.CONFIG
 
-    preset_map: dict[str, str]
+    policy: ClimatePresetPolicy
     climate_entity_id: str | None
-    _area_sensor_entity_id: str
+    _area_sensor_entity_id: str | None
+
     def __init__(self, area: MagicArea) -> None:
         """Initialize the Climate control switch."""
 
         SwitchBase.__init__(self, area)
 
-        feature_config = self._get_feature_config()
+        feature_config = self.get_feature_config()
         self.climate_entity_id = feature_config.get(CONF_CLIMATE_CONTROL_ENTITY_ID, None)
 
         if not self.climate_entity_id:
             raise ValueError("Climate entity not set")
 
-        self.preset_map = {
-            AreaStates.CLEAR: feature_config.get(
-                CONF_CLIMATE_CONTROL_PRESET_CLEAR, DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR
-            ),
-            AreaStates.OCCUPIED: feature_config.get(
-                CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
-                DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
-            ),
-            AreaStates.SLEEP: feature_config.get(
-                CONF_CLIMATE_CONTROL_PRESET_SLEEP, DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP
-            ),
-            AreaStates.EXTENDED: feature_config.get(
-                CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
-                DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
-            ),
-        }
-        self._area_sensor_entity_id = (
-            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self.area.slug}_area_state"
-        )
-
-    def _get_feature_config(self) -> dict[str, Any]:
-        """Return feature config using coordinator snapshot when available."""
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
-            return runtime_data.coordinator.data.feature_configs.get(
-                CONF_FEATURE_CLIMATE_CONTROL, {}
-            )
-        return self.area.feature_config(CONF_FEATURE_CLIMATE_CONTROL)
+        # Build policy from feature configuration
+        self.policy = build_preset_policy(feature_config)
+        # Entity ID resolved in async_added_to_hass from coordinator snapshot
+        self._area_sensor_entity_id = None
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
+
+        # Resolve area sensor entity ID from coordinator snapshot or entity registry
+        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            self._area_sensor_entity_id = (
+                runtime_data.coordinator.data.entity_references.area_state_sensor
+            )
+        if not self._area_sensor_entity_id:
+            from homeassistant.helpers import entity_registry as er
+            from custom_components.magic_areas.const import DOMAIN
+            from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
+
+            self._area_sensor_entity_id = er.async_get(self.hass).async_get_entity_id(
+                BS_DOMAIN, DOMAIN, f"presence_tracking_{self.area.id}_area_state"
+            )
 
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
             )
         )
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
+        if self._area_sensor_entity_id:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
+                )
             )
-        )
     async def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
@@ -126,23 +114,12 @@ class ClimateControlSwitch(SwitchBase):
         if not new_states and not lost_states:
             return
 
-        priority_states: list[str] = [
-            AreaStates.SLEEP,
-            AreaStates.EXTENDED,
-            AreaStates.OCCUPIED,
-        ]
-
-        # Handle area clear because the other states doesn't matter
-        if AreaStates.CLEAR in new_states:
-            if self.preset_map[AreaStates.CLEAR]:
-                await self.apply_preset(AreaStates.CLEAR)
-            return
-
-        # Handle each state top priority to last, returning early
-        for p_state in priority_states:
-            if p_state in new_states and self.preset_map[p_state]:
-                await self.apply_preset(p_state)
-                return
+        # Use policy to determine which preset to apply
+        selected_preset = self.policy.select_preset_for_state_change(
+            new_states, current_states
+        )
+        if selected_preset:
+            await self.apply_preset_by_name(selected_preset)
 
     @callback
     def _area_sensor_state_changed(self, event: Any) -> None:
@@ -154,25 +131,28 @@ class ClimateControlSwitch(SwitchBase):
         if not new_state:
             return
 
-        if new_state.state == STATE_OFF and self.preset_map[AreaStates.CLEAR]:
+        if new_state.state == STATE_OFF and self.policy.preset_map[AreaStates.CLEAR]:
             self.hass.async_create_task(self.apply_preset(AreaStates.CLEAR))
             return
 
-        if new_state.state == STATE_ON and self.preset_map[AreaStates.OCCUPIED]:
+        if new_state.state == STATE_ON and self.policy.preset_map[AreaStates.OCCUPIED]:
             self.hass.async_create_task(self.apply_preset(AreaStates.OCCUPIED))
 
     async def apply_preset(self, state_name: str) -> None:
-        """Set climate entity to given preset."""
+        """Set climate entity to preset for given state."""
+        selected_preset = self.policy.preset_map.get(state_name)
+        if selected_preset:
+            await self.apply_preset_by_name(selected_preset)
 
-        selected_preset: str = self.preset_map[state_name]
-
+    async def apply_preset_by_name(self, preset_name: str) -> None:
+        """Set climate entity to given preset by name."""
         try:
             await self.hass.services.async_call(
                 CLIMATE_DOMAIN,
                 SERVICE_SET_PRESET_MODE,
                 {
                     ATTR_ENTITY_ID: self.climate_entity_id,
-                    ATTR_PRESET_MODE: selected_preset,
+                    ATTR_PRESET_MODE: preset_name,
                 },
                 blocking=True,
             )

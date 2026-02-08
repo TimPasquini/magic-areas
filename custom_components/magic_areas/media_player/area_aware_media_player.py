@@ -3,7 +3,6 @@
 import logging
 from typing import Any
 
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerState
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_CONTENT_ID,
@@ -18,6 +17,7 @@ from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
 from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
@@ -59,12 +59,29 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
         _LOGGER.debug("AreaAwareMediaPlayer loaded.")
 
+    def _resolve_area_state_sensor(self, area: MagicArea) -> str | None:
+        """Resolve area state sensor from entity references or entity registry."""
+        runtime_data = getattr(area.hass_config, "runtime_data", None)
+        if runtime_data and runtime_data.coordinator.data:
+            entity_id = runtime_data.coordinator.data.entity_references.area_state_sensor
+            if entity_id:
+                return entity_id
+        # Direct entity registry lookup
+        from homeassistant.helpers import entity_registry as er
+        from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
+
+        return er.async_get(self.hass).async_get_entity_id(
+            BS_DOMAIN, MA_DOMAIN, f"presence_tracking_{area.id}_area_state"
+        )
+
     def update_attributes(self) -> None:
         """Update entity attributes."""
-        self._attr_extra_state_attributes["areas"] = [
-            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area.slug}_area_state"
-            for area in self.areas
-        ]
+        area_sensors = []
+        for area in self.areas:
+            area_sensor = self._resolve_area_state_sensor(area)
+            if area_sensor:
+                area_sensors.append(area_sensor)
+        self._attr_extra_state_attributes["areas"] = area_sensors
         self._attr_extra_state_attributes["entity_id"] = self._tracked_entities
 
     @staticmethod
@@ -129,12 +146,21 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         active_areas = []
 
         for area in self.areas:
-            area_binary_sensor_name = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{area.slug}_area_state"
-            area_binary_sensor_state = self.hass.states.get(area_binary_sensor_name)
+            area_binary_sensor_name = self._resolve_area_state_sensor(area)
 
+            if not area_binary_sensor_name:
+                _LOGGER.debug(
+                    "%s: Area state sensor not resolved for area %s, skipping",
+                    self.name,
+                    area.name,
+                )
+                continue
+
+            # Get state
+            area_binary_sensor_state = self.hass.states.get(area_binary_sensor_name)
             if not area_binary_sensor_state:
                 _LOGGER.debug(
-                    "%s: No state found for entity '%s'",
+                    "%s: Area state sensor '%s' not found",
                     self.name,
                     area_binary_sensor_name,
                 )

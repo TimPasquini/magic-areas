@@ -6,6 +6,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
+from custom_components.magic_areas.core.entity_ids import EntityReferences
 from custom_components.magic_areas.core.presence import build_presence_sensors
 from custom_components.magic_areas.features import (
     CONF_FEATURE_AGGREGATION,
@@ -56,12 +57,19 @@ def test_build_presence_sensors_filters_devices() -> None:
 
 
 def test_build_presence_sensors_adds_feature_entities() -> None:
-    """Append feature-driven presence entities."""
+    """Append feature-driven presence entities when entity_references provided."""
     entities_by_domain = {}
     config = {
         CONF_PRESENCE_DEVICE_PLATFORMS: [BINARY_SENSOR_DOMAIN],
         CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
     }
+
+    # Simulate resolved entity references
+    entity_refs = EntityReferences(
+        presence_hold_switch=f"{SWITCH_DOMAIN}.magic_areas_presence_hold_kitchen",
+        ble_tracker_monitor=f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_kitchen_ble_tracker_monitor",
+        wasp_in_a_box_sensor=f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_kitchen",
+    )
 
     sensors = build_presence_sensors(
         entities_by_domain=entities_by_domain,
@@ -73,6 +81,7 @@ def test_build_presence_sensors_adds_feature_entities() -> None:
             CONF_FEATURE_WASP_IN_A_BOX,
             CONF_FEATURE_AGGREGATION,
         },
+        entity_references=entity_refs,
     )
 
     assert sensors == [
@@ -80,3 +89,23 @@ def test_build_presence_sensors_adds_feature_entities() -> None:
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_kitchen_ble_tracker_monitor",
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_kitchen",
     ]
+
+
+def test_build_presence_sensors_skips_features_without_references() -> None:
+    """Skip feature entities when entity_references is not provided."""
+    sensors = build_presence_sensors(
+        entities_by_domain={},
+        config={
+            CONF_PRESENCE_DEVICE_PLATFORMS: [BINARY_SENSOR_DOMAIN],
+            CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
+        },
+        slug="kitchen",
+        enabled_features={
+            CONF_FEATURE_PRESENCE_HOLD,
+            CONF_FEATURE_BLE_TRACKERS,
+            CONF_FEATURE_WASP_IN_A_BOX,
+            CONF_FEATURE_AGGREGATION,
+        },
+    )
+
+    assert sensors == []

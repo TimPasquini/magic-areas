@@ -35,7 +35,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_INCLUDE_ENTITIES,
     CONF_SECONDARY_STATES,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import MagicConfigEntryVersion

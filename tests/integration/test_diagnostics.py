@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.diagnostics import async_get_config_entry_diagnostics
-from custom_components.magic_areas.core_constants import DOMAIN
+from custom_components.magic_areas.const import DOMAIN
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,

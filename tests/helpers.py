@@ -82,7 +82,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_TYPE,
 )
-from custom_components.magic_areas.core_constants import (
+from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.defaults import (
@@ -429,6 +429,14 @@ async def init_integration(
 
     for config_entry in config_entries:
         assert config_entry.state is ConfigEntryState.LOADED
+
+    # Trigger a second coordinator refresh so entity_references picks up
+    # the magic_areas entities that were just created during platform setup.
+    for config_entry in config_entries:
+        runtime_data = getattr(config_entry, "runtime_data", None)
+        if runtime_data and hasattr(runtime_data, "coordinator"):
+            await runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
 
 
 async def shutdown_integration(
