@@ -45,6 +45,7 @@ class LightGroupPolicy:
         assigned_states: States this light group reacts to (e.g., ["sleep", "dark"] for sleep lights)
         act_on_modes: When to act (["occupancy", "state"] or subset)
         use_priority_filtering: Whether to filter by priority states
+
     """
 
     assigned_states: Sequence[str]
@@ -78,6 +79,7 @@ class LightGroupPolicy:
             8. Check act-on modes (occupancy vs state change)
             9. If valid states remain → turn on
             10. Otherwise → turn off (with conditions)
+
         """
         current_state_set = set(current_states)
 
@@ -170,6 +172,41 @@ class LightGroupPolicy:
             )
 
 
+def resolve_light_category_config(
+    category: str,
+    feature_config: dict,
+    light_group_states_map: dict,
+    light_group_act_on_map: dict,
+    default_act_on: Sequence[str],
+) -> tuple[list[str], list[str]]:
+    """Resolve assigned states and act-on modes for a light category.
+
+    Args:
+        category: Light category (overhead, sleep, accent, task)
+        feature_config: Feature configuration dict
+        light_group_states_map: Map from category to config key for states
+        light_group_act_on_map: Map from category to config key for act-on modes
+        default_act_on: Default act-on modes to use
+
+    Returns:
+        Tuple of (assigned_states, act_on_modes)
+
+    """
+    # No states/act-on if category not in maps
+    if category not in light_group_states_map or category not in light_group_act_on_map:
+        return [], list(default_act_on)
+
+    # Get config keys for this category
+    states_key = light_group_states_map[category]
+    act_on_key = light_group_act_on_map[category]
+
+    # Get values from feature config, with defaults
+    assigned_states = feature_config.get(states_key, [])
+    act_on = feature_config.get(act_on_key, default_act_on)
+
+    return assigned_states, list(act_on)
+
+
 def build_light_group_policy(
     assigned_states: Sequence[str],
     act_on_modes: Sequence[str],
@@ -182,6 +219,7 @@ def build_light_group_policy(
 
     Returns:
         Configured LightGroupPolicy
+
     """
     return LightGroupPolicy(
         assigned_states=assigned_states,

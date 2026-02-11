@@ -2,12 +2,12 @@
 
 from collections.abc import Callable
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
@@ -18,7 +18,14 @@ from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
 )
+from custom_components.magic_areas.core.listener_registry import (
+    ListenerRegistry,
+)
 from custom_components.magic_areas.feature_info import MagicAreasFeatureInfo
+
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,14 +33,16 @@ _LOGGER = logging.getLogger(__name__)
 class MagicEntity(RestoreEntity):
     """MagicEntity is the base entity for use with all the magic classes."""
 
-    area: MagicArea
     feature_info: MagicAreasFeatureInfo | None = None
     _extra_identifiers: list[str] | None = None
     _attr_has_entity_name = True
+    _area_config: "AreaConfig"
+    _coordinator: "MagicAreasCoordinator"
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         domain: str,
         translation_key: str | None = None,
         extra_identifiers: list[str] | None = None,
@@ -46,8 +55,16 @@ class MagicEntity(RestoreEntity):
             raise NotImplementedError(f"{self.name}: Feature info not set.")
 
         self.logger = logging.getLogger(type(self).__module__)
-        self.area = area
+        self._area_config = area_config
+        self._coordinator = coordinator
         self._extra_identifiers = []
+
+        # Cache area identity fields (reduces coupling to MagicArea)
+        self._area_id = area_config.id
+        self._area_name = area_config.name
+        self._area_slug = area_config.slug
+        self._area_icon = area_config.icon
+        self._is_meta = area_config.is_meta()
 
         if extra_identifiers:
             self._extra_identifiers.extend(extra_identifiers)
@@ -72,7 +89,7 @@ class MagicEntity(RestoreEntity):
 
         _LOGGER.debug(
             "%s: Initializing entity. (entity_id: %s, unique id: %s, translation_key: %s)",
-            self.area.name,
+            self._area_name,
             self.entity_id,
             self._attr_unique_id,
             self._attr_translation_key,
@@ -85,7 +102,7 @@ class MagicEntity(RestoreEntity):
         entity_id_parts = [
             MAGICAREAS_UNIQUEID_PREFIX,
             self.feature_info.id,
-            self.area.slug,
+            self._area_slug,
         ]
 
         if (
@@ -108,7 +125,7 @@ class MagicEntity(RestoreEntity):
 
         unique_id_parts = [
             self.feature_info.id,
-            self.area.id,
+            self._area_id,
         ]
 
         if (
@@ -130,7 +147,8 @@ class MagicEntity(RestoreEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return getattr(self.area, "last_update_success", True)
+        # Read from coordinator's last_update_success (managed by DataUpdateCoordinator)
+        return self._coordinator.last_update_success
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -138,39 +156,35 @@ class MagicEntity(RestoreEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{self.area.id}")
+                (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{self._area_id}")
             },
-            name=self.area.name,
+            name=self._area_name,
             manufacturer="Magic Areas",
             model="Magic Area",
             translation_key=(
-                self.area.slug
-                if (self.area.is_meta() and self.area.name in META_AREAS)
+                self._area_slug
+                if (self._is_meta and self._area_name in META_AREAS)
                 else None
             ),
         )
 
     def get_feature_config(self) -> dict:
-        """Get feature config from coordinator snapshot with fallback.
-
-        Reads from coordinator snapshot when available (preferred),
-        falls back to area.feature_config() during initialization.
+        """Get feature config from coordinator snapshot.
 
         Returns:
             Feature configuration dict (empty if feature not enabled)
+
         """
         if not self.feature_info:
             return {}
 
-        # Try coordinator snapshot first (single source of truth)
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
-            return runtime_data.coordinator.data.feature_configs.get(
+        # Read from coordinator snapshot (single source of truth)
+        if self._coordinator.data:
+            return self._coordinator.data.feature_configs.get(
                 self.feature_info.id, {}
             )
 
-        # Fallback to area method (during init before coordinator ready)
-        return self.area.feature_config(self.feature_info.id)
+        return {}
 
     async def restore_state(self) -> None:
         """Restore the state of the entity."""
@@ -204,11 +218,12 @@ class MagicGroupEntity(MagicEntity):
     """
 
     _member_entity_ids: list[str]
-    _group_listeners: list[tuple[str, Callable[[], None]]]
+    _listener_registry: ListenerRegistry
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         domain: str,
         member_entity_ids: list[str],
         translation_key: str | None = None,
@@ -217,15 +232,17 @@ class MagicGroupEntity(MagicEntity):
         """Initialize group entity.
 
         Args:
-            area: Magic area instance
+            area_config: Area configuration
+            coordinator: Magic areas coordinator
             domain: Home Assistant domain (light, sensor, etc.)
             member_entity_ids: List of entity IDs in this group
             translation_key: Optional translation key
             extra_identifiers: Optional extra unique ID identifiers
+
         """
-        super().__init__(area, domain, translation_key, extra_identifiers)
+        super().__init__(area_config, coordinator, domain, translation_key, extra_identifiers)
         self._member_entity_ids = member_entity_ids
-        self._group_listeners = []
+        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
     async def async_added_to_hass(self) -> None:
         """Set up group entity with standard lifecycle.
@@ -246,7 +263,7 @@ class MagicGroupEntity(MagicEntity):
         self.async_write_ha_state()
 
     async def _async_setup_group(self) -> None:
-        """Hook for subclass-specific group setup.
+        """Set up subclass-specific group configuration.
 
         Override this in subclasses that need custom setup logic.
         Called during async_added_to_hass before initial state write.
@@ -264,23 +281,7 @@ class MagicGroupEntity(MagicEntity):
         Override _async_teardown_group() for group-specific cleanup, not this method.
         """
         # Clean up all tracked listeners
-        for listener_name, remove_callback in self._group_listeners:
-            _LOGGER.debug(
-                "%s: Removing listener: %s",
-                self.name,
-                listener_name,
-            )
-            try:
-                remove_callback()
-            except Exception as err:
-                _LOGGER.warning(
-                    "%s: Error removing listener %s: %s",
-                    self.name,
-                    listener_name,
-                    err,
-                )
-
-        self._group_listeners.clear()
+        self._listener_registry.cleanup()
 
         # Call hook for subclass-specific cleanup
         await self._async_teardown_group()
@@ -288,7 +289,7 @@ class MagicGroupEntity(MagicEntity):
         await super().async_will_remove_from_hass()
 
     async def _async_teardown_group(self) -> None:
-        """Hook for subclass-specific group cleanup.
+        """Tear down subclass-specific group configuration.
 
         Override this in subclasses that need custom cleanup logic.
         Called during async_will_remove_from_hass after listener cleanup.
@@ -310,14 +311,9 @@ class MagicGroupEntity(MagicEntity):
         Example:
             remove = async_track_state_change_event(...)
             self.track_group_listener(remove, "member_state_tracking")
+
         """
-        self._group_listeners.append((name, remove_callback))
-        _LOGGER.debug(
-            "%s: Tracking listener: %s (total: %d)",
-            self.name,
-            name,
-            len(self._group_listeners),
-        )
+        self._listener_registry.track(name, remove_callback)
 
     @property
     def member_entity_ids(self) -> list[str]:

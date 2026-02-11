@@ -1,15 +1,21 @@
 """Media player control feature switch."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from custom_components.magic_areas.base.magic import MagicArea
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
+)
+from custom_components.magic_areas.core.listener_registry import (
+    ListenerRegistry,
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoMediaPlayerGroups,
@@ -26,38 +32,43 @@ class MediaPlayerControlSwitch(SwitchBase):
     _attr_entity_category = EntityCategory.CONFIG
 
     media_player_group_id: str | None
+    _listener_registry: ListenerRegistry
 
-    def __init__(self, area: MagicArea) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the Climate control switch."""
 
-        SwitchBase.__init__(self, area)
+        SwitchBase.__init__(self, area_config, coordinator)
 
         # Entity ID resolved in async_added_to_hass from coordinator snapshot
         self.media_player_group_id = None
+        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
 
         # Resolve media player group ID from coordinator snapshot or entity registry
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
+        if self._coordinator.data:
             self.media_player_group_id = (
-                runtime_data.coordinator.data.entity_references.media_player_group
+                self._coordinator.data.entity_references.media_player_group
             )
         if not self.media_player_group_id:
             from homeassistant.helpers import entity_registry as er
             from custom_components.magic_areas.const import DOMAIN
 
             self.media_player_group_id = er.async_get(self.hass).async_get_entity_id(
-                MEDIA_PLAYER_DOMAIN, DOMAIN,
-                f"media_player_groups_{self.area.id}_media_player_group",
+                MEDIA_PLAYER_DOMAIN,
+                DOMAIN,
+                f"media_player_groups_{self._area_id}_media_player_group",
             )
 
-        self.async_on_remove(
+        self._listener_registry.track(
+            "area_state_dispatcher",
             async_dispatcher_connect(
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
-            )
+            ),
         )
 
     async def area_state_changed(
@@ -69,12 +80,12 @@ class MediaPlayerControlSwitch(SwitchBase):
             self.logger.debug("%s: Control disabled. Skipping.", self.name)
             return
 
-        if area_id != self.area.id:
+        if area_id != self._area_id:
             _LOGGER.debug(
                 "%s: Area state change event not for us. Skipping. (event: %s/self: %s)",
                 self.name,
                 area_id,
-                self.area.id,
+                self._area_id,
             )
             return
 
@@ -96,3 +107,8 @@ class MediaPlayerControlSwitch(SwitchBase):
                 {ATTR_ENTITY_ID: self.media_player_group_id},
             )
             return
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up listeners on removal."""
+        self._listener_registry.cleanup()
+        await super().async_will_remove_from_hass()

@@ -61,8 +61,9 @@ async def test_coordinator_update_failure(
     hass: HomeAssistant, mock_config_entry: MagicAreasConfigEntry
 ) -> None:
     """Test coordinator handles update failures."""
+    from unittest.mock import patch
+
     area = MagicMock()
-    area.load_entities = AsyncMock(side_effect=RuntimeError("boom"))
     area.entities = {}
     area.magic_entities = {}
     area.config = {CONF_ENABLED_FEATURES: {}}
@@ -70,14 +71,20 @@ async def test_coordinator_update_failure(
 
     coordinator = MagicAreasCoordinator(hass, area, mock_config_entry)
 
-    with pytest.raises(UpdateFailed):
-        await coordinator._async_update_data()
+    with patch(
+        "custom_components.magic_areas.coordinator.load_area_entities",
+        side_effect=RuntimeError("boom"),
+    ):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
 
 
 async def test_coordinator_refresh_updates_snapshot(
     hass: HomeAssistant, mock_config_entry: MagicAreasConfigEntry
 ) -> None:
     """Test coordinator refresh updates data snapshot."""
+    from unittest.mock import patch
+
     area = MagicMock()
     area.entities = {}
     area.magic_entities = {}
@@ -87,55 +94,61 @@ async def test_coordinator_refresh_updates_snapshot(
         CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
     }
 
-    async def _load_entities() -> None:
-        area.entities = {
-            BINARY_SENSOR_DOMAIN: [
-                {
-                    ATTR_ENTITY_ID: "binary_sensor.presence_one",
-                    ATTR_DEVICE_CLASS: "motion",
-                }
-            ],
-            "sensor": [
-                {
-                    "entity_id": "sensor.illuminance_one",
-                    "device_class": "illuminance",
-                    "unit_of_measurement": "lx",
-                }
-            ]
-        }
-        area.magic_entities = {"sensor": [{"entity_id": "sensor.magic_one"}]}
-
-    area.load_entities = AsyncMock(side_effect=_load_entities)
+    async def _load_entities_impl(*args, **kwargs):
+        """Mock load_area_entities implementation."""
+        return (
+            {
+                BINARY_SENSOR_DOMAIN: [
+                    {
+                        ATTR_ENTITY_ID: "binary_sensor.presence_one",
+                        ATTR_DEVICE_CLASS: "motion",
+                    }
+                ],
+                "sensor": [
+                    {
+                        "entity_id": "sensor.illuminance_one",
+                        "device_class": "illuminance",
+                        "unit_of_measurement": "lx",
+                    }
+                ]
+            },
+            {"sensor": [{"entity_id": "sensor.magic_one"}]}
+        )
 
     coordinator = MagicAreasCoordinator(hass, area, mock_config_entry)
-    await coordinator.async_refresh()
-    assert coordinator.data is not None
-    first_updated = coordinator.data.updated_at
-    assert coordinator.data.entities == area.entities
-    assert coordinator.data.magic_entities == area.magic_entities
-    assert coordinator.data.presence_sensors == ["binary_sensor.presence_one"]
-    assert coordinator.data.enabled_features == {"test_feature"}
-    assert coordinator.data.feature_configs == {"test_feature": {"flag": True}}
 
-    async def _load_entities_second() -> None:
-        area.entities = {
-            BINARY_SENSOR_DOMAIN: [
+    with patch(
+        "custom_components.magic_areas.coordinator.load_area_entities",
+        side_effect=_load_entities_impl,
+    ):
+        await coordinator.async_refresh()
+        assert coordinator.data is not None
+        first_updated = coordinator.data.updated_at
+        # After refresh, area entities should be updated with the mocked values
+        assert coordinator.data.entities[BINARY_SENSOR_DOMAIN][0][ATTR_ENTITY_ID] == "binary_sensor.presence_one"
+        assert coordinator.data.presence_sensors == ["binary_sensor.presence_one"]
+        assert coordinator.data.enabled_features == {"test_feature"}
+        assert coordinator.data.feature_configs == {"test_feature": {"flag": True}}
+
+        async def _load_entities_second(*args, **kwargs):
+            """Mock second load_area_entities implementation."""
+            return (
                 {
-                    ATTR_ENTITY_ID: "binary_sensor.presence_two",
-                    ATTR_DEVICE_CLASS: "motion",
-                }
-            ]
-        }
-        area.magic_entities = {"sensor": [{"entity_id": "sensor.magic_one"}]}
+                    BINARY_SENSOR_DOMAIN: [
+                        {
+                            ATTR_ENTITY_ID: "binary_sensor.presence_two",
+                            ATTR_DEVICE_CLASS: "motion",
+                        }
+                    ]
+                },
+                {"sensor": [{"entity_id": "sensor.magic_one"}]}
+            )
 
-    area.load_entities = AsyncMock(side_effect=_load_entities_second)
-    await coordinator.async_refresh()
-    assert coordinator.data is not None
-    assert coordinator.data.updated_at >= first_updated
-    if coordinator.data.presence_sensors != ["binary_sensor.presence_two"]:
-        raise AssertionError(
-            "presence_sensors mismatch; "
-            f"presence_sensors={coordinator.data.presence_sensors}; "
-            f"entities={area.entities}; "
-            f"config={area.config}"
-        )
+        with patch(
+            "custom_components.magic_areas.coordinator.load_area_entities",
+            side_effect=_load_entities_second,
+        ):
+            await coordinator.async_refresh()
+            assert coordinator.data is not None
+            assert coordinator.data.updated_at >= first_updated
+            assert coordinator.data.presence_sensors == ["binary_sensor.presence_two"]

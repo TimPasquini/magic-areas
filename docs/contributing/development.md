@@ -148,10 +148,6 @@ tests/
 └── config_flow/       # Config flow tests
 ```
 
-## Adding New Features
-
-See [adding-features.md](adding-features.md) for detailed guidance on adding new features.
-
 ## Troubleshooting
 
 ### Dependencies Not Installing

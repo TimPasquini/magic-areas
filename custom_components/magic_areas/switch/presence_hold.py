@@ -1,8 +1,12 @@
 """Presence hold switch."""
 
+from typing import TYPE_CHECKING
+
 from homeassistant.const import EntityCategory
 
-from custom_components.magic_areas.base.magic import MagicArea
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_HOLD_TIMEOUT,
     DEFAULT_PRESENCE_HOLD_TIMEOUT,
@@ -22,14 +26,19 @@ class PresenceHoldSwitch(ResettableSwitchBase):
     feature_info = MagicAreasFeatureInfoPresenceHold()
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, area: MagicArea) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the switch."""
 
-        # Get timeout from feature config before calling parent __init__
-        # We can't use self.get_feature_config() here since self doesn't exist yet
-        feature_config = area.feature_config(MagicAreasFeatures.PRESENCE_HOLD)
-        timeout = feature_config.get(
-            CONF_PRESENCE_HOLD_TIMEOUT, DEFAULT_PRESENCE_HOLD_TIMEOUT
-        )
+        # Get timeout from coordinator snapshot (single source of truth)
+        timeout = DEFAULT_PRESENCE_HOLD_TIMEOUT
+        if coordinator.data and coordinator.data.feature_configs:
+            feature_config = coordinator.data.feature_configs.get(
+                MagicAreasFeatures.PRESENCE_HOLD, {}
+            )
+            timeout = feature_config.get(
+                CONF_PRESENCE_HOLD_TIMEOUT, DEFAULT_PRESENCE_HOLD_TIMEOUT
+            )
 
-        ResettableSwitchBase.__init__(self, area, timeout=timeout)
+        ResettableSwitchBase.__init__(self, area_config, coordinator, timeout=timeout)

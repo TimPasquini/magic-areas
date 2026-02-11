@@ -3,7 +3,7 @@
   dict({
     'binary_sensor_count': 0,
     'has_binary_sensors': False,
-    'magic_binary_sensor_count': 2,
+    'magic_binary_sensor_count': 1,
   })
 # ---
 # name: test_coordinator_data_snapshot
@@ -37,12 +37,12 @@
 # name: test_magic_entity_structure_snapshot
   dict({
     'domain_entity_counts': dict({
-      'binary_sensor': 2,
+      'binary_sensor': 1,
     }),
     'magic_domains': list([
       'binary_sensor',
     ]),
-    'total_magic_entities': 2,
+    'total_magic_entities': 1,
   })
 # ---
 # name: test_magic_sensor_structure_snapshot

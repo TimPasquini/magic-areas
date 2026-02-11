@@ -1,6 +1,8 @@
 """Fan Control switch."""
 
 import logging
+from enum import Enum
+from typing import TYPE_CHECKING
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.const import (
@@ -12,10 +14,13 @@ from homeassistant.const import (
     EntityCategory,
 )
 from homeassistant.core import Event, EventStateChangedData, callback
+from homeassistant.helpers import entity_registry as entity_registry_module
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
 
-from custom_components.magic_areas.base.magic import MagicArea
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.core.fan_control import (
     build_fan_policy,
     FanControlPolicy,
@@ -28,6 +33,10 @@ from custom_components.magic_areas.defaults import (
 )
 from custom_components.magic_areas.enums import (
     MagicAreasEvents,
+)
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.listener_registry import (
+    ListenerRegistry,
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoFanGroups,
@@ -49,11 +58,14 @@ class FanControlSwitch(SwitchBase):
     _last_states: list[str]
     _area_sensor_entity_id: str | None
     _fan_group_entity_id: str | None
+    _listener_registry: ListenerRegistry
 
-    def __init__(self, area: MagicArea) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the Fan control switch."""
 
-        SwitchBase.__init__(self, area)
+        SwitchBase.__init__(self, area_config, coordinator)
 
         feature_config = self.get_feature_config()
 
@@ -69,15 +81,15 @@ class FanControlSwitch(SwitchBase):
         # Build policy from feature configuration
         self.policy = build_fan_policy(feature_config)
         self._last_states = []
+        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
 
         # Resolve entity IDs from coordinator snapshot
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
-            entity_refs = runtime_data.coordinator.data.entity_references
+        if self._coordinator.data:
+            entity_refs = self._coordinator.data.entity_references
             self._area_sensor_entity_id = entity_refs.area_state_sensor
             self.tracked_entity_id = entity_refs.aggregates_by_device_class.get(
                 self._tracked_device_class
@@ -93,36 +105,42 @@ class FanControlSwitch(SwitchBase):
         entity_registry = er.async_get(self.hass)
         if not self._area_sensor_entity_id:
             self._area_sensor_entity_id = entity_registry.async_get_entity_id(
-                BS_DOMAIN, DOMAIN, f"presence_tracking_{self.area.id}_area_state"
+                BS_DOMAIN, DOMAIN, f"presence_tracking_{self._area_id}_area_state"
             )
         if not self.tracked_entity_id:
             self.tracked_entity_id = entity_registry.async_get_entity_id(
-                SENSOR_DOMAIN, DOMAIN,
-                f"aggregates_{self.area.id}_aggregate_{self._tracked_device_class}",
+                SENSOR_DOMAIN,
+                DOMAIN,
+                f"aggregates_{self._area_id}_aggregate_{self._tracked_device_class}",
             )
         if not self._fan_group_entity_id:
             self._fan_group_entity_id = entity_registry.async_get_entity_id(
-                FAN_DOMAIN, DOMAIN, f"fan_groups_{self.area.id}_fan_group"
+                FAN_DOMAIN, DOMAIN, f"fan_groups_{self._area_id}_fan_group"
             )
 
-        self.async_on_remove(
+        self._listener_registry.track(
+            "area_state_dispatcher",
             async_dispatcher_connect(
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
-            )
+            ),
         )
         if self.tracked_entity_id:
-            self.async_on_remove(
+            self._listener_registry.track(
+                "aggregate_sensor_state_change",
                 async_track_state_change_event(
                     self.hass,
                     [self.tracked_entity_id],
                     self.aggregate_sensor_state_changed,
-                )
+                ),
             )
         if self._area_sensor_entity_id:
-            self.async_on_remove(
+            self._listener_registry.track(
+                "area_sensor_state_change",
                 async_track_state_change_event(
-                    self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
-                )
+                    self.hass,
+                    [self._area_sensor_entity_id],
+                    self._area_sensor_state_changed,
+                ),
             )
 
     async def aggregate_sensor_state_changed(
@@ -130,19 +148,40 @@ class FanControlSwitch(SwitchBase):
     ) -> None:
         """Call update state from track state change event."""
 
-        await self.run_logic(self._last_states or self.area.states)
+        # Get current states from presence binary sensor
+        current_states = self._last_states
+        if not current_states:
+            entity_registry = entity_registry_module.async_get(self.hass)
+            presence_entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor",
+                DOMAIN,
+                f"presence_tracking_{self._area_id}_area_state",
+            )
+            if presence_entity_id:
+                state = self.hass.states.get(presence_entity_id)
+                if state and "states" in state.attributes:
+                    current_states = [
+                        str(s.value) if isinstance(s, Enum) else str(s)
+                        for s in state.attributes["states"]
+                    ]
+                else:
+                    current_states = []
+            else:
+                current_states = []
+
+        await self.run_logic(current_states)
 
     async def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
-        if area_id != self.area.id:
+        if area_id != self._area_id:
             _LOGGER.debug(
                 "%s: Area state change event not for us. Skipping. (event: %s/self: %s)",
                 self.name,
                 area_id,
-                self.area.id,
+                self._area_id,
             )
             return
 
@@ -174,7 +213,9 @@ class FanControlSwitch(SwitchBase):
 
         self.hass.async_create_task(
             self.hass.services.async_call(
-                FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: self._fan_group_entity_id}
+                FAN_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: self._fan_group_entity_id},
             )
         )
 
@@ -226,5 +267,12 @@ class FanControlSwitch(SwitchBase):
             fan_state = self.hass.states.get(self._fan_group_entity_id)
             if fan_state and fan_state.state == STATE_ON:
                 await self.hass.services.async_call(
-                    FAN_DOMAIN, SERVICE_TURN_OFF, {ATTR_ENTITY_ID: self._fan_group_entity_id}
+                    FAN_DOMAIN,
+                    SERVICE_TURN_OFF,
+                    {ATTR_ENTITY_ID: self._fan_group_entity_id},
                 )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up listeners on removal."""
+        self._listener_registry.cleanup()
+        await super().async_will_remove_from_hass()

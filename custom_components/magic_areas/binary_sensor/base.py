@@ -1,5 +1,7 @@
 """Base classes for binary sensor component."""
 
+from typing import TYPE_CHECKING
+
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
@@ -7,9 +9,12 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.policy import AGGREGATE_MODE_ALL
-from custom_components.magic_areas.threshold import EMPTY_STRING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 
 class AreaSensorGroupBinarySensor(MagicGroupEntity, BinarySensorGroup):
@@ -17,7 +22,8 @@ class AreaSensorGroupBinarySensor(MagicGroupEntity, BinarySensorGroup):
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         device_class: str,
         entity_ids: list[str],
     ) -> None:
@@ -25,7 +31,8 @@ class AreaSensorGroupBinarySensor(MagicGroupEntity, BinarySensorGroup):
 
         MagicGroupEntity.__init__(
             self,
-            area=area,
+            area_config=area_config,
+            coordinator=coordinator,
             domain=BINARY_SENSOR_DOMAIN,
             member_entity_ids=entity_ids,
             translation_key=device_class,

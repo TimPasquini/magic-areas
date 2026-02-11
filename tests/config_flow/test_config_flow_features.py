@@ -841,7 +841,7 @@ async def test_options_flow_feature_conf_validation_error(
 
     # Mock schema to raise validation error
     with patch.dict(
-        "custom_components.magic_areas.config_flow.CONFIGURABLE_FEATURES",
+        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
         {CONF_FEATURE_HEALTH: MagicMock(side_effect=vol.MultipleInvalid("Boom"))},
     ):
         result = await hass.config_entries.options.async_configure(

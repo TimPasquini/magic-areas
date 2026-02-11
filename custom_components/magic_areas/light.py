@@ -1,6 +1,7 @@
 """Platform file for Magic Area's light entities."""
 
 import logging
+from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 from homeassistant.components.group.light import FORWARDED_ATTRIBUTES, LightGroup
@@ -13,6 +14,7 @@ from homeassistant.const import (
     STATE_ON,
 )
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as entity_registry_module
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import (
@@ -21,7 +23,11 @@ from homeassistant.helpers.event import (
 )
 
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.base.magic import MagicArea
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
 )
@@ -54,9 +60,8 @@ from custom_components.magic_areas.feature_info import (
 from custom_components.magic_areas.features import (
     CONF_FEATURE_LIGHT_GROUPS,
 )
-from custom_components.magic_areas.util import cleanup_removed_entries
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,7 +81,8 @@ async def async_setup_entry(
     if data is None:
         _LOGGER.debug("Skipping light setup; coordinator data unavailable")
         return
-    area: MagicArea = data.area
+    area_config = data.area_config
+    coordinator = runtime_data.coordinator
     entities_by_domain = data.entities
     magic_entities = data.magic_entities
 
@@ -86,7 +92,7 @@ async def async_setup_entry(
 
     # Check if there are any lights
     if LIGHT_DOMAIN not in entities_by_domain:
-        _LOGGER.debug("%s: No %s entities for area.", area.name, LIGHT_DOMAIN)
+        _LOGGER.debug("%s: No %s entities for area.", area_config.name, LIGHT_DOMAIN)
         return
 
     light_entities = [e["entity_id"] for e in entities_by_domain[LIGHT_DOMAIN]]
@@ -95,10 +101,10 @@ async def async_setup_entry(
     light_groups = []
 
     # Create light groups
-    if area.is_meta():
+    if area_config.is_meta():
         light_groups.append(
             MagicLightGroup(
-                area, light_entities, translation_key=LightGroupCategory.ALL
+                area_config, coordinator, light_entities, translation_key=LightGroupCategory.ALL
             )
         )
     else:
@@ -115,12 +121,13 @@ async def async_setup_entry(
             if category_lights:
                 _LOGGER.debug(
                     "%s: Creating %s group for area with lights: %s",
-                    area.name,
+                    area_config.name,
                     category,
                     category_lights,
                 )
                 light_group_object = AreaLightGroup(
-                    area,
+                    area_config,
+                    coordinator,
                     category_lights,
                     category,
                     feature_config=feature_config,
@@ -130,12 +137,13 @@ async def async_setup_entry(
 
         _LOGGER.debug(
             "%s: Creating Area light group for area with child categories: %s",
-            area.name,
+            area_config.name,
             str(child_categories),
         )
         light_groups.append(
             AreaLightGroup(
-                area,
+                area_config,
+                coordinator,
                 light_entities,
                 category=LightGroupCategory.ALL,
                 child_categories=child_categories,
@@ -148,9 +156,7 @@ async def async_setup_entry(
         async_add_entities(light_groups)
 
     if LIGHT_DOMAIN in magic_entities:
-        cleanup_removed_entries(
-            area.hass, light_groups, magic_entities[LIGHT_DOMAIN]
-        )
+        cleanup_removed_entries(hass, light_groups, magic_entities[LIGHT_DOMAIN])
 
 
 class MagicLightGroup(MagicGroupEntity, LightGroup):
@@ -159,11 +165,20 @@ class MagicLightGroup(MagicGroupEntity, LightGroup):
     feature_info = MagicAreasFeatureInfoLightGroups()
 
     def __init__(
-        self, area: MagicArea, entities: list[str], translation_key: str | None = None
+        self,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
+        entities: list[str],
+        translation_key: str | None = None,
     ) -> None:
         """Initialize parent class and state."""
         MagicGroupEntity.__init__(
-            self, area, domain=LIGHT_DOMAIN, member_entity_ids=entities, translation_key=translation_key
+            self,
+            area_config,
+            coordinator,
+            domain=LIGHT_DOMAIN,
+            member_entity_ids=entities,
+            translation_key=translation_key,
         )
         LightGroup.__init__(
             self,
@@ -197,13 +212,13 @@ class MagicLightGroup(MagicGroupEntity, LightGroup):
         active_lights = self._get_active_lights() or self._entity_ids
         _LOGGER.debug(
             "%s: restricting call to active lights: %s",
-            self.area.name,
+            self._area_name,
             str(active_lights),
         )
 
         data[ATTR_ENTITY_ID] = active_lights
 
-        _LOGGER.debug("%s: Forwarded turn_on command: %s", self.area.name, data)
+        _LOGGER.debug("%s: Forwarded turn_on command: %s", self._area_name, data)
 
         await self.hass.services.async_call(
             LIGHT_DOMAIN,
@@ -219,7 +234,8 @@ class AreaLightGroup(MagicLightGroup):
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         entities: list[str],
         category: str | None = None,
         child_categories: list[str] | None = None,
@@ -227,7 +243,9 @@ class AreaLightGroup(MagicLightGroup):
     ) -> None:
         """Initialize light group."""
 
-        MagicLightGroup.__init__(self, area, entities, translation_key=category)
+        MagicLightGroup.__init__(
+            self, area_config, coordinator, entities, translation_key=category
+        )
 
         self._child_categories = child_categories or []
         self._child_ids: list[str] | None = None
@@ -266,7 +284,7 @@ class AreaLightGroup(MagicLightGroup):
 
         self.logger.debug(
             "%s: Light group (%s) created with entities: %s",
-            self.area.name,
+            self._area_name,
             category,
             str(self._entity_ids),
         )
@@ -285,7 +303,7 @@ class AreaLightGroup(MagicLightGroup):
             registry = er.async_get(self.hass)
             resolved_ids = []
             for cat in self._child_categories:
-                child_uid = f"light_groups_{self.area.id}_{cat}"
+                child_uid = f"light_groups_{self._area_id}_{cat}"
                 child_entity_id = registry.async_get_entity_id(
                     LIGHT_DOMAIN, DOMAIN, child_uid
                 )
@@ -315,17 +333,39 @@ class AreaLightGroup(MagicLightGroup):
 
     async def _setup_listeners(self, _: Any = None) -> None:
         """Set up listeners for area state change."""
-        async_dispatcher_connect(
-            self.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, self.area_state_changed
+        # Initialize cache from live HA state (read from presence binary sensor)
+        entity_registry = entity_registry_module.async_get(self.hass)
+        presence_entity_id = entity_registry.async_get_entity_id(
+            "binary_sensor",
+            DOMAIN,
+            f"presence_tracking_{self._area_id}_area_state",
         )
-        self.async_on_remove(
+        if presence_entity_id:
+            state = self.hass.states.get(presence_entity_id)
+            if state and "states" in state.attributes:
+                self._last_known_area_states = [
+                    str(s.value) if isinstance(s, Enum) else str(s)
+                    for s in state.attributes["states"]
+                ]
+            else:
+                self._last_known_area_states = []
+        else:
+            self._last_known_area_states = []
+        self.track_group_listener(
+            async_dispatcher_connect(
+                self.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, self.area_state_changed
+            ),
+            "area_state_dispatcher",
+        )
+        self.track_group_listener(
             async_track_state_change_event(
                 self.hass,
                 [
                     self.entity_id,
                 ],
                 self.group_state_changed,
-            )
+            ),
+            "group_state_change",
         )
 
     # State Change Handling
@@ -335,12 +375,12 @@ class AreaLightGroup(MagicLightGroup):
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool:
         """Handle area state change event."""
-        if area_id != self.area.id:
+        if area_id != self._area_id:
             self.logger.debug(
                 "%s: Area state change event not for us. Skipping. (req: %s/self: %s)",
                 self.name,
                 area_id,
-                self.area.id,
+                self._area_id,
             )
             return False
 
@@ -354,6 +394,10 @@ class AreaLightGroup(MagicLightGroup):
             return False
 
         self.logger.debug("%s: Light group detected area state change", self.name)
+
+        # Update cache with fresh states from event snapshot (prevents stale reads)
+        _new_states, _lost_states, current_states = states_tuple
+        self._last_known_area_states = list(current_states)
 
         # Handle all lights group
         if self.category == LightGroupCategory.ALL:
@@ -478,11 +522,10 @@ class AreaLightGroup(MagicLightGroup):
     def is_control_enabled(self) -> bool:
         """Check if light control is enabled by checking light control switch state."""
         # Resolve light control switch from entity references
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if not runtime_data or not runtime_data.coordinator.data:
+        if not self._coordinator.data:
             return True  # Default to enabled if coordinator data unavailable
 
-        entity_refs = runtime_data.coordinator.data.entity_references
+        entity_refs = self._coordinator.data.entity_references
         entity_id = entity_refs.light_control_switch
 
         if not entity_id:
@@ -542,7 +585,22 @@ class AreaLightGroup(MagicLightGroup):
     def group_state_changed(self, event: Event[EventStateChangedData]) -> bool:
         """Handle group state change events."""
         # If area is not occupied, ignore
-        if not self.area.is_occupied():
+        # Read fresh state from HA (not cached), to avoid stale reads
+        entity_registry = entity_registry_module.async_get(self.hass)
+        presence_entity_id = entity_registry.async_get_entity_id(
+            "binary_sensor",
+            DOMAIN,
+            f"presence_tracking_{self._area_id}_area_state",
+        )
+        current_area_states = []
+        if presence_entity_id:
+            state = self.hass.states.get(presence_entity_id)
+            if state and "states" in state.attributes:
+                current_area_states = [
+                    str(s.value) if isinstance(s, Enum) else str(s)
+                    for s in state.attributes["states"]
+                ]
+        if AreaStates.OCCUPIED.value not in current_area_states:
             self.reset_control()
         else:
             if not event.context:

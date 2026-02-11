@@ -43,7 +43,7 @@
     'domains': list([
     ]),
     'magic_domain_entity_counts': dict({
-      'binary_sensor': 2,
+      'binary_sensor': 1,
     }),
     'magic_domains': list([
       'binary_sensor',

@@ -6,6 +6,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from custom_components.magic_areas.config_keys import (
+    CONF_CLIMATE_CONTROL_PRESET_CLEAR,
+    CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
+    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
+    CONF_CLIMATE_CONTROL_PRESET_SLEEP,
+    DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
+    DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
+    DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
+    DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
+)
 from custom_components.magic_areas.core.state_priority import (
     get_highest_priority_state,
 )
@@ -19,6 +29,7 @@ class ClimatePresetPolicy:
     Attributes:
         preset_map: Mapping from area state to climate preset name
         priority_order: State priority order (defaults to SLEEP > EXTENDED > OCCUPIED > CLEAR)
+
     """
 
     preset_map: dict[str, str | None]
@@ -42,6 +53,7 @@ class ClimatePresetPolicy:
             1. If CLEAR was just added, apply CLEAR preset (if configured)
             2. Otherwise, find highest priority new state with a configured preset
             3. Returns None if no applicable preset found
+
         """
         # CLEAR always takes precedence (ends occupancy)
         if AreaStates.CLEAR in new_states:
@@ -70,17 +82,8 @@ def build_preset_policy(feature_config: dict[str, Any]) -> ClimatePresetPolicy:
 
     Returns:
         Configured ClimatePresetPolicy instance
+
     """
-    from custom_components.magic_areas.config_keys import (
-        CONF_CLIMATE_CONTROL_PRESET_CLEAR,
-        CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
-        CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
-        CONF_CLIMATE_CONTROL_PRESET_SLEEP,
-        DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
-        DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
-        DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
-        DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP,
-    )
 
     preset_map: dict[str, str | None] = {
         str(AreaStates.CLEAR): feature_config.get(

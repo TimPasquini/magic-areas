@@ -20,6 +20,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
 )
+from custom_components.magic_areas.attrs import ATTR_STATES
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
@@ -324,14 +325,15 @@ async def test_group_state_changed_logic(
     )
     assert target_group is not None
 
-    # Get the area from the coordinator to avoid tight coupling
-    coordinator = hass.config_entries.async_get_entry(
-        light_edge_cases_config_entry.entry_id
-    ).runtime_data.coordinator
-    area = coordinator.data.area
+    # Area state sensor entity ID for setting occupancy via HA state machine
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
+    )
 
-    # Setup test scenario 1: area not occupied (empty states list)
-    area.states = []
+    # Setup test scenario 1: area not occupied (clear state)
+    hass.states.async_set(
+        area_sensor_entity_id, STATE_OFF, {ATTR_STATES: [AreaStates.CLEAR]}
+    )
     target_group.reset_control = MagicMock()
 
     # Test area not occupied
@@ -340,7 +342,9 @@ async def test_group_state_changed_logic(
     target_group.reset_control.assert_called_once()
 
     # Setup test scenario 2: area occupied
-    area.states = [AreaStates.OCCUPIED]
+    hass.states.async_set(
+        area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
+    )
     target_group.reset_control.reset_mock()
 
     # Test invalid event (no context)
@@ -622,12 +626,13 @@ async def test_manual_control_detection(
         light_group_id
     )
 
-    # Setup: Set area to occupied via coordinator data
-    coordinator = hass.config_entries.async_get_entry(
-        light_edge_cases_config_entry_limited.entry_id
-    ).runtime_data.coordinator
-    area = coordinator.data.area
-    area.states = [AreaStates.OCCUPIED]
+    # Setup: Set area to occupied via HA state machine
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
+    )
+    hass.states.async_set(
+        area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
+    )
 
     # Simulate state change event (manual turn on/off)
     event = MagicMock()

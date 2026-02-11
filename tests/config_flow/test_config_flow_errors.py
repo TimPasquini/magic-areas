@@ -125,7 +125,7 @@ async def test_do_feature_config_validation_error(
 
     # Mock CONFIGURABLE_FEATURES to return a schema that fails
     with patch.dict(
-        "custom_components.magic_areas.config_flow.CONFIGURABLE_FEATURES",
+        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
         {
             CONF_FEATURE_LIGHT_GROUPS: MagicMock(
                 side_effect=vol.MultipleInvalid([vol.Invalid("Error", path=["base"])])
@@ -156,7 +156,7 @@ async def test_do_feature_config_generic_exception(
 
     # Mock CONFIGURABLE_FEATURES to return a schema that raises Exception
     with patch.dict(
-        "custom_components.magic_areas.config_flow.CONFIGURABLE_FEATURES",
+        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
         {CONF_FEATURE_LIGHT_GROUPS: MagicMock(side_effect=Exception("Boom"))},
     ):
         result = await flow.do_feature_config(
@@ -277,7 +277,11 @@ def test_config_base_build_schema_no_saved_options():
 
 def test_config_base_build_selector_select_defaults() -> None:
     """Test selector builder default handling."""
-    selector = ConfigBase._build_selector_select()
+    from custom_components.magic_areas.schemas.selectors import (
+        build_selector_select,
+    )
+
+    selector = build_selector_select()
     assert selector.config["options"] == []
 
 

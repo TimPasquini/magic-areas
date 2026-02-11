@@ -7,6 +7,8 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.core.area_runtime import AreaRuntime
 from custom_components.magic_areas.core.entity_ids import EntityReferences
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.fan import async_setup_entry
@@ -22,16 +24,39 @@ async def test_fan_setup_handles_group_errors(hass: HomeAssistant) -> None:
     area.magic_entities = {}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data={})
+    area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test-area",
+        area_type="interior",
+        config={},
+        hass_config=config_entry,
+        icon=None,
+        floor_id=None,
+    )
+    area_runtime = AreaRuntime(
+        entities=area.entities,
+        magic_entities=area.magic_entities,
+        states=set(),
+        last_changed={},
+        last_update_success=True,
+        loaded_platforms=[],
+        timestamp=None,
+        reloading=False,
+    )
     data = MagicAreasData(
         area=area,
         entities=area.entities,
         magic_entities=area.magic_entities,
         presence_sensors=[],
         active_areas=[],
+        child_areas=[],
         config={},
         enabled_features={CONF_FEATURE_FAN_GROUPS},
         feature_configs={CONF_FEATURE_FAN_GROUPS: {}},
         entity_references=EntityReferences(),
+        area_config=area_config,
+        area_runtime=area_runtime,
         updated_at=datetime.now(UTC),
     )
     coordinator = MagicMock()

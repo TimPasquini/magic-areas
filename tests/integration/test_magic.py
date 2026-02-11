@@ -11,6 +11,7 @@ from homeassistant.const import (
     EntityCategory,
 )
 from homeassistant.core import CoreState, EventBus, HomeAssistant, StateMachine
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
@@ -83,99 +84,6 @@ async def test_magic_area_initialization_wait_for_start(
         await hass.async_block_till_done()
 
         await shutdown_integration(hass, [mock_config_entry])
-
-
-async def test_magic_area_exclusions(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Test entity exclusion logic."""
-
-    # Setup registry with various entities
-    registry = mock_registry(hass)
-
-    # 1. Magic Area entity (should be excluded)
-    ma_entity = registry.async_get_or_create(
-        "switch", DOMAIN, "magic_entity", config_entry=mock_config_entry
-    )
-
-    # 2. Disabled entity (should be excluded)
-    disabled_entity = registry.async_get_or_create(
-        "light", "hue", "disabled_light", disabled_by=er.RegistryEntryDisabler.USER
-    )
-
-    # 3. Explicitly excluded entity (via config)
-    excluded_entity = registry.async_get_or_create("sensor", "mqtt", "excluded_sensor")
-
-    # 4. Diagnostic entity (should be excluded by default)
-    diag_entity = registry.async_get_or_create(
-        "sensor", "mqtt", "diag_sensor", entity_category=EntityCategory.DIAGNOSTIC
-    )
-
-    # 5. Config entity (should be excluded by default)
-    conf_entity = registry.async_get_or_create(
-        "sensor", "mqtt", "conf_sensor", entity_category=EntityCategory.CONFIG
-    )
-
-    # 6. Normal entity (should NOT be excluded)
-    normal_entity = registry.async_get_or_create("light", "hue", "normal_light")
-
-    # Update config to exclude specific entity
-    data = dict(mock_config_entry.data)
-    data[CONF_EXCLUDE_ENTITIES] = [excluded_entity.entity_id]
-    hass.config_entries.async_update_entry(mock_config_entry, data=data)
-
-    await init_integration_helper(hass, [mock_config_entry])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
-
-    # Test _should_exclude_entity directly
-    assert area._should_exclude_entity(ma_entity) is True
-    assert area._should_exclude_entity(disabled_entity) is True
-    assert area._should_exclude_entity(excluded_entity) is True
-    assert area._should_exclude_entity(diag_entity) is True
-    assert area._should_exclude_entity(conf_entity) is True
-    assert area._should_exclude_entity(normal_entity) is False
-
-    await shutdown_integration(hass, [mock_config_entry])
-
-
-async def test_magic_area_load_entities_from_device(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Test loading entities associated with a device in the area."""
-
-    device_registry = mock_device_registry(hass)
-    entity_registry = mock_registry(hass)
-
-    # Create device in the area
-    device = device_registry.async_get_or_create(
-        config_entry_id=mock_config_entry.entry_id,
-        identifiers={("test", "device1")},
-    )
-    device_registry.async_update_device(device.id, area_id=DEFAULT_MOCK_AREA.value)
-
-    # Create entity linked to device
-    entity = entity_registry.async_get_or_create(
-        "sensor", "test", "device_sensor", device_id=device.id
-    )
-
-    await init_integration_helper(hass, [mock_config_entry])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
-
-    # Verify entity is loaded
-    assert "sensor" in area.entities
-    loaded_ids = [e["entity_id"] for e in area.entities["sensor"]]
-    assert entity.entity_id in loaded_ids
-    assert device.id in area._area_devices
-
-    await shutdown_integration(hass, [mock_config_entry])
 
 
 async def test_magic_area_include_entities(
@@ -320,38 +228,6 @@ async def test_registry_filters(
     await shutdown_integration(hass, [mock_config_entry])
 
 
-async def test_magic_area_misc_coverage(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Test miscellaneous methods for coverage."""
-
-    await init_integration_helper(hass, [mock_config_entry])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
-
-    # has_configured_state invalid
-    assert area.has_configured_state("invalid_state") is False
-
-    # is_interior / is_exterior
-    # Default mock area is interior
-    assert area.is_interior() is True
-    assert area.is_exterior() is False
-
-    # get_entity_dict with attributes
-    hass.states.async_set("light.test_attr", "on", {"brightness": 255})
-    entity_dict = area.get_entity_dict("light.test_attr")
-    assert entity_dict["brightness"] == "255"
-    assert ATTR_ENTITY_ID in entity_dict
-
-    # has_entities
-    assert area.has_entities("light") is False  # No lights in default setup
-
-    await shutdown_integration(hass, [mock_config_entry])
-
-
 async def test_magic_area_options_merge(
     hass: HomeAssistant,
 ) -> None:
@@ -416,29 +292,6 @@ async def test_magic_area_invalid_features(hass: HomeAssistant) -> None:
     await shutdown_integration(hass, [config_entry])
 
 
-async def test_magic_area_load_entity_no_domain(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Test loading entity without domain."""
-
-    # Let's mock the RegistryEntry
-    mock_entry = MagicMock()
-    mock_entry.entity_id = "broken.entity"
-    mock_entry.domain = None
-
-    await init_integration_helper(hass, [mock_config_entry])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
-
-    area.load_entity_list([mock_entry])
-    # Should log warning and continue, not crash
-
-    await shutdown_integration(hass, [mock_config_entry])
-
-
 async def test_magic_area_finalize_init_running(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
@@ -457,71 +310,6 @@ async def test_magic_area_finalize_init_running(
     # If we are here, it worked.
 
     await shutdown_integration(hass, [mock_config_entry])
-
-
-async def test_magic_meta_area_reinit(
-    hass: HomeAssistant, init_integration_all_areas
-) -> None:
-    """Test re-initializing meta area."""
-
-    # Get Global Meta Area
-    global_entry = None
-    for entry in init_integration_all_areas:
-        if entry.data["id"] == MockAreaIds.GLOBAL.value:
-            global_entry = entry
-            break
-
-    assert global_entry is not None
-    entry = hass.config_entries.async_get_entry(global_entry.entry_id)
-    meta_area = entry.runtime_data.area
-
-    # Call initialize again
-    await meta_area.initialize()
-    # Should log debug and return None
-
-    # Test _handle_loaded_area when not running
-    hass.set_state(CoreState.not_running)
-    await meta_area._handle_loaded_area("type", None, "id")
-    # Should return early
-
-    hass.set_state(CoreState.running)
-
-
-async def test_magic_meta_area_load_entities_bad_id(
-    hass: HomeAssistant, init_integration_all_areas
-) -> None:
-    """Test loading entities with bad ID in meta area."""
-
-    # Get Global Meta Area
-    global_entry = None
-    for entry in init_integration_all_areas:
-        if entry.data["id"] == MockAreaIds.GLOBAL.value:
-            global_entry = entry
-            break
-
-    assert global_entry is not None
-    entry = hass.config_entries.async_get_entry(global_entry.entry_id)
-    meta_area = entry.runtime_data.area
-
-    # Mock magic_entities on a child area to have a non-string entity_id
-    # We need to find a child area
-    child_area_slug = meta_area.child_areas[0]
-
-    # Find the config entry for the child area
-    child_entry = None
-    for e in init_integration_all_areas:
-        if e.runtime_data.coordinator.data.area.slug == child_area_slug:
-            child_entry = e
-            break
-
-    assert child_entry is not None
-    child_area = child_entry.runtime_data.area
-
-    # Inject bad entity
-    child_area.magic_entities["binary_sensor"] = [{"entity_id": 123}]  # Not a string
-
-    await meta_area.load_entities()
-    # Should skip the bad entity and not crash
 
 
 async def test_filters_throttling(
@@ -636,3 +424,301 @@ async def test_available_platforms(
     assert area.available_platforms() == MAGIC_AREAS_COMPONENTS
 
     await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_entity_loading_excludes_disabled(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that disabled entities are excluded from area entities."""
+    entity_registry = mock_registry(hass)
+
+    # Create a disabled entity
+    disabled = entity_registry.async_get_or_create(
+        "light", "test", "disabled_light",
+        disabled_by=er.RegistryEntryDisabler.USER
+    )
+
+    # Create a normal entity
+    normal = entity_registry.async_get_or_create(
+        "light", "test", "normal_light"
+    )
+
+    # Update area config to include these entities
+    data = dict(mock_config_entry.data)
+    data[CONF_INCLUDE_ENTITIES] = [disabled.entity_id, normal.entity_id]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify disabled entity is excluded
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    assert disabled.entity_id not in all_entity_ids
+    assert normal.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_entity_loading_excludes_diagnostic(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that diagnostic entities are excluded from area entities."""
+    entity_registry = mock_registry(hass)
+
+    # Create a diagnostic entity
+    diagnostic = entity_registry.async_get_or_create(
+        "sensor", "test", "diag_sensor",
+        entity_category=EntityCategory.DIAGNOSTIC
+    )
+
+    # Create a normal entity
+    normal = entity_registry.async_get_or_create(
+        "sensor", "test", "normal_sensor"
+    )
+
+    # Update area config to include these entities
+    data = dict(mock_config_entry.data)
+    data[CONF_INCLUDE_ENTITIES] = [diagnostic.entity_id, normal.entity_id]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify diagnostic entity is excluded
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    assert diagnostic.entity_id not in all_entity_ids
+    assert normal.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_includes_normal_entities(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that normal entities are included in area loading."""
+    entity_registry = mock_registry(hass)
+
+    # Create multiple normal entities
+    light_entity = entity_registry.async_get_or_create(
+        "light", "test", "test_light"
+    )
+    sensor_entity = entity_registry.async_get_or_create(
+        "sensor", "test", "test_sensor"
+    )
+    switch_entity = entity_registry.async_get_or_create(
+        "switch", "test", "test_switch"
+    )
+
+    # Update area config to include these entities
+    data = dict(mock_config_entry.data)
+    data[CONF_INCLUDE_ENTITIES] = [
+        light_entity.entity_id,
+        sensor_entity.entity_id,
+        switch_entity.entity_id,
+    ]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify all normal entities are included
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    assert light_entity.entity_id in all_entity_ids
+    assert sensor_entity.entity_id in all_entity_ids
+    assert switch_entity.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_excluded_entities_respected(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that excluded entities are not loaded."""
+    entity_registry = mock_registry(hass)
+
+    # Create entities
+    excluded_entity = entity_registry.async_get_or_create(
+        "light", "test", "excluded_light"
+    )
+    included_entity = entity_registry.async_get_or_create(
+        "light", "test", "included_light"
+    )
+
+    # Update area config with excluded entities
+    data = dict(mock_config_entry.data)
+    data[CONF_EXCLUDE_ENTITIES] = [excluded_entity.entity_id]
+    data[CONF_INCLUDE_ENTITIES] = [excluded_entity.entity_id, included_entity.entity_id]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify excluded entity is excluded even if explicitly included
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    assert excluded_entity.entity_id not in all_entity_ids
+    assert included_entity.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_coordinator_entity_loading(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that coordinator correctly loads entities into snapshot."""
+    entity_registry = mock_registry(hass)
+
+    # Create entities with various states
+    light1 = entity_registry.async_get_or_create(
+        "light", "test", "light1"
+    )
+    light2 = entity_registry.async_get_or_create(
+        "light", "test", "light2"
+    )
+    sensor1 = entity_registry.async_get_or_create(
+        "sensor", "test", "sensor1"
+    )
+
+    # Update config to include these entities
+    data = dict(mock_config_entry.data)
+    data[CONF_INCLUDE_ENTITIES] = [
+        light1.entity_id,
+        light2.entity_id,
+        sensor1.entity_id,
+    ]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify coordinator snapshot has the entities
+    assert coordinator.data is not None
+    assert "light" in coordinator.data.entities
+    assert "sensor" in coordinator.data.entities
+
+    light_entities = coordinator.data.entities["light"]
+    sensor_entities = coordinator.data.entities["sensor"]
+
+    light_ids = [e.get("entity_id") for e in light_entities]
+    sensor_ids = [e.get("entity_id") for e in sensor_entities]
+
+    assert light1.entity_id in light_ids
+    assert light2.entity_id in light_ids
+    assert sensor1.entity_id in sensor_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_loads_device_entities(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that coordinator loads entities linked to devices in area."""
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+
+    # Setup area first
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    area_id = entry.runtime_data.area.id
+
+    # Create a device in the area
+    device = device_registry.async_get_or_create(
+        config_entry_id=mock_config_entry.entry_id,
+        identifiers={("test", "test_device_1")},
+    )
+    device_registry.async_update_device(device.id, area_id=area_id)
+
+    # Create an entity linked to the device (without area_id, linked via device)
+    entity = entity_registry.async_get_or_create(
+        "light", "test", "device_light",
+        device_id=device.id,
+    )
+
+    # Wait for registry updates
+    await hass.async_block_till_done()
+
+    # Refresh coordinator to pick up device entities
+    coordinator = entry.runtime_data.coordinator
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    # Verify device entity was loaded
+    assert coordinator.data is not None
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    assert entity.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_entity_loading_respects_config_entry_id(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that entities from our own config entry are not included."""
+    entity_registry = er.async_get(hass)
+
+    # Create an entity that belongs to magic_areas config entry
+    our_entity = entity_registry.async_get_or_create(
+        "binary_sensor", "magic_areas", "our_area_state",
+        config_entry=mock_config_entry,
+    )
+
+    # Create a normal entity not from our config
+    normal_entity = entity_registry.async_get_or_create(
+        "light", "test", "other_light",
+    )
+
+    # Update config to include both
+    data = dict(mock_config_entry.data)
+    data[CONF_INCLUDE_ENTITIES] = [our_entity.entity_id, normal_entity.entity_id]
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify our entity is excluded even if included
+    all_entity_ids = []
+    for domain_entities in coordinator.data.entities.values():
+        all_entity_ids.extend([e.get("entity_id") for e in domain_entities])
+
+    # Our config entry entity should be excluded
+    assert our_entity.entity_id not in all_entity_ids
+    # Normal entity should be included
+    assert normal_entity.entity_id in all_entity_ids
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+

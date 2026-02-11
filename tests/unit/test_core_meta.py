@@ -1,80 +1,212 @@
-"""Tests for core meta-area helpers."""
+"""Tests for core meta area helpers."""
 
-from custom_components.magic_areas.core.area_model import AreaDescriptor
-from custom_components.magic_areas.core.meta import (
-    resolve_active_areas,
-    resolve_child_areas,
-)
-from custom_components.magic_areas.enums import MetaAreaType
-from homeassistant.const import STATE_OFF, STATE_ON
+import pytest
+
+from custom_components.magic_areas.core.meta import aggregate_secondary_states
+from custom_components.magic_areas.enums import AreaStates
 
 
-def test_resolve_child_areas_global() -> None:
-    """Global meta areas include all non-meta areas."""
-    meta_area = AreaDescriptor(
-        id="meta-global",
-        slug="global",
-        floor_id=None,
-        area_type=MetaAreaType.GLOBAL,
-        is_meta=True,
-    )
-    areas = [
-        AreaDescriptor(
-            id="kitchen",
-            slug="kitchen",
-            floor_id="floor_1",
-            area_type="interior",
-            is_meta=False,
-        ),
-        AreaDescriptor(
-            id="yard",
-            slug="yard",
-            floor_id=None,
-            area_type="exterior",
-            is_meta=False,
-        ),
-        AreaDescriptor(
-            id="meta-interior",
-            slug="interior",
-            floor_id=None,
-            area_type="interior",
-            is_meta=True,
-        ),
-    ]
+class TestAggregateSecondaryStates:
+    """Tests for aggregate_secondary_states function."""
 
-    assert resolve_child_areas(meta_area, areas) == ["kitchen", "yard"]
+    def test_empty_child_state_lists(self):
+        """Test with empty child state lists - should return only BRIGHT."""
+        result = aggregate_secondary_states(
+            child_state_lists=[],
+            mode="any",
+            configurable_states=[AreaStates.DARK, AreaStates.SLEEP],
+        )
+        assert result == [AreaStates.BRIGHT]
 
+    def test_single_child_any_mode(self):
+        """Test with single child in ANY mode."""
+        result = aggregate_secondary_states(
+            child_state_lists=[[AreaStates.DARK, AreaStates.SLEEP]],
+            mode="any",
+            configurable_states=[AreaStates.DARK, AreaStates.SLEEP],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.SLEEP in result
+        # BRIGHT should not be added when DARK is present
+        assert AreaStates.BRIGHT not in result
 
-def test_resolve_child_areas_floor() -> None:
-    """Floor meta areas include areas on the same floor only."""
-    meta_area = AreaDescriptor(
-        id="floor_1",
-        slug="floor_1",
-        floor_id="floor_1",
-        area_type=MetaAreaType.FLOOR,
-        is_meta=True,
-    )
-    areas = [
-        AreaDescriptor(
-            id="kitchen",
-            slug="kitchen",
-            floor_id="floor_1",
-            area_type="interior",
-            is_meta=False,
-        ),
-        AreaDescriptor(
-            id="garage",
-            slug="garage",
-            floor_id="floor_2",
-            area_type="interior",
-            is_meta=False,
-        ),
-    ]
+    def test_multiple_children_any_mode(self):
+        """Test with multiple children in ANY mode - any presence counts."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK],
+                [AreaStates.BRIGHT],
+                [AreaStates.SLEEP],
+            ],
+            mode="any",
+            configurable_states=[AreaStates.DARK, AreaStates.SLEEP],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.SLEEP in result
+        assert AreaStates.BRIGHT not in result
 
-    assert resolve_child_areas(meta_area, areas) == ["kitchen"]
+    def test_multiple_children_all_mode(self):
+        """Test with multiple children in ALL mode - all must have."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+            ],
+            mode="all",
+            configurable_states=[AreaStates.DARK, AreaStates.OCCUPIED],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.OCCUPIED in result
+        assert AreaStates.BRIGHT not in result
 
+    def test_multiple_children_all_mode_partial(self):
+        """Test ALL mode where not all children have state."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK],
+                [AreaStates.BRIGHT],
+            ],
+            mode="all",
+            configurable_states=[AreaStates.DARK],
+        )
+        # DARK not in all children, so shouldn't be included
+        assert AreaStates.DARK not in result
+        assert AreaStates.BRIGHT in result
 
-def test_resolve_active_areas() -> None:
-    """Active areas are derived from the state map."""
-    state_map = {"kitchen": STATE_ON, "yard": STATE_OFF}
-    assert resolve_active_areas(["kitchen", "yard"], state_map) == ["kitchen"]
+    def test_multiple_children_majority_mode(self):
+        """Test MAJORITY mode - >= 50% must have."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK],
+                [AreaStates.DARK],
+                [AreaStates.BRIGHT],
+            ],
+            mode="majority",
+            configurable_states=[AreaStates.DARK],
+        )
+        # 2 out of 3 have DARK (66% > 50%)
+        assert AreaStates.DARK in result
+        assert AreaStates.BRIGHT not in result
+
+    def test_majority_mode_exactly_50_percent(self):
+        """Test MAJORITY mode with exactly 50% - should include."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK],
+                [AreaStates.BRIGHT],
+            ],
+            mode="majority",
+            configurable_states=[AreaStates.DARK],
+        )
+        # 1 out of 2 have DARK (50%)
+        assert AreaStates.DARK in result
+        assert AreaStates.BRIGHT not in result
+
+    def test_dark_state_prevents_bright(self):
+        """Test that DARK state prevents BRIGHT from being added."""
+        result = aggregate_secondary_states(
+            child_state_lists=[[AreaStates.DARK]],
+            mode="any",
+            configurable_states=[AreaStates.DARK],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.BRIGHT not in result
+
+    def test_bright_added_when_no_dark(self):
+        """Test that BRIGHT is added when DARK is not present."""
+        result = aggregate_secondary_states(
+            child_state_lists=[[AreaStates.SLEEP]],
+            mode="any",
+            configurable_states=[AreaStates.SLEEP],
+        )
+        assert AreaStates.SLEEP in result
+        assert AreaStates.BRIGHT in result
+
+    def test_states_not_in_configurable_ignored(self):
+        """Test that states not in configurable_states are ignored."""
+        result = aggregate_secondary_states(
+            child_state_lists=[[AreaStates.SLEEP, AreaStates.OCCUPIED]],
+            mode="any",
+            configurable_states=[AreaStates.DARK],  # SLEEP, OCCUPIED not here
+        )
+        assert AreaStates.SLEEP not in result
+        assert AreaStates.OCCUPIED not in result
+        assert AreaStates.BRIGHT in result
+
+    def test_mixed_states_any_mode(self):
+        """Test ANY mode with mixed states across children."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK, AreaStates.SLEEP],
+                [AreaStates.BRIGHT, AreaStates.OCCUPIED],
+                [AreaStates.DARK],
+            ],
+            mode="any",
+            configurable_states=[
+                AreaStates.DARK,
+                AreaStates.SLEEP,
+                AreaStates.OCCUPIED,
+            ],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.SLEEP in result
+        assert AreaStates.OCCUPIED in result
+        assert AreaStates.BRIGHT not in result
+
+    def test_empty_configurable_states(self):
+        """Test with empty configurable_states list."""
+        result = aggregate_secondary_states(
+            child_state_lists=[[AreaStates.DARK, AreaStates.SLEEP]],
+            mode="any",
+            configurable_states=[],
+        )
+        # No configurable states to aggregate
+        assert AreaStates.BRIGHT in result
+        assert len(result) == 1
+
+    def test_comprehensive_scenario_1(self):
+        """Test comprehensive scenario: daytime bright areas."""
+        # 3 areas, 2 are bright, looking for dark state
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.BRIGHT],
+                [AreaStates.BRIGHT],
+                [AreaStates.DARK],
+            ],
+            mode="majority",
+            configurable_states=[AreaStates.DARK],
+        )
+        # DARK in 1/3 (33% < 50%)
+        assert AreaStates.DARK not in result
+        assert AreaStates.BRIGHT in result
+
+    def test_comprehensive_scenario_2(self):
+        """Test comprehensive scenario: all areas dark."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+                [AreaStates.DARK, AreaStates.OCCUPIED],
+            ],
+            mode="all",
+            configurable_states=[AreaStates.DARK, AreaStates.OCCUPIED],
+        )
+        assert AreaStates.DARK in result
+        assert AreaStates.OCCUPIED in result
+        assert AreaStates.BRIGHT not in result
+
+    def test_comprehensive_scenario_3(self):
+        """Test comprehensive scenario: mixed occupancy and darkness."""
+        result = aggregate_secondary_states(
+            child_state_lists=[
+                [AreaStates.OCCUPIED, AreaStates.DARK],
+                [AreaStates.OCCUPIED, AreaStates.BRIGHT],
+                [AreaStates.CLEAR, AreaStates.DARK],
+            ],
+            mode="any",
+            configurable_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+        )
+        assert AreaStates.OCCUPIED in result
+        assert AreaStates.DARK in result
+        assert AreaStates.BRIGHT not in result

@@ -1,6 +1,7 @@
 """Base classes for sensor component."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.group.sensor import ATTR_MEAN, ATTR_SUM, SensorGroup
 from homeassistant.components.sensor.const import (
@@ -12,7 +13,10 @@ from homeassistant.components.sensor.const import (
 )
 
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.base.magic import MagicArea
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
 )
@@ -31,7 +35,8 @@ class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         device_class: str,
         entity_ids: list[str],
         unit_of_measurement: str | None,
@@ -40,16 +45,18 @@ class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
 
         MagicGroupEntity.__init__(
             self,
-            area=area,
+            area_config,
+            coordinator,
             domain=SENSOR_DOMAIN,
             member_entity_ids=entity_ids,
             translation_key=device_class,
         )
 
-        # Resolve unit of measurement
+        # Resolve unit of measurement (use hass from coordinator)
         unit_attr_name = f"{device_class}_unit"
-        if hasattr(area.hass.config.units, unit_attr_name):
-            final_unit_of_measurement = getattr(area.hass.config.units, unit_attr_name)
+        hass = coordinator.hass
+        if hasattr(hass.config.units, unit_attr_name):
+            final_unit_of_measurement = getattr(hass.config.units, unit_attr_name)
         else:
             final_unit_of_measurement = unit_of_measurement
 
@@ -69,7 +76,7 @@ class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
 
         SensorGroup.__init__(
             self,
-            area.hass,
+            hass,
             name=EMPTY_STRING,
             unique_id=self._attr_unique_id,
             entity_ids=self.member_entity_ids,

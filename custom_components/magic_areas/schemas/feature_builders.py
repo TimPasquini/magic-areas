@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_registry import async_get as entityreg_async_g
 from custom_components.magic_areas.config_keys import EMPTY_STRING
 from custom_components.magic_areas.enums import SelectorTranslationKeys
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.selector import SelectSelector
 
@@ -76,6 +76,7 @@ def build_climate_preset_selectors_and_validators(
         ...     config_base._build_selector_select,
         ...     (CONF_CLIMATE_CONTROL_PRESET_CLEAR, ...),
         ... )
+
     """
     if not climate_entity_id:
         raise NoEntitySelectedError("No climate entity selected")

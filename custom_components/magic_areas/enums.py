@@ -1,19 +1,27 @@
+"""Enumerations for Magic Areas integration."""
+
 from enum import IntEnum, StrEnum, auto
 
 
 class MetaAreaAutoReloadSettings(IntEnum):
+    """Meta area automatic reload timing settings."""
+
     DELAY = 3
     DELAY_MULTIPLIER = 4
     THROTTLE = 5
 
 
 class CalculationMode(StrEnum):
+    """Calculation mode for aggregating area states."""
+
     ANY = auto()
     ALL = auto()
     MAJORITY = auto()
 
 
 class LightGroupCategory(StrEnum):
+    """Categories of light groups in an area."""
+
     ALL = "all_lights"
     OVERHEAD = "overhead_lights"
     TASK = "task_lights"
@@ -22,11 +30,15 @@ class LightGroupCategory(StrEnum):
 
 
 class MagicConfigEntryVersion(IntEnum):
+    """Config entry version numbers."""
+
     MAJOR = 2
     MINOR = 2
 
 
 class MagicAreasFeatures(StrEnum):
+    """Feature identifiers for Magic Areas integration."""
+
     AREA = "area"
     PRESENCE_HOLD = "presence_hold"
     LIGHT_GROUPS = "light_groups"
@@ -43,11 +55,15 @@ class MagicAreasFeatures(StrEnum):
 
 
 class MagicAreasEvents(StrEnum):
+    """Event identifiers dispatched by Magic Areas."""
+
     AREA_STATE_CHANGED = "magicareas_area_state_changed"
     AREA_LOADED = "magicareas_area_loaded"
 
 
 class SelectorTranslationKeys(StrEnum):
+    """Translation keys for selector options."""
+
     CLIMATE_PRESET_LIST = auto()
     AREA_TYPE = auto()
     AREA_STATES = auto()
@@ -56,12 +72,16 @@ class SelectorTranslationKeys(StrEnum):
 
 
 class MetaAreaIcons(StrEnum):
+    """Icons for different meta area types."""
+
     INTERIOR = "mdi:home-import-outline"
     EXTERIOR = "mdi:home-export-outline"
     GLOBAL = "mdi:home"
 
 
 class FeatureIcons(StrEnum):
+    """Icons for feature control switches."""
+
     PRESENCE_HOLD_SWITCH = "mdi:car-brake-hold"
     LIGHT_CONTROL_SWITCH = "mdi:lightbulb-auto-outline"
     MEDIA_CONTROL_SWITCH = "mdi:auto-mode"
@@ -69,6 +89,8 @@ class FeatureIcons(StrEnum):
 
 
 class AreaStates(StrEnum):
+    """Possible states for an area."""
+
     CLEAR = "clear"
     OCCUPIED = "occupied"
     EXTENDED = "extended"
@@ -79,12 +101,16 @@ class AreaStates(StrEnum):
 
 
 class AreaType(StrEnum):
+    """Types of areas supported by Magic Areas."""
+
     INTERIOR = "interior"
     EXTERIOR = "exterior"
     META = "meta"
 
 
 class MetaAreaType(StrEnum):
+    """Types of meta-areas for grouping child areas."""
+
     GLOBAL = "global"
     INTERIOR = "interior"
     EXTERIOR = "exterior"

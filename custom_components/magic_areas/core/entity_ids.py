@@ -19,7 +19,7 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 
 from custom_components.magic_areas.const import DOMAIN
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.helpers.entity_registry import EntityRegistry
 
 
@@ -91,6 +91,7 @@ def build_entity_references(
 
     Returns:
         EntityReferences with resolved entity IDs (None for missing entities)
+
     """
     refs = EntityReferences()
 
@@ -98,65 +99,77 @@ def build_entity_references(
 
     # Presence tracking
     refs.area_state_sensor = _lookup(
-        entity_registry, BINARY_SENSOR_DOMAIN,
+        entity_registry,
+        BINARY_SENSOR_DOMAIN,
         f"presence_tracking_{area_id}_area_state",
     )
     refs.presence_hold_switch = _lookup(
-        entity_registry, SWITCH_DOMAIN,
+        entity_registry,
+        SWITCH_DOMAIN,
         f"presence_hold_{area_id}",
     )
 
     # Light groups
     refs.light_control_switch = _lookup(
-        entity_registry, SWITCH_DOMAIN,
+        entity_registry,
+        SWITCH_DOMAIN,
         f"light_groups_{area_id}_light_control",
     )
 
     # Fan groups
     refs.fan_group = _lookup(
-        entity_registry, FAN_DOMAIN,
+        entity_registry,
+        FAN_DOMAIN,
         f"fan_groups_{area_id}_fan_group",
     )
     refs.fan_control_switch = _lookup(
-        entity_registry, SWITCH_DOMAIN,
+        entity_registry,
+        SWITCH_DOMAIN,
         f"fan_groups_{area_id}_fan_control",
     )
 
     # Media player groups
     refs.media_player_group = _lookup(
-        entity_registry, MEDIA_PLAYER_DOMAIN,
+        entity_registry,
+        MEDIA_PLAYER_DOMAIN,
         f"media_player_groups_{area_id}_media_player_group",
     )
     refs.media_player_control_switch = _lookup(
-        entity_registry, SWITCH_DOMAIN,
+        entity_registry,
+        SWITCH_DOMAIN,
         f"media_player_groups_{area_id}_media_player_control",
     )
 
     # Climate control (translation_key == feature_info.id, so no suffix)
     refs.climate_control_switch = _lookup(
-        entity_registry, SWITCH_DOMAIN,
+        entity_registry,
+        SWITCH_DOMAIN,
         f"climate_control_{area_id}",
     )
 
     # Cover groups
     refs.cover_group = _lookup(
-        entity_registry, COVER_DOMAIN,
+        entity_registry,
+        COVER_DOMAIN,
         f"cover_groups_{area_id}_cover_group",
     )
 
     # Other sensors
     # wasp_in_a_box: translation_key == feature_info.id, so no suffix
     refs.wasp_in_a_box_sensor = _lookup(
-        entity_registry, BINARY_SENSOR_DOMAIN,
+        entity_registry,
+        BINARY_SENSOR_DOMAIN,
         f"wasp_in_a_box_{area_id}",
     )
     refs.ble_tracker_monitor = _lookup(
-        entity_registry, BINARY_SENSOR_DOMAIN,
+        entity_registry,
+        BINARY_SENSOR_DOMAIN,
         f"ble_trackers_{area_id}_ble_tracker_monitor",
     )
     # health: translation_key == feature_info.id, so no suffix
     refs.health_sensor = _lookup(
-        entity_registry, BINARY_SENSOR_DOMAIN,
+        entity_registry,
+        BINARY_SENSOR_DOMAIN,
         f"health_{area_id}",
     )
 
@@ -179,17 +192,19 @@ def build_entity_references(
 
         # Sensor aggregates
         if entry.domain == SENSOR_DOMAIN and uid.startswith(aggregate_sensor_prefix):
-            device_class = uid[len(aggregate_sensor_prefix):]
+            device_class = uid[len(aggregate_sensor_prefix) :]
             refs.aggregates_by_device_class[device_class] = entry.entity_id
 
         # Binary sensor aggregates
-        elif entry.domain == BINARY_SENSOR_DOMAIN and uid.startswith(aggregate_sensor_prefix):
-            device_class = uid[len(aggregate_sensor_prefix):]
+        elif entry.domain == BINARY_SENSOR_DOMAIN and uid.startswith(
+            aggregate_sensor_prefix
+        ):
+            device_class = uid[len(aggregate_sensor_prefix) :]
             refs.binary_aggregates_by_device_class[device_class] = entry.entity_id
 
         # Light groups by category
         elif entry.domain == LIGHT_DOMAIN and uid.startswith(light_group_prefix):
-            category = uid[len(light_group_prefix):]
+            category = uid[len(light_group_prefix) :]
             refs.light_groups_by_category[category] = entry.entity_id
 
         # Threshold sensors (by device class)

@@ -1,4 +1,5 @@
 """Config flow entity domain filters."""
+
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate.const import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN

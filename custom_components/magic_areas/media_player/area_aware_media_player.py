@@ -1,8 +1,9 @@
 """Area aware media player, media player component."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerState
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_CONTENT_ID,
@@ -14,6 +15,7 @@ from homeassistant.components.media_player.const import (
     DOMAIN as MEDIA_PLAYER_DOMAIN,
 )
 from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.base.magic import MagicArea
@@ -24,13 +26,17 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_NOTIFICATION_DEVICES,
     DEFAULT_NOTIFY_STATES,
 )
+from custom_components.magic_areas.core.media_routing import evaluate_area_routing
 from custom_components.magic_areas.enums import (
-    AreaStates,
     MagicAreasFeatures,
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAreaAwareMediaPlayer,
 )
+
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,16 +46,22 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
     feature_info = MagicAreasFeatureInfoAreaAwareMediaPlayer()
 
-    def __init__(self, area: MagicArea, areas: list[MagicArea]) -> None:
+    def __init__(
+        self,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
+        areas: list[MagicArea],
+    ) -> None:
         """Initialize area-aware media player."""
-        MagicEntity.__init__(self, area, domain=MEDIA_PLAYER_DOMAIN)
+        MagicEntity.__init__(
+            self, area_config, coordinator, domain=MEDIA_PLAYER_DOMAIN
+        )
         MediaPlayerEntity.__init__(self)
 
         self._attr_extra_state_attributes: dict[str, Any] = {}
         self._state: MediaPlayerState | None = MediaPlayerState.IDLE
 
         self.areas = areas
-        self.area = area
         self._tracked_entities: list[str] = []
 
         for area_obj in self.areas:
@@ -63,13 +75,11 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         """Resolve area state sensor from entity references or entity registry."""
         runtime_data = getattr(area.hass_config, "runtime_data", None)
         if runtime_data and runtime_data.coordinator.data:
-            entity_id = runtime_data.coordinator.data.entity_references.area_state_sensor
+            entity_id = (
+                runtime_data.coordinator.data.entity_references.area_state_sensor
+            )
             if entity_id:
                 return entity_id
-        # Direct entity registry lookup
-        from homeassistant.helpers import entity_registry as er
-        from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
-
         return er.async_get(self.hass).async_get_entity_id(
             BS_DOMAIN, MA_DOMAIN, f"presence_tracking_{area.id}_area_state"
         )
@@ -156,7 +166,6 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
                 )
                 continue
 
-            # Get state
             area_binary_sensor_state = self.hass.states.get(area_binary_sensor_name)
             if not area_binary_sensor_state:
                 _LOGGER.debug(
@@ -166,29 +175,19 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
                 )
                 continue
 
-            # Ignore not occupied areas
-            if area_binary_sensor_state.state != STATE_ON:
-                continue
+            is_occupied = area_binary_sensor_state.state == STATE_ON
 
-            # Check notification states
             notification_states = area.feature_config(
                 MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
             ).get(CONF_NOTIFY_STATES, DEFAULT_NOTIFY_STATES)
 
-            # Check sleep
-            if area.has_state(AreaStates.SLEEP) and (
-                AreaStates.SLEEP not in notification_states
+            area_states = area.get_current_states()
+
+            if evaluate_area_routing(
+                is_occupied=is_occupied,
+                area_states=area_states,
+                notification_states=notification_states,
             ):
-                continue
-
-            # Check other states
-            has_valid_state = False
-            for notification_state in notification_states:
-                if area.has_state(notification_state):
-                    has_valid_state = True
-
-            # Append area
-            if has_valid_state:
                 active_areas.append(area)
 
         return active_areas

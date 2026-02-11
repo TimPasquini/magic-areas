@@ -7,11 +7,12 @@ including error handling and validation helpers.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 import voluptuous as vol
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     pass
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ def errors_from_validation(validation: vol.MultipleInvalid) -> dict[str, str]:
         ... except vol.MultipleInvalid as e:
         ...     errors = errors_from_validation(e)
         ...     return self.async_show_form(..., errors=errors)
+
     """
     return {
         str(error.path[0]): str(error.msg)
@@ -80,6 +82,7 @@ async def handle_step_validation(
         ... )
         >>> if handled:
         ...     return await on_success()  # Validation succeeded, return to menu
+
     """
     errors: dict[str, str] = {}
 

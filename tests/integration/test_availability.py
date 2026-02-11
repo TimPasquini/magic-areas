@@ -16,6 +16,8 @@ async def test_entity_availability_reflects_coordinator(
     hass: HomeAssistant,
 ) -> None:
     """Entities report unavailable when coordinator updates fail."""
+    from unittest.mock import AsyncMock, patch
+
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     mock_config_entry = MockConfigEntry(domain=DOMAIN, data=data)
 
@@ -26,11 +28,24 @@ async def test_entity_availability_reflects_coordinator(
     )
     assert entity is not None
 
-    area = mock_config_entry.runtime_data.area
-    area.last_update_success = False
+    # Entity should be available initially
+    assert entity.available is True
+
+    # Mock coordinator's update to fail
+    coordinator = mock_config_entry.runtime_data.coordinator
+    with patch.object(coordinator, "_async_update_data", side_effect=Exception("Test failure")):
+        await coordinator.async_refresh()
+
+    # Entity should now be unavailable
     assert entity.available is False
 
-    area.last_update_success = True
+    # Mock coordinator's update to succeed
+    with patch.object(coordinator, "_async_update_data", new_callable=AsyncMock) as mock_update:
+        # Set up mock to return valid data
+        mock_update.return_value = coordinator.data
+        await coordinator.async_refresh()
+
+    # Entity should be available again
     assert entity.available is True
 
     await shutdown_integration(hass, [mock_config_entry])

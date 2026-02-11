@@ -6,6 +6,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from custom_components.magic_areas.config_keys import (
+    CONF_FAN_GROUPS_REQUIRED_STATE,
+    CONF_FAN_GROUPS_SETPOINT,
+    DEFAULT_FAN_GROUPS_REQUIRED_STATE,
+    DEFAULT_FAN_GROUPS_SETPOINT,
+)
 from custom_components.magic_areas.enums import AreaStates
 
 
@@ -25,6 +31,7 @@ class FanControlPolicy:
     Attributes:
         setpoint: Temperature/humidity/etc threshold for fan activation
         required_state: Area state required for fan operation (e.g., "occupied")
+
     """
 
     setpoint: float
@@ -50,6 +57,7 @@ class FanControlPolicy:
             3. If sensor unavailable -> turn off (safe default)
             4. If sensor >= setpoint -> turn on
             5. If sensor < setpoint -> turn off
+
         """
         # Area clear -> always turn off
         if AreaStates.CLEAR in current_states:
@@ -98,13 +106,8 @@ def build_fan_policy(feature_config: dict[str, Any]) -> FanControlPolicy:
 
     Returns:
         Configured FanControlPolicy instance
+
     """
-    from custom_components.magic_areas.config_keys import (
-        CONF_FAN_GROUPS_REQUIRED_STATE,
-        CONF_FAN_GROUPS_SETPOINT,
-        DEFAULT_FAN_GROUPS_REQUIRED_STATE,
-        DEFAULT_FAN_GROUPS_SETPOINT,
-    )
 
     setpoint = float(
         feature_config.get(CONF_FAN_GROUPS_SETPOINT, DEFAULT_FAN_GROUPS_SETPOINT)

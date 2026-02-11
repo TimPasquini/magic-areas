@@ -93,6 +93,12 @@ async def test_clear_timeout_expiration(
     timeout_config_entry: MockConfigEntry,
 ) -> None:
     """clear_timeout keeps the area occupied briefly after sensors go OFF, then clears."""
+    # CRITICAL: Reset freezer at the START of this test to ensure clean baseline.
+    # This prevents state leakage from previous tests. We use a fresh utcnow() call
+    # so that all freezer operations are relative to a known, consistent point.
+    now = dt_util.utcnow()
+    freezer.move_to(now)
+
     await init_integration_helper(hass, [timeout_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
@@ -114,9 +120,10 @@ async def test_clear_timeout_expiration(
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
 
+    # Capture the freezer baseline timestamp at the start of the timeout window
     start = dt_util.utcnow()
 
-    # Still occupied within the timeout window.
+    # Still occupied within the timeout window (at 30 seconds).
     freezer.move_to(start + timedelta(seconds=30))
     async_fire_time_changed(hass, start + timedelta(seconds=30))
     await hass.async_block_till_done()
@@ -125,7 +132,7 @@ async def test_clear_timeout_expiration(
         hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
     )
 
-    # Past clear_timeout: occupied should be cleared (entity becomes OFF).
+    # Past clear_timeout (at 1 minute + 1 second): occupied should be cleared.
     freezer.move_to(start + timedelta(minutes=1, seconds=1))
     async_fire_time_changed(hass, start + timedelta(minutes=1, seconds=1))
     await hass.async_block_till_done()
@@ -145,6 +152,11 @@ async def test_clear_timeout_is_canceled_if_sensor_returns(
     timeout_config_entry: MockConfigEntry,
 ) -> None:
     """If a sensor returns ON during clear_timeout, the pending clear is canceled."""
+    # CRITICAL: Reset freezer at the START of this test to ensure clean baseline.
+    # This prevents state leakage from previous tests.
+    now = dt_util.utcnow()
+    freezer.move_to(now)
+
     await init_integration_helper(hass, [timeout_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
@@ -154,25 +166,33 @@ async def test_clear_timeout_is_canceled_if_sensor_returns(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_kitchen_area_state"
     )
 
+    # Occupy area
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
 
-    # Start timeout window.
+    # Start timeout window by turning sensor OFF
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
+
+    # Capture the freezer baseline timestamp at the start of the timeout window
     start = dt_util.utcnow()
 
-    # Sensor returns before timeout expires (should cancel the scheduled clear).
+    # Sensor returns before timeout expires (at 30 seconds).
+    # This should cancel the scheduled clear timeout.
     freezer.move_to(start + timedelta(seconds=30))
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
+    async_fire_time_changed(hass, start + timedelta(seconds=30))
     await hass.async_block_till_done()
 
-    # Go past the original timeout deadline; area should still be occupied.
+    # Go past the original timeout deadline (1 min + 1 sec); area should still be occupied.
+    # The timeout that was scheduled when sensor went OFF should have been cancelled
+    # when the sensor came back ON.
     freezer.move_to(start + timedelta(minutes=1, seconds=1))
     async_fire_time_changed(hass, start + timedelta(minutes=1, seconds=1))
     await hass.async_block_till_done()
 
+    # Verify area is still occupied (timeout was cancelled)
     area_state = hass.states.get(area_sensor_entity_id)
     assert_state(area_state, STATE_ON)
     assert_in_attribute(area_state, ATTR_STATES, AreaStates.OCCUPIED)

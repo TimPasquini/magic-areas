@@ -1,7 +1,7 @@
 """Base classes for switch."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -9,16 +9,24 @@ from homeassistant.const import STATE_ON
 from homeassistant.helpers.event import async_call_later
 
 from custom_components.magic_areas.base.entities import MagicEntity
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.const import ONE_MINUTE
+from custom_components.magic_areas.core.listener_registry import (
+    ListenerRegistry,
+)
+
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 
 class SwitchBase(MagicEntity, SwitchEntity):
     """The base class for all the switches."""
 
-    def __init__(self, area: MagicArea) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the base switch bits, basic just a mixin for the two types."""
-        MagicEntity.__init__(self, area, domain=SWITCH_DOMAIN)
+        MagicEntity.__init__(self, area_config, coordinator, domain=SWITCH_DOMAIN)
         SwitchEntity.__init__(self)
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self._attr_should_poll = False
@@ -52,15 +60,19 @@ class ResettableSwitchBase(SwitchBase):
     """Control the presence/state from being changed for the device."""
 
     timeout: int
+    _listener_registry: ListenerRegistry
 
-    def __init__(self, area: MagicArea, timeout: int = 0) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator", timeout: int = 0
+    ) -> None:
         """Initialize the switch."""
-        super().__init__(area)
+        super().__init__(area_config, coordinator)
 
         self.timeout = timeout
         self._timeout_callback: Callable[[], None] | None = None
+        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
-        self.async_on_remove(self._clear_timers)
+        self._listener_registry.track("timer_cleanup", self._clear_timers)
 
     def _clear_timers(self, _: Any = None) -> None:
         """Remove the timer on entity removal."""
@@ -90,3 +102,8 @@ class ResettableSwitchBase(SwitchBase):
         if self._timeout_callback:
             self._timeout_callback()
             self._timeout_callback = None
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up listeners on removal."""
+        self._listener_registry.cleanup()
+        await super().async_will_remove_from_hass()

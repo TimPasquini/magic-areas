@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
+from collections.abc import Mapping
 
 from homeassistant.const import ATTR_ENTITY_ID
 

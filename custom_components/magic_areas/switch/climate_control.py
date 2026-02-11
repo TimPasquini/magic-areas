@@ -1,7 +1,7 @@
 """Climate control feature switch."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
@@ -14,7 +14,9 @@ from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
 
-from custom_components.magic_areas.base.magic import MagicArea
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
 )
@@ -25,6 +27,9 @@ from custom_components.magic_areas.core.climate_control import (
 from custom_components.magic_areas.enums import (
     AreaStates,
     MagicAreasEvents,
+)
+from custom_components.magic_areas.core.listener_registry import (
+    ListenerRegistry,
 )
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoClimateControl,
@@ -43,14 +48,19 @@ class ClimateControlSwitch(SwitchBase):
     policy: ClimatePresetPolicy
     climate_entity_id: str | None
     _area_sensor_entity_id: str | None
+    _listener_registry: ListenerRegistry
 
-    def __init__(self, area: MagicArea) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the Climate control switch."""
 
-        SwitchBase.__init__(self, area)
+        SwitchBase.__init__(self, area_config, coordinator)
 
         feature_config = self.get_feature_config()
-        self.climate_entity_id = feature_config.get(CONF_CLIMATE_CONTROL_ENTITY_ID, None)
+        self.climate_entity_id = feature_config.get(
+            CONF_CLIMATE_CONTROL_ENTITY_ID, None
+        )
 
         if not self.climate_entity_id:
             raise ValueError("Climate entity not set")
@@ -59,16 +69,16 @@ class ClimateControlSwitch(SwitchBase):
         self.policy = build_preset_policy(feature_config)
         # Entity ID resolved in async_added_to_hass from coordinator snapshot
         self._area_sensor_entity_id = None
+        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
 
         # Resolve area sensor entity ID from coordinator snapshot or entity registry
-        runtime_data = getattr(self.area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
+        if self._coordinator.data:
             self._area_sensor_entity_id = (
-                runtime_data.coordinator.data.entity_references.area_state_sensor
+                self._coordinator.data.entity_references.area_state_sensor
             )
         if not self._area_sensor_entity_id:
             from homeassistant.helpers import entity_registry as er
@@ -76,20 +86,25 @@ class ClimateControlSwitch(SwitchBase):
             from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
 
             self._area_sensor_entity_id = er.async_get(self.hass).async_get_entity_id(
-                BS_DOMAIN, DOMAIN, f"presence_tracking_{self.area.id}_area_state"
+                BS_DOMAIN, DOMAIN, f"presence_tracking_{self._area_id}_area_state"
             )
 
-        self.async_on_remove(
+        self._listener_registry.track(
+            "area_state_dispatcher",
             async_dispatcher_connect(
                 self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
-            )
+            ),
         )
         if self._area_sensor_entity_id:
-            self.async_on_remove(
+            self._listener_registry.track(
+                "area_sensor_state_change",
                 async_track_state_change_event(
-                    self.hass, [self._area_sensor_entity_id], self._area_sensor_state_changed
-                )
+                    self.hass,
+                    [self._area_sensor_entity_id],
+                    self._area_sensor_state_changed,
+                ),
             )
+
     async def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
@@ -99,17 +114,16 @@ class ClimateControlSwitch(SwitchBase):
             self.logger.debug("%s: Control disabled. Skipping.", self.name)
             return
 
-        if area_id != self.area.id:
+        if area_id != self._area_id:
             _LOGGER.debug(
                 "%s: Area state change event not for us. Skipping. (event: %s/self: %s)",
                 self.name,
                 area_id,
-                self.area.id,
+                self._area_id,
             )
             return
 
         new_states, lost_states, current_states = states_tuple
-        current_state_set = set(current_states)
 
         if not new_states and not lost_states:
             return
@@ -159,3 +173,8 @@ class ClimateControlSwitch(SwitchBase):
         # pylint: disable-next=broad-exception-caught
         except Exception as e:
             self.logger.error("%s: Error applying preset: %s", self.name, str(e))
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up listeners on removal."""
+        self._listener_registry.cleanup()
+        await super().async_will_remove_from_hass()

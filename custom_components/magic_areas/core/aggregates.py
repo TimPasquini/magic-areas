@@ -8,9 +8,14 @@ from enum import Enum
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_ENTITY_ID,
+    ATTR_UNIT_OF_MEASUREMENT,
+)
 
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,

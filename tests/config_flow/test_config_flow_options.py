@@ -247,7 +247,7 @@ async def test_options_flow_validation_error(
 
     # Mock validation error
     with patch(
-        "custom_components.magic_areas.config_flow.REGULAR_AREA_BASIC_OPTIONS_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.REGULAR_AREA_BASIC_OPTIONS_SCHEMA",
         side_effect=vol.MultipleInvalid([vol.Invalid("Error", path=["type"])]),
     ):
         result = await hass.config_entries.options.async_configure(
@@ -274,7 +274,7 @@ async def test_options_flow_generic_exception(
 
     # Mock generic exception
     with patch(
-        "custom_components.magic_areas.config_flow.REGULAR_AREA_BASIC_OPTIONS_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.REGULAR_AREA_BASIC_OPTIONS_SCHEMA",
         side_effect=Exception("Boom"),
     ):
         result = await hass.config_entries.options.async_configure(
@@ -300,7 +300,7 @@ async def test_options_flow_presence_tracking_exceptions(
 
     # Validation Error
     with patch(
-        "custom_components.magic_areas.config_flow.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
         side_effect=vol.MultipleInvalid(
             [vol.Invalid("Error", path=[CONF_CLEAR_TIMEOUT])]
         ),
@@ -315,7 +315,7 @@ async def test_options_flow_presence_tracking_exceptions(
 
     # Generic Exception
     with patch(
-        "custom_components.magic_areas.config_flow.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
         side_effect=Exception("Boom"),
     ):
         result = await hass.config_entries.options.async_configure(
@@ -340,7 +340,7 @@ async def test_options_flow_secondary_states_exceptions(
 
     # Validation Error
     with patch(
-        "custom_components.magic_areas.config_flow.SECONDARY_STATES_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.SECONDARY_STATES_SCHEMA",
         side_effect=vol.MultipleInvalid(
             [vol.Invalid("Error", path=[CONF_SLEEP_TIMEOUT])]
         ),
@@ -355,7 +355,7 @@ async def test_options_flow_secondary_states_exceptions(
 
     # Generic Exception
     with patch(
-        "custom_components.magic_areas.config_flow.SECONDARY_STATES_SCHEMA",
+        "custom_components.magic_areas.config_flows.options_flow.SECONDARY_STATES_SCHEMA",
         side_effect=Exception("Boom"),
     ):
         result = await hass.config_entries.options.async_configure(

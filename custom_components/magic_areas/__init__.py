@@ -76,9 +76,7 @@ async def _async_migrate_unique_ids(
 
     area_slug = slugify(config_entry.data.get(ATTR_NAME, area_id))
     entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(
-        entity_registry, config_entry.entry_id
-    )
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
 
     for entry in entries:
         if entry.unique_id and not entry.unique_id.startswith(
@@ -98,7 +96,9 @@ async def _async_migrate_unique_ids(
             entity_registry.async_update_entity(
                 entry.entity_id, new_unique_id=new_unique_id
             )
-        except Exception as err:  # pragma: no cover  # pylint: disable=broad-exception-caught
+        except (
+            Exception
+        ) as err:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
                 "%s: Unable to migrate unique_id for %s: %s",
                 config_entry.data.get(ATTR_NAME, area_id),
@@ -171,7 +171,9 @@ async def async_setup_entry(
         )
 
         # Setup config update listener
-        tracked_listeners: list[Callable] = [config_entry.add_update_listener(async_update_options)]
+        tracked_listeners: list[Callable] = [
+            config_entry.add_update_listener(async_update_options)
+        ]
 
         # Watch for area changes.
         if not magic_area.is_meta():

@@ -41,6 +41,7 @@ def get_highest_priority_state(
     Example:
         >>> get_highest_priority_state(["occupied", "sleep"])
         "sleep"  # sleep has higher priority
+
     """
     if priority_order is None:
         priority_order = DEFAULT_STATE_PRIORITY
@@ -76,6 +77,7 @@ def filter_by_priority(
 
         >>> filter_by_priority(["occupied", "dark"], ["sleep", "accent"])
         ["occupied", "dark"]  # No priority states, return all
+
     """
     state_list = list(states)
     state_set = set(states)
@@ -100,6 +102,7 @@ def has_any_priority_state(
 
     Returns:
         True if any priority state is present
+
     """
     state_set = set(states) if isinstance(states, list) else states
     return any(s in state_set for s in priority_states)

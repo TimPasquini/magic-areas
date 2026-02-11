@@ -36,7 +36,7 @@ async def async_get_config_entry_diagnostics(
             "name": area.name,
             "id": area.id,
             "type": area.area_type,
-            "states": area.states,
+            "states": area.get_current_states(),
             "meta": area.is_meta(),
             "entities": data.entities,
             "magic_entities": data.magic_entities,

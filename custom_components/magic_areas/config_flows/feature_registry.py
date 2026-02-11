@@ -3,6 +3,7 @@
 This file centralizes per-feature configuration metadata so OptionsFlowHandler
 can act as a generic dispatcher instead of a god class.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

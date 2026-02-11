@@ -18,10 +18,16 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.base.magic import MagicArea, MagicMetaArea
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.core.area_runtime import AreaRuntime
 from custom_components.magic_areas.core.config import normalize_feature_config
 from custom_components.magic_areas.core.entity_ids import (
     EntityReferences,
     build_entity_references,
+)
+from custom_components.magic_areas.core.entity_loading import (
+    load_area_entities,
+    load_meta_area_entities,
 )
 from custom_components.magic_areas.core.meta import (
     resolve_active_areas,
@@ -34,17 +40,26 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class MagicAreasData:
-    """Snapshot of area data used by platforms."""
+    """Snapshot of area data used by platforms.
+
+    Coordinator builds a complete snapshot including:
+    - area: MagicArea object (legacy, for compatibility)
+    - area_config: Immutable configuration (new, required)
+    - area_runtime: Mutable state (new, required)
+    """
 
     area: MagicArea
     entities: dict[str, list[dict[str, str]]]
     magic_entities: dict[str, list[dict[str, str]]]
     presence_sensors: list[str]
     active_areas: list[str]
+    child_areas: list[str]
     config: dict[str, Any]
     enabled_features: set[str]
     feature_configs: dict[str, dict[str, Any]]
     entity_references: EntityReferences
+    area_config: AreaConfig
+    area_runtime: AreaRuntime
     updated_at: datetime
 
 
@@ -70,9 +85,28 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
     async def _async_update_data(self) -> MagicAreasData:
         """Fetch area data for the coordinator."""
         try:
+            # Load entities using extracted functions
             if isinstance(self.area, MagicMetaArea):
                 self.area.child_areas = self.area.get_child_areas()
-            await self.area.load_entities()
+                entities, magic_entities = await load_meta_area_entities(
+                    hass=self.hass,
+                    child_area_slugs=self.area.child_areas,
+                    config_entry_id=self.area.hass_config.entry_id,
+                    config=self.area.config,
+                    logger=_LOGGER,
+                )
+            else:
+                entities, magic_entities = await load_area_entities(
+                    hass=self.hass,
+                    area_id=self.area.id,
+                    config_entry_id=self.area.hass_config.entry_id,
+                    config=self.area.config,
+                    logger=_LOGGER,
+                )
+
+            # Update area with loaded entities
+            self.area.entities = entities
+            self.area.magic_entities = magic_entities
         except Exception as err:  # pylint: disable=broad-exception-caught
             self.area.last_update_success = False
             raise UpdateFailed(f"Unable to update area data: {err}") from err
@@ -113,13 +147,45 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
                         state_map[child_area_id] = area_state.state
             presence_sensors = child_presence_sensors
             active_areas = resolve_active_areas(self.area.child_areas, state_map)
+            child_areas_list = self.area.child_areas
+        else:
+            child_areas_list = []
+
+        # Build immutable AreaConfig (represents configuration)
+        # area_type may be None if not set in config, default to area ID
+        area_type = self.area.area_type or self.area.id
+        area_config = AreaConfig(
+            id=self.area.id,
+            name=self.area.name,
+            slug=self.area.slug,
+            icon=self.area.icon,
+            floor_id=self.area.floor_id,
+            area_type=area_type,
+            config=self.area.config,
+            hass_config=self.area.hass_config,
+        )
+
+        # Build mutable AreaRuntime (represents current state)
+        area_runtime = AreaRuntime(
+            entities=self.area.entities,
+            magic_entities=self.area.magic_entities,
+            states=self.area.states,
+            last_changed=self.area.last_changed,
+            last_update_success=self.area.last_update_success,
+            loaded_platforms=self.area.loaded_platforms,
+            timestamp=self.area.timestamp,
+            reloading=self.area.reloading,
+        )
 
         return MagicAreasData(
             area=self.area,
+            area_config=area_config,
+            area_runtime=area_runtime,
             entities=self.area.entities,
             magic_entities=self.area.magic_entities,
             presence_sensors=presence_sensors,
             active_areas=active_areas,
+            child_areas=child_areas_list,
             config=self.area.config,
             enabled_features=enabled_features,
             feature_configs=feature_configs,

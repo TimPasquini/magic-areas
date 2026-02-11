@@ -21,7 +21,7 @@ from custom_components.magic_areas.ha_domains import (
 )
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.entity_ids import EntityReferences
 
 

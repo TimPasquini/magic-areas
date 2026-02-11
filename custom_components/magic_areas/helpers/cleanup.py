@@ -1,6 +1,6 @@
-"""Magic Areas Util Functions.
+"""Magic Areas Cleanup Functions.
 
-Small helper functions that are used more than once.
+Helper functions for cleaning up removed entities.
 """
 
 from collections.abc import Sequence

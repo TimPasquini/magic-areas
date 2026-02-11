@@ -313,10 +313,14 @@ async def test_user_flow_conflicting_meta_area(hass: HomeAssistant) -> None:
 
 def test_resolve_groups() -> None:
     """Test resolve_groups static method."""
-    assert OptionsFlowHandler.resolve_groups(["a", ["b", "c"], "d"]) == [
+    from custom_components.magic_areas.config_flows.entity_gatherer import (
+        ConfigFlowEntityGatherer,
+    )
+
+    assert ConfigFlowEntityGatherer.resolve_groups(["a", ["b", "c"], "d"]) == [
         "a",
         "b",
         "c",
         "d",
     ]
-    assert OptionsFlowHandler.resolve_groups(["a", "b", "a"]) == ["a", "b"]
+    assert ConfigFlowEntityGatherer.resolve_groups(["a", "b", "a"]) == ["a", "b"]

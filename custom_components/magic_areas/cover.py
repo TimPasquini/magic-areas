@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
 )
@@ -21,9 +20,11 @@ from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoCoverGroups,
 )
-from custom_components.magic_areas.util import cleanup_removed_entries
+from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +45,8 @@ async def async_setup_entry(
     if data is None:
         _LOGGER.debug("Skipping cover setup; coordinator data unavailable")
         return
-    area: MagicArea = data.area
+    area_config = data.area_config
+    coordinator = runtime_data.coordinator
 
     # Check feature availability
     if CONF_FEATURE_COVER_GROUPS not in data.enabled_features:
@@ -52,7 +54,7 @@ async def async_setup_entry(
 
     # Check if there are any covers
     if COVER_DOMAIN not in data.entities:
-        _LOGGER.debug("No %s entities for area %s", COVER_DOMAIN, area.name)
+        _LOGGER.debug("No %s entities for area %s", COVER_DOMAIN, area_config.name)
         return
 
     entities_to_add = []
@@ -71,11 +73,11 @@ async def async_setup_entry(
             _LOGGER.debug(
                 "Creating %s cover group for %s with covers: %s",
                 device_class,
-                area.name,
+                area_config.name,
                 cover_ids,
             )
             entities_to_add.append(
-                AreaCoverGroup(area, device_class, entities_in_device_class)
+                AreaCoverGroup(area_config, coordinator, device_class, entities_in_device_class)
             )
 
     if entities_to_add:
@@ -83,7 +85,7 @@ async def async_setup_entry(
 
     if COVER_DOMAIN in data.magic_entities:
         cleanup_removed_entries(
-            area.hass, entities_to_add, data.magic_entities[COVER_DOMAIN]
+            hass, entities_to_add, data.magic_entities[COVER_DOMAIN]
         )
 
 
@@ -94,7 +96,8 @@ class AreaCoverGroup(MagicGroupEntity, CoverGroup):
 
     def __init__(
         self,
-        area: MagicArea,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
         device_class: str | None,
         entities: list[dict[str, str]],
     ) -> None:
@@ -102,7 +105,8 @@ class AreaCoverGroup(MagicGroupEntity, CoverGroup):
         entity_ids = [e["entity_id"] for e in entities]
         MagicGroupEntity.__init__(
             self,
-            area=area,
+            area_config,
+            coordinator,
             domain=COVER_DOMAIN,
             member_entity_ids=entity_ids,
             translation_key=device_class,

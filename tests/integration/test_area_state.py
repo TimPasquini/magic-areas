@@ -479,3 +479,64 @@ async def test_event_filtering(
     )
     await hass.async_block_till_done()
     # No assertion, just coverage of the early return
+
+
+async def test_presence_does_not_mutate_area_states(
+    hass: HomeAssistant,
+    entities_binary_sensor_motion_one: list[MockBinarySensor],
+    _setup_integration_basic,
+) -> None:
+    """Test that the presence entity never mutates area.states directly.
+
+    The presence binary sensor must not write to self.area.states.
+    State is published via HA entity attributes (ATTR_STATES) and
+    dispatched via event payloads. Any code that needs current area
+    states must read from the HA state machine, not from a mutable
+    field on a shared object.
+    """
+
+    motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_kitchen_area_state"
+    )
+
+    # Get the MagicArea object from the config entry
+    config_entries = hass.config_entries.async_entries(DOMAIN)
+    assert len(config_entries) > 0
+    config_entry = config_entries[0]
+    area = config_entry.runtime_data.coordinator.area
+
+    # Record initial area.states value
+    initial_states = list(area.states)
+
+    # Trigger occupancy: turn motion sensor ON
+    hass.states.async_set(motion_sensor_entity_id, STATE_ON)
+    await hass.async_block_till_done()
+
+    # The HA entity should show OCCUPIED
+    area_binary_sensor = hass.states.get(area_sensor_entity_id)
+    assert_state(area_binary_sensor, STATE_ON)
+    assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.OCCUPIED)
+
+    # But area.states must NOT have been mutated
+    assert area.states == initial_states, (
+        f"area.states was mutated! "
+        f"Expected {initial_states}, got {area.states}. "
+        f"Presence entity must not write to self.area.states."
+    )
+
+    # Trigger clear: turn motion sensor OFF
+    hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
+    await hass.async_block_till_done()
+
+    # The HA entity should show CLEAR
+    area_binary_sensor = hass.states.get(area_sensor_entity_id)
+    assert_state(area_binary_sensor, STATE_OFF)
+    assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.CLEAR)
+
+    # area.states still must NOT have been mutated
+    assert area.states == initial_states, (
+        f"area.states was mutated! "
+        f"Expected {initial_states}, got {area.states}. "
+        f"Presence entity must not write to self.area.states."
+    )

@@ -13,7 +13,6 @@ from custom_components.magic_areas.area_constants import (
     META_AREA_GLOBAL,
 )
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
     EMPTY_STRING,
@@ -31,9 +30,11 @@ from custom_components.magic_areas.features import (
 from custom_components.magic_areas.media_player.area_aware_media_player import (
     AreaAwareMediaPlayer,
 )
-from custom_components.magic_areas.util import cleanup_removed_entries
+from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,49 +54,57 @@ async def async_setup_entry(
     if data is None:
         _LOGGER.debug("Skipping media player setup; coordinator data unavailable")
         return
-    area: MagicArea = data.area
+    area_config = data.area_config
+    coordinator = runtime_data.coordinator
 
     entities_to_add: list[Entity] = []
 
     # Media Player Groups
     if CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features:
-        _LOGGER.debug("%s: Setting up media player groups.", area.name)
-        entities_to_add.extend(setup_media_player_group(area, data.entities))
+        _LOGGER.debug("%s: Setting up media player groups.", area_config.name)
+        entities_to_add.extend(setup_media_player_group(area_config, coordinator, data.entities))
 
     # Check if we are the Global Meta Area
-    if area.is_meta() and area.id == META_AREA_GLOBAL.lower():
+    if area_config.is_meta() and area_config.id == META_AREA_GLOBAL.lower():
         # Try to setup AAMP
-        _LOGGER.debug("%s: Setting up Area-Aware media player", area.name)
-        entities_to_add.extend(await setup_area_aware_media_player(area))
+        _LOGGER.debug("%s: Setting up Area-Aware media player", area_config.name)
+        entities_to_add.extend(
+            await setup_area_aware_media_player(area_config, coordinator)
+        )
 
     if entities_to_add:
         async_add_entities(entities_to_add)
 
     if MEDIA_PLAYER_DOMAIN in data.magic_entities:
         cleanup_removed_entries(
-            area.hass, entities_to_add, data.magic_entities[MEDIA_PLAYER_DOMAIN]
+            hass, entities_to_add, data.magic_entities[MEDIA_PLAYER_DOMAIN]
         )
 
 
 def setup_media_player_group(
-    area: MagicArea, entities_by_domain: dict[str, list[dict[str, str]]]
+    area_config: "AreaConfig",
+    coordinator: "MagicAreasCoordinator",
+    entities_by_domain: dict[str, list[dict[str, str]]],
 ) -> list[Entity]:
     """Create the media player groups."""
     # Check if there are any media player devices
     if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
-        _LOGGER.debug("%s: No %s entities.", area.name, MEDIA_PLAYER_DOMAIN)
+        _LOGGER.debug("%s: No %s entities.", area_config.name, MEDIA_PLAYER_DOMAIN)
         return []
 
     media_player_entities = [
         e["entity_id"] for e in entities_by_domain[MEDIA_PLAYER_DOMAIN]
     ]
 
-    return [AreaMediaPlayerGroup(area, media_player_entities)]
+    return [AreaMediaPlayerGroup(area_config, coordinator, media_player_entities)]
 
 
-async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
+async def setup_area_aware_media_player(
+    area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+) -> list[Entity]:
     """Create Area-aware media player."""
-    entries = area.hass.config_entries.async_entries(DOMAIN)
+    hass = coordinator.hass
+    entries = hass.config_entries.async_entries(DOMAIN)
 
     # Check if we have areas with MEDIA_PLAYER_DOMAIN entities
     areas_with_media_players = []
@@ -161,10 +170,12 @@ async def setup_area_aware_media_player(area: MagicArea) -> list[Entity]:
     area_names = [i.name for i in areas_with_media_players]
 
     _LOGGER.debug(
-        "%s: Setting up area-aware media player with areas: %s", area.name, area_names
+        "%s: Setting up area-aware media player with areas: %s",
+        area_config.name,
+        area_names,
     )
 
-    return [AreaAwareMediaPlayer(area, areas_with_media_players)]
+    return [AreaAwareMediaPlayer(area_config, coordinator, areas_with_media_players)]
 
 
 class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
@@ -172,11 +183,14 @@ class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
 
     feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
 
-    def __init__(self, area: MagicArea, entities: list[str]) -> None:
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator", entities: list[str]
+    ) -> None:
         """Initialize media player group."""
         MagicGroupEntity.__init__(
             self,
-            area=area,
+            area_config=area_config,
+            coordinator=coordinator,
             domain=MEDIA_PLAYER_DOMAIN,
             member_entity_ids=entities,
         )

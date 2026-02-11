@@ -42,6 +42,7 @@ def build_selector_boolean() -> BooleanSelector:
 
     Returns:
         BooleanSelector configured with default settings
+
     """
     return BooleanSelector(BooleanSelectorConfig())
 
@@ -60,6 +61,7 @@ def build_selector_select(
 
     Returns:
         SelectSelector configured with provided options
+
     """
     if not options:
         options = []
@@ -86,6 +88,7 @@ def build_selector_entity_simple(
 
     Returns:
         NullableEntitySelector configured with provided entities
+
     """
     if not options:
         options = []
@@ -114,6 +117,7 @@ def build_selector_number(
 
     Returns:
         NumberSelector configured with provided constraints
+
     """
     return NumberSelector(
         NumberSelectorConfig(

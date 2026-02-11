@@ -8,7 +8,6 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.features import (
     CONF_FEATURE_CLIMATE_CONTROL,
     CONF_FEATURE_FAN_GROUPS,
@@ -26,7 +25,7 @@ from custom_components.magic_areas.switch.media_player_control import (
     MediaPlayerControlSwitch,
 )
 from custom_components.magic_areas.switch.presence_hold import PresenceHoldSwitch
-from custom_components.magic_areas.util import cleanup_removed_entries
+from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
@@ -48,49 +47,57 @@ async def async_setup_entry(
     if data is None:
         _LOGGER.debug("Skipping switch setup; coordinator data unavailable")
         return
-    area: MagicArea = data.area
+    area_config = data.area_config
+    coordinator = runtime_data.coordinator
 
     switch_entities: list[SwitchBase] = []
 
-    if CONF_FEATURE_PRESENCE_HOLD in data.enabled_features and not area.is_meta():
+    if CONF_FEATURE_PRESENCE_HOLD in data.enabled_features and not area_config.is_meta():
         try:
-            switch_entities.append(PresenceHoldSwitch(area))
-        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
+            switch_entities.append(PresenceHoldSwitch(area_config, coordinator))
+        except (
+            Exception
+        ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
-                "%s: Error loading presence hold switch: %s", area.name, str(e)
+                "%s: Error loading presence hold switch: %s", area_config.name, str(e)
             )
 
-    if CONF_FEATURE_LIGHT_GROUPS in data.enabled_features and not area.is_meta():
+    if CONF_FEATURE_LIGHT_GROUPS in data.enabled_features and not area_config.is_meta():
         try:
-            switch_entities.append(LightControlSwitch(area))
-        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
+            switch_entities.append(LightControlSwitch(area_config, coordinator))
+        except (
+            Exception
+        ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
-                "%s: Error loading light control switch: %s", area.name, str(e)
+                "%s: Error loading light control switch: %s", area_config.name, str(e)
             )
 
-    if (
-        CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features
-        and not area.is_meta()
-    ):
+    if CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features and not area_config.is_meta():
         try:
-            switch_entities.append(MediaPlayerControlSwitch(area))
-        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
+            switch_entities.append(MediaPlayerControlSwitch(area_config, coordinator))
+        except (
+            Exception
+        ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
-                "%s: Error loading media player control switch: %s", area.name, str(e)
+                "%s: Error loading media player control switch: %s", area_config.name, str(e)
             )
 
-    if CONF_FEATURE_FAN_GROUPS in data.enabled_features and not area.is_meta():
+    if CONF_FEATURE_FAN_GROUPS in data.enabled_features and not area_config.is_meta():
         try:
-            switch_entities.append(FanControlSwitch(area))
-        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
-            _LOGGER.error("%s: Error loading fan control switch: %s", area.name, str(e))
+            switch_entities.append(FanControlSwitch(area_config, coordinator))
+        except (
+            Exception
+        ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
+            _LOGGER.error("%s: Error loading fan control switch: %s", area_config.name, str(e))
 
     if CONF_FEATURE_CLIMATE_CONTROL in data.enabled_features:
         try:
-            switch_entities.append(ClimateControlSwitch(area))
-        except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
+            switch_entities.append(ClimateControlSwitch(area_config, coordinator))
+        except (
+            Exception
+        ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(
-                "%s: Error loading climate control switch: %s", area.name, str(e)
+                "%s: Error loading climate control switch: %s", area_config.name, str(e)
             )
 
     if switch_entities:
@@ -98,7 +105,7 @@ async def async_setup_entry(
 
     if SWITCH_DOMAIN in data.magic_entities:
         cleanup_removed_entries(
-            area.hass, switch_entities, data.magic_entities[SWITCH_DOMAIN]
+            hass, switch_entities, data.magic_entities[SWITCH_DOMAIN]
         )
 
 

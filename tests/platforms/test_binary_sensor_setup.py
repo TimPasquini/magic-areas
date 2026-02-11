@@ -73,8 +73,13 @@ def test_create_wasp_in_a_box_sensor_returns_empty_when_aggregation_disabled() -
     # Aggregation NOT enabled
     mock_data.feature_configs = {}
 
+    # Create mock area_config and coordinator
+    mock_area_config = MagicMock()
+    mock_area_config.slug = "test"
+    mock_coordinator = MagicMock()
+
     # Call the function
-    result = create_wasp_in_a_box_sensor(mock_data)
+    result = create_wasp_in_a_box_sensor(mock_data, mock_area_config, mock_coordinator)
 
     # Should return empty list (line 139)
     assert result == []
@@ -88,8 +93,13 @@ def test_create_ble_tracker_sensor_returns_empty_when_feature_disabled() -> None
     mock_data.enabled_features = set()  # No features enabled
     mock_data.feature_configs = {}
 
+    # Create mock area_config and coordinator
+    mock_area_config = MagicMock()
+    mock_area_config.slug = "test"
+    mock_coordinator = MagicMock()
+
     # Call the function
-    result = create_ble_tracker_sensor(mock_data)
+    result = create_ble_tracker_sensor(mock_data, mock_area_config, mock_coordinator)
 
     # Should return empty list (line 158)
     assert result == []
@@ -103,8 +113,13 @@ def test_create_health_sensors_returns_empty_when_feature_disabled() -> None:
     mock_data.enabled_features = set()  # No features enabled
     mock_data.feature_configs = {}
 
+    # Create mock area_config and coordinator
+    mock_area_config = MagicMock()
+    mock_area_config.name = "test"
+    mock_coordinator = MagicMock()
+
     # Call the function
-    result = create_health_sensors(mock_data, {})
+    result = create_health_sensors(mock_data, {}, mock_area_config, mock_coordinator)
 
     # Should return empty list (line 186)
     assert result == []
@@ -116,14 +131,15 @@ def test_create_health_sensors_handles_exception_during_creation() -> None:
     from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 
     # Create mock data with health feature enabled and a health sensor
-    mock_area = MagicMock()
-    mock_area.slug = "test_area"
-    mock_area.name = "Test Area"
+    mock_area_config = MagicMock()
+    mock_area_config.slug = "test_area"
+    mock_area_config.name = "Test Area"
 
     mock_data = MagicMock()
     mock_data.enabled_features = {CONF_FEATURE_HEALTH}
     mock_data.feature_configs = {CONF_FEATURE_HEALTH: {}}
-    mock_data.area = mock_area
+
+    mock_coordinator = MagicMock()
 
     # Create entities with a health sensor
     entities_by_domain = {
@@ -140,7 +156,7 @@ def test_create_health_sensors_handles_exception_during_creation() -> None:
         "custom_components.magic_areas.binary_sensor.AreaHealthBinarySensor",
         side_effect=Exception("Test exception"),
     ):
-        result = create_health_sensors(mock_data, entities_by_domain)
+        result = create_health_sensors(mock_data, entities_by_domain, mock_area_config, mock_coordinator)
 
     # Should return empty list after catching exception (lines 228-234)
     assert result == []
@@ -153,11 +169,10 @@ def test_create_aggregate_sensors_handles_exception_during_creation() -> None:
     from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
 
     # Create mock data
-    mock_area = MagicMock()
-    mock_area.slug = "test_area"
+    mock_area_config = MagicMock()
+    mock_area_config.slug = "test_area"
 
     mock_data = MagicMock()
-    mock_data.area = mock_area
     mock_data.enabled_features = {CONF_FEATURE_AGGREGATION}
     # Configure aggregation with min 1 entity
     mock_data.feature_configs = {
@@ -165,6 +180,8 @@ def test_create_aggregate_sensors_handles_exception_during_creation() -> None:
             CONF_AGGREGATES_MIN_ENTITIES: 1,
         }
     }
+
+    mock_coordinator = MagicMock()
 
     # Create entities with binary sensors for aggregation
     entities_by_domain = {
@@ -185,7 +202,7 @@ def test_create_aggregate_sensors_handles_exception_during_creation() -> None:
         "custom_components.magic_areas.binary_sensor.AreaAggregateBinarySensor",
         side_effect=Exception("Test exception"),
     ):
-        result = create_aggregate_sensors(mock_data, entities_by_domain)
+        result = create_aggregate_sensors(mock_data, entities_by_domain, mock_area_config, mock_coordinator)
 
     # Should return empty list (exception was caught, no sensors created)
     assert result == []
