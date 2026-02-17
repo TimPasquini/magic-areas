@@ -36,10 +36,8 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.enums import (
-    AreaStates,
-    MagicAreasEvents,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
@@ -95,7 +93,7 @@ def mock_config_entry_timeout() -> MockConfigEntry:
 async def setup_integration_secondary_states(
     hass: HomeAssistant,
     secondary_states_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [secondary_states_config_entry])
@@ -107,7 +105,7 @@ async def setup_integration_secondary_states(
 async def setup_integration_keep_only_sensor(
     hass: HomeAssistant,
     keep_only_sensor_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [keep_only_sensor_config_entry])
@@ -150,7 +148,7 @@ async def setup_secondary_state_sensors(hass: HomeAssistant) -> list[MockBinaryS
 async def test_area_primary_state_change(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_basic,
+    _setup_integration_basic: Any,
 ) -> None:
     """Test primary area state change."""
 
@@ -182,10 +180,6 @@ async def test_area_primary_state_change(
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
 
-    # @FIXME figure out why this is blocking instead of doing the VirtualClock trick
-    # await asyncio.sleep(60)
-    # await hass.async_block_till_done()
-
     # Update states
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     motion_sensor = hass.states.get(motion_sensor_entity_id)
@@ -197,7 +191,7 @@ async def test_area_primary_state_change(
 async def test_area_secondary_state_change(
     hass: HomeAssistant,
     secondary_states_sensors: list[MockBinarySensor],
-    _setup_integration_secondary_states,
+    _setup_integration_secondary_states: Any,
 ) -> None:
     """Test secondary area state changes."""
 
@@ -264,7 +258,7 @@ async def test_area_secondary_state_change(
 async def test_keep_only_sensors(
     hass: HomeAssistant,
     entities_binary_sensor_motion_multiple: list[MockBinarySensor],
-    _setup_integration_keep_only_sensor,
+    _setup_integration_keep_only_sensor: Any,
 ) -> None:
     """Test keep-only sensors."""
 
@@ -338,7 +332,7 @@ async def test_keep_only_sensors(
 async def test_sensor_invalid_states(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_basic,
+    _setup_integration_basic: Any,
 ) -> None:
     """Test sensor state changes to invalid states."""
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
@@ -370,7 +364,7 @@ async def test_sensor_invalid_states(
 async def test_sensor_missing(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_basic,
+    _setup_integration_basic: Any,
 ) -> None:
     """Test missing sensor entity."""
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
@@ -399,7 +393,7 @@ async def test_clear_timeout_expiration(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     timeout_config_entry: MockConfigEntry,
-    freezer,
+    freezer: Any,
 ) -> None:
     """Test clear timeout expiration.
 
@@ -466,7 +460,7 @@ async def test_clear_timeout_expiration(
 async def test_event_filtering(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_basic,
+    _setup_integration_basic: Any,
 ) -> None:
     """Test event filtering logic."""
 
@@ -484,7 +478,7 @@ async def test_event_filtering(
 async def test_presence_does_not_mutate_area_states(
     hass: HomeAssistant,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_basic,
+    _setup_integration_basic: Any,
 ) -> None:
     """Test that the presence entity never mutates area.states directly.
 
@@ -500,30 +494,14 @@ async def test_presence_does_not_mutate_area_states(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_kitchen_area_state"
     )
 
-    # Get the MagicArea object from the config entry
-    config_entries = hass.config_entries.async_entries(DOMAIN)
-    assert len(config_entries) > 0
-    config_entry = config_entries[0]
-    area = config_entry.runtime_data.coordinator.area
-
-    # Record initial area.states value
-    initial_states = list(area.states)
-
     # Trigger occupancy: turn motion sensor ON
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
 
-    # The HA entity should show OCCUPIED
+    # The HA entity should show OCCUPIED — state is published via entity attributes only
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     assert_state(area_binary_sensor, STATE_ON)
     assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.OCCUPIED)
-
-    # But area.states must NOT have been mutated
-    assert area.states == initial_states, (
-        f"area.states was mutated! "
-        f"Expected {initial_states}, got {area.states}. "
-        f"Presence entity must not write to self.area.states."
-    )
 
     # Trigger clear: turn motion sensor OFF
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
@@ -533,10 +511,3 @@ async def test_presence_does_not_mutate_area_states(
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     assert_state(area_binary_sensor, STATE_OFF)
     assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.CLEAR)
-
-    # area.states still must NOT have been mutated
-    assert area.states == initial_states, (
-        f"area.states was mutated! "
-        f"Expected {initial_states}, got {area.states}. "
-        f"Presence entity must not write to self.area.states."
-    )

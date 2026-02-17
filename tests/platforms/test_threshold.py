@@ -1,6 +1,7 @@
 """Test for aggregate (group) sensor behavior."""
 
 import asyncio
+from typing import cast
 
 import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -25,9 +26,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     init_integration as init_integration_helper,
@@ -47,7 +46,7 @@ def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
         "id": "kitchen",
         "type": "interior",
         CONF_ENABLED_FEATURES: {
-            CONF_FEATURE_AGGREGATION: {
+            MagicAreasFeatures.AGGREGATES: {
                 CONF_AGGREGATES_MIN_ENTITIES: 1,
                 CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 600,
                 CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS: 10,
@@ -77,7 +76,7 @@ async def setup_entities_sensor_illuminance_multiple(
 
     await setup_mock_entities(hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: entities})
 
-    return entities
+    return cast(list[SensorEntity], entities)
 
 
 async def test_threshold_sensor_light(
@@ -134,12 +133,14 @@ async def test_threshold_sensor_light(
 
     # Ensure aggregate sensor updated
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
+    assert aggregate_sensor_state is not None
     assert float(aggregate_sensor_state.state) == float(
         sensor_threshold_upper + sensor_hysteresis + 10
     )
 
     # Ensure threhsold sensor is triggered
     threshold_sensor_state = hass.states.get(threshold_sensor_id)
+    assert threshold_sensor_state is not None
     assert (
         threshold_sensor_state.state == STATE_ON
     ), f"Threshold sensor is {threshold_sensor_state.state}, expected {STATE_ON}. Aggregate state: {aggregate_sensor_state.state}"
@@ -159,10 +160,12 @@ async def test_threshold_sensor_light(
 
     # Ensure aggregate sensor updated
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
+    assert aggregate_sensor_state is not None
     assert float(aggregate_sensor_state.state) == 0.0
 
     # Ensure threhsold sensor is cleared
     threshold_sensor_state = hass.states.get(threshold_sensor_id)
+    assert threshold_sensor_state is not None
     assert threshold_sensor_state.state == STATE_OFF
 
     await shutdown_integration(hass, [mock_config_entry])
@@ -178,9 +181,9 @@ async def test_threshold_snapshot_fields(
 
     data = mock_config_entry.runtime_data.coordinator.data
     assert data is not None
-    assert CONF_FEATURE_AGGREGATION in data.enabled_features
+    assert MagicAreasFeatures.AGGREGATES in data.enabled_features
 
-    feature_config = data.feature_configs.get(CONF_FEATURE_AGGREGATION)
+    feature_config = data.feature_configs.get(MagicAreasFeatures.AGGREGATES)
     assert feature_config is not None
     assert (
         feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD] == 600

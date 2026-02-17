@@ -8,11 +8,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
-from custom_components.magic_areas.area_constants import (
-    AREA_TYPE_EXTERIOR,
-    AREA_TYPE_INTERIOR,
-    AREA_TYPE_META,
-    META_AREA_GLOBAL,
+from custom_components.magic_areas.area_state import (
+    AreaType,
+    META_AREA_GLOBAL
 )
 from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
@@ -49,15 +47,15 @@ class AreaConfig:
 
     def is_meta(self) -> bool:
         """Return if area is a meta area."""
-        return self.area_type == AREA_TYPE_META
+        return self.area_type == AreaType.META
 
     def is_interior(self) -> bool:
         """Return if area type is interior."""
-        return self.area_type == AREA_TYPE_INTERIOR
+        return self.area_type == AreaType.INTERIOR
 
     def is_exterior(self) -> bool:
         """Return if area type is exterior."""
-        return self.area_type == AREA_TYPE_EXTERIOR
+        return self.area_type == AreaType.EXTERIOR
 
     def available_platforms(self) -> list[str]:
         """Return available platforms for this area type."""

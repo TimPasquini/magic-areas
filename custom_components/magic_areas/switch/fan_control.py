@@ -31,9 +31,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.defaults import (
     DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
-from custom_components.magic_areas.enums import (
-    MagicAreasEvents,
-)
+from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,

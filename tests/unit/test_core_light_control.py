@@ -1,6 +1,5 @@
 """Unit tests for core/light_control.py."""
 
-import pytest
 
 from custom_components.magic_areas.core.light_control import (
     ActOnMode,
@@ -8,13 +7,13 @@ from custom_components.magic_areas.core.light_control import (
     LightGroupPolicy,
     build_light_group_policy,
 )
-from custom_components.magic_areas.enums import AreaStates
+from custom_components.magic_areas.area_state import AreaStates
 
 
 class TestLightGroupPolicy:
     """Tests for LightGroupPolicy."""
 
-    def test_noop_when_area_clear(self):
+    def test_noop_when_area_clear(self) -> None:
         """Should noop when area goes clear."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -28,7 +27,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "clear" in decision.reason
 
-    def test_turn_off_when_bright_not_assigned(self):
+    def test_turn_off_when_bright_not_assigned(self) -> None:
         """Should turn off when BRIGHT appears and not assigned to it."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],  # Not BRIGHT
@@ -43,7 +42,7 @@ class TestLightGroupPolicy:
         assert "bright" in decision.reason
         assert decision.should_track_control is True
 
-    def test_noop_when_bright_and_occupied_added_together(self):
+    def test_noop_when_bright_and_occupied_added_together(self) -> None:
         """Should noop when BRIGHT and OCCUPIED added together (occupancy prevents bright turn-off)."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -58,7 +57,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "bright" in decision.reason  # bright_active_but_stable
 
-    def test_noop_when_bright_stable(self):
+    def test_noop_when_bright_stable(self) -> None:
         """Should noop when BRIGHT is active but not in new_states."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -74,7 +73,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "bright" in decision.reason
 
-    def test_noop_when_not_occupied(self):
+    def test_noop_when_not_occupied(self) -> None:
         """Should noop when area not occupied."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -88,7 +87,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "not_occupied" in decision.reason
 
-    def test_turn_on_when_valid_state_present(self):
+    def test_turn_on_when_valid_state_present(self) -> None:
         """Should turn on when assigned state is active."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -103,7 +102,7 @@ class TestLightGroupPolicy:
         assert "valid_states" in decision.reason
         assert decision.should_track_control is True
 
-    def test_noop_when_occupancy_change_not_configured(self):
+    def test_noop_when_occupancy_change_not_configured(self) -> None:
         """Should noop when occupancy changes but not configured to act on it."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -117,7 +116,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "not_configured" in decision.reason
 
-    def test_noop_when_state_change_not_configured(self):
+    def test_noop_when_state_change_not_configured(self) -> None:
         """Should noop when state changes but not configured to act on it."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -131,7 +130,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "not_configured" in decision.reason
 
-    def test_priority_filtering_applied(self):
+    def test_priority_filtering_applied(self) -> None:
         """Should filter by priority states when enabled."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK, AreaStates.SLEEP],
@@ -147,7 +146,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.TURN_ON
         assert "sleep" in decision.reason.lower()
 
-    def test_turn_off_when_no_valid_states(self):
+    def test_turn_off_when_no_valid_states(self) -> None:
         """Should turn off when no valid states remain."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -161,7 +160,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.TURN_OFF
         assert "no_valid_states" in decision.reason
 
-    def test_noop_when_no_changes(self):
+    def test_noop_when_no_changes(self) -> None:
         """Should noop when no state changes."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
@@ -175,7 +174,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "no_state_changes" in decision.reason
 
-    def test_noop_when_no_assigned_states(self):
+    def test_noop_when_no_assigned_states(self) -> None:
         """Should noop when light group has no assigned states."""
         policy = LightGroupPolicy(
             assigned_states=[],  # No assigned states
@@ -189,7 +188,7 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "no_assigned_states" in decision.reason
 
-    def test_turn_on_with_multiple_assigned_states(self):
+    def test_turn_on_with_multiple_assigned_states(self) -> None:
         """Should turn on when any assigned state is present."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK, AreaStates.SLEEP],
@@ -203,7 +202,7 @@ class TestLightGroupPolicy:
         )
         assert decision.action == LightAction.TURN_ON
 
-    def test_acts_on_occupancy_when_configured(self):
+    def test_acts_on_occupancy_when_configured(self) -> None:
         """Should act on occupancy change when configured."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.OCCUPIED],
@@ -216,7 +215,7 @@ class TestLightGroupPolicy:
         )
         assert decision.action == LightAction.TURN_ON
 
-    def test_acts_on_both_occupancy_and_state(self):
+    def test_acts_on_both_occupancy_and_state(self) -> None:
         """Should act on both occupancy and state changes when configured."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK, AreaStates.OCCUPIED],
@@ -242,7 +241,7 @@ class TestLightGroupPolicy:
 class TestBuildLightGroupPolicy:
     """Tests for build_light_group_policy()."""
 
-    def test_builds_policy_from_params(self):
+    def test_builds_policy_from_params(self) -> None:
         """Should build policy with given parameters."""
         policy = build_light_group_policy(
             assigned_states=[AreaStates.DARK, AreaStates.SLEEP],
@@ -252,7 +251,7 @@ class TestBuildLightGroupPolicy:
         assert set(policy.act_on_modes) == {"occupancy", "state"}
         assert policy.use_priority_filtering is True
 
-    def test_empty_assigned_states(self):
+    def test_empty_assigned_states(self) -> None:
         """Should handle empty assigned states."""
         policy = build_light_group_policy(
             assigned_states=[],
@@ -260,7 +259,7 @@ class TestBuildLightGroupPolicy:
         )
         assert policy.assigned_states == []
 
-    def test_single_act_on_mode(self):
+    def test_single_act_on_mode(self) -> None:
         """Should handle single act on mode."""
         policy = build_light_group_policy(
             assigned_states=[AreaStates.DARK],
@@ -272,13 +271,13 @@ class TestBuildLightGroupPolicy:
 class TestLightActionEnum:
     """Tests for LightAction enum."""
 
-    def test_action_values(self):
+    def test_action_values(self) -> None:
         """Should have correct action values."""
         assert LightAction.TURN_ON != LightAction.TURN_OFF
         assert LightAction.TURN_OFF != LightAction.NOOP
         assert LightAction.NOOP != LightAction.TURN_ON
 
-    def test_all_actions_present(self):
+    def test_all_actions_present(self) -> None:
         """Should have all three actions."""
         actions = {LightAction.TURN_ON, LightAction.TURN_OFF, LightAction.NOOP}
         assert len(actions) == 3

@@ -5,10 +5,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import MagicAreasEvents, AreaStates
-from custom_components.magic_areas.features import CONF_FEATURE_FAN_GROUPS
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -29,15 +29,11 @@ async def test_fan_control_ignores_state_changed_event_for_other_areas(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
-
-    # Get the fan control switch entity
-    runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
 
     # Dispatch AREA_STATE_CHANGED event for a DIFFERENT area using dispatcher
     # This tests lines 112-119 in fan_control.py where area_id != self.area.id
@@ -69,7 +65,7 @@ async def test_fan_control_ignores_state_changed_event_with_no_state_changes(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -77,7 +73,7 @@ async def test_fan_control_ignores_state_changed_event_with_no_state_changes(
 
     # Get the area
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # Dispatch AREA_STATE_CHANGED event with EMPTY new_states and lost_states
     # This tests lines 122-123 in fan_control.py: if not new_states and not lost_states: return
@@ -106,7 +102,7 @@ async def test_fan_control_area_sensor_state_changed_no_new_state(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -131,7 +127,7 @@ async def test_fan_control_missing_fan_group_entity(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -155,7 +151,7 @@ async def test_fan_control_aggregate_sensor_state_changed_no_tracked_sensor(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)

@@ -11,9 +11,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.area_constants import (
-    META_AREAS,
-)
+from custom_components.magic_areas.area_state import META_AREAS
 from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,

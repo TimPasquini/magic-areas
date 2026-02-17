@@ -3,16 +3,10 @@
 import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from unittest.mock import patch, AsyncMock
 
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_PRESENCE_HOLD,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -27,7 +21,7 @@ async def test_light_platform_skips_setup_when_no_lights(
 ) -> None:
     """Test light platform setup returns early when no lights configured."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -45,7 +39,7 @@ async def test_fan_platform_setup_without_fan_entities(
 ) -> None:
     """Test fan platform setup handles no fan entities gracefully."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_FAN_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.FAN_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -78,13 +72,13 @@ async def test_feature_disabled_platform_not_setup(hass: HomeAssistant) -> None:
 async def test_presence_hold_feature_setup(hass: HomeAssistant) -> None:
     """Test presence hold switch setup."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_PRESENCE_HOLD: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.PRESENCE_HOLD: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    assert CONF_FEATURE_PRESENCE_HOLD in runtime_data.coordinator.data.enabled_features
+    assert MagicAreasFeatures.PRESENCE_HOLD in runtime_data.coordinator.data.enabled_features
 
     await shutdown_integration(hass, [config_entry])
 
@@ -113,7 +107,7 @@ async def test_mixed_enabled_disabled_features(hass: HomeAssistant) -> None:
     """Test setup with some features enabled and others disabled."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_LIGHT_GROUPS: {},
+        MagicAreasFeatures.LIGHT_GROUPS: {},
         # FAN_GROUPS not enabled
         # CLIMATE_CONTROL not enabled
     }
@@ -122,7 +116,7 @@ async def test_mixed_enabled_disabled_features(hass: HomeAssistant) -> None:
     await init_integration_helper(hass, [config_entry])
 
     coordinator_data = config_entry.runtime_data.coordinator.data
-    assert CONF_FEATURE_LIGHT_GROUPS in coordinator_data.enabled_features
-    assert CONF_FEATURE_FAN_GROUPS not in coordinator_data.enabled_features
+    assert MagicAreasFeatures.LIGHT_GROUPS in coordinator_data.enabled_features
+    assert MagicAreasFeatures.FAN_GROUPS not in coordinator_data.enabled_features
 
     await shutdown_integration(hass, [config_entry])

@@ -18,18 +18,11 @@ from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.base.entities import MagicEntity
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
 from custom_components.magic_areas.config_keys import (
-    CONF_NOTIFICATION_DEVICES,
-    CONF_NOTIFY_STATES,
-    DEFAULT_NOTIFICATION_DEVICES,
     DEFAULT_NOTIFY_STATES,
 )
 from custom_components.magic_areas.core.media_routing import evaluate_area_routing
-from custom_components.magic_areas.enums import (
-    MagicAreasFeatures,
-)
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAreaAwareMediaPlayer,
 )
@@ -50,7 +43,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         self,
         area_config: "AreaConfig",
         coordinator: "MagicAreasCoordinator",
-        areas: list[MagicArea],
+        areas_data: dict[str, dict[str, Any]],
     ) -> None:
         """Initialize area-aware media player."""
         MagicEntity.__init__(
@@ -61,55 +54,43 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         self._attr_extra_state_attributes: dict[str, Any] = {}
         self._state: MediaPlayerState | None = MediaPlayerState.IDLE
 
-        self.areas = areas
+        self.areas_data = areas_data
         self._tracked_entities: list[str] = []
 
-        for area_obj in self.areas:
-            entity_list = self.get_media_players_for_area(area_obj)
+        for _area_id, area_data in self.areas_data.items():
+            entity_list = self.get_media_players_for_area(
+                area_data["entities_by_domain"],
+                area_data["notification_devices"],
+            )
             if entity_list:
                 self._tracked_entities.extend(entity_list)
 
         _LOGGER.debug("AreaAwareMediaPlayer loaded.")
 
-    def _resolve_area_state_sensor(self, area: MagicArea) -> str | None:
-        """Resolve area state sensor from entity references or entity registry."""
-        runtime_data = getattr(area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
-            entity_id = (
-                runtime_data.coordinator.data.entity_references.area_state_sensor
-            )
-            if entity_id:
-                return entity_id
+    def _resolve_area_state_sensor(self, area_id: str) -> str | None:
+        """Resolve area state sensor from entity registry."""
         return er.async_get(self.hass).async_get_entity_id(
-            BS_DOMAIN, MA_DOMAIN, f"presence_tracking_{area.id}_area_state"
+            BS_DOMAIN, MA_DOMAIN, f"presence_tracking_{area_id}_area_state"
         )
 
     def update_attributes(self) -> None:
         """Update entity attributes."""
         area_sensors = []
-        for area in self.areas:
-            area_sensor = self._resolve_area_state_sensor(area)
+        for area_id in self.areas_data:
+            area_sensor = self._resolve_area_state_sensor(area_id)
             if area_sensor:
                 area_sensors.append(area_sensor)
         self._attr_extra_state_attributes["areas"] = area_sensors
         self._attr_extra_state_attributes["entity_id"] = self._tracked_entities
 
     @staticmethod
-    def get_media_players_for_area(area: MagicArea) -> set[str]:
+    def get_media_players_for_area(
+        entities_by_domain: dict[str, list[dict[str, Any]]],
+        notification_devices: list[str],
+    ) -> set[str]:
         """Return media players for a given area."""
         entity_ids = []
 
-        notification_devices = area.feature_config(
-            MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
-        ).get(CONF_NOTIFICATION_DEVICES, DEFAULT_NOTIFICATION_DEVICES)
-
-        _LOGGER.debug("%s: Notification devices: %s", area.name, notification_devices)
-
-        runtime_data = getattr(area.hass_config, "runtime_data", None)
-        if runtime_data and runtime_data.coordinator.data:
-            entities_by_domain = runtime_data.coordinator.data.entities
-        else:
-            entities_by_domain = area.entities
         if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
             return set()
         area_media_players = [
@@ -151,18 +132,22 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
             | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
         )
 
-    def get_active_areas(self) -> list[MagicArea]:
-        """Return areas that are occupied."""
-        active_areas = []
+    def get_active_areas(self) -> list[str]:
+        """Return area IDs that are occupied and should receive media."""
+        from custom_components.magic_areas.attrs import ATTR_STATES
 
-        for area in self.areas:
-            area_binary_sensor_name = self._resolve_area_state_sensor(area)
+        active_area_ids = []
+
+        # Iterate through area_data keys to get list of area IDs
+        for area_id in self.areas_data:
+            area_data = self.areas_data[area_id]
+            area_binary_sensor_name = self._resolve_area_state_sensor(area_id)
 
             if not area_binary_sensor_name:
                 _LOGGER.debug(
                     "%s: Area state sensor not resolved for area %s, skipping",
                     self.name,
-                    area.name,
+                    area_id,
                 )
                 continue
 
@@ -177,20 +162,20 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
             is_occupied = area_binary_sensor_state.state == STATE_ON
 
-            notification_states = area.feature_config(
-                MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
-            ).get(CONF_NOTIFY_STATES, DEFAULT_NOTIFY_STATES)
+            # Get area states from the presence sensor attributes (ATTR_STATES = "states")
+            area_states = area_binary_sensor_state.attributes.get(ATTR_STATES, [])
 
-            area_states = area.get_current_states()
+            # Use notification states from area's feature config
+            notification_states = area_data.get("notification_states", DEFAULT_NOTIFY_STATES)
 
             if evaluate_area_routing(
                 is_occupied=is_occupied,
                 area_states=area_states,
                 notification_states=notification_states,
             ):
-                active_areas.append(area)
+                active_area_ids.append(area_id)
 
-        return active_areas
+        return active_area_ids
 
     def update_state(self) -> None:
         """Update entity state and attributes."""
@@ -218,8 +203,13 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
         # Gather media_player entities
         media_players: list[str] = []
-        for area in active_areas:
-            media_players.extend(self.get_media_players_for_area(area))
+        for area_id in active_areas:
+            area_data = self.areas_data[area_id]
+            media_players.extend(
+                self.get_media_players_for_area(
+                    area_data["entities_by_domain"], area_data["notification_devices"]
+                )
+            )
 
         if not media_players:
             _LOGGER.debug(

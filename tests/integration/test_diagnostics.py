@@ -57,7 +57,6 @@ async def test_diagnostics_coordinator_data_unavailable(
     config_entry.add_to_hass(hass)
 
     # Mock coordinator that returns None for data
-    from custom_components.magic_areas.models import MagicAreasRuntimeData
 
     mock_coordinator = AsyncMock()
     mock_coordinator.data = None

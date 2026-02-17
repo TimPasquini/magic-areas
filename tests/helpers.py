@@ -47,7 +47,7 @@ import logging
 import pathlib
 from asyncio import get_running_loop
 from collections.abc import Sequence
-from typing import Any, NoReturn
+from typing import Any, NoReturn, cast
 from unittest.mock import Mock, patch
 
 import voluptuous as vol
@@ -134,6 +134,7 @@ def setup_test_component_platform(
         >>> platform = setup_test_component_platform(
         ...     hass, "light", [light1, light2], from_config_entry=True
         ... )
+
     """
 
     async def _async_setup_platform(
@@ -161,7 +162,6 @@ def setup_test_component_platform(
             async_add_entities(entities)
 
         platform.async_setup_entry = _async_setup_entry
-        platform.async_setup_platform = None
 
     mock_platform(hass, f"test.{domain}", platform, built_in=built_in)
     return platform
@@ -196,6 +196,7 @@ def mock_integration(
         >>> test_module = MockModule("test_domain")
         >>> integration = mock_integration(hass, module=test_module)
         >>> assert integration.domain == "test_domain"
+
     """
     integration = loader.Integration(
         hass,
@@ -205,7 +206,7 @@ def mock_integration(
             else f"{loader.PACKAGE_CUSTOM_COMPONENTS}.{module.DOMAIN}"
         ),
         pathlib.Path(""),
-        module.mock_manifest(),
+        module.mock_manifest(),  # type: ignore[no-untyped-call, arg-type]
         set(),
     )
 
@@ -216,14 +217,15 @@ def mock_integration(
         )
 
     # pylint: disable-next=protected-access
-    integration._import_platform = mock_import_platform
+    setattr(integration, "_import_platform", mock_import_platform)
 
     _LOGGER.info("Adding mock integration: %s", module.DOMAIN)
     integration_cache = hass.data[loader.DATA_INTEGRATIONS]
     integration_cache[module.DOMAIN] = integration
 
     module_cache = hass.data[loader.DATA_COMPONENTS]
-    module_cache[module.DOMAIN] = module
+    # Cast is intentional: we're storing mock modules in HA's cache for testing
+    module_cache[module.DOMAIN] = cast(Any, module)
 
     return integration
 
@@ -232,7 +234,7 @@ def mock_platform(
     hass: HomeAssistant,
     platform_path: str,
     module: Mock | MockPlatform | None = None,
-    built_in=True,
+    built_in: bool = True,
 ) -> None:
     """Register a mock platform with Home Assistant.
 
@@ -259,6 +261,7 @@ def mock_platform(
 
         >>> platform = MockPlatform(async_setup_platform=setup_func)
         >>> mock_platform(hass, "light.test", platform)
+
     """
     domain, _, platform_name = platform_path.partition(".")
     integration_cache = hass.data[loader.DATA_INTEGRATIONS]
@@ -268,9 +271,13 @@ def mock_platform(
         mock_integration(hass, module=MockModule(domain), built_in=built_in)
 
     # pylint: disable-next=protected-access
-    integration_cache[domain]._top_level_files.add(f"{platform_name}.py")
+    integration = integration_cache[domain]
+    # Ensure we have Integration, not Future[Integration]
+    if isinstance(integration, loader.Integration):
+        integration._top_level_files.add(f"{platform_name}.py")
     _LOGGER.info("Adding mock integration platform: %s", platform_path)
-    module_cache[platform_path] = module or Mock()
+    # Cast is intentional: we're storing mock platforms in HA's cache for testing
+    module_cache[platform_path] = cast(Any, module or Mock())
 
 
 def async_mock_service(
@@ -319,11 +326,12 @@ def async_mock_service(
         >>> await hass.async_block_till_done()
         >>> assert len(calls) == 1
         >>> assert calls[0].data["entity_id"] == "light.test"
+
     """
     calls = []
 
     @callback
-    def mock_service_log(call):  # pylint: disable=unnecessary-lambda
+    def mock_service_log(call: ServiceCall) -> ServiceResponse:
         """Mock service call."""
         calls.append(call)
         if raise_exception is not None:
@@ -396,6 +404,7 @@ async def init_integration(
         ...     hass, [config_entry],
         ...     areas=[MockAreaIds.KITCHEN, MockAreaIds.LIVING_ROOM]
         ... )
+
     """
 
     if not areas:
@@ -442,7 +451,7 @@ async def init_integration(
 async def shutdown_integration(
     hass: HomeAssistant, config_entries: list[MockConfigEntry]
 ) -> None:
-    """Cleanly unload the magic-areas integration and verify cleanup.
+    """Unload the magic-areas integration and verify cleanup.
 
     Unloads all config entries and verifies that the integration data is
     properly cleaned up. Use this function in test teardown or cleanup phases.
@@ -467,6 +476,7 @@ async def shutdown_integration(
         Clean up after test:
 
         >>> await shutdown_integration(hass, [config_entry])
+
     """
 
     _LOGGER.info("Unloading integration.")
@@ -521,6 +531,7 @@ async def setup_mock_entities(
         ...         MockAreaIds.LIVING_ROOM: [light_living],
         ...     }
         ... )
+
     """
 
     all_entities: list[Any] = []
@@ -594,6 +605,7 @@ class VirtualClock:
         ...         # This completes instantly instead of waiting 60 seconds
         ...         await asyncio.sleep(60)
         ...         assert virtual_clock.vtime == 60.0
+
     """
 
     def __init__(self) -> None:
@@ -608,10 +620,11 @@ class VirtualClock:
 
         Returns:
             float: The current virtual time in seconds.
+
         """
         return self.vtime
 
-    def _virtual_select(self, orig_select, timeout):
+    def _virtual_select(self, orig_select: Any, timeout: float | None) -> Any:
         """Override select() to advance virtual time without blocking.
 
         When asyncio's event loop calls select() with a timeout, we advance
@@ -624,12 +637,13 @@ class VirtualClock:
 
         Returns:
             The result of calling orig_select with 0 timeout.
+
         """
         if timeout is not None:
             self.vtime += timeout
         return orig_select(0)  # override the timeout to zero
 
-    def patch_loop(self):
+    def patch_loop(self) -> Any:
         """Override methods of the current event loop for virtual time.
 
         This is a context manager that patches the running event loop so that:
@@ -644,15 +658,16 @@ class VirtualClock:
             with virtual_clock.patch_loop():
                 # All asyncio code here uses virtual time
                 await some_async_function()
+
         """
         loop = get_running_loop()
         with (
             patch.object(
-                loop._selector,  # pylint: disable=protected-access
+                loop._selector,  # type: ignore[attr-defined]  # pylint: disable=protected-access
                 "select",
                 new=functools.partial(
                     self._virtual_select,
-                    loop._selector.select,  # pylint: disable=protected-access
+                    loop._selector.select,  # type: ignore[attr-defined]  # pylint: disable=protected-access
                 ),
             ),
             patch.object(
@@ -707,6 +722,7 @@ def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, Any]:
         >>> config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
         >>> # Now add features to config_data if needed
         >>> config_data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {...}}
+
     """
 
     area_data = MOCK_AREAS.get(area_id, None)
@@ -755,6 +771,7 @@ def assert_state(entity_state: State | None, expected_value: str) -> None:
 
         >>> state = hass.states.get("light.kitchen")
         >>> assert_state(state, "on")
+
     """
 
     assert entity_state is not None
@@ -786,6 +803,7 @@ def assert_attribute(
 
         >>> state = hass.states.get("light.bedroom")
         >>> assert_attribute(state, "brightness", "200")
+
     """
 
     assert entity_state is not None
@@ -827,6 +845,7 @@ def assert_in_attribute(
         >>> assert_in_attribute(state, "supported_modes", "cool")
         >>> # Verify a mode is NOT supported:
         >>> assert_in_attribute(state, "supported_modes", "auto", negate=True)
+
     """
 
     assert entity_state is not None
@@ -871,6 +890,7 @@ async def wait_for_state(
         ...     hass.services.async_call("light", "turn_on", ...)
         ... )
         >>> await wait_for_state(hass, "light.kitchen", "on")
+
     """
     for _ in range(20):
         state = hass.states.get(entity_id)
@@ -890,7 +910,9 @@ async def wait_for_state(
 # Helpers for managing scheduled callbacks and timers in tests.
 
 
-def immediate_call_factory(hass, callback_key="callback"):
+def immediate_call_factory(
+    hass: HomeAssistant, callback_key: str = "callback"
+) -> Any:
     """Create a callback factory for testing delayed callbacks without real delays.
 
     Creates a side_effect function suitable for patching hass.helpers.
@@ -932,9 +954,12 @@ def immediate_call_factory(hass, callback_key="callback"):
         - Extended timeout behaviors
         - State change debouncing
         - Area state transitions
+
     """
 
-    def immediate_call(hass_arg, delay_arg, callback_arg):
+    def immediate_call(
+        hass_arg: HomeAssistant, delay_arg: float, callback_arg: Any
+    ) -> Any:
         """Execute a callback immediately, with optional cancellation.
 
         Args:
@@ -945,14 +970,15 @@ def immediate_call_factory(hass, callback_key="callback"):
         Returns:
             callable: A cancel function that prevents callback execution
                 if called before the callback runs.
+
         """
         canceled = False
 
-        def cancel():
+        def cancel() -> None:
             nonlocal canceled
             canceled = True
 
-        async def run_callback():
+        async def run_callback() -> None:
             if not canceled:
                 await callback_arg(utcnow())
 

@@ -4,11 +4,75 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_ON
+from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.enums import AreaStates, MetaAreaType
+from custom_components.magic_areas.area_state import (
+    AreaStates,
+    AreaType,
+    MetaAreaType,
+)
+from custom_components.magic_areas.config_keys import CONF_TYPE
 from custom_components.magic_areas.core.area_model import AreaDescriptor
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.models import MagicAreasRuntimeData
+
+
+def collect_child_areas(
+    hass: HomeAssistant,
+    area_id: str,
+    slug: str,
+    floor_id: str | None,
+) -> list[str]:
+    """Return child area slugs for a meta area by inspecting loaded config entries.
+
+    Iterates all loaded magic_areas config entries, reads their coordinator snapshots,
+    and delegates to resolve_child_areas() to apply meta-area matching rules.
+
+    Args:
+        hass: Home Assistant instance.
+        area_id: ID of the meta area (e.g. "global", "interior", floor ID).
+        slug: Slugified name of the meta area.
+        floor_id: Floor ID if this is a floor meta area, otherwise None.
+
+    Returns:
+        List of child area slugs that belong to this meta area.
+
+    """
+    entries = hass.config_entries.async_entries("magic_areas")
+    descriptors: list[AreaDescriptor] = []
+
+    for entry in entries:
+        if entry.state != ConfigEntryState.LOADED:
+            continue
+        runtime_data: MagicAreasRuntimeData = entry.runtime_data
+        coordinator_data = runtime_data.coordinator.data
+        if coordinator_data is None:
+            continue
+        area_config = coordinator_data.area_config
+        area_type = area_config.config.get(CONF_TYPE, area_config.id)
+        descriptors.append(
+            AreaDescriptor(
+                id=area_config.id,
+                slug=area_config.slug,
+                floor_id=area_config.floor_id,
+                area_type=str(area_type),
+                is_meta=area_type == AreaType.META,
+            )
+        )
+
+    meta_descriptor = AreaDescriptor(
+        id=area_id,
+        slug=slug,
+        floor_id=floor_id,
+        area_type=str(area_id),
+        is_meta=True,
+    )
+    return resolve_child_areas(meta_descriptor, descriptors)
 
 
 def resolve_child_areas(

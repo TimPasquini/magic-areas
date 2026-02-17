@@ -13,10 +13,10 @@ from homeassistant.helpers.entity_registry import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
+from custom_components.magic_areas.coordinator import MagicAreasData
 from tests.const import MockAreaIds
 from tests.mocks import MockBinarySensor
 
@@ -50,15 +50,16 @@ def get_config_entry_by_area_name(hass: HomeAssistant, area_name: str) -> str | 
     for entry in entries:
         if entry.state != ConfigEntryState.LOADED:
             continue
-        area_data = entry.runtime_data.area
-        if area_data.id == area_name.lower():
+        # After Phase 8, access area config from coordinator snapshot
+        coordinator_data = entry.runtime_data.coordinator.data
+        if coordinator_data and coordinator_data.area_config.id == area_name.lower():
             return entry.entry_id
 
     return None
 
 
-def get_entry_by_area_name(hass: HomeAssistant, area_name: str) -> MagicArea | None:
-    """Fetch MagicArea object from an area's name."""
+def get_entry_by_area_name(hass: HomeAssistant, area_name: str) -> MagicAreasData | None:
+    """Fetch coordinator snapshot from an area's name."""
     config_entry_id = get_config_entry_by_area_name(hass, area_name)
     if not config_entry_id:
         return None
@@ -68,7 +69,7 @@ def get_entry_by_area_name(hass: HomeAssistant, area_name: str) -> MagicArea | N
     if not entry or entry.state != ConfigEntryState.LOADED:
         return None
 
-    return entry.runtime_data.area
+    return entry.runtime_data.coordinator.data
 
 
 # Tests
@@ -83,12 +84,12 @@ async def test_reload_on_entity_area_change(
 ) -> None:
     """Test that only corresponding areas reload when an entity changes state."""
 
-    # Check all areas' timestamp
-    area_timestamp_map: dict[str, datetime] = {}
+    # Check all areas' snapshot timestamp
+    area_snapshot_map: dict[str, datetime] = {}
     for area in NORMAL_AREAS:
         area_object = get_entry_by_area_name(hass, area)
         assert area_object
-        area_timestamp_map[area] = area_object.timestamp
+        area_snapshot_map[area] = area_object.updated_at
 
     # Simulate entity changing area_id (this triggers "all areas reload" logic in MagicArea)
     event_data: _EventEntityRegistryUpdatedData_Update = {
@@ -103,14 +104,14 @@ async def test_reload_on_entity_area_change(
     await asyncio.sleep(0.1)
     await hass.async_block_till_done()
 
-    # Check all areas' timestamp against the previous map
+    # Check all areas' snapshot timestamp against the previous map
     for area in NORMAL_AREAS:
         area_object = get_entry_by_area_name(hass, area)
         assert area_object
         if area == MockAreaIds.KITCHEN.value:
-            assert area_timestamp_map[area] != area_object.timestamp
+            assert area_snapshot_map[area] != area_object.updated_at
         else:
-            assert area_timestamp_map[area] == area_object.timestamp
+            assert area_snapshot_map[area] == area_object.updated_at
 
 
 async def test_meta_reload_from_single_reload(
@@ -122,12 +123,12 @@ async def test_meta_reload_from_single_reload(
 ) -> None:
     """Test that the corresponding meta-areas reload when a child area reloads."""
 
-    # Check all areas' timestamp
-    area_timestamp_map: dict[str, datetime] = {}
+    # Check all areas' snapshot timestamp
+    area_snapshot_map: dict[str, datetime] = {}
     for area in ALL_AREAS:
         area_object = get_entry_by_area_name(hass, area)
         assert area_object
-        area_timestamp_map[area] = area_object.timestamp
+        area_snapshot_map[area] = area_object.updated_at
 
     # Simulate entity changing area_id (this triggers "all areas reload" logic in MagicArea)
     kitchen_motion_sensor_id = entities_binary_sensor_motion_all_areas_with_meta[
@@ -139,15 +140,15 @@ async def test_meta_reload_from_single_reload(
         "entity_id": kitchen_motion_sensor_id,
     }
 
-    def _assert_has_reloaded(area_name: str):
+    def _assert_has_reloaded(area_name: str) -> None:
         area_object = get_entry_by_area_name(hass, area_name)
         assert area_object
-        assert area_object.timestamp != area_timestamp_map[area_name]
+        assert area_object.updated_at != area_snapshot_map[area_name]
 
-    def _assert_has_not_reloaded(area_name: str):
+    def _assert_has_not_reloaded(area_name: str) -> None:
         area_object = get_entry_by_area_name(hass, area_name)
         assert area_object
-        assert area_object.timestamp == area_timestamp_map[area_name]
+        assert area_object.updated_at == area_snapshot_map[area_name]
 
     hass.bus.async_fire(EVENT_ENTITY_REGISTRY_UPDATED, event_data)
     await hass.async_block_till_done()

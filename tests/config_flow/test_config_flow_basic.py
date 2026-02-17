@@ -4,107 +4,29 @@ This module contains tests for the basic form interactions and meta area creatio
 in the Magic Areas config flow.
 """
 
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
-import voluptuous as vol
 from homeassistant import config_entries, setup
-from homeassistant.components.binary_sensor import (
-    DOMAIN as BINARY_SENSOR_DOMAIN,
-)
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-)
-from homeassistant.components.climate import DOMAIN as CLIMATE_DOMAIN
-from homeassistant.components.climate.const import ATTR_PRESET_MODES
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, CONF_NAME
-from homeassistant.core import HomeAssistant, StateMachine
+from homeassistant.const import CONF_NAME
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers.area_registry import AreaRegistry, async_get as async_get_ar
-from homeassistant.helpers.entity_registry import async_get as async_get_er
+from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
-from homeassistant.helpers.selector import (
-    EntitySelector,
-    EntitySelectorConfig,
-    SelectSelector,
-)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.area_constants import (
-    AREA_STATE_EXTENDED,
-    AREA_TYPE_EXTERIOR,
-    AREA_TYPE_META,
+from custom_components.magic_areas.area_state import (
+    AreaType,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.area_maps import (
-    CONF_ACCENT_ENTITY,
-    CONF_DARK_ENTITY,
-)
-from custom_components.magic_areas.base.magic import MagicArea, MagicMetaArea
-from custom_components.magic_areas.config_flow import (
-    ConfigBase,
-    OptionsFlowHandler,
-)
-from custom_components.magic_areas.schemas.selectors import (
-    NullableEntitySelector,
-)
-from custom_components.magic_areas.config_flows.feature_registry import (
-    FeatureConfig,
-    FEATURE_REGISTRY,
-)
 from custom_components.magic_areas.config_keys import (
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_MIN_ENTITIES,
-    CONF_BLE_TRACKER_ENTITIES,
-    CONF_CLEAR_TIMEOUT,
-    CONF_CLIMATE_CONTROL_ENTITY_ID,
-    CONF_CLIMATE_CONTROL_PRESET_CLEAR,
-    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
-    CONF_ENABLED_FEATURES,
-    CONF_EXTENDED_TIME,
-    CONF_EXTENDED_TIMEOUT,
-    CONF_FAN_GROUPS_REQUIRED_STATE,
-    CONF_FAN_GROUPS_SETPOINT,
-    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     CONF_ID,
-    CONF_NOTIFICATION_DEVICES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_HOLD_TIMEOUT,
-    CONF_SLEEP_ENTITY,
-    CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
-    CONF_WASP_IN_A_BOX_DELAY,
-    CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
-    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
-    DEFAULT_EXTENDED_TIME,
-    DEFAULT_EXTENDED_TIMEOUT,
-    DEFAULT_SLEEP_TIMEOUT,
 )
 from custom_components.magic_areas.const import (
-    ADDITIONAL_LIGHT_TRACKING_ENTITIES,
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_LIST,
-    CONF_FEATURE_LIST_GLOBAL,
-    CONF_FEATURE_LIST_META,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
-from custom_components.magic_areas.schemas.features import CONFIGURABLE_FEATURES
 from tests.const import MockAreaIds
 
 
@@ -155,6 +77,7 @@ async def test_form_floor_meta_area(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.FORM
 
     # Check that the floor is in the list of available areas
+    assert result["data_schema"] is not None
     assert f"(Meta) {floor.name}" in result["data_schema"].schema["name"].container
 
     with patch(
@@ -172,7 +95,7 @@ async def test_form_floor_meta_area(hass: HomeAssistant) -> None:
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["title"] == floor.name
     assert result2["data"][CONF_ID] == floor.floor_id
-    assert result2["data"][CONF_TYPE] == AREA_TYPE_META
+    assert result2["data"][CONF_TYPE] == AreaType.META
     assert len(mock_setup_entry.mock_calls) == 1
 
 
@@ -187,7 +110,7 @@ async def test_no_areas(hass: HomeAssistant) -> None:
             data={
                 CONF_ID: area_id,
                 CONF_NAME: area_id.title(),
-                CONF_TYPE: AREA_TYPE_META,
+                CONF_TYPE: AreaType.META,
             },
             unique_id=area_id,
             state=ConfigEntryState.LOADED,
@@ -228,7 +151,7 @@ async def test_area_already_configured(hass: HomeAssistant) -> None:
             data={
                 CONF_ID: area_id,
                 CONF_NAME: area_id.title(),
-                CONF_TYPE: AREA_TYPE_META,
+                CONF_TYPE: AreaType.META,
             },
             unique_id=area_id,
             state=ConfigEntryState.LOADED,
@@ -292,7 +215,7 @@ async def test_form_meta_area(hass: HomeAssistant) -> None:
 
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["title"] == META_AREA_GLOBAL
-    assert result2["data"][CONF_TYPE] == AREA_TYPE_META
+    assert result2["data"][CONF_TYPE] == AreaType.META
     assert len(mock_setup_entry.mock_calls) == 1
 
 

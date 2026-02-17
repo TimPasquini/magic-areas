@@ -12,7 +12,7 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_FAN_GROUPS_REQUIRED_STATE,
     DEFAULT_FAN_GROUPS_SETPOINT,
 )
-from custom_components.magic_areas.enums import AreaStates
+from custom_components.magic_areas.area_state import AreaStates
 
 
 @dataclass(slots=True)

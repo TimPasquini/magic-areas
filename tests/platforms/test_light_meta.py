@@ -1,5 +1,7 @@
 """Test for meta area light groups."""
 
+from typing import Any
+
 import pytest
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
@@ -15,10 +17,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import MockAreaIds
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -37,11 +36,11 @@ async def mock_config_entry_all_areas_with_light_groups() -> list[MockConfigEntr
         data.update(
             {
                 CONF_ENABLED_FEATURES: {
-                    CONF_FEATURE_AGGREGATION: {
+                    MagicAreasFeatures.AGGREGATES: {
                         CONF_AGGREGATES_MIN_ENTITIES: 1,
                         CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 10,
                     },
-                    CONF_FEATURE_LIGHT_GROUPS: {},
+                    MagicAreasFeatures.LIGHT_GROUPS: {},
                 }
             }
         )
@@ -57,7 +56,7 @@ async def mock_config_entry_all_areas_with_light_groups() -> list[MockConfigEntr
 async def test_meta_light_group(
     hass: HomeAssistant,
     entities_light_one: list[MockLight],
-    init_integration_all_areas,
+    init_integration_all_areas: Any,
 ) -> None:
     """Test meta area light group."""
 

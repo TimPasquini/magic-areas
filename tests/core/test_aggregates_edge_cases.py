@@ -1,17 +1,14 @@
 """Test aggregates core logic edge cases."""
 
-import pytest
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-    CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.core.aggregates import build_sensor_aggregates
-from custom_components.magic_areas.defaults import DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
 def test_build_aggregates_with_no_entities() -> None:
@@ -34,7 +31,7 @@ def test_build_aggregates_with_empty_feature_config() -> None:
     aggregates = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs={},
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
     # Should return empty list when config is missing
     assert aggregates == []
@@ -48,14 +45,14 @@ def test_build_aggregates_with_single_entity() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,  # Requires 2, but only 1 exists
         }
     }
     aggregates = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
     # Should not create aggregates due to minimum requirement
     # (This depends on implementation - adjust assertion based on actual behavior)
@@ -72,7 +69,7 @@ def test_build_aggregates_with_custom_device_classes() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 1,
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [
                 SensorDeviceClass.TEMPERATURE,  # Only temperature
@@ -82,7 +79,7 @@ def test_build_aggregates_with_custom_device_classes() -> None:
     aggregates = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
     # Should return aggregates
     assert isinstance(aggregates, list)
@@ -92,17 +89,17 @@ def test_build_aggregates_respects_sensor_domain_check() -> None:
     """Test that aggregates requires sensor domain to exist."""
     entities_by_domain = {
         "light": [  # Only light, no sensor domain
-            {"entity_id": "light.lamp_1", "device_class": None},
+            {"entity_id": "light.lamp_1", "device_class": "light"},
         ]
     }
     aggregates = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs={
-            CONF_FEATURE_AGGREGATION: {
+            MagicAreasFeatures.AGGREGATES.value: {
                 CONF_AGGREGATES_MIN_ENTITIES: 1,
             }
         },
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
     # No sensor domain = no aggregates
     assert aggregates == []
@@ -123,7 +120,7 @@ def test_build_binary_aggregates_with_multiple_device_classes() -> None:
     aggregates = build_binary_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs={},
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     # Should return aggregates
@@ -140,7 +137,7 @@ def test_build_aggregates_minimum_entities_enforcement() -> None:
     }
 
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,  # Requires 2 but only 1 exists
         }
     }
@@ -148,7 +145,7 @@ def test_build_aggregates_minimum_entities_enforcement() -> None:
     aggregates = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     # Should respect minimum entity requirement

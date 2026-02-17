@@ -21,9 +21,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -41,7 +39,7 @@ def mock_config_entry_sensor() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1}
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1}
             }
         }
     )

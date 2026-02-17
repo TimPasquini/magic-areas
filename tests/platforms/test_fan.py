@@ -31,16 +31,9 @@ from custom_components.magic_areas.config_keys import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
 )
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_FAN_GROUPS,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
@@ -104,8 +97,8 @@ def mock_config_entry_fan_groups() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
-                CONF_FEATURE_FAN_GROUPS: {
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+                MagicAreasFeatures.FAN_GROUPS: {
                     CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.OCCUPIED,
                     CONF_FAN_GROUPS_SETPOINT: SETPOINT_VALUE,
                 },
@@ -119,7 +112,7 @@ def mock_config_entry_fan_groups() -> MockConfigEntry:
 async def setup_integration_fan_groups(
     hass: HomeAssistant,
     fan_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with Fan groups config."""
 
     await init_integration_helper(hass, [fan_groups_config_entry])
@@ -175,7 +168,7 @@ async def setup_entities_sensor_temperature_one(
 async def test_fan_group_basic(
     hass: HomeAssistant,
     entities_fan_multiple: list[MockFan],
-    _setup_integration_fan_groups,
+    _setup_integration_fan_groups: Any,
 ) -> None:
     """Test Fan groups basic functionality."""
 
@@ -240,7 +233,7 @@ async def test_fan_snapshot_fields(
 
     data = fan_groups_config_entry.runtime_data.coordinator.data
     assert data is not None
-    assert CONF_FEATURE_FAN_GROUPS in data.enabled_features
+    assert MagicAreasFeatures.FAN_GROUPS in data.enabled_features
     assert FAN_DOMAIN in data.entities
 
     entity_ids = {entity["entity_id"] for entity in data.entities[FAN_DOMAIN]}
@@ -255,7 +248,7 @@ async def test_fan_group_logic(
     entities_fan_multiple: list[MockFan],
     entities_sensor_temperature_one: MockSensor,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_fan_groups,
+    _setup_integration_fan_groups: Any,
 ) -> None:
     """Test Fan groups logic."""
 

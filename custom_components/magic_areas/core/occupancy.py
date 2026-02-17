@@ -26,8 +26,8 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_EXTENDED_TIMEOUT,
     DEFAULT_SLEEP_TIMEOUT,
 )
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import ONE_MINUTE
-from custom_components.magic_areas.enums import AreaStates
 from custom_components.magic_areas.policy import (
     INVALID_STATES,
     PRESENCE_SENSOR_VALID_ON_STATES,

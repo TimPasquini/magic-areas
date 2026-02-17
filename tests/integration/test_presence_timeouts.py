@@ -1,8 +1,9 @@
-# tests/test_presence_timeouts.py
+"""Tests for presence timeout behavior."""
 
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -15,8 +16,8 @@ from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UN
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.attrs import ATTR_STATES
-
 from custom_components.magic_areas.config_keys import (
     CONF_ACCENT_ENTITY,
     CONF_CLEAR_TIMEOUT,
@@ -24,12 +25,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_SECONDARY_STATES,
     CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
+from custom_components.magic_areas.const import DOMAIN
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
@@ -88,7 +84,7 @@ async def setup_secondary_state_sensors(hass: HomeAssistant) -> list[MockBinaryS
 
 async def test_clear_timeout_expiration(
     hass: HomeAssistant,
-    freezer,
+    freezer: Any,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     timeout_config_entry: MockConfigEntry,
 ) -> None:
@@ -147,7 +143,7 @@ async def test_clear_timeout_expiration(
 
 async def test_clear_timeout_is_canceled_if_sensor_returns(
     hass: HomeAssistant,
-    freezer,
+    freezer: Any,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     timeout_config_entry: MockConfigEntry,
 ) -> None:

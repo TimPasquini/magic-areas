@@ -1,18 +1,17 @@
 """Unit tests for core/climate_control.py."""
 
-import pytest
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.climate_control import (
     ClimatePresetPolicy,
     build_preset_policy,
 )
-from custom_components.magic_areas.enums import AreaStates
 
 
 class TestClimatePresetPolicy:
     """Tests for ClimatePresetPolicy."""
 
-    def test_select_preset_for_clear_state(self):
+    def test_select_preset_for_clear_state(self) -> None:
         """Should return CLEAR preset when CLEAR state added."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -26,7 +25,7 @@ class TestClimatePresetPolicy:
         )
         assert preset == "away"
 
-    def test_select_preset_by_priority(self):
+    def test_select_preset_by_priority(self) -> None:
         """Should select highest priority state with configured preset."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -42,7 +41,7 @@ class TestClimatePresetPolicy:
         )
         assert preset == "sleep"
 
-    def test_returns_none_when_no_preset_configured(self):
+    def test_returns_none_when_no_preset_configured(self) -> None:
         """Should return None when state has no preset mapping."""
         policy = ClimatePresetPolicy(preset_map={AreaStates.OCCUPIED: "home"})
         preset = policy.select_preset_for_state_change(
@@ -51,7 +50,7 @@ class TestClimatePresetPolicy:
         )
         assert preset is None
 
-    def test_clear_takes_precedence(self):
+    def test_clear_takes_precedence(self) -> None:
         """Should return CLEAR preset even when other states present."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -66,7 +65,7 @@ class TestClimatePresetPolicy:
         )
         assert preset == "away"
 
-    def test_uses_custom_priority_order(self):
+    def test_uses_custom_priority_order(self) -> None:
         """Should respect custom priority order."""
         # Reverse priority: OCCUPIED before SLEEP
         policy = ClimatePresetPolicy(
@@ -82,7 +81,7 @@ class TestClimatePresetPolicy:
         )
         assert preset == "home"  # OCCUPIED wins with custom order
 
-    def test_only_considers_new_states(self):
+    def test_only_considers_new_states(self) -> None:
         """Should only look at new_states, not all current_states."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -97,7 +96,7 @@ class TestClimatePresetPolicy:
         )
         assert preset == "home"
 
-    def test_empty_new_states(self):
+    def test_empty_new_states(self) -> None:
         """Should return None when no new states."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -110,7 +109,7 @@ class TestClimatePresetPolicy:
         )
         assert preset is None
 
-    def test_extended_state_priority(self):
+    def test_extended_state_priority(self) -> None:
         """Should select EXTENDED when EXTENDED and OCCUPIED both new."""
         policy = ClimatePresetPolicy(
             preset_map={
@@ -128,7 +127,7 @@ class TestClimatePresetPolicy:
 class TestBuildPresetPolicy:
     """Tests for build_preset_policy()."""
 
-    def test_builds_policy_from_config(self):
+    def test_builds_policy_from_config(self) -> None:
         """Should build policy with presets from config."""
         config = {
             "preset_occupied": "home",
@@ -142,9 +141,9 @@ class TestBuildPresetPolicy:
         assert policy.preset_map[AreaStates.CLEAR] == "away"
         assert policy.preset_map[AreaStates.EXTENDED] == "eco"
 
-    def test_uses_defaults_when_missing(self):
+    def test_uses_defaults_when_missing(self) -> None:
         """Should use default values when config keys missing."""
-        config = {}
+        config: dict[str, object] = {}
         policy = build_preset_policy(config)
         # Should have all states with default values
         assert AreaStates.OCCUPIED in policy.preset_map
@@ -152,7 +151,7 @@ class TestBuildPresetPolicy:
         assert AreaStates.CLEAR in policy.preset_map
         assert AreaStates.EXTENDED in policy.preset_map
 
-    def test_partial_config(self):
+    def test_partial_config(self) -> None:
         """Should use defaults for missing keys."""
         config = {
             "preset_occupied": "custom_home",

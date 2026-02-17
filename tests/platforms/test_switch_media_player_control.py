@@ -26,6 +26,6 @@ async def test_media_player_control_ignores_other_area() -> None:
     switch.hass.services.async_call = AsyncMock()
     switch._attr_is_on = True
 
-    await switch.area_state_changed("area-two", ([], []))
+    await switch.area_state_changed("area-two", ([], [], []))
 
     switch.hass.services.async_call.assert_not_called()

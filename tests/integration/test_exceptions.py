@@ -14,16 +14,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
@@ -40,16 +31,16 @@ def mock_config_entry_exception() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {},
-                CONF_FEATURE_HEALTH: {},
-                CONF_FEATURE_WASP_IN_A_BOX: {},
-                CONF_FEATURE_BLE_TRACKERS: {
+                MagicAreasFeatures.AGGREGATES: {},
+                MagicAreasFeatures.HEALTH: {},
+                MagicAreasFeatures.WASP_IN_A_BOX: {},
+                MagicAreasFeatures.BLE_TRACKER: {
                     CONF_BLE_TRACKER_ENTITIES: ["sensor.ble_tracker"],
                 },
-                CONF_FEATURE_LIGHT_GROUPS: {},
-                CONF_FEATURE_MEDIA_PLAYER_GROUPS: {},
-                CONF_FEATURE_FAN_GROUPS: {},
-                CONF_FEATURE_CLIMATE_CONTROL: {},
+                MagicAreasFeatures.LIGHT_GROUPS: {},
+                MagicAreasFeatures.MEDIA_PLAYER_GROUPS: {},
+                MagicAreasFeatures.FAN_GROUPS: {},
+                MagicAreasFeatures.CLIMATE_CONTROL: {},
             }
         }
     )

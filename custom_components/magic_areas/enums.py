@@ -3,14 +3,6 @@
 from enum import IntEnum, StrEnum, auto
 
 
-class MetaAreaAutoReloadSettings(IntEnum):
-    """Meta area automatic reload timing settings."""
-
-    DELAY = 3
-    DELAY_MULTIPLIER = 4
-    THROTTLE = 5
-
-
 class CalculationMode(StrEnum):
     """Calculation mode for aggregating area states."""
 
@@ -54,6 +46,26 @@ class MagicAreasFeatures(StrEnum):
     BLE_TRACKER = "ble_trackers"
 
 
+FEATURE_LIST_META = [
+    MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+    MagicAreasFeatures.LIGHT_GROUPS,
+    MagicAreasFeatures.COVER_GROUPS,
+    MagicAreasFeatures.CLIMATE_CONTROL,
+    MagicAreasFeatures.AGGREGATES,
+    MagicAreasFeatures.HEALTH,
+]
+
+FEATURE_LIST = FEATURE_LIST_META + [
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+    MagicAreasFeatures.PRESENCE_HOLD,
+    MagicAreasFeatures.BLE_TRACKER,
+    MagicAreasFeatures.FAN_GROUPS,
+    MagicAreasFeatures.WASP_IN_A_BOX,
+]
+
+FEATURE_LIST_GLOBAL = FEATURE_LIST_META
+
+
 class MagicAreasEvents(StrEnum):
     """Event identifiers dispatched by Magic Areas."""
 
@@ -69,49 +81,3 @@ class SelectorTranslationKeys(StrEnum):
     AREA_STATES = auto()
     CONTROL_ON = auto()
     CALCULATION_MODE = auto()
-
-
-class MetaAreaIcons(StrEnum):
-    """Icons for different meta area types."""
-
-    INTERIOR = "mdi:home-import-outline"
-    EXTERIOR = "mdi:home-export-outline"
-    GLOBAL = "mdi:home"
-
-
-class FeatureIcons(StrEnum):
-    """Icons for feature control switches."""
-
-    PRESENCE_HOLD_SWITCH = "mdi:car-brake-hold"
-    LIGHT_CONTROL_SWITCH = "mdi:lightbulb-auto-outline"
-    MEDIA_CONTROL_SWITCH = "mdi:auto-mode"
-    CLIMATE_CONTROL_SWITCH = "mdi:thermostat-auto"
-
-
-class AreaStates(StrEnum):
-    """Possible states for an area."""
-
-    CLEAR = "clear"
-    OCCUPIED = "occupied"
-    EXTENDED = "extended"
-    DARK = "dark"
-    BRIGHT = "bright"
-    SLEEP = "sleep"
-    ACCENT = "accented"
-
-
-class AreaType(StrEnum):
-    """Types of areas supported by Magic Areas."""
-
-    INTERIOR = "interior"
-    EXTERIOR = "exterior"
-    META = "meta"
-
-
-class MetaAreaType(StrEnum):
-    """Types of meta-areas for grouping child areas."""
-
-    GLOBAL = "global"
-    INTERIOR = "interior"
-    EXTERIOR = "exterior"
-    FLOOR = "floor"

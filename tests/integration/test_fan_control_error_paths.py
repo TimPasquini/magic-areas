@@ -1,16 +1,14 @@
 """Integration tests for fan control error handling paths."""
 
 import pytest
-from unittest.mock import patch
-from homeassistant.const import STATE_ON, STATE_OFF
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import MagicAreasEvents, AreaStates
-from custom_components.magic_areas.features import CONF_FEATURE_FAN_GROUPS
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -31,7 +29,7 @@ async def test_fan_control_handles_missing_tracked_sensor(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -39,7 +37,7 @@ async def test_fan_control_handles_missing_tracked_sensor(
 
     # Get the fan control switch entity
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # Dispatch a state change event that would normally trigger run_logic
     async_dispatcher_send(
@@ -69,7 +67,7 @@ async def test_fan_control_handles_invalid_sensor_value(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -80,7 +78,7 @@ async def test_fan_control_handles_invalid_sensor_value(
 
     # Get the area
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # Dispatch state change that would trigger run_logic
     async_dispatcher_send(
@@ -109,7 +107,7 @@ async def test_fan_control_area_sensor_turned_off_with_no_fan_group(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -117,7 +115,7 @@ async def test_fan_control_area_sensor_turned_off_with_no_fan_group(
 
     # Set the area sensor to OFF
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # Dispatch area state changed to set the flag
     async_dispatcher_send(
@@ -146,14 +144,14 @@ async def test_fan_control_handles_aggregate_sensor_fallback_logic(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # Set area to occupied to initialize _last_states
     async_dispatcher_send(
@@ -183,14 +181,14 @@ async def test_fan_control_switch_disabled_during_logic_run(
     # Setup integration with fan groups enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_FAN_GROUPS: {}
+        MagicAreasFeatures.FAN_GROUPS: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.coordinator.data.area
+    area = runtime_data.coordinator.data.area_config
 
     # The switch starts enabled, but if we were to disable it,
     # the run_logic method should exit early

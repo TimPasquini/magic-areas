@@ -4,37 +4,20 @@ Tests coordinator data snapshots including MagicAreasData structure,
 entity grouping, presence sensors, and feature configurations.
 """
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components.binary_sensor import (
-    DOMAIN as BINARY_SENSOR_DOMAIN,
-    BinarySensorDeviceClass,
-)
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
 
 from custom_components.magic_areas.config_keys import (
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
 from custom_components.magic_areas.coordinator import (
-    MagicAreasCoordinator,
     MagicAreasData,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
-from custom_components.magic_areas.models import MagicAreasConfigEntry
-from homeassistant.helpers.area_registry import async_get as async_get_ar
-from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import get_basic_config_entry_data
 
 
 @pytest.mark.asyncio
@@ -56,8 +39,8 @@ async def test_coordinator_snapshot_structure(
 
     # Create a serializable snapshot of the data structure
     data_snapshot = {
-        "area_id": data.area.slug,
-        "area_name": data.area.name,
+        "area_id": data.area_config.slug,
+        "area_name": data.area_config.name,
         "config_keys": sorted(data.config.keys()),
         "enabled_features": sorted(data.enabled_features),
         "feature_configs": {
@@ -271,8 +254,8 @@ async def test_coordinator_metadata(
     # Create metadata snapshot
     metadata_snapshot = {
         "has_updated_at": data.updated_at is not None,
-        "area_id": data.area.slug,
-        "area_last_update_success": data.area.last_update_success,
+        "area_id": data.area_config.slug,
+        "area_last_update_success": data.area_runtime.last_update_success,
     }
 
     # Snapshot metadata

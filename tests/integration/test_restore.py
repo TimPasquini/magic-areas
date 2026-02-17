@@ -16,9 +16,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
 )
@@ -48,7 +46,7 @@ async def test_restore_light_group_state(hass: HomeAssistant) -> None:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {
+                MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.test_light"],
                 },
             }

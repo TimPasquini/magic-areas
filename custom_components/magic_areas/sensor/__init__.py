@@ -13,14 +13,15 @@ from custom_components.magic_areas.core.aggregates import build_sensor_aggregate
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.sensor.base import AreaSensorGroupSensor
-from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
+
+from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def async_setup_entry(
 
     entities_to_add: list[Entity] = []
 
-    if CONF_FEATURE_AGGREGATION in data.enabled_features:
+    if MagicAreasFeatures.AGGREGATES in data.enabled_features:
         entities_to_add.extend(
             create_aggregate_sensors(data, entities_by_domain, area_config, coordinator)
         )

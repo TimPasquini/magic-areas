@@ -4,7 +4,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Final, Literal
+from typing import Any, Final
 from unittest.mock import AsyncMock
 
 import voluptuous as vol
@@ -23,23 +23,24 @@ from homeassistant.components.climate.const import (
     ClimateEntityFeature,
     HVACMode,
 )
-from homeassistant.components.cover import CoverEntity, CoverEntityFeature
+from homeassistant.components.cover import (
+    CoverDeviceClass,
+    CoverEntity,
+    CoverEntityFeature,
+)
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.components.light import ColorMode, LightEntity
-from homeassistant.components.media_player import MediaPlayerEntity
+from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerState
 from homeassistant.components.media_player.const import MediaPlayerEntityFeature
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     STATE_CLOSED,
     STATE_CLOSING,
-    STATE_IDLE,
     STATE_OFF,
     STATE_ON,
     STATE_OPEN,
     STATE_OPENING,
-    STATE_PLAYING,
     EntityCategory,
     UnitOfTemperature,
 )
@@ -79,15 +80,9 @@ class MockEntity(Entity):
         """Return True if entity is available."""
         return self._handle("available")
 
-    @property
-    def capability_attributes(self) -> dict[str, Any] | None:  # type: ignore
-        """Info about capabilities."""
-        return self._handle("capability_attributes")
-
-    @cached_property
-    def device_class(self) -> str | None:
-        """Info how device should be classified."""
-        return self._handle("device_class")
+    # Note: capability_attributes and device_class are defined by domain-specific
+    # entity classes (LightEntity, FanEntity, etc.) with appropriate types.
+    # MockEntity does not override them to avoid type conflicts.
 
     @cached_property
     def device_info(self) -> DeviceInfo | None:
@@ -134,10 +129,9 @@ class MockEntity(Entity):
         """Return the ste of the polling."""
         return self._handle("should_poll")
 
-    @cached_property
-    def supported_features(self) -> int | None:
-        """Info about supported features."""
-        return self._handle("supported_features")
+    # Note: supported_features is defined by domain-specific entity classes
+    # with appropriate enum types (LightEntityFeature, FanEntityFeature, etc.).
+    # MockEntity does not override to avoid type conflicts.
 
     @cached_property
     def translation_key(self) -> str | None:
@@ -149,10 +143,8 @@ class MockEntity(Entity):
         """Return the unique ID of the entity."""
         return self._handle("unique_id")
 
-    @cached_property
-    def unit_of_measurement(self) -> str | None:
-        """Info on the units the entity state is in."""
-        return self._handle("unit_of_measurement")
+    # Note: unit_of_measurement is final in SensorEntity.
+    # Sensors should use native_unit_of_measurement instead.
 
     def _handle(self, attr: str) -> Any:
         """Return attribute value."""
@@ -238,10 +230,10 @@ class MockModule:
         if async_remove_config_entry_device is not None:
             self.async_remove_config_entry_device = async_remove_config_entry_device
 
-    def mock_manifest(self):
+    def mock_manifest(self) -> dict[str, Any]:
         """Generate a mock manifest to represent this module."""
         return {
-            **loader.manifest_from_legacy_module(self.DOMAIN, self),
+            **loader.manifest_from_legacy_module(self.DOMAIN, self),  # type: ignore[arg-type]
             **(self._partial_manifest or {}),
         }
 
@@ -334,15 +326,6 @@ class MockToggleEntity(MockEntity, ToggleEntity):
         """Return the name of the entity if any."""
         self.calls.append(("name", {}))
         return self._name
-
-    @property
-    # pylint: disable-next=overridden-final-method
-    def state(
-        self,
-    ) -> Literal["on", "off"] | None:
-        """Return the state of the entity if any."""
-        self.calls.append(("state", {}))
-        return self._state
 
     @property
     def is_on(self) -> bool:
@@ -479,8 +462,12 @@ class MockFan(MockEntity, FanEntity):
         """Return true if the binary sensor is on."""
         return self._state == STATE_ON
 
-    # pylint: disable-next=arguments-differ
-    def turn_on(self, **kwargs: Any) -> None:
+    def turn_on(
+        self,
+        percentage: int | None = None,
+        preset_mode: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Turn the entity on."""
         self._state = STATE_ON
         self.schedule_update_ha_state()
@@ -500,7 +487,7 @@ class MockSensor(MockEntity, SensorEntity):
     """Mock Sensor class."""
 
     @cached_property
-    def device_class(self) -> SensorDeviceClass:
+    def device_class(self) -> SensorDeviceClass | None:
         """Return the class of this sensor."""
         return self._handle("device_class")
 
@@ -551,16 +538,18 @@ class MockCover(MockEntity, CoverEntity):
 
     _reports_opening_closing = False
 
+    @cached_property
+    def device_class(self) -> CoverDeviceClass | None:
+        """Return the class of this cover."""
+        return self._handle("device_class")
+
     @property
-    def supported_features(
-        self,
-    ) -> CoverEntityFeature:  # pylint: disable=overridden-final-method
+    def supported_features(self) -> CoverEntityFeature:
         """Return the supported features of the cover."""
         if "supported_features" in self._values:
             return self._values["supported_features"]
-        return CoverEntity.supported_features.fget(
-            self
-        )  # pylint: disable=overridden-final-method
+        # Use parent implementation via super()
+        return super().supported_features or CoverEntityFeature(0)
 
     @property
     def is_closed(self) -> bool:
@@ -618,26 +607,39 @@ class MockCover(MockEntity, CoverEntity):
 class MockMediaPlayer(MockEntity, MediaPlayerEntity):
     """Mock Media Player class."""
 
-    _attr_state = STATE_OFF
+    def __init__(self, **values: Any) -> None:
+        """Initialize media player mock."""
+        super().__init__(**values)
+        self._player_state: MediaPlayerState | str | None = STATE_OFF
+
+    @property
+    def state(self) -> MediaPlayerState | None:
+        """Return the state of the media player."""
+        if isinstance(self._player_state, str):
+            # Convert string state to MediaPlayerState if possible
+            try:
+                return MediaPlayerState(self._player_state)
+            except ValueError:
+                return None
+        return self._player_state
 
     @property
     def is_on(self) -> bool:
         """Return True if the media player is not off."""
-        return self._attr_state != STATE_OFF
+        return self._player_state != STATE_OFF
 
-    # pylint: disable-next=arguments-differ
     def turn_on(self, **kwargs: Any) -> None:
         """Turn the entity on."""
-        self._attr_state = STATE_ON
+        self._player_state = MediaPlayerState.PLAYING
         self.schedule_update_ha_state()
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        self._attr_state = STATE_OFF
+        self._player_state = MediaPlayerState.IDLE
         self.schedule_update_ha_state()
 
     @property
-    def supported_features(self):
+    def supported_features(self) -> MediaPlayerEntityFeature:
         """Flag media player features that are supported."""
         return (
             MediaPlayerEntityFeature.PLAY_MEDIA
@@ -645,17 +647,15 @@ class MockMediaPlayer(MockEntity, MediaPlayerEntity):
             | MediaPlayerEntityFeature.TURN_OFF
         )
 
-    def play_media(self, media_type, media_id, **kwargs):
+    def play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:
         """Handle play service calls."""
-        self._attr_state = STATE_PLAYING
+        self._player_state = MediaPlayerState.PLAYING
         self.schedule_update_ha_state()
-        return True
 
-    def media_stop(self):
+    def media_stop(self) -> None:
         """Handle stop service calls."""
-        self._attr_state = STATE_IDLE
+        self._player_state = MediaPlayerState.IDLE
         self.schedule_update_ha_state()
-        return True
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""

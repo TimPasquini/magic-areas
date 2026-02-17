@@ -50,16 +50,12 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_ICONS,
     LIGHT_GROUP_STATES,
 )
-from custom_components.magic_areas.enums import (
-    AreaStates,
-    LightGroupCategory,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoLightGroups,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
@@ -87,7 +83,7 @@ async def async_setup_entry(
     magic_entities = data.magic_entities
 
     # Check feature availability
-    if CONF_FEATURE_LIGHT_GROUPS not in data.enabled_features:
+    if MagicAreasFeatures.LIGHT_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any lights
@@ -96,7 +92,7 @@ async def async_setup_entry(
         return
 
     light_entities = [e["entity_id"] for e in entities_by_domain[LIGHT_DOMAIN]]
-    feature_config = data.feature_configs.get(CONF_FEATURE_LIGHT_GROUPS, {})
+    feature_config = data.feature_configs.get(MagicAreasFeatures.LIGHT_GROUPS, {})
 
     light_groups = []
 

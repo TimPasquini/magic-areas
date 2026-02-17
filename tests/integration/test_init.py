@@ -1,5 +1,6 @@
 """Test initializing the system."""
 
+from typing import Any, cast
 import logging
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -101,10 +102,10 @@ async def test_reload_on_registry_change_disabled(
     await hass.async_block_till_done()
 
     # Fire registry update event
-    event_data = {
+    event_data = cast(Any, {
         "action": "create",
         "entity_id": "light.new_light",
-    }
+    })
     hass.bus.async_fire(EVENT_ENTITY_REGISTRY_UPDATED, event_data)
     await hass.async_block_till_done()
 

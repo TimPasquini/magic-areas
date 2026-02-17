@@ -21,16 +21,21 @@ from homeassistant.util import slugify
 
 from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.components import MAGICAREAS_UNIQUEID_PREFIX
-from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.config_keys import (
     CONF_ID,
     CONF_RELOAD_ON_REGISTRY_CHANGE,
     DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
 )
-from custom_components.magic_areas.enums import (
-    MagicConfigEntryVersion,
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.core.registry_filters import (
+    make_device_registry_filter,
+    make_entity_registry_filter,
 )
-from custom_components.magic_areas.helpers.area import get_magic_area_for_config_entry
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.helpers.area import (
+    build_area_config_for_config_entry,
+    get_magic_area_for_config_entry,
+)
 from custom_components.magic_areas.models import (
     MagicAreasConfigEntry,
     MagicAreasRuntimeData,
@@ -157,18 +162,26 @@ async def async_setup_entry(
         """Load integration when Hass has finished starting."""
         _LOGGER.debug("Setting up entry for %s", config_entry.data[ATTR_NAME])
 
-        magic_area: MagicArea | None = get_magic_area_for_config_entry(
-            hass, config_entry
-        )
-        assert magic_area is not None
-        await magic_area.initialize()
+        # Build AreaConfig directly from registry (coordinator's primary config source)
+        area_config = build_area_config_for_config_entry(hass, config_entry)
+        assert area_config is not None
 
         _LOGGER.debug(
             "%s: Magic Area (%s) created: %s",
-            magic_area.name,
-            magic_area.id,
-            str(magic_area.config),
+            area_config.name,
+            area_config.id,
+            str(area_config.config),
         )
+
+        # For regular areas, initialize MagicArea to dispatch the AREA_LOADED signal
+        # so meta-area coordinators know to refresh. Meta areas handle their own
+        # reload subscription via the coordinator.
+        if not area_config.is_meta():
+            magic_area: MagicArea | None = get_magic_area_for_config_entry(
+                hass, config_entry
+            )
+            assert magic_area is not None
+            await magic_area.initialize()
 
         # Setup config update listener
         tracked_listeners: list[Callable] = [
@@ -176,40 +189,46 @@ async def async_setup_entry(
         ]
 
         # Watch for area changes.
-        if not magic_area.is_meta():
+        if not area_config.is_meta():
             tracked_listeners.append(
                 hass.bus.async_listen(
                     EVENT_ENTITY_REGISTRY_UPDATED,
                     _async_registry_updated,
-                    magic_area.make_entity_registry_filter(),
+                    make_entity_registry_filter(
+                        hass, area_config.id, config_entry.entry_id
+                    ),
                 )
             )
             tracked_listeners.append(
                 hass.bus.async_listen(
                     EVENT_DEVICE_REGISTRY_UPDATED,
                     _async_registry_updated,
-                    magic_area.make_device_registry_filter(),
+                    make_device_registry_filter(
+                        hass, area_config.id, config_entry.entry_id
+                    ),
                 )
             )
             # Reload once Home Assistant has finished starting to make sure we have all entities.
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_reload_entry)
 
-        coordinator = MagicAreasCoordinator(hass, magic_area, config_entry)
+        coordinator = MagicAreasCoordinator(hass, area_config, config_entry)
         if config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
             await coordinator.async_config_entry_first_refresh()
         else:
             await coordinator.async_refresh()
 
         config_entry.runtime_data = MagicAreasRuntimeData(
-            area=magic_area,
             coordinator=coordinator,
             listeners=tracked_listeners,
         )
 
-        # Setup platforms
-        await hass.config_entries.async_forward_entry_setups(
-            config_entry, magic_area.available_platforms()
+        # Setup platforms (get from coordinator data after refresh)
+        platforms = (
+            coordinator.data.area_config.available_platforms()
+            if coordinator.data
+            else []
         )
+        await hass.config_entries.async_forward_entry_setups(config_entry, platforms)
 
     await _async_setup_integration()
 
@@ -232,10 +251,14 @@ async def async_unload_entry(
     """Unload a config entry."""
 
     area_data = config_entry.runtime_data
-    area = area_data.area
+
+    # Get platforms from coordinator data if available, otherwise build from config
+    platforms = []
+    if area_data.coordinator.data:
+        platforms = area_data.coordinator.data.area_config.available_platforms()
 
     all_unloaded = await hass.config_entries.async_unload_platforms(
-        config_entry, area.available_platforms()
+        config_entry, platforms
     )
 
     await area_data.coordinator.async_shutdown()

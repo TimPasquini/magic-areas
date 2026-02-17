@@ -6,15 +6,10 @@ from homeassistant.const import STATE_ON, STATE_OFF
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import MagicAreasEvents, AreaStates
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_PRESENCE_HOLD,
-)
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -30,13 +25,13 @@ async def test_light_group_dark_state_noop(hass: HomeAssistant) -> None:
     Targets lines 454-458 in light.py - debug logging when entering DARK state.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Create a mock light
     hass.states.async_set("light.test_light", STATE_OFF)
@@ -45,7 +40,7 @@ async def test_light_group_dark_state_noop(hass: HomeAssistant) -> None:
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
@@ -54,7 +49,7 @@ async def test_light_group_dark_state_noop(hass: HomeAssistant) -> None:
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.DARK], [AreaStates.OCCUPIED], [AreaStates.DARK]),
     )
     await hass.async_block_till_done()
@@ -71,13 +66,13 @@ async def test_light_group_priority_state_transitions(
     Targets lines 461-476 in light.py - PRIORITY_STATE handling.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Create a mock light
     hass.states.async_set("light.test_light", STATE_OFF)
@@ -86,7 +81,7 @@ async def test_light_group_priority_state_transitions(
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.SLEEP], [], [AreaStates.SLEEP]),
     )
     await hass.async_block_till_done()
@@ -95,7 +90,7 @@ async def test_light_group_priority_state_transitions(
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.CLEAR], [AreaStates.SLEEP], [AreaStates.CLEAR]),
     )
     await hass.async_block_till_done()
@@ -112,16 +107,16 @@ async def test_fan_control_fallback_to_presence_sensor(
     Targets lines 154-170 in switch/fan_control.py - presence sensor fallback.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_FAN_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.FAN_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Create a presence sensor for the area with states attribute
-    presence_entity_id = f"binary_sensor.magic_areas_presence_tracking_{area.id}_area_state"
+    presence_entity_id = f"binary_sensor.magic_areas_presence_tracking_{area_config.id}_area_state"
     hass.states.async_set(
         presence_entity_id,
         STATE_ON,
@@ -135,7 +130,7 @@ async def test_fan_control_fallback_to_presence_sensor(
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
@@ -152,19 +147,19 @@ async def test_fan_control_missing_fan_group_early_return(
     Targets lines 230-234 in switch/fan_control.py - no fan group check.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_FAN_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.FAN_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Send area state change - should skip if no fan group
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
@@ -180,11 +175,9 @@ async def test_climate_control_empty_preset_state_missing(
 
     Targets lines 118-124 in switch/climate_control.py - preset lookup.
     """
-    from custom_components.magic_areas.features import CONF_FEATURE_CLIMATE_CONTROL
-
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_CLIMATE_CONTROL: {
+        MagicAreasFeatures.CLIMATE_CONTROL: {
             "target_entity": "climate.test",
             "presets": {
                 "occupied": "heat",
@@ -197,13 +190,13 @@ async def test_climate_control_empty_preset_state_missing(
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Send EXTENDED state with no preset
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.EXTENDED], [AreaStates.OCCUPIED], [AreaStates.EXTENDED]),
     )
     await hass.async_block_till_done()
@@ -220,7 +213,7 @@ async def test_presence_hold_ignores_other_areas_multiple_times(
     Targets lines 91-98 in switch/presence_hold.py - area ID check.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_PRESENCE_HOLD: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.PRESENCE_HOLD: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -254,7 +247,7 @@ async def test_complex_feature_interaction_all_disabled(
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Send various state changes - all should be ignored since no features
     for state in [
@@ -267,7 +260,7 @@ async def test_complex_feature_interaction_all_disabled(
         async_dispatcher_send(
             hass,
             MagicAreasEvents.AREA_STATE_CHANGED,
-            area.id,
+            area_config.id,
             ([state], [], [state]),
         )
         await hass.async_block_till_done()
@@ -282,7 +275,7 @@ async def test_light_group_active_lights_query(hass: HomeAssistant) -> None:
     Targets line 200 in light.py - active light filtering.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -293,13 +286,13 @@ async def test_light_group_active_lights_query(hass: HomeAssistant) -> None:
     hass.states.async_set("light.test_light_3", STATE_ON)
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Send area occupied state
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
@@ -316,16 +309,16 @@ async def test_presence_sensor_recovery_from_registry(
     Targets lines 340-353 in light.py - registry fallback.
     """
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Set up presence sensor with states attribute
-    presence_entity_id = f"binary_sensor.magic_areas_presence_tracking_{area.id}_area_state"
+    presence_entity_id = f"binary_sensor.magic_areas_presence_tracking_{area_config.id}_area_state"
     hass.states.async_set(
         presence_entity_id,
         STATE_ON,
@@ -336,7 +329,7 @@ async def test_presence_sensor_recovery_from_registry(
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.DARK], [AreaStates.OCCUPIED], [AreaStates.DARK]),
     )
     await hass.async_block_till_done()

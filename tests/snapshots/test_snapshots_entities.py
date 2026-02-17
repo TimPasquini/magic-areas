@@ -4,7 +4,6 @@ Tests entity creation results including light groups, binary sensors,
 and aggregated sensors using snapshots to validate structure.
 """
 
-from typing import Any
 
 import pytest
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
@@ -13,15 +12,6 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
 
-from custom_components.magic_areas.config_keys import (
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_MIN_ENTITIES,
-    CONF_ENABLED_FEATURES,
-)
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
-from homeassistant.helpers.area_registry import async_get as async_get_ar
-from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import get_basic_config_entry_data
 
 
 @pytest.mark.asyncio
@@ -269,7 +259,7 @@ async def test_coordinator_data_snapshot(
 
     # Create comprehensive snapshot
     full_snapshot = {
-        "area_id": coordinator.data.area.slug,
+        "area_id": coordinator.data.area_config.slug,
         "presence_sensor_count": len(coordinator.data.presence_sensors),
         "entity_domain_count": len(coordinator.data.entities),
         "magic_entity_domain_count": len(coordinator.data.magic_entities),

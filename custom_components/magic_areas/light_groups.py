@@ -1,6 +1,6 @@
 """Light group configuration constants and tables."""
 
-from custom_components.magic_areas.enums import StrEnum, auto
+from enum import StrEnum, auto
 
 # Light group options
 CONF_OVERHEAD_LIGHTS = "overhead_lights"  # cv.entity_ids

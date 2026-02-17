@@ -10,15 +10,8 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     DEFAULT_PRESENCE_DEVICE_PLATFORMS,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
-from custom_components.magic_areas.ha_domains import (
-    BINARY_SENSOR_DOMAIN,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.ha_domains import BINARY_SENSOR_DOMAIN
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -62,17 +55,17 @@ def build_presence_sensors(
             sensors.append(entity[ATTR_ENTITY_ID])
 
     # Resolve magic_areas-generated presence sensors from entity references
-    if CONF_FEATURE_PRESENCE_HOLD in enabled_features:
+    if MagicAreasFeatures.PRESENCE_HOLD in enabled_features:
         if entity_references and entity_references.presence_hold_switch:
             sensors.append(entity_references.presence_hold_switch)
 
-    if CONF_FEATURE_BLE_TRACKERS in enabled_features:
+    if MagicAreasFeatures.BLE_TRACKER in enabled_features:
         if entity_references and entity_references.ble_tracker_monitor:
             sensors.append(entity_references.ble_tracker_monitor)
 
     if (
-        CONF_FEATURE_AGGREGATION in enabled_features
-        and CONF_FEATURE_WASP_IN_A_BOX in enabled_features
+        MagicAreasFeatures.AGGREGATES in enabled_features
+        and MagicAreasFeatures.WASP_IN_A_BOX in enabled_features
     ):
         if entity_references and entity_references.wasp_in_a_box_sensor:
             sensors.append(entity_references.wasp_in_a_box_sensor)

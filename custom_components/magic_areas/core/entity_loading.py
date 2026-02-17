@@ -154,10 +154,12 @@ async def load_meta_area_entities(
         if entry.domain != DOMAIN:
             continue
 
-        # Get the area from runtime data
-        area = entry.runtime_data.area
+        # Get the area config from coordinator snapshot
+        coordinator_data = entry.runtime_data.coordinator.data
+        if coordinator_data is None:
+            continue
 
-        if area.slug not in child_area_slugs:
+        if coordinator_data.area_config.slug not in child_area_slugs:
             continue
 
         # Load magic entities directly from entity registry for this child area
@@ -216,11 +218,23 @@ async def _process_entity_list(
                 continue
 
             latest_state = hass.states.get(entity.entity_id)
+
+            # Combine state attributes with registry metadata (device_class, unit_of_measurement)
+            combined_attributes = dict(latest_state.attributes) if latest_state else {}
+            if entity.original_device_class:
+                # Handle both Enum and string device classes
+                if hasattr(entity.original_device_class, "value"):
+                    combined_attributes["device_class"] = str(entity.original_device_class.value)
+                else:
+                    combined_attributes["device_class"] = str(entity.original_device_class)
+            if entity.unit_of_measurement:
+                combined_attributes["unit_of_measurement"] = entity.unit_of_measurement
+
             snapshots.append(
                 EntitySnapshot(
                     entity_id=entity.entity_id,
                     domain=entity.domain,
-                    attributes=latest_state.attributes if latest_state else None,
+                    attributes=combined_attributes if combined_attributes else None,
                 )
             )
 

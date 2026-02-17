@@ -27,7 +27,7 @@ from custom_components.magic_areas.defaults import (
     DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
 @dataclass(slots=True)
@@ -49,7 +49,7 @@ class BinarySensorAggregateSpec:
 
 def _min_entities(feature_configs: dict[str, dict[str, Any]]) -> int:
     """Return minimum entities required for aggregates."""
-    raw_value = feature_configs.get(CONF_FEATURE_AGGREGATION, {}).get(
+    raw_value = feature_configs.get(MagicAreasFeatures.AGGREGATES, {}).get(
         CONF_AGGREGATES_MIN_ENTITIES,
         DEFAULT_AGGREGATES_MIN_ENTITIES,
     )
@@ -88,14 +88,14 @@ def build_sensor_aggregates(
     enabled_features: set[str],
 ) -> list[SensorAggregateSpec]:
     """Return aggregate specs for sensor entities."""
-    if CONF_FEATURE_AGGREGATION not in enabled_features:
+    if MagicAreasFeatures.AGGREGATES not in enabled_features:
         return []
 
     if SENSOR_DOMAIN not in entities_by_domain:
         return []
 
     allowed_device_classes = _normalize_allowed_device_classes(
-        feature_configs.get(CONF_FEATURE_AGGREGATION, {}).get(
+        feature_configs.get(MagicAreasFeatures.AGGREGATES, {}).get(
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
             DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
         ),
@@ -153,14 +153,14 @@ def build_binary_sensor_aggregates(
     enabled_features: set[str],
 ) -> list[BinarySensorAggregateSpec]:
     """Return aggregate specs for binary sensor entities."""
-    if CONF_FEATURE_AGGREGATION not in enabled_features:
+    if MagicAreasFeatures.AGGREGATES not in enabled_features:
         return []
 
     if BINARY_SENSOR_DOMAIN not in entities_by_domain:
         return []
 
     allowed_device_classes = _normalize_allowed_device_classes(
-        feature_configs.get(CONF_FEATURE_AGGREGATION, {}).get(
+        feature_configs.get(MagicAreasFeatures.AGGREGATES, {}).get(
             CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
             DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
         ),

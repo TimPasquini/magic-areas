@@ -11,9 +11,7 @@ from homeassistant.helpers.area_registry import async_get as areareg_async_get
 from homeassistant.helpers.floor_registry import async_get as floorreg_async_get
 from homeassistant.util import slugify
 
-from custom_components.magic_areas.area_constants import (
-    AREA_TYPE_META,
-)
+from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.config_flows.base import ConfigBase
 from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
 from custom_components.magic_areas.config_keys import (
@@ -21,10 +19,8 @@ from custom_components.magic_areas.config_keys import (
     CONF_TYPE,
 )
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import (
-    MagicConfigEntryVersion,
-    MetaAreaType,
-)
+from custom_components.magic_areas.area_state import MetaAreaType
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
 from custom_components.magic_areas.helpers.area import (
     basic_area_from_floor,
     basic_area_from_meta,
@@ -141,7 +137,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
                     "ConfigFlow: Meta area %s found, setting correct type.",
                     area_object.id,
                 )
-                config_entry.update({CONF_TYPE: AREA_TYPE_META})
+                config_entry.update({CONF_TYPE: AreaType.META})
 
             # noinspection PyTypeChecker
             return self.async_create_entry(title=area_object.name, data=config_entry)  # type: ignore[arg-type]

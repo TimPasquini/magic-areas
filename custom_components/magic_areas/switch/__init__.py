@@ -8,16 +8,8 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-    CONF_FEATURE_PRESENCE_HOLD,
-)
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoLightGroups,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.feature_info import MagicAreasFeatureInfoLightGroups
 from custom_components.magic_areas.switch.base import SwitchBase
 from custom_components.magic_areas.switch.climate_control import ClimateControlSwitch
 from custom_components.magic_areas.switch.fan_control import FanControlSwitch
@@ -52,7 +44,7 @@ async def async_setup_entry(
 
     switch_entities: list[SwitchBase] = []
 
-    if CONF_FEATURE_PRESENCE_HOLD in data.enabled_features and not area_config.is_meta():
+    if MagicAreasFeatures.PRESENCE_HOLD in data.enabled_features and not area_config.is_meta():
         try:
             switch_entities.append(PresenceHoldSwitch(area_config, coordinator))
         except (
@@ -62,7 +54,7 @@ async def async_setup_entry(
                 "%s: Error loading presence hold switch: %s", area_config.name, str(e)
             )
 
-    if CONF_FEATURE_LIGHT_GROUPS in data.enabled_features and not area_config.is_meta():
+    if MagicAreasFeatures.LIGHT_GROUPS in data.enabled_features and not area_config.is_meta():
         try:
             switch_entities.append(LightControlSwitch(area_config, coordinator))
         except (
@@ -72,7 +64,7 @@ async def async_setup_entry(
                 "%s: Error loading light control switch: %s", area_config.name, str(e)
             )
 
-    if CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features and not area_config.is_meta():
+    if MagicAreasFeatures.MEDIA_PLAYER_GROUPS   in data.enabled_features and not area_config.is_meta():
         try:
             switch_entities.append(MediaPlayerControlSwitch(area_config, coordinator))
         except (
@@ -82,7 +74,7 @@ async def async_setup_entry(
                 "%s: Error loading media player control switch: %s", area_config.name, str(e)
             )
 
-    if CONF_FEATURE_FAN_GROUPS in data.enabled_features and not area_config.is_meta():
+    if MagicAreasFeatures.FAN_GROUPS in data.enabled_features and not area_config.is_meta():
         try:
             switch_entities.append(FanControlSwitch(area_config, coordinator))
         except (
@@ -90,7 +82,7 @@ async def async_setup_entry(
         ) as e:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error("%s: Error loading fan control switch: %s", area_config.name, str(e))
 
-    if CONF_FEATURE_CLIMATE_CONTROL in data.enabled_features:
+    if MagicAreasFeatures.CLIMATE_CONTROL  in data.enabled_features:
         try:
             switch_entities.append(ClimateControlSwitch(area_config, coordinator))
         except (

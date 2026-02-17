@@ -7,8 +7,8 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.attrs import ATTR_AREAS
-from custom_components.magic_areas.enums import AreaStates
 
 from tests.const import MockAreaIds
 from tests.helpers import assert_state

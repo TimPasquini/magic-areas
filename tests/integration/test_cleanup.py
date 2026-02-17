@@ -11,9 +11,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -30,7 +28,7 @@ async def test_cleanup_removed_features(hass: HomeAssistant) -> None:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {},
+                MagicAreasFeatures.LIGHT_GROUPS: {},
             }
         }
     )

@@ -6,7 +6,7 @@ from custom_components.magic_areas.core.aggregates import (
     build_binary_sensor_aggregates,
     build_sensor_aggregates,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -38,7 +38,7 @@ def test_build_sensor_aggregates_basic() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: ["temperature"],
         }
@@ -47,7 +47,7 @@ def test_build_sensor_aggregates_basic() -> None:
     specs = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     assert specs == [
@@ -76,7 +76,7 @@ def test_build_sensor_aggregates_filters_missing_data() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: ["temperature"],
         }
@@ -85,7 +85,7 @@ def test_build_sensor_aggregates_filters_missing_data() -> None:
     specs = build_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     assert specs == []
@@ -106,7 +106,7 @@ def test_build_binary_sensor_aggregates_basic() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,
             CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: ["motion"],
         }
@@ -115,7 +115,7 @@ def test_build_binary_sensor_aggregates_basic() -> None:
     specs = build_binary_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     assert specs == [
@@ -137,7 +137,7 @@ def test_build_binary_sensor_aggregates_filters_minimum() -> None:
         ]
     }
     feature_configs = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 2,
             CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: ["motion"],
         }
@@ -146,7 +146,7 @@ def test_build_binary_sensor_aggregates_filters_minimum() -> None:
     specs = build_binary_sensor_aggregates(
         entities_by_domain=entities_by_domain,
         feature_configs=feature_configs,
-        enabled_features={CONF_FEATURE_AGGREGATION},
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
     )
 
     assert specs == []

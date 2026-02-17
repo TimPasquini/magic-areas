@@ -1,6 +1,5 @@
 """Comprehensive platform feature testing to improve coverage."""
 
-import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.const import LIGHT_LUX
@@ -15,11 +14,7 @@ from custom_components.magic_areas.config_keys import (
 )
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.defaults import DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -65,14 +60,14 @@ async def test_aggregates_and_health_features_together(
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES: {
             CONF_AGGREGATES_MIN_ENTITIES: 1,
             CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 600,
         },
-        CONF_FEATURE_HEALTH: {
+        MagicAreasFeatures.HEALTH: {
             CONF_HEALTH_SENSOR_DEVICE_CLASSES: DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
         },
-        CONF_FEATURE_WASP_IN_A_BOX: {},
+        MagicAreasFeatures.WASP_IN_A_BOX: {},
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -101,7 +96,7 @@ async def test_health_feature_without_health_entities(
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_HEALTH: {
+        MagicAreasFeatures.HEALTH: {
             CONF_HEALTH_SENSOR_DEVICE_CLASSES: DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
         }
     }
@@ -137,7 +132,7 @@ async def test_wasp_feature_requires_aggregation(
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
         # Enable wasp WITHOUT aggregation - should not create wasp sensor
-        CONF_FEATURE_WASP_IN_A_BOX: {},
+        MagicAreasFeatures.WASP_IN_A_BOX: {},
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -173,7 +168,7 @@ async def test_aggregation_with_illuminance_threshold_creation(
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES: {
             CONF_AGGREGATES_MIN_ENTITIES: 1,
             CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 600,  # Non-zero threshold
         }

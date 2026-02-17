@@ -25,10 +25,8 @@ from homeassistant.util import dt as dt_util
 from custom_components.magic_areas.policy import (
     INVALID_STATES,
 )
-from custom_components.magic_areas.enums import (
-    AreaStates,
-    MagicAreasEvents,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import MagicAreasEvents
 
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfo,
@@ -180,9 +178,9 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     # Helpers
 
-    def _get_configured_secondary_states(self) -> list[str]:
+    def _get_configured_secondary_states(self) -> list[AreaStates]:
         """Return configured secondary states."""
-        secondary_states: list[str] = []
+        secondary_states: list[AreaStates] = []
 
         for (
             configurable_state,

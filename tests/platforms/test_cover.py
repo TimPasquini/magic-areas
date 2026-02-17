@@ -24,9 +24,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_COVER_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
 from tests.const import DEFAULT_MOCK_AREA
@@ -49,7 +47,7 @@ _LOGGER = logging.getLogger(__name__)
 def mock_config_entry_cover_groups() -> MockConfigEntry:
     """Fixture for mock configuration entry."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data.update({CONF_ENABLED_FEATURES: {CONF_FEATURE_COVER_GROUPS: {}}})
+    data.update({CONF_ENABLED_FEATURES: {MagicAreasFeatures.COVER_GROUPS: {}}})
     return MockConfigEntry(domain=DOMAIN, data=data)
 
 
@@ -57,7 +55,7 @@ def mock_config_entry_cover_groups() -> MockConfigEntry:
 async def setup_integration_cover_group(
     hass: HomeAssistant,
     cover_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [cover_groups_config_entry])
@@ -98,7 +96,7 @@ async def setup_entities_sensor_cover_all_classes_multiple(
 async def test_cover_group_basic(
     hass: HomeAssistant,
     entities_sensor_cover_all_classes_multiple: list[MockCover],
-    _setup_integration_cover_group,
+    _setup_integration_cover_group: Any,
 ) -> None:
     """Test cover group."""
 
@@ -141,7 +139,7 @@ async def test_cover_snapshot_fields(
 
     data = cover_groups_config_entry.runtime_data.coordinator.data
     assert data is not None
-    assert CONF_FEATURE_COVER_GROUPS in data.enabled_features
+    assert MagicAreasFeatures.COVER_GROUPS in data.enabled_features
     assert COVER_DOMAIN in data.entities
 
     entity_ids = {entity["entity_id"] for entity in data.entities[COVER_DOMAIN]}
@@ -154,7 +152,7 @@ async def test_cover_snapshot_fields(
 async def test_cover_group_update(
     hass: HomeAssistant,
     entities_sensor_cover_all_classes_multiple: list[MockCover],
-    _setup_integration_cover_group,
+    _setup_integration_cover_group: Any,
 ) -> None:
     """Test cover group state update."""
 
@@ -171,7 +169,9 @@ async def test_cover_group_update(
     blind_group_id = f"{cover_group_entity_id_base}{CoverDeviceClass.BLIND}"
 
     # Initial state is OPEN
-    assert hass.states.get(blind_group_id).state == STATE_OPEN
+    blind_group_state = hass.states.get(blind_group_id)
+    assert blind_group_state is not None
+    assert blind_group_state.state == STATE_OPEN
 
     # Close all blinds
     for blind in blinds:

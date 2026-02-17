@@ -17,6 +17,7 @@ from homeassistant.helpers.entity import Entity
 from custom_components.magic_areas.base.entities import MagicEntity
 from custom_components.magic_areas.const import DOMAIN, EMPTY_STRING
 from custom_components.magic_areas.coordinator import MagicAreasData, MagicAreasCoordinator
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -24,12 +25,7 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-)
-from custom_components.magic_areas.defaults import (
-    DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-)
+from custom_components.magic_areas.defaults import DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoThreshold,
 )
@@ -48,10 +44,10 @@ def create_illuminance_threshold(
 ) -> Entity | None:
     """Create threshold light binary sensor based off illuminance aggregate."""
 
-    if CONF_FEATURE_AGGREGATION not in data.enabled_features:
+    if MagicAreasFeatures.AGGREGATES not in data.enabled_features:
         return None
 
-    aggregation_config = data.feature_configs.get(CONF_FEATURE_AGGREGATION, {})
+    aggregation_config = data.feature_configs.get(MagicAreasFeatures.AGGREGATES, {})
     illuminance_threshold = aggregation_config.get(
         CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
         DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,

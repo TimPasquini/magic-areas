@@ -21,9 +21,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_BLE_TRACKERS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_in_attribute,
@@ -47,7 +45,7 @@ def mock_config_entry_ble_tracker() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_BLE_TRACKERS: {
+                MagicAreasFeatures.BLE_TRACKER: {
                     CONF_BLE_TRACKER_ENTITIES: ["sensor.ble_tracker_1"],
                 }
             }
@@ -60,7 +58,7 @@ def mock_config_entry_ble_tracker() -> MockConfigEntry:
 async def setup_integration_ble_tracker(
     hass: HomeAssistant,
     ble_tracker_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with BLE tracker config."""
 
     await init_integration_helper(hass, [ble_tracker_config_entry])
@@ -95,7 +93,7 @@ async def setup_entities_ble_sensor_one(
 async def test_ble_tracker_presence_sensor(
     hass: HomeAssistant,
     entities_ble_sensor_one: list[MockSensor],
-    _setup_integration_ble_tracker,
+    _setup_integration_ble_tracker: Any,
 ) -> None:
     """Test BLE tracker monitor functionality."""
 
@@ -152,7 +150,7 @@ async def test_ble_tracker_presence_sensor(
 async def test_ble_tracker_missing_entity(
     hass: HomeAssistant,
     entities_ble_sensor_one: list[MockSensor],
-    _setup_integration_ble_tracker,
+    _setup_integration_ble_tracker: Any,
 ) -> None:
     """Test BLE tracker with missing entity."""
 
@@ -185,7 +183,7 @@ async def test_ble_tracker_no_entities_configured(
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_BLE_TRACKERS: {
+                MagicAreasFeatures.BLE_TRACKER: {
                     CONF_BLE_TRACKER_ENTITIES: [],
                 }
             }

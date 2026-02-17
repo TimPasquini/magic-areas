@@ -10,10 +10,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.enums import (
-    AreaStates,
-    MagicAreasEvents,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )

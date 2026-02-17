@@ -10,8 +10,9 @@ from the updated architecture.
 These documents cover code, runtime, and test deltas between the fork baseline
 and this repository, including:
 
-- runtime architecture and information flow
-- coordinator snapshot model and availability semantics
+- runtime architecture and information flow (current state)
+- coordinator snapshot model and availability semantics (current state)
+- **final architecture** (MagicArea becomes internal-only)
 - config flow structure and feature metadata layout
 - platform adapter responsibilities
 - entity identity and migration behavior
@@ -29,6 +30,8 @@ migration documents.
 - Coordinator introduced as the authoritative snapshot source.
 - Snapshot gate: platform setup is skipped if data is unavailable.
 - Event payloads include full current state snapshots to avoid stale reads.
+- MagicArea becomes coordinator-private (`_area`); snapshot fields
+  (`area_config`, `area_runtime`) replace direct MagicArea access in public API.
 
 ### Core logic boundaries
 
@@ -73,7 +76,7 @@ migration documents.
 
 - Read `architecture.md` for the updated information flow and event model.
 - Read `coordinator.md` for the snapshot model, availability semantics, and
-  platform setup rules.
+  platform setup rules (as of current implementation).
 - Read `config-flow.md` for config/option flow structure and schema layout.
 - Read `tests.md` for the test coverage delta and delta-to-test mapping.
 
@@ -85,3 +88,6 @@ migration documents.
 - Availability reflects coordinator health.
 - Config flow metadata and schemas are centralized.
 - Tests map to the documented deltas.
+- MagicArea is not exposed in `runtime_data` or `MagicAreasData`.
+- Platforms read only snapshot fields; entity constructors take
+  `AreaConfig + coordinator`, not `MagicArea`.

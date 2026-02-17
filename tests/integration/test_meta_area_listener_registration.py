@@ -1,19 +1,16 @@
 """Test meta-area listener registration and updates."""
 
+from typing import Any
 import logging
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import AreaStates
 
 from tests.const import MockAreaIds
 from tests.helpers import (
     assert_state,
-    init_integration as init_integration_helper,
-    shutdown_integration,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,8 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 
 async def test_meta_area_listeners_track_child_presence_sensors(
     hass: HomeAssistant,
-    entities_binary_sensor_motion_all_areas_with_meta,
-    init_integration_all_areas,
+    entities_binary_sensor_motion_all_areas_with_meta: Any,
+    init_integration_all_areas: Any,
 ) -> None:
     """Test that meta areas properly track child presence sensors.
 
@@ -76,8 +73,8 @@ async def test_meta_area_listeners_track_child_presence_sensors(
 
 async def test_meta_area_handles_multiple_child_state_changes(
     hass: HomeAssistant,
-    entities_binary_sensor_motion_all_areas_with_meta,
-    init_integration_all_areas,
+    entities_binary_sensor_motion_all_areas_with_meta: Any,
+    init_integration_all_areas: Any,
 ) -> None:
     """Test that meta areas correctly aggregate multiple child areas.
 

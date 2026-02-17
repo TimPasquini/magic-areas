@@ -100,8 +100,14 @@ pytest ./tests --snapshot-update
 # Run linters via tox
 tox -e lint
 
-# Type check with mypy
+# Type check with mypy (integration)
 mypy custom_components/magic_areas
+
+# Type check with mypy (tests)
+mypy tests
+
+# Type check both (integration + tests)
+mypy custom_components/magic_areas tests
 
 # Lint with pylint
 pylint custom_components/magic_areas
@@ -129,14 +135,16 @@ The fork baseline had each platform assemble its own view of area data by readin
 - Inconsistent data reads when multiple platforms updated concurrently
 - More surface area to update when adding features
 
-**The current architecture** uses a coordinator that owns a **single, typed snapshot** per config entry:
+**Current architecture** uses a coordinator that owns a **single, typed snapshot** per config entry:
 
 ```
 DataUpdateCoordinator (MagicAreasCoordinator)
+├─ Manages MagicArea/MagicMetaArea instance privately (_area)
 ├─ Polls area state every 30 seconds
-├─ Updates entity registry for area via MagicArea.load_entities()
+├─ Updates entity registry and builds snapshot
 ├─ Builds MagicAreasData snapshot (SINGLE SOURCE OF TRUTH):
-│  ├─ area: MagicArea or MagicMetaArea instance
+│  ├─ area_config: AreaConfig (immutable configuration)
+│  ├─ area_runtime: AreaRuntime (mutable runtime state)
 │  ├─ entities: resolved entity lists by domain
 │  ├─ magic_entities: integration-generated entities by domain
 │  ├─ presence_sensors: computed presence sensor IDs
@@ -148,12 +156,19 @@ DataUpdateCoordinator (MagicAreasCoordinator)
 └─ Platforms read coordinator.data ONLY (snapshot is authoritative)
 ```
 
+**Key design principle**: `MagicArea` instance is internal to coordinator (private `_area`). Platforms and entities interact solely through immutable snapshot fields (AreaConfig, AreaRuntime, etc.), never the object itself.
+
 Key file: `custom_components/magic_areas/coordinator.py`
 
 **Platform Setup Guard Pattern:**
 1. If `coordinator.data` is missing, refresh once
 2. If snapshot remains unavailable, skip platform setup
-3. Entities are created from snapshot data only (no direct MagicArea reads)
+3. Entities are created from snapshot data only (no direct MagicArea access)
+
+**Entity Constructor Pattern:**
+- Entities receive `area_config: AreaConfig` and `coordinator: MagicAreasCoordinator` in constructor
+- All necessary data is in immutable snapshot fields (AreaConfig, AreaRuntime)
+- Entities do NOT receive MagicArea instance
 
 ### Area Hierarchy
 

@@ -1,5 +1,7 @@
 """Tests for component setup helpers."""
 
+from typing import Any
+from collections.abc import Callable
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 from homeassistant.const import ATTR_ID, ATTR_NAME
@@ -27,26 +29,23 @@ async def test_async_setup_entry_reload_skipped_before_start(
     magic_area.config = {}
     magic_area.entities = {}
     magic_area.magic_entities = {}
-    magic_area.is_meta.return_value = False
-    magic_area.make_entity_registry_filter.return_value = None
-    magic_area.make_device_registry_filter.return_value = None
-    magic_area.available_platforms.return_value = []
     magic_area.initialize = AsyncMock()
-    magic_area.load_entities = AsyncMock()
-    magic_area.get_presence_sensors.return_value = []
-    magic_area.has_feature.return_value = False
 
-    callbacks: dict[str, object] = {}
+    callbacks: dict[str, Callable[..., Any]] = {}
 
-    def _fake_listen(bus, event_type, callback, *args, **kwargs):
+    def _fake_listen(bus: Any, event_type: Any, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Callable[[], None]:
         callbacks["registry"] = callback
         return lambda: None
 
-    def _fake_listen_once(bus, event_type, callback):
+    def _fake_listen_once(bus: Any, event_type: Any, callback: Callable[..., Any]) -> Callable[[], None]:
         callbacks["reload"] = callback
         return lambda: None
 
     with (
+        patch(
+            "custom_components.magic_areas.build_area_config_for_config_entry",
+            return_value=MagicMock(is_meta=MagicMock(return_value=False)),
+        ),
         patch(
             "custom_components.magic_areas.get_magic_area_for_config_entry",
             return_value=magic_area,
@@ -90,26 +89,23 @@ async def test_async_setup_entry_registry_update_respects_disabled_reload(
     magic_area.config = {}
     magic_area.entities = {}
     magic_area.magic_entities = {}
-    magic_area.is_meta.return_value = False
-    magic_area.make_entity_registry_filter.return_value = None
-    magic_area.make_device_registry_filter.return_value = None
-    magic_area.available_platforms.return_value = []
     magic_area.initialize = AsyncMock()
-    magic_area.load_entities = AsyncMock()
-    magic_area.get_presence_sensors.return_value = []
-    magic_area.has_feature.return_value = False
 
-    callbacks: dict[str, object] = {}
+    callbacks: dict[str, Callable[..., Any]] = {}
 
-    def _fake_listen(bus, event_type, callback, *args, **kwargs):
+    def _fake_listen(bus: Any, event_type: Any, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Callable[[], None]:
         callbacks["registry"] = callback
         return lambda: None
 
-    def _fake_listen_once(bus, event_type, callback):
+    def _fake_listen_once(bus: Any, event_type: Any, callback: Callable[..., Any]) -> Callable[[], None]:
         callbacks["reload"] = callback
         return lambda: None
 
     with (
+        patch(
+            "custom_components.magic_areas.build_area_config_for_config_entry",
+            return_value=MagicMock(is_meta=MagicMock(return_value=False)),
+        ),
         patch(
             "custom_components.magic_areas.get_magic_area_for_config_entry",
             return_value=magic_area,

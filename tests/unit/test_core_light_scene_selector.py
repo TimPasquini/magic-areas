@@ -1,6 +1,5 @@
 """Tests for light scene/category configuration resolution."""
 
-import pytest
 
 from custom_components.magic_areas.core.light_control import (
     resolve_light_category_config,
@@ -49,7 +48,7 @@ MOCK_LIGHT_GROUP_ACT_ON = {
 class TestResolveLightCategoryConfig:
     """Tests for resolve_light_category_config function."""
 
-    def test_empty_feature_config(self):
+    def test_empty_feature_config(self) -> None:
         """Test with empty feature config uses defaults."""
         assigned_states, act_on = resolve_light_category_config(
             category=MOCK_OVERHEAD_LIGHTS,
@@ -61,7 +60,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == []
         assert act_on == MOCK_DEFAULT_LIGHT_GROUP_ACT_ON
 
-    def test_overhead_lights_config(self):
+    def test_overhead_lights_config(self) -> None:
         """Test resolving overhead lights configuration."""
         feature_config = {
             MOCK_OVERHEAD_LIGHTS_STATES: ["occupied", "bright"],
@@ -77,7 +76,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == ["occupied", "bright"]
         assert act_on == [MOCK_LIGHT_GROUP_ACT_ON_OCCUPANCY]
 
-    def test_sleep_lights_config(self):
+    def test_sleep_lights_config(self) -> None:
         """Test resolving sleep lights configuration."""
         feature_config = {
             MOCK_SLEEP_LIGHTS_STATES: ["sleep", "dark"],
@@ -99,7 +98,7 @@ class TestResolveLightCategoryConfig:
             MOCK_LIGHT_GROUP_ACT_ON_STATE,
         ]
 
-    def test_accent_lights_config(self):
+    def test_accent_lights_config(self) -> None:
         """Test resolving accent lights configuration."""
         feature_config = {
             MOCK_ACCENT_LIGHTS_STATES: ["extended"],
@@ -115,7 +114,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == ["extended"]
         assert act_on == [MOCK_LIGHT_GROUP_ACT_ON_STATE]
 
-    def test_task_lights_config(self):
+    def test_task_lights_config(self) -> None:
         """Test resolving task lights configuration."""
         feature_config = {
             MOCK_TASK_LIGHTS_STATES: ["occupied"],
@@ -131,7 +130,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == ["occupied"]
         assert act_on == [MOCK_LIGHT_GROUP_ACT_ON_OCCUPANCY]
 
-    def test_unknown_category(self):
+    def test_unknown_category(self) -> None:
         """Test with unknown category returns defaults."""
         assigned_states, act_on = resolve_light_category_config(
             category="unknown_lights",
@@ -146,7 +145,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == []
         assert act_on == MOCK_DEFAULT_LIGHT_GROUP_ACT_ON
 
-    def test_partial_config(self):
+    def test_partial_config(self) -> None:
         """Test with only states config, act_on uses default."""
         feature_config = {
             MOCK_OVERHEAD_LIGHTS_STATES: ["occupied"],
@@ -161,7 +160,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == ["occupied"]
         assert act_on == MOCK_DEFAULT_LIGHT_GROUP_ACT_ON
 
-    def test_all_light_categories(self):
+    def test_all_light_categories(self) -> None:
         """Test resolving config for all light categories."""
         feature_config = {
             MOCK_OVERHEAD_LIGHTS_STATES: ["occupied", "bright"],
@@ -224,7 +223,7 @@ class TestResolveLightCategoryConfig:
         assert task_states == ["occupied"]
         assert task_act_on == [MOCK_LIGHT_GROUP_ACT_ON_OCCUPANCY]
 
-    def test_empty_states_list(self):
+    def test_empty_states_list(self) -> None:
         """Test with explicitly empty states list."""
         feature_config = {
             MOCK_OVERHEAD_LIGHTS_STATES: [],
@@ -240,7 +239,7 @@ class TestResolveLightCategoryConfig:
         assert assigned_states == []
         assert act_on == [MOCK_LIGHT_GROUP_ACT_ON_STATE]
 
-    def test_return_type_is_list(self):
+    def test_return_type_is_list(self) -> None:
         """Test that returned values are lists, not sequences."""
         feature_config = {
             MOCK_OVERHEAD_LIGHTS_STATES: ["occupied"],

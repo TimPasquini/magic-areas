@@ -456,6 +456,77 @@ We can move from decomposition to recomposition when **all** of these are true:
 
 **Until then, continue to favor clarity and separation over consolidation.**
 
+## Extraction Patterns: Statefulness Classification
+
+When extracting logic into separate modules, **classify the target by statefulness**. Not all code can be extracted as pure functions—some is inherently stateful.
+
+### Stateless Extraction → Pure Functions
+
+Targets that are **purely computational** (no accumulated state across calls):
+- **Entity loading & filtering**: Registry reads → filtered lists
+- **Configuration normalization**: Config dict → canonical form
+- **Policy decisions**: Inputs → decision (no temporal state)
+- **Schema builders**: Config → voluptuous schema
+- **Light/media routing**: Area state → control decision
+
+**Pattern**: Extract as standalone functions in `core/` modules. Easy to test, no fixtures needed.
+
+```python
+def filter_entities(entity_list: list, exclude_ids: set) -> list:
+    """Pure function - inputs and outputs only."""
+    return [e for e in entity_list if e['id'] not in exclude_ids]
+```
+
+### Stateful Extraction → Class-Based State Machines
+
+Targets that **manage temporal state** (timeouts, accumulated readings, transition tracking):
+- **Presence/occupancy tracking**: Timeout management + state persistence
+- **Motion sensors with delays**: Door+motion coordination
+- **Listener lifecycle**: Accumulate listeners, drain on teardown
+- **BLE tracker state**: Track beacon presence over time
+
+**Pattern**: Extract as class-based state machine. Follow `AreaOccupancyTracker` pattern:
+- Input: State dict snapshots (no object dependency)
+- Output: Decision dataclass (e.g., `OccupancyUpdate`)
+- Entity handles HA wiring (scheduling, syncing state)
+
+```python
+@dataclass(slots=True)
+class OccupancyUpdate:
+    is_occupied: bool
+    changed: bool
+    request_timeout: float | None = None
+
+class AreaOccupancyTracker:
+    """State machine for occupancy (not sensors alone)."""
+
+    def update(self, sensor_states: dict[str, str]) -> OccupancyUpdate:
+        """Pure method - given sensor states, return decision."""
+        ...
+```
+
+### Decision Framework
+
+Ask these questions:
+
+1. **Does the logic accumulate state across calls?**
+   - Yes → Class-based state machine
+   - No → Pure function
+
+2. **Does it depend on timing/timeouts?**
+   - Yes → Class-based state machine
+   - No → Pure function
+
+3. **Does it make decisions based on history?**
+   - Yes ("Was motion detected while door was open?") → Class-based state machine
+   - No ("Given current state, what should happen?") → Pure function
+
+4. **Is the output deterministic given inputs?**
+   - Yes → Pure function
+   - No (depends on when it was called) → Class-based state machine
+
+---
+
 ## FAQ
 
 ### Q: There are too many files now. Should I consolidate some?

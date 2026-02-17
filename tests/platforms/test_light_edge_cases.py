@@ -20,16 +20,10 @@ from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
 )
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.attrs import ATTR_STATES
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
@@ -58,7 +52,7 @@ def mock_config_entry_light_edge_cases() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {
+                MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.overhead_1", "light.overhead_2"],
                     CONF_OVERHEAD_LIGHTS_STATES: [
                         AreaStates.OCCUPIED,
@@ -82,7 +76,7 @@ def mock_config_entry_light_edge_cases_limited() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {
+                MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.overhead_1"],
                     CONF_OVERHEAD_LIGHTS_STATES: [AreaStates.OCCUPIED],
                     CONF_OVERHEAD_LIGHTS_ACT_ON: [],  # Empty for testing
@@ -418,7 +412,7 @@ async def test_act_on_config(
 
     # 1. Test Occupancy change skip (393-396)
     # act_on is empty, so it should skip occupancy changes
-    current_states = []
+    current_states: list[str] = []
     target_group.state_change_secondary(
         ([AreaStates.OCCUPIED], [], current_states)
     )

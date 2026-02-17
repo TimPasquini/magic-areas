@@ -1,7 +1,9 @@
 """Unit tests for FanControlSwitch with mocked dependencies."""
 
+from typing import Any
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from homeassistant.core import State, Event
 from homeassistant.const import STATE_OFF, STATE_ON
 
@@ -10,7 +12,7 @@ from custom_components.magic_areas.core.area_config import AreaConfig
 
 
 @pytest.fixture
-def mock_area_config():
+def mock_area_config() -> Any:
     """Create a mock AreaConfig."""
     config = MagicMock(spec=AreaConfig)
     config.id = "test_area"
@@ -24,7 +26,7 @@ def mock_area_config():
 
 
 @pytest.fixture
-def mock_coordinator():
+def mock_coordinator() -> Any:
     """Create a mock coordinator."""
     coordinator = AsyncMock()
     coordinator.data = MagicMock()
@@ -36,7 +38,7 @@ def mock_coordinator():
 
 
 @pytest.fixture
-def mock_hass():
+def mock_hass() -> Any:
     """Create a mock hass object."""
     hass = AsyncMock()
     hass.states = MagicMock()
@@ -45,7 +47,7 @@ def mock_hass():
     return hass
 
 
-def test_fan_control_switch_initialization(mock_area_config, mock_coordinator):
+def test_fan_control_switch_initialization(mock_area_config: Any, mock_coordinator: Any) -> None:
     """Test FanControlSwitch initialization."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
 
@@ -56,8 +58,8 @@ def test_fan_control_switch_initialization(mock_area_config, mock_coordinator):
 
 
 def test_fan_control_area_sensor_state_changed_no_new_state(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test _area_sensor_state_changed when event has no new_state.
 
     Covers line 202 - the `if not new_state: return` path.
@@ -80,8 +82,8 @@ def test_fan_control_area_sensor_state_changed_no_new_state(
 
 
 def test_fan_control_area_sensor_state_changed_not_on(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test _area_sensor_state_changed when switch is off."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
     switch.hass = mock_hass
@@ -102,8 +104,8 @@ def test_fan_control_area_sensor_state_changed_not_on(
 
 
 def test_fan_control_area_sensor_state_changed_state_not_off(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test _area_sensor_state_changed when state is not OFF."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
     switch.hass = mock_hass
@@ -123,8 +125,8 @@ def test_fan_control_area_sensor_state_changed_state_not_off(
 
 
 def test_fan_control_area_sensor_state_changed_no_fan_group(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test _area_sensor_state_changed when fan_group_entity_id is None.
 
     Covers lines 208-212 - the debug log when no fan group.
@@ -152,8 +154,8 @@ def test_fan_control_area_sensor_state_changed_no_fan_group(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_value_error(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test run_logic handles ValueError when parsing sensor.
 
     Covers lines 243-249 - the ValueError/TypeError exception handling.
@@ -189,8 +191,8 @@ async def test_fan_control_run_logic_sensor_value_error(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_type_error(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test run_logic handles TypeError when parsing sensor."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
     switch.hass = mock_hass
@@ -223,8 +225,8 @@ async def test_fan_control_run_logic_sensor_type_error(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_not_found(
-    mock_area_config, mock_coordinator, mock_hass
-):
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
     """Test run_logic when tracked sensor entity doesn't exist."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
     switch.hass = mock_hass

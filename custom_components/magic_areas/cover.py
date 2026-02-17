@@ -16,10 +16,8 @@ from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.config_keys import (
     EMPTY_STRING,
 )
-from custom_components.magic_areas.features import CONF_FEATURE_COVER_GROUPS
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoCoverGroups,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.feature_info import MagicAreasFeatureInfoCoverGroups
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -49,7 +47,7 @@ async def async_setup_entry(
     coordinator = runtime_data.coordinator
 
     # Check feature availability
-    if CONF_FEATURE_COVER_GROUPS not in data.enabled_features:
+    if MagicAreasFeatures.COVER_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any covers

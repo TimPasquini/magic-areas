@@ -9,27 +9,22 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.area_constants import (
-    META_AREA_GLOBAL,
-)
+from custom_components.magic_areas.area_state import META_AREA_GLOBAL
 from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
+    CONF_NOTIFY_STATES,
+    DEFAULT_NOTIFY_STATES,
     EMPTY_STRING,
 )
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoMediaPlayerGroups,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-    CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-)
-from custom_components.magic_areas.media_player.area_aware_media_player import (
-    AreaAwareMediaPlayer,
-)
+from custom_components.magic_areas.media_player.area_aware_media_player import AreaAwareMediaPlayer
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -60,7 +55,7 @@ async def async_setup_entry(
     entities_to_add: list[Entity] = []
 
     # Media Player Groups
-    if CONF_FEATURE_MEDIA_PLAYER_GROUPS in data.enabled_features:
+    if MagicAreasFeatures.MEDIA_PLAYER_GROUPS   in data.enabled_features:
         _LOGGER.debug("%s: Setting up media player groups.", area_config.name)
         entities_to_add.extend(setup_media_player_group(area_config, coordinator, data.entities))
 
@@ -107,7 +102,8 @@ async def setup_area_aware_media_player(
     entries = hass.config_entries.async_entries(DOMAIN)
 
     # Check if we have areas with MEDIA_PLAYER_DOMAIN entities
-    areas_with_media_players = []
+    # Collect area data (config + snapshot info) instead of MagicArea objects
+    areas_with_media_players: dict[str, dict] = {}
 
     for entry in entries:
         if entry.domain != DOMAIN:
@@ -123,42 +119,50 @@ async def setup_area_aware_media_player(
         if data is None:
             _LOGGER.debug("Skipping area %s; no coordinator data", entry.entry_id)
             continue
-        current_area = data.area
+
+        area_config_data = data.area_config
         entities_by_domain = data.entities
 
         # Skip meta areas
-        if current_area.is_meta():
-            _LOGGER.debug("%s: Is meta-area, skipping.", current_area.name)
+        if area_config_data.is_meta():
+            _LOGGER.debug("%s: Is meta-area, skipping.", area_config_data.name)
             continue
 
         # Skip areas with feature not enabled
-        if CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER not in data.enabled_features:
+        if MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER not in data.enabled_features:
             _LOGGER.debug(
                 "%s: Does not have Area-aware media player feature enabled, skipping.",
-                current_area.name,
+                area_config_data.name,
             )
             continue
 
         # Skip areas without media player entities
         if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
             _LOGGER.debug(
-                "%s: Has no media player entities, skipping.", current_area.name
+                "%s: Has no media player entities, skipping.", area_config_data.name
             )
             continue
 
-        # Skip areas without notification devices set
-        notification_devices = data.feature_configs.get(
-            CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER, {}
-        ).get(CONF_NOTIFICATION_DEVICES)
+        # Get feature config for this area
+        aamp_config = data.feature_configs.get(MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER, {})
+        notification_devices = aamp_config.get(CONF_NOTIFICATION_DEVICES)
 
         if not notification_devices:
             _LOGGER.debug(
-                "%s: Has no notification devices, skipping.", current_area.name
+                "%s: Has no notification devices, skipping.", area_config_data.name
             )
             continue
 
-        # If all passes, we add this valid area to the list
-        areas_with_media_players.append(current_area)
+        # Get notification states from config, or use default
+        notification_states = aamp_config.get(CONF_NOTIFY_STATES, DEFAULT_NOTIFY_STATES)
+
+        # If all passes, store this area's data
+        areas_with_media_players[area_config_data.id] = {
+            "area_config": area_config_data,
+            "entities_by_domain": entities_by_domain,
+            "notification_devices": notification_devices,
+            "notification_states": notification_states,
+        }
 
     if not areas_with_media_players:
         _LOGGER.debug(
@@ -167,7 +171,7 @@ async def setup_area_aware_media_player(
         )
         return []
 
-    area_names = [i.name for i in areas_with_media_players]
+    area_names = [data["area_config"].name for data in areas_with_media_players.values()]
 
     _LOGGER.debug(
         "%s: Setting up area-aware media player with areas: %s",

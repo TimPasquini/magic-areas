@@ -19,22 +19,26 @@ A coordinator now owns a single, typed snapshot per config entry:
 
 - `custom_components/magic_areas/coordinator.py` defines `MagicAreasCoordinator`
   and the `MagicAreasData` snapshot.
-- runtime data includes the coordinator alongside the `MagicArea`.
-- setup performs a refresh before platforms read data.
-- platforms read `coordinator.data` and skip setup when the snapshot is
-  unavailable.
-- coordinator refresh status drives entity availability.
+- Coordinator manages `MagicArea` instance internally (private `_area`).
+- Runtime data includes only the coordinator (not the MagicArea instance).
+- Setup performs a refresh before platforms read data.
+- Platforms read `coordinator.data` and skip setup when the snapshot is unavailable.
+- Coordinator refresh status drives entity availability.
+- Snapshot contains only pure data structures (AreaConfig, AreaRuntime); the god object is internal.
 
 ## Snapshot data model
 
 `MagicAreasData` is a read-only snapshot containing:
 
-- `area`: the active `MagicArea` or `MagicMetaArea`
+- `area_config`: `AreaConfig` (immutable configuration data)
+- `area_runtime`: `AreaRuntime` (mutable runtime state data)
 - `entities`: resolved entity lists by domain
 - `magic_entities`: integration-generated entities by domain
 - `presence_sensors`: computed presence sensor IDs
 - `active_areas`: active child areas (meta only)
 - `config`: merged config options
+- `enabled_features`: set of enabled feature IDs
+- `feature_configs`: per-feature configuration dictionaries
 - `updated_at`: UTC timestamp
 
 ### Snapshot field sources
@@ -86,3 +90,17 @@ entities_by_domain = snapshot.entities
 The coordinator wraps the existing `MagicArea` instance, so code that still
 uses `entry.runtime_data.area` continues to work. The main difference is that
 platforms now have a single, consistent snapshot available.
+
+## Phase 8: Future Removal of MagicArea from Public API
+
+This document describes the current state where MagicArea is still exposed in
+`runtime_data` and `MagicAreasData`. **Phase 8** completes the architectural
+refactoring by making MagicArea coordinator-internal only.
+
+In the final state (Phase 8 complete):
+- `runtime_data.area` will be removed
+- `MagicAreasData.area` will be removed
+- Entity constructors will change from `area: MagicArea` to `area_config: AreaConfig, coordinator: MagicAreasCoordinator`
+- Platforms will read **only** snapshot fields (AreaConfig, AreaRuntime, entities, etc.)
+
+See `phase-8-god-object-removal.md` for the complete post-Phase-8 architecture.

@@ -37,7 +37,7 @@
     }),
     'id': 'patio',
     'name': 'Patio',
-    'type': 'exterior',
+    'type': <AreaType.EXTERIOR: 'exterior'>,
   })
 # ---
 # name: test_config_flow_meta_area_data
@@ -46,7 +46,7 @@
     }),
     'id': 'Global',
     'name': 'Global Meta Area',
-    'type': 'meta',
+    'type': <AreaType.META: 'meta'>,
   })
 # ---
 # name: test_config_flow_user_flow_snapshot
@@ -91,11 +91,11 @@
 # ---
 # name: test_enabled_features_snapshot
   dict({
-    'aggregates': dict({
+    <MagicAreasFeatures.AGGREGATES: 'aggregates'>: dict({
       'aggregates_illuminance_threshold': 20,
       'aggregates_min_entities': 2,
     }),
-    'light_groups': dict({
+    <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>: dict({
       'aggregates_min_entities': 1,
     }),
   })
@@ -108,16 +108,16 @@
 # ---
 # name: test_feature_list_snapshot
   list([
-    'aggregates',
-    'area_aware_media_player',
-    'ble_trackers',
-    'climate_control',
+    <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
+    <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
+    <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
+    <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
     'climate_control_presets',
-    'fan_groups',
-    'health',
-    'light_groups',
-    'presence_hold',
-    'wasp_in_a_box',
+    <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
+    <MagicAreasFeatures.HEALTH: 'health'>,
+    <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
+    <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
+    <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
   ])
 # ---
 # name: test_feature_registry_snapshot
@@ -126,33 +126,33 @@
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'aggregates',
+      'key': <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
       'merge_options': False,
-      'name': 'aggregates',
+      'name': <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'area_aware_media_player',
+      'key': <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
       'merge_options': False,
-      'name': 'area_aware_media_player',
+      'name': <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'ble_trackers',
+      'key': <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
       'merge_options': False,
-      'name': 'ble_trackers',
+      'name': <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
     }),
     dict({
       'has_next_step': True,
       'has_options': True,
       'has_schema': True,
-      'key': 'climate_control',
+      'key': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
       'merge_options': True,
-      'name': 'climate_control',
+      'name': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
     }),
     dict({
       'has_next_step': True,
@@ -160,47 +160,47 @@
       'has_schema': True,
       'key': 'climate_control_presets',
       'merge_options': True,
-      'name': 'climate_control',
+      'name': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'fan_groups',
+      'key': <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
       'merge_options': False,
-      'name': 'fan_groups',
+      'name': <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'health',
+      'key': <MagicAreasFeatures.HEALTH: 'health'>,
       'merge_options': False,
-      'name': 'health',
+      'name': <MagicAreasFeatures.HEALTH: 'health'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'light_groups',
+      'key': <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
       'merge_options': False,
-      'name': 'light_groups',
+      'name': <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'presence_hold',
+      'key': <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
       'merge_options': False,
-      'name': 'presence_hold',
+      'name': <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
     }),
     dict({
       'has_next_step': False,
       'has_options': True,
       'has_schema': False,
-      'key': 'wasp_in_a_box',
+      'key': <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
       'merge_options': False,
-      'name': 'wasp_in_a_box',
+      'name': <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
     }),
   ])
 # ---

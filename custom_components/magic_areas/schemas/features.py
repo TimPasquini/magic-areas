@@ -9,9 +9,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from voluptuous import Schema
 
-from custom_components.magic_areas.area_constants import (
-    AREA_STATE_OCCUPIED,
-)
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
@@ -56,19 +54,7 @@ from custom_components.magic_areas.defaults import (
     DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
     DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_LIST,
-    CONF_FEATURE_LIST_GLOBAL,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures, FEATURE_LIST, FEATURE_LIST_GLOBAL
 from custom_components.magic_areas.light_groups import (
     CONF_ACCENT_LIGHTS,
     CONF_ACCENT_LIGHTS_ACT_ON,
@@ -225,7 +211,7 @@ LIGHT_GROUP_FEATURE_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_OVERHEAD_LIGHTS, default=[]): cv.entity_ids,
         vol.Optional(
-            CONF_OVERHEAD_LIGHTS_STATES, default=[AREA_STATE_OCCUPIED]
+            CONF_OVERHEAD_LIGHTS_STATES, default=[AreaStates.OCCUPIED]
         ): cv.ensure_list,
         vol.Optional(
             CONF_OVERHEAD_LIGHTS_ACT_ON, default=DEFAULT_LIGHT_GROUP_ACT_ON
@@ -257,32 +243,32 @@ AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA = vol.Schema(
     extra=vol.REMOVE_EXTRA,
 )
 
-ALL_FEATURES = set(CONF_FEATURE_LIST) | set(CONF_FEATURE_LIST_GLOBAL)
+ALL_FEATURES = set(FEATURE_LIST) | set(FEATURE_LIST_GLOBAL)
 
 CONFIGURABLE_FEATURES = {
-    CONF_FEATURE_LIGHT_GROUPS: LIGHT_GROUP_FEATURE_SCHEMA,
-    CONF_FEATURE_CLIMATE_CONTROL: CLIMATE_CONTROL_FEATURE_SCHEMA,
-    CONF_FEATURE_FAN_GROUPS: FAN_GROUP_FEATURE_SCHEMA,
-    CONF_FEATURE_AGGREGATION: AGGREGATE_FEATURE_SCHEMA,
-    CONF_FEATURE_HEALTH: HEALTH_FEATURE_SCHEMA,
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA,
-    CONF_FEATURE_PRESENCE_HOLD: PRESENCE_HOLD_FEATURE_SCHEMA,
-    CONF_FEATURE_BLE_TRACKERS: BLE_TRACKER_FEATURE_SCHEMA,
-    CONF_FEATURE_WASP_IN_A_BOX: WASP_IN_A_BOX_FEATURE_SCHEMA,
+    MagicAreasFeatures.LIGHT_GROUPS: LIGHT_GROUP_FEATURE_SCHEMA,
+    MagicAreasFeatures.CLIMATE_CONTROL : CLIMATE_CONTROL_FEATURE_SCHEMA,
+    MagicAreasFeatures.FAN_GROUPS: FAN_GROUP_FEATURE_SCHEMA,
+    MagicAreasFeatures.AGGREGATES: AGGREGATE_FEATURE_SCHEMA,
+    MagicAreasFeatures.HEALTH: HEALTH_FEATURE_SCHEMA,
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA,
+    MagicAreasFeatures.PRESENCE_HOLD: PRESENCE_HOLD_FEATURE_SCHEMA,
+    MagicAreasFeatures.BLE_TRACKER: BLE_TRACKER_FEATURE_SCHEMA,
+    MagicAreasFeatures.WASP_IN_A_BOX: WASP_IN_A_BOX_FEATURE_SCHEMA,
 }
 
 NON_CONFIGURABLE_FEATURES_META = [
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
+    MagicAreasFeatures.LIGHT_GROUPS,
+    MagicAreasFeatures.FAN_GROUPS,
 ]
 
 NON_CONFIGURABLE_FEATURES: dict[str, dict[str, Any]] = {
-    feature: {} for feature in ALL_FEATURES if feature not in CONFIGURABLE_FEATURES
+    str(feature): {} for feature in ALL_FEATURES if feature not in CONFIGURABLE_FEATURES
 }
 
 FEATURES_SCHEMA: Schema = vol.Schema(
     {
-        vol.Optional(feature): feature_schema
+        vol.Optional(str(feature)): feature_schema
         for feature, feature_schema in chain(
             CONFIGURABLE_FEATURES.items(), NON_CONFIGURABLE_FEATURES.items()
         )

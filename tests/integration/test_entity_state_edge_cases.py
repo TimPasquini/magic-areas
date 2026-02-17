@@ -2,16 +2,11 @@
 
 import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.const import STATE_ON, STATE_OFF
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -26,7 +21,7 @@ async def test_light_platform_setup_creates_light_entities(
 ) -> None:
     """Test light platform successfully creates entities during setup."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -45,7 +40,7 @@ async def test_fan_platform_setup_creates_fan_entities(
 ) -> None:
     """Test fan platform successfully creates entities during setup."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_FAN_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.FAN_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -64,7 +59,7 @@ async def test_climate_platform_setup_creates_climate_control(
     """Test climate platform successfully creates climate control entity."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_CLIMATE_CONTROL: {
+        MagicAreasFeatures.CLIMATE_CONTROL: {
             "target_entity": "climate.living_room",
             "presets": {
                 "occupied": "heat",
@@ -88,7 +83,7 @@ async def test_coordinator_data_available_after_init(
 ) -> None:
     """Test that coordinator has data after initialization."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])
@@ -109,9 +104,9 @@ async def test_multiple_entity_setup_with_different_features(
     """Test setup with multiple features enabled."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_LIGHT_GROUPS: {},
-        CONF_FEATURE_FAN_GROUPS: {},
-        CONF_FEATURE_CLIMATE_CONTROL: {
+        MagicAreasFeatures.LIGHT_GROUPS: {},
+        MagicAreasFeatures.FAN_GROUPS: {},
+        MagicAreasFeatures.CLIMATE_CONTROL: {
             "target_entity": "climate.test",
             "presets": {"occupied": "heat"},
         },
@@ -122,9 +117,9 @@ async def test_multiple_entity_setup_with_different_features(
 
     coordinator = config_entry.runtime_data.coordinator
     assert coordinator.data is not None
-    assert CONF_FEATURE_LIGHT_GROUPS in coordinator.data.enabled_features
-    assert CONF_FEATURE_FAN_GROUPS in coordinator.data.enabled_features
-    assert CONF_FEATURE_CLIMATE_CONTROL in coordinator.data.enabled_features
+    assert MagicAreasFeatures.LIGHT_GROUPS in coordinator.data.enabled_features
+    assert MagicAreasFeatures.FAN_GROUPS in coordinator.data.enabled_features
+    assert MagicAreasFeatures.CLIMATE_CONTROL in coordinator.data.enabled_features
 
     await shutdown_integration(hass, [config_entry])
 
@@ -133,7 +128,7 @@ async def test_multiple_entity_setup_with_different_features(
 async def test_entity_registry_lookup_in_platforms(hass: HomeAssistant) -> None:
     """Test platforms can look up entities in entity registry."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {}}
+    data[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     await init_integration_helper(hass, [config_entry])

@@ -35,12 +35,8 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-)
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
 from tests.helpers import (
@@ -73,7 +69,7 @@ def mock_config_entry_area_aware_media_player_area() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: {
+                MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: {
                     CONF_NOTIFICATION_DEVICES: ["media_player.media_player_1"],
                     CONF_NOTIFY_STATES: [AreaStates.OCCUPIED],
                 }
@@ -88,7 +84,7 @@ async def setup_integration_area_aware_media_player(
     hass: HomeAssistant,
     area_aware_media_player_global_config_entry: MockConfigEntry,
     area_aware_media_player_area_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(
@@ -132,7 +128,7 @@ async def test_area_aware_media_player(
     hass: HomeAssistant,
     entities_media_player_single: list[MockMediaPlayer],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_area_aware_media_player: AsyncGenerator[Any, None],
+    _setup_integration_area_aware_media_player: AsyncGenerator[Any],
 ) -> None:
     """Test the area aware media player."""
 
@@ -250,9 +246,9 @@ async def test_area_aware_media_player_snapshot_fields(
 
     data = area_aware_media_player_area_config_entry.runtime_data.coordinator.data
     assert data is not None
-    assert CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER in data.enabled_features
+    assert MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER in data.enabled_features
 
-    feature_config = data.feature_configs.get(CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER)
+    feature_config = data.feature_configs.get(MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER)
     assert feature_config is not None
     assert feature_config[CONF_NOTIFICATION_DEVICES] == [
         "media_player.media_player_1"

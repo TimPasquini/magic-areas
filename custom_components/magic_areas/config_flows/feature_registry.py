@@ -26,20 +26,10 @@ from custom_components.magic_areas.schemas.validation import (
     OPTIONS_WASP_IN_A_BOX,
     OPTIONS_AREA_AWARE_MEDIA_PLAYER,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_CLIMATE_CONTROL,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_WASP_IN_A_BOX,
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
-@dataclass(frozen=True)
+@dataclass
 class FeatureConfig:
     """Declarative description of a configurable feature."""
 
@@ -51,50 +41,50 @@ class FeatureConfig:
 
 
 FEATURE_REGISTRY: dict[str, FeatureConfig] = {
-    CONF_FEATURE_LIGHT_GROUPS: FeatureConfig(
-        name=CONF_FEATURE_LIGHT_GROUPS,
+    MagicAreasFeatures.LIGHT_GROUPS: FeatureConfig(
+        name=MagicAreasFeatures.LIGHT_GROUPS,
         options=OPTIONS_LIGHT_GROUP,
     ),
-    CONF_FEATURE_FAN_GROUPS: FeatureConfig(
-        name=CONF_FEATURE_FAN_GROUPS,
+    MagicAreasFeatures.FAN_GROUPS: FeatureConfig(
+        name=MagicAreasFeatures.FAN_GROUPS,
         options=OPTIONS_FAN_GROUP,
     ),
-    CONF_FEATURE_CLIMATE_CONTROL: FeatureConfig(
-        name=CONF_FEATURE_CLIMATE_CONTROL,
+    MagicAreasFeatures.CLIMATE_CONTROL : FeatureConfig(
+        name=MagicAreasFeatures.CLIMATE_CONTROL ,
         options=OPTIONS_CLIMATE_CONTROL_ENTITY_SELECT,
         schema=CLIMATE_CONTROL_FEATURE_SCHEMA_ENTITY_SELECT,
         merge_options=True,
         next_step="feature_conf_climate_control_select_presets",
     ),
-    f"{CONF_FEATURE_CLIMATE_CONTROL}_presets": FeatureConfig(
-        name=CONF_FEATURE_CLIMATE_CONTROL,
+    f"{MagicAreasFeatures.CLIMATE_CONTROL }_presets": FeatureConfig(
+        name=MagicAreasFeatures.CLIMATE_CONTROL ,
         options=OPTIONS_CLIMATE_CONTROL,
         schema=CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT,
         merge_options=True,
         next_step="feature_conf_climate_control_select_presets",
     ),
-    CONF_FEATURE_HEALTH: FeatureConfig(
-        name=CONF_FEATURE_HEALTH,
+    MagicAreasFeatures.HEALTH: FeatureConfig(
+        name=MagicAreasFeatures.HEALTH,
         options=OPTIONS_HEALTH_SENSOR,
     ),
-    CONF_FEATURE_AGGREGATION: FeatureConfig(
-        name=CONF_FEATURE_AGGREGATION,
+    MagicAreasFeatures.AGGREGATES: FeatureConfig(
+        name=MagicAreasFeatures.AGGREGATES,
         options=OPTIONS_AGGREGATES,
     ),
-    CONF_FEATURE_PRESENCE_HOLD: FeatureConfig(
-        name=CONF_FEATURE_PRESENCE_HOLD,
+    MagicAreasFeatures.PRESENCE_HOLD: FeatureConfig(
+        name=MagicAreasFeatures.PRESENCE_HOLD,
         options=OPTIONS_PRESENCE_HOLD,
     ),
-    CONF_FEATURE_BLE_TRACKERS: FeatureConfig(
-        name=CONF_FEATURE_BLE_TRACKERS,
+    MagicAreasFeatures.BLE_TRACKER: FeatureConfig(
+        name=MagicAreasFeatures.BLE_TRACKER,
         options=OPTIONS_BLE_TRACKERS,
     ),
-    CONF_FEATURE_WASP_IN_A_BOX: FeatureConfig(
-        name=CONF_FEATURE_WASP_IN_A_BOX,
+    MagicAreasFeatures.WASP_IN_A_BOX: FeatureConfig(
+        name=MagicAreasFeatures.WASP_IN_A_BOX,
         options=OPTIONS_WASP_IN_A_BOX,
     ),
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: FeatureConfig(
-        name=CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: FeatureConfig(
+        name=MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
         options=OPTIONS_AREA_AWARE_MEDIA_PLAYER,
     ),
 }

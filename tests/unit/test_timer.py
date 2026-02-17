@@ -1,6 +1,8 @@
 """Tests for the reusable timer helper."""
 
-from datetime import datetime, timezone
+from typing import Any, cast
+from collections.abc import Callable
+from datetime import datetime, UTC
 from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
@@ -16,7 +18,7 @@ async def test_reusable_timer_skips_stale_callback(hass: HomeAssistant) -> None:
     async def _callback(now: datetime) -> None:
         calls.append(now)
 
-    def _fake_async_call_later(hass_obj, delay, action):
+    def _fake_async_call_later(hass_obj: Any, delay: Any, action: Any) -> Callable[[], None]:
         scheduled["action"] = action
         return lambda: None
 
@@ -27,8 +29,8 @@ async def test_reusable_timer_skips_stale_callback(hass: HomeAssistant) -> None:
         side_effect=_fake_async_call_later,
     ):
         timer.start()
-        first_action = scheduled["action"]
+        first_action = cast(Callable[[datetime], Any], scheduled["action"])
         timer.start()
-        await first_action(datetime.now(timezone.utc))
+        await first_action(datetime.now(UTC))
 
     assert calls == []

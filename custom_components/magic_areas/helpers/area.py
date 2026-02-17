@@ -16,12 +16,13 @@ from homeassistant.helpers.floor_registry import (
     FloorEntry,
     async_get as floorreg_async_get,
 )
+from homeassistant.util import slugify
 
-from custom_components.magic_areas.base.magic import BasicArea, MagicArea, MagicMetaArea
-from custom_components.magic_areas.enums import (
-    MetaAreaIcons,
-    MetaAreaType,
-)
+from custom_components.magic_areas.base.magic import BasicArea, MagicArea
+from custom_components.magic_areas.area_state import MetaAreaType
+from custom_components.magic_areas.config_keys import CONF_TYPE
+from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.icons import MetaAreaIcons
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
@@ -105,13 +106,13 @@ def get_magic_area_for_config_entry(
     if area_id in non_floor_meta_ids:
         # Non-floor Meta-Area (Global/Interior/Exterior)
         meta_area = basic_area_from_meta(area_id)
-        magic_area = MagicMetaArea(hass, meta_area, config_entry)
+        magic_area = MagicArea(hass, meta_area, config_entry)
     elif area_id in floor_ids:
         # Floor Meta-Area
         floor_entry: FloorEntry | None = floor_registry.async_get_floor(area_id)
         assert floor_entry is not None
         meta_area = basic_area_from_floor(floor_entry)
-        magic_area = MagicMetaArea(hass, meta_area, config_entry)
+        magic_area = MagicArea(hass, meta_area, config_entry)
     else:
         # Regular Area
         area_registry = areareg_async_get(hass)
@@ -132,16 +133,74 @@ def get_magic_area_for_config_entry(
     return magic_area
 
 
-def get_area_from_config_entry(
-    hass: HomeAssistant, config_entry: "MagicAreasConfigEntry"
-) -> MagicArea | None:
-    """Return area object for given config entry."""
+def build_area_config_for_config_entry(
+    hass: HomeAssistant,
+    config_entry: "MagicAreasConfigEntry",
+) -> AreaConfig | None:
+    """Build an AreaConfig directly from the area/floor registry and config entry.
 
-    if not hasattr(config_entry, "runtime_data"):
-        return None
+    This replaces the MagicArea construction path for cases where only configuration
+    data is needed (i.e. the coordinator). No MagicArea object is created.
 
-    runtime_data = config_entry.runtime_data
-    if hasattr(runtime_data, "coordinator") and runtime_data.coordinator.data:
-        return runtime_data.coordinator.data.area
+    Returns None if the area ID is not found in the registry (regular areas only).
+    """
+    area_id: str = config_entry.data[ATTR_ID]
+    area_name: str = config_entry.data[ATTR_NAME]
 
-    return runtime_data.area
+    area_config_data: dict = dict(config_entry.data)
+    if config_entry.options:
+        area_config_data.update(config_entry.options)
+
+    floor_registry = floorreg_async_get(hass)
+    floors = floor_registry.async_list_floors()
+    floor_ids = [f.floor_id for f in floors]
+
+    non_floor_meta_ids = [
+        meta_area_type.value
+        for meta_area_type in MetaAreaType
+        if meta_area_type != MetaAreaType.FLOOR
+    ]
+
+    icon: str | None = None
+    floor_id: str | None = None
+
+    if area_id in non_floor_meta_ids:
+        meta_icon_map = {
+            MetaAreaType.EXTERIOR.value: MetaAreaIcons.EXTERIOR.value,
+            MetaAreaType.INTERIOR.value: MetaAreaIcons.INTERIOR.value,
+            MetaAreaType.GLOBAL.value: MetaAreaIcons.GLOBAL.value,
+        }
+        icon = meta_icon_map.get(area_id)
+        name = area_id.capitalize()
+    elif area_id in floor_ids:
+        floor_entry = floor_registry.async_get_floor(area_id)
+        assert floor_entry is not None
+        icon = floor_entry.icon or (
+            f"mdi:home-floor-{floor_entry.level}"
+            if floor_entry.level is not None
+            else "mdi:home"
+        )
+        floor_id = floor_entry.floor_id
+        name = floor_entry.name
+    else:
+        area_registry = areareg_async_get(hass)
+        area = area_registry.async_get_area(area_id)
+        if not area:
+            _LOGGER.warning("%s: ID '%s' not found on registry", area_name, area_id)
+            return None
+        icon = area.icon
+        floor_id = area.floor_id
+        name = area.name
+
+    area_type = area_config_data.get(CONF_TYPE) or area_id
+
+    return AreaConfig(
+        id=area_id,
+        name=name,
+        slug=slugify(name),
+        icon=icon,
+        floor_id=floor_id,
+        area_type=str(area_type),
+        config=area_config_data,
+        hass_config=config_entry,
+    )

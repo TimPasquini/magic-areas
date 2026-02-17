@@ -33,17 +33,9 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_SECONDARY_STATES,
 )
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
-from custom_components.magic_areas.enums import AreaStates, MagicAreasEvents
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_MEDIA_PLAYER_GROUPS,
-    CONF_FEATURE_PRESENCE_HOLD,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_state,
@@ -69,7 +61,7 @@ def mock_config_entry_media_player_group() -> MockConfigEntry:
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data.update(
         {
-            CONF_ENABLED_FEATURES: {CONF_FEATURE_MEDIA_PLAYER_GROUPS: {}},
+            CONF_ENABLED_FEATURES: {MagicAreasFeatures.MEDIA_PLAYER_GROUPS: {}},
             CONF_SECONDARY_STATES: {
                 CONF_EXTENDED_TIMEOUT: 0,
             },
@@ -84,7 +76,7 @@ def mock_config_entry_media_player_group() -> MockConfigEntry:
 async def setup_integration_media_player_group(
     hass: HomeAssistant,
     media_player_group_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration."""
     await init_integration_helper(hass, [media_player_group_config_entry])
     await hass.async_start()
@@ -100,7 +92,7 @@ def mock_config_entry_presence_hold() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_PRESENCE_HOLD: {CONF_PRESENCE_HOLD_TIMEOUT: 1},  # 1 minute
+                MagicAreasFeatures.PRESENCE_HOLD: {CONF_PRESENCE_HOLD_TIMEOUT: 1},  # 1 minute
             }
         }
     )
@@ -111,7 +103,7 @@ def mock_config_entry_presence_hold() -> MockConfigEntry:
 async def setup_integration_presence_hold(
     hass: HomeAssistant,
     presence_hold_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration."""
     await init_integration_helper(hass, [presence_hold_config_entry])
     await hass.async_start()
@@ -139,7 +131,7 @@ def mock_config_entry_light_control() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {},
+                MagicAreasFeatures.LIGHT_GROUPS: {},
             }
         }
     )
@@ -153,10 +145,10 @@ def mock_config_entry_fan_control() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {
+                MagicAreasFeatures.AGGREGATES: {
                     CONF_AGGREGATES_MIN_ENTITIES: 1,
                 },
-                CONF_FEATURE_FAN_GROUPS: {
+                MagicAreasFeatures.FAN_GROUPS: {
                     CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.OCCUPIED,
                     CONF_FAN_GROUPS_SETPOINT: 25.0,
                     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -193,8 +185,8 @@ async def setup_entities_fan_control(
 async def test_media_player_control_switch(
     hass: HomeAssistant,
     entities_media_player: list[MockMediaPlayer],
-    entities_binary_sensor_motion_one,
-    _setup_integration_media_player_group,
+    entities_binary_sensor_motion_one: Any,
+    _setup_integration_media_player_group: Any,
 ) -> None:
     """Test media player control switch."""
 
@@ -246,9 +238,9 @@ async def test_switch_snapshot_fields_presence_hold(
 
     data = presence_hold_config_entry.runtime_data.coordinator.data
     assert data is not None
-    assert CONF_FEATURE_PRESENCE_HOLD in data.enabled_features
+    assert MagicAreasFeatures.PRESENCE_HOLD in data.enabled_features
 
-    feature_config = data.feature_configs.get(CONF_FEATURE_PRESENCE_HOLD)
+    feature_config = data.feature_configs.get(MagicAreasFeatures.PRESENCE_HOLD)
     assert feature_config is not None
     assert feature_config[CONF_PRESENCE_HOLD_TIMEOUT] == 1
 
@@ -257,8 +249,8 @@ async def test_switch_snapshot_fields_presence_hold(
 
 async def test_presence_hold_switch_timeout(
     hass: HomeAssistant,
-    _setup_integration_presence_hold,
-    patch_async_call_later,
+    _setup_integration_presence_hold: Any,
+    patch_async_call_later: Any,
 ) -> None:
     """Test presence hold switch timeout."""
     switch_id = f"{SWITCH_DOMAIN}.magic_areas_presence_hold_{DEFAULT_MOCK_AREA}"
@@ -355,11 +347,6 @@ async def test_fan_control_switch(
     switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_fan_groups_{DEFAULT_MOCK_AREA}_fan_control"
     )
-    fan_group_id = f"{FAN_DOMAIN}.magic_areas_fan_groups_{DEFAULT_MOCK_AREA}_fan_group"
-
-    # Get area object to manipulate state
-    entry = hass.config_entries.async_get_entry(fan_control_config_entry.entry_id)
-    area = entry.runtime_data.area
 
     # Turn ON the control switch
     await hass.services.async_call(
@@ -372,12 +359,11 @@ async def test_fan_control_switch(
     # Trigger logic by updating area state (simulated via dispatcher or just state update if logic listens to it)
     # The switch listens to AREA_STATE_CHANGED.
 
-    area.states = [AreaStates.CLEAR]
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], [], list(area.states)),
+        ([AreaStates.CLEAR], [], [AreaStates.CLEAR]),
     )
     await hass.async_block_till_done()
 
@@ -387,12 +373,11 @@ async def test_fan_control_switch(
     await wait_for_state(hass, mock_fan.entity_id, STATE_OFF)
 
     # 2. Area Occupied (Required State) + Temp < Setpoint (20 < 25) -> Fan OFF
-    area.states = [AreaStates.OCCUPIED]
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], list(area.states)),
+        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, mock_fan.entity_id, STATE_OFF)

@@ -12,9 +12,7 @@ from custom_components.magic_areas.base.entities import MagicGroupEntity
 from custom_components.magic_areas.const import (
     EMPTY_STRING,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_FAN_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoFanGroups,
 )
@@ -46,7 +44,7 @@ async def async_setup_entry(
     coordinator = runtime_data.coordinator
 
     # Check feature availability
-    if CONF_FEATURE_FAN_GROUPS not in data.enabled_features:
+    if MagicAreasFeatures.FAN_GROUPS not in data.enabled_features:
         return
 
     # Check if there are any fan entities

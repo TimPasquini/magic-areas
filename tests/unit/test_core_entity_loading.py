@@ -1,8 +1,7 @@
 """Unit tests for entity loading core module."""
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from homeassistant.const import EntityCategory
+from unittest.mock import MagicMock, patch
 from homeassistant.core import HomeAssistant
 
 from custom_components.magic_areas.core.entity_loading import (
@@ -163,12 +162,11 @@ async def test_load_meta_area_entities_empty(hass: HomeAssistant) -> None:
     mock_entity_registry = MagicMock()
 
     # Mock hass.config_entries to return empty list
-    hass.config_entries.async_entries = MagicMock(return_value=[])
-
-    with patch(
-        "custom_components.magic_areas.core.entity_loading.entityreg_async_get",
-        return_value=mock_entity_registry,
-    ):
+    with patch.object(hass.config_entries, "async_entries", return_value=[]), \
+         patch(
+            "custom_components.magic_areas.core.entity_loading.entityreg_async_get",
+            return_value=mock_entity_registry,
+        ):
         entities, magic_entities = await load_meta_area_entities(
             hass, [], "test_config", {}
         )
@@ -202,7 +200,8 @@ async def test_load_meta_area_entities_with_child_areas(hass: HomeAssistant) -> 
     mock_child_entry.state = ConfigEntryState.LOADED
     mock_child_entry.domain = "magic_areas"
     mock_child_entry.entry_id = "child_config"
-    mock_child_entry.runtime_data.area.slug = "bedroom"
+    # Mock the coordinator snapshot with area_config
+    mock_child_entry.runtime_data.coordinator.data.area_config.slug = "bedroom"
 
     # Mock async_entries to return our mock entry
     with patch(
@@ -248,7 +247,8 @@ async def test_load_meta_area_entities_respects_exclude_list(
     mock_child_entry.state = ConfigEntryState.LOADED
     mock_child_entry.domain = "magic_areas"
     mock_child_entry.entry_id = "child_config"
-    mock_child_entry.runtime_data.area.slug = "bedroom"
+    # Mock the coordinator snapshot with area_config
+    mock_child_entry.runtime_data.coordinator.data.area_config.slug = "bedroom"
 
     with patch(
         "custom_components.magic_areas.core.entity_loading.entityreg_async_get",

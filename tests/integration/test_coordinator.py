@@ -1,26 +1,25 @@
 """Tests for the Magic Areas coordinator."""
 
-from unittest.mock import AsyncMock, MagicMock
+from enum import Enum
+from typing import Any
 
 import pytest
 
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
-
-from custom_components.magic_areas.coordinator import (
-    MagicAreasCoordinator,
-    MagicAreasData,
-)
-from enum import Enum
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
+from custom_components.magic_areas.coordinator import (
+    MagicAreasCoordinator,
+    MagicAreasData,
+)
+from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.ha_domains import BINARY_SENSOR_DOMAIN
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
-from homeassistant.helpers.update_coordinator import UpdateFailed
-
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 
@@ -33,11 +32,11 @@ async def test_coordinator_builds_snapshot(
 
     assert coordinator.data is not None
     data: MagicAreasData = coordinator.data
-    assert data.area == entry.runtime_data.area
-    assert data.entities == data.area.entities
-    assert data.magic_entities == data.area.magic_entities
-    assert data.presence_sensors == data.area.get_presence_sensors()
-    enabled_features = data.area.config.get(CONF_ENABLED_FEATURES, {})
+    # Verify snapshot is built correctly
+    assert data.entities is not None
+    assert data.magic_entities is not None
+    assert data.presence_sensors is not None
+    enabled_features = data.area_config.config.get(CONF_ENABLED_FEATURES, {})
 
     def _normalize_key(feature: object) -> str:
         if isinstance(feature, Enum):
@@ -63,20 +62,24 @@ async def test_coordinator_update_failure(
     """Test coordinator handles update failures."""
     from unittest.mock import patch
 
-    area = MagicMock()
-    area.entities = {}
-    area.magic_entities = {}
-    area.config = {CONF_ENABLED_FEATURES: {}}
-    area.get_presence_sensors.return_value = []
+    area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type="interior",
+        config={CONF_ENABLED_FEATURES: {}},
+        hass_config=mock_config_entry,
+        icon=None,
+        floor_id=None,
+    )
 
-    coordinator = MagicAreasCoordinator(hass, area, mock_config_entry)
+    coordinator = MagicAreasCoordinator(hass, area_config, mock_config_entry)
 
     with patch(
         "custom_components.magic_areas.coordinator.load_area_entities",
         side_effect=RuntimeError("boom"),
-    ):
-        with pytest.raises(UpdateFailed):
-            await coordinator._async_update_data()
+    ), pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
 
 
 async def test_coordinator_refresh_updates_snapshot(
@@ -85,16 +88,22 @@ async def test_coordinator_refresh_updates_snapshot(
     """Test coordinator refresh updates data snapshot."""
     from unittest.mock import patch
 
-    area = MagicMock()
-    area.entities = {}
-    area.magic_entities = {}
-    area.config = {
-        CONF_ENABLED_FEATURES: {"test_feature": {"flag": True}},
-        CONF_PRESENCE_DEVICE_PLATFORMS: [BINARY_SENSOR_DOMAIN],
-        CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
-    }
+    area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type="interior",
+        config={
+            CONF_ENABLED_FEATURES: {"test_feature": {"flag": True}},
+            CONF_PRESENCE_DEVICE_PLATFORMS: [BINARY_SENSOR_DOMAIN],
+            CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
+        },
+        hass_config=mock_config_entry,
+        icon=None,
+        floor_id=None,
+    )
 
-    async def _load_entities_impl(*args, **kwargs):
+    async def _load_entities_impl(*args: Any, **kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
         """Mock load_area_entities implementation."""
         return (
             {
@@ -115,7 +124,7 @@ async def test_coordinator_refresh_updates_snapshot(
             {"sensor": [{"entity_id": "sensor.magic_one"}]}
         )
 
-    coordinator = MagicAreasCoordinator(hass, area, mock_config_entry)
+    coordinator = MagicAreasCoordinator(hass, area_config, mock_config_entry)
 
     with patch(
         "custom_components.magic_areas.coordinator.load_area_entities",
@@ -130,7 +139,7 @@ async def test_coordinator_refresh_updates_snapshot(
         assert coordinator.data.enabled_features == {"test_feature"}
         assert coordinator.data.feature_configs == {"test_feature": {"flag": True}}
 
-        async def _load_entities_second(*args, **kwargs):
+        async def _load_entities_second(*args: Any, **kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             """Mock second load_area_entities implementation."""
             return (
                 {

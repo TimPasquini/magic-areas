@@ -14,9 +14,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoPresenceHold,
 )
-from custom_components.magic_areas.enums import (
-    MagicAreasFeatures,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import ResettableSwitchBase
 
 

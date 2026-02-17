@@ -1,6 +1,7 @@
 """Test cache synchronization in presence tracking and area state."""
 
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
@@ -8,8 +9,8 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.attrs import ATTR_STATES
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import AreaStates
 
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
@@ -59,6 +60,7 @@ async def test_attr_is_on_and_states_stay_in_sync(
     # Critical: When is_on is ON, states must contain OCCUPIED
     # (not CLEAR or some stale value)
     occupied_state = AreaStates.OCCUPIED.value
+    assert area_state is not None
     states_attr = area_state.attributes.get(ATTR_STATES, [])
     assert occupied_state in states_attr, (
         f"Stale states detected! Entity is ON but OCCUPIED not in states. "
@@ -76,6 +78,7 @@ async def test_attr_is_on_and_states_stay_in_sync(
     # Critical: When is_on is OFF, states must contain CLEAR
     # (not OCCUPIED or some stale value)
     clear_state = AreaStates.CLEAR.value
+    assert area_state is not None
     states_attr = area_state.attributes.get(ATTR_STATES, [])
     assert clear_state in states_attr, (
         f"Stale states detected! Entity is OFF but CLEAR not in states. "
@@ -101,13 +104,10 @@ async def test_event_payload_prevents_stale_reads(
     await init_integration_helper(hass, [config_entry])
 
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
 
     received_states = []
 
-    def capture_event(area_id: str, states_tuple):
+    def capture_event(area_id: str, states_tuple: Any) -> None:
         """Capture the event payload states."""
         new_states, lost_states, current_states = states_tuple
         received_states.append({

@@ -38,10 +38,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_HEALTH,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_state,
@@ -67,7 +64,7 @@ def mock_config_entry_aggregates() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1}
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1}
             }
         }
     )
@@ -81,14 +78,14 @@ def mock_config_entry_aggregates_filtered() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {
+                MagicAreasFeatures.AGGREGATES: {
                     CONF_AGGREGATES_MIN_ENTITIES: 1,
                     # Only allow DOOR, so MOTION will be skipped
                     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: [
                         BinarySensorDeviceClass.DOOR
                     ],
                 },
-                CONF_FEATURE_HEALTH: {},
+                MagicAreasFeatures.HEALTH: {},
             }
         }
     )
@@ -99,7 +96,7 @@ def mock_config_entry_aggregates_filtered() -> MockConfigEntry:
 async def setup_integration_aggregates(
     hass: HomeAssistant,
     aggregates_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [aggregates_config_entry])
@@ -193,7 +190,7 @@ async def setup_entities_sensor_current_multiple(
 async def test_aggregates_binary_sensor_regular(
     hass: HomeAssistant,
     entities_binary_sensor_motion_multiple: list[MockBinarySensor],
-    _setup_integration_aggregates,
+    _setup_integration_aggregates: Any,
 ) -> None:
     """Test binary sensor aggregates with all=False."""
 
@@ -250,7 +247,7 @@ async def test_aggregates_binary_sensor_regular(
 async def test_aggregates_binary_sensor_all(
     hass: HomeAssistant,
     entities_binary_sensor_connectivity_multiple: list[MockBinarySensor],
-    _setup_integration_aggregates,
+    _setup_integration_aggregates: Any,
 ) -> None:
     """Test binary sensor aggregates with all=True."""
 
@@ -308,7 +305,7 @@ async def test_aggregates_binary_sensor_all(
 async def test_aggregates_sensor_avg(
     hass: HomeAssistant,
     entities_sensor_temperature_multiple: list[MockSensor],
-    _setup_integration_aggregates,
+    _setup_integration_aggregates: Any,
 ) -> None:
     """Test sensor aggregates with average mode."""
 
@@ -359,7 +356,7 @@ async def test_aggregates_sensor_avg(
 async def test_aggregates_sensor_sum(
     hass: HomeAssistant,
     entities_sensor_current_multiple: list[MockSensor],
-    _setup_integration_aggregates,
+    _setup_integration_aggregates: Any,
 ) -> None:
     """Test sensor aggregates with sum mode."""
 
@@ -415,7 +412,7 @@ async def test_aggregates_not_enough_entities(
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 2}
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 2}
             }
         }
     )

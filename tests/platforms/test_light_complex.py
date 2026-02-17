@@ -9,19 +9,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
-    CONF_ENABLED_FEATURES,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import (
     DOMAIN,
     EVENT_MAGICAREAS_AREA_STATE_CHANGED,
 )
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
@@ -49,7 +43,7 @@ def mock_config_entry_light_complex() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {
+                MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.overhead_1"],
                     CONF_OVERHEAD_LIGHTS_STATES: [
                         AreaStates.OCCUPIED,
@@ -92,10 +86,6 @@ async def test_light_group_state_change_logic(
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
     )
 
-    # Get area object to manipulate state
-    entry = hass.config_entries.async_get_entry(light_complex_config_entry.entry_id)
-    area = entry.runtime_data.area
-
     # Verify light group is set up correctly
     light_group_state = hass.states.get(light_group_id)
     assert light_group_state is not None
@@ -113,45 +103,41 @@ async def test_light_group_state_change_logic(
     await wait_for_state(hass, light_control_switch_id, STATE_ON)
 
     # 1. Area occupied -> Light ON
-    area.states = [AreaStates.OCCUPIED]
     async_dispatcher_send(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [], list(area.states)),
+        ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)
 
     # 2. Area clear -> Light OFF
-    area.states = [AreaStates.CLEAR]
     async_dispatcher_send(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], [AreaStates.OCCUPIED], list(area.states)),
+        ([AreaStates.CLEAR], [AreaStates.OCCUPIED], [AreaStates.CLEAR]),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
 
     # 3. Area Bright (but not occupied) -> Light OFF (should stay off)
-    area.states = [AreaStates.BRIGHT, AreaStates.CLEAR]
     async_dispatcher_send(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.BRIGHT], [], list(area.states)),
+        ([AreaStates.BRIGHT], [], [AreaStates.BRIGHT, AreaStates.CLEAR]),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
 
     # 4. Area Occupied + Bright -> Light ON (because Bright is configured state)
-    area.states = [AreaStates.OCCUPIED, AreaStates.BRIGHT]
     async_dispatcher_send(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], list(area.states)),
+        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], [AreaStates.OCCUPIED, AreaStates.BRIGHT]),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)

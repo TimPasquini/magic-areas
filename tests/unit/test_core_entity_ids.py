@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 from custom_components.magic_areas.core.entity_ids import (
-    EntityReferences,
     build_entity_references,
 )
 

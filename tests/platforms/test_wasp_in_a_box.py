@@ -32,10 +32,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     assert_attribute,
@@ -61,11 +58,11 @@ def mock_config_entry_wasp_in_a_box() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_WASP_IN_A_BOX: {
+                MagicAreasFeatures.WASP_IN_A_BOX: {
                     CONF_WASP_IN_A_BOX_DELAY: 0,
                     CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 1,
                 },
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1},
             },
         }
     )
@@ -76,7 +73,7 @@ def mock_config_entry_wasp_in_a_box() -> MockConfigEntry:
 async def setup_integration_wasp_in_a_box(
     hass: HomeAssistant,
     wasp_in_a_box_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with Wasp in a box (and aggregates) config."""
 
     await init_integration_helper(hass, [wasp_in_a_box_config_entry])
@@ -116,7 +113,7 @@ async def setup_entities_wasp_in_a_box(
 async def test_wasp_in_a_box_logic(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
+    _setup_integration_wasp_in_a_box: Any,
 ) -> None:
     """Test the Wasp in a box sensor logic."""
 
@@ -218,7 +215,7 @@ async def test_wasp_in_a_box_logic(
 async def test_wasp_in_a_box_as_presence(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
+    _setup_integration_wasp_in_a_box: Any,
 ) -> None:
     """Test the Wasp in a box sensor triggers area presence."""
 
@@ -277,8 +274,8 @@ async def test_wasp_in_a_box_as_presence(
 async def test_wasp_timeout_triggers_forget(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
-    patch_async_call_later,
+    _setup_integration_wasp_in_a_box: Any,
+    patch_async_call_later: None,
 ) -> None:
     """Test that the wasp timeout triggers the forget function.
 
@@ -316,7 +313,7 @@ async def test_wasp_timeout_triggers_forget(
 async def test_open_box_cancels_timer(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
+    _setup_integration_wasp_in_a_box: Any,
 ) -> None:
     """Test that opening the box cancels the forget timer.
 
@@ -344,7 +341,7 @@ async def test_open_box_cancels_timer(
     # Motion OFF → schedule timer but capture callback
     fired = {}
 
-    def capture_callback(hass, delay, callback):
+    def capture_callback(hass: Any, delay: Any, callback: Any) -> Any:
         fired["callback"] = callback
         return lambda: None  # dummy cancel
 
@@ -382,8 +379,8 @@ async def test_open_box_cancels_timer(
 async def test_wasp_seen_cancels_timer(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
-    patch_async_call_later,
+    _setup_integration_wasp_in_a_box: Any,
+    patch_async_call_later: None,
 ) -> None:
     """Test that seeing the wasp again cancels the forget timer.
 
@@ -429,11 +426,11 @@ async def test_wasp_timeout_disabled(
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_WASP_IN_A_BOX: {
+                MagicAreasFeatures.WASP_IN_A_BOX: {
                     CONF_WASP_IN_A_BOX_DELAY: 0,
                     CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 0,
                 },
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1},
             },
         }
     )
@@ -475,11 +472,11 @@ async def test_wasp_with_delay(
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_WASP_IN_A_BOX: {
+                MagicAreasFeatures.WASP_IN_A_BOX: {
                     CONF_WASP_IN_A_BOX_DELAY: 1,  # 1-second delay
                     CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 0,
                 },
-                CONF_FEATURE_AGGREGATION: {CONF_AGGREGATES_MIN_ENTITIES: 1},
+                MagicAreasFeatures.AGGREGATES: {CONF_AGGREGATES_MIN_ENTITIES: 1},
             },
         }
     )
@@ -512,7 +509,7 @@ async def test_wasp_with_delay(
 async def test_wasp_redundant_states(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box,
+    _setup_integration_wasp_in_a_box: Any,
 ) -> None:
     """Test redundant state changes are ignored."""
     motion_sensor = entities_wasp_in_a_box[0]

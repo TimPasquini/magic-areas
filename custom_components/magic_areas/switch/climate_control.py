@@ -24,10 +24,8 @@ from custom_components.magic_areas.core.climate_control import (
     build_preset_policy,
     ClimatePresetPolicy,
 )
-from custom_components.magic_areas.enums import (
-    AreaStates,
-    MagicAreasEvents,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )

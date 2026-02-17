@@ -1,6 +1,5 @@
 """Unit tests for core.wasp_state_machine module."""
 
-import pytest
 from homeassistant.const import STATE_OFF, STATE_ON
 
 from custom_components.magic_areas.core.wasp_state_machine import (

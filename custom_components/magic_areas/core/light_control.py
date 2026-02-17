@@ -10,7 +10,7 @@ from custom_components.magic_areas.core.state_priority import (
     filter_by_priority,
     LIGHT_PRIORITY_STATES,
 )
-from custom_components.magic_areas.enums import AreaStates
+from custom_components.magic_areas.area_state import AreaStates
 
 
 class LightAction(StrEnum):

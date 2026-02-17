@@ -12,18 +12,10 @@ from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STAT
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
-    CONF_ENABLED_FEATURES,
-)
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
-from custom_components.magic_areas.enums import (
-    AreaStates,
-)
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
-)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
@@ -56,7 +48,7 @@ def mock_config_entry_light_groups() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_LIGHT_GROUPS: {
+                MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.mock_light_1"],
                     CONF_OVERHEAD_LIGHTS_ACT_ON: [LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE],
                     CONF_OVERHEAD_LIGHTS_STATES: [AreaStates.OCCUPIED],
@@ -71,7 +63,7 @@ def mock_config_entry_light_groups() -> MockConfigEntry:
 async def setup_integration_light_groups(
     hass: HomeAssistant,
     light_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with BLE tracker config."""
 
     await init_integration_helper(hass, [light_groups_config_entry])
@@ -88,7 +80,7 @@ async def test_light_group_basic(
     hass: HomeAssistant,
     entities_light_one: list[MockLight],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_light_groups,
+    _setup_integration_light_groups: Any,
 ) -> None:
     """Test light group."""
 

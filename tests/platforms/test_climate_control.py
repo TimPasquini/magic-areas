@@ -156,7 +156,7 @@ def mock_config_entry_climate_control() -> MockConfigEntry:
 async def setup_integration_climate_control(
     hass: HomeAssistant,
     climate_control_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with BLE tracker config."""
 
     await init_integration_helper(hass, [climate_control_config_entry])
@@ -190,7 +190,7 @@ async def setup_entities_climate_one(
 async def test_climate_control_init(
     hass: HomeAssistant,
     entities_climate_one: list[MockClimate],
-    _setup_integration_climate_control,
+    _setup_integration_climate_control: Any,
 ) -> None:
     """Test climate control."""
 
@@ -228,7 +228,7 @@ async def test_climate_control_logic(
     hass: HomeAssistant,
     entities_climate_one: list[MockClimate],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_climate_control,
+    _setup_integration_climate_control: Any,
 ) -> None:
     """Test climate control logic."""
 

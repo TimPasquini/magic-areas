@@ -1,6 +1,6 @@
 """Media routing policy for area-aware media player."""
 
-from custom_components.magic_areas.enums import AreaStates
+from custom_components.magic_areas.area_state import AreaStates
 
 
 def has_valid_notification_states(

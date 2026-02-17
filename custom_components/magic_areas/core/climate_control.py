@@ -19,7 +19,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.core.state_priority import (
     get_highest_priority_state,
 )
-from custom_components.magic_areas.enums import AreaStates
+from custom_components.magic_areas.area_state import AreaStates
 
 
 @dataclass(slots=True)

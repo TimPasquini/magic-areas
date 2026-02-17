@@ -14,7 +14,6 @@ from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_D
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.config_flow_filters import (
     CONFIG_FLOW_ENTITY_FILTER_BOOL,
     CONFIG_FLOW_ENTITY_FILTER_EXT,
@@ -35,12 +34,12 @@ class ConfigFlowEntityGatherer:
     def __init__(
         self,
         hass: HomeAssistant,
-        area: MagicArea,
+        entities_by_domain: dict[str, list[dict[str, Any]]],
         config_entry_options: Mapping[str, Any],
     ) -> None:
         """Initialize entity gatherer."""
         self.hass = hass
-        self.area = area
+        self.entities_by_domain = entities_by_domain
         self.config_entry_options = config_entry_options
 
     @staticmethod
@@ -75,7 +74,7 @@ class ConfigFlowEntityGatherer:
             filtered_area_entities.extend(
                 [
                     entity["entity_id"]
-                    for entity in self.area.entities.get(domain, [])
+                    for entity in self.entities_by_domain.get(domain, [])
                     if entity["entity_id"] in all_entities
                 ]
             )
@@ -108,7 +107,7 @@ class ConfigFlowEntityGatherer:
             self.resolve_groups(
                 [
                     entity["entity_id"]
-                    for entity in self.area.entities.get(LIGHT_DOMAIN, [])
+                    for entity in self.entities_by_domain.get(LIGHT_DOMAIN, [])
                     if entity["entity_id"] in all_entities
                 ]
             )
@@ -120,7 +119,7 @@ class ConfigFlowEntityGatherer:
             self.resolve_groups(
                 [
                     entity["entity_id"]
-                    for entity in self.area.entities.get(MEDIA_PLAYER_DOMAIN, [])
+                    for entity in self.entities_by_domain.get(MEDIA_PLAYER_DOMAIN, [])
                     if entity["entity_id"] in all_entities
                 ]
             )

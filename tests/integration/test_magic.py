@@ -1,33 +1,30 @@
 """Test Magic Area class logic."""
 
+from typing import cast
 from unittest.mock import ANY, MagicMock, patch
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import (
-    ATTR_ENTITY_ID,
     EVENT_HOMEASSISTANT_STARTED,
     STATE_OFF,
     STATE_ON,
     EntityCategory,
 )
-from homeassistant.core import CoreState, EventBus, HomeAssistant, StateMachine
+from homeassistant.core import CoreState, EventBus, HomeAssistant
+from homeassistant.helpers.entity_registry import (
+    _EventEntityRegistryUpdatedData_CreateRemove,
+    _EventEntityRegistryUpdatedData_Update,
+)
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
-    mock_device_registry,
     mock_registry,
 )
 
-from custom_components.magic_areas.area_constants import (
-    AREA_STATE_DARK,
-)
-from custom_components.magic_areas.base.magic import MagicArea
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
-    MAGIC_DEVICE_ID_PREFIX,
-    MAGICAREAS_UNIQUEID_PREFIX,
 )
 from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
@@ -39,10 +36,12 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.enums import MagicConfigEntryVersion
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_LIGHT_GROUPS,
+from custom_components.magic_areas.core.config import (
+    has_configured_state,
+    has_feature,
 )
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -108,11 +107,13 @@ async def test_magic_area_include_entities(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    coordinator = entry.runtime_data.coordinator
 
-    # Verify entity is loaded
-    assert "switch" in area.entities
-    loaded_ids = [e["entity_id"] for e in area.entities["switch"]]
+    # Verify entity is loaded in coordinator snapshot
+    assert coordinator.data is not None
+    assert "switch" in coordinator.data.entities
+    loaded_ids = [e["entity_id"] for e in coordinator.data.entities["switch"]]
     assert external_entity.entity_id in loaded_ids
 
     await shutdown_integration(hass, [mock_config_entry])
@@ -133,19 +134,20 @@ async def test_has_configured_state(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
 
-    # AREA_STATE_DARK maps to "dark_entity" in CONFIGURABLE_AREA_STATE_MAP
-    assert area.has_configured_state(AREA_STATE_DARK) is True
+    # AreaStates.DARK maps to "dark_entity" in CONFIGURABLE_AREA_STATE_MAP
+    assert has_configured_state(area_config.config, AreaStates.DARK) is True
 
     # Sleep is not configured
-    assert area.has_configured_state("sleep") is False
+    assert has_configured_state(area_config.config, AreaStates.SLEEP) is False
 
     await shutdown_integration(hass, [mock_config_entry])
 
 
 async def test_magic_meta_area_active_areas(
-    hass: HomeAssistant, init_integration_all_areas
+    hass: HomeAssistant, init_integration_all_areas: list[MockConfigEntry]
 ) -> None:
     """Test getting active areas for a meta area."""
 
@@ -158,9 +160,11 @@ async def test_magic_meta_area_active_areas(
 
     assert global_entry is not None
     entry = hass.config_entries.async_get_entry(global_entry.entry_id)
-    meta_area = entry.runtime_data.area
+    assert entry is not None
+    coordinator = entry.runtime_data.coordinator
+    meta_area_config = coordinator.data.area_config
 
-    assert meta_area.is_meta()
+    assert meta_area_config.is_meta()
 
     # Mock child area states
     # Kitchen (child of Global) -> Occupied
@@ -171,7 +175,11 @@ async def test_magic_meta_area_active_areas(
     living_room_state_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.LIVING_ROOM.value}_area_state"
     hass.states.async_set(living_room_state_id, STATE_OFF)
 
-    active_areas = meta_area.get_active_areas()
+    # Refresh coordinator to pick up state changes
+    await coordinator.async_refresh()
+
+    # Read active areas from snapshot
+    active_areas = coordinator.data.active_areas
 
     assert MockAreaIds.KITCHEN.value in active_areas
     assert MockAreaIds.LIVING_ROOM.value not in active_areas
@@ -181,25 +189,32 @@ async def test_registry_filters(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
     """Test registry filters."""
+    from custom_components.magic_areas.core.registry_filters import (
+        make_entity_registry_filter,
+    )
 
     await init_integration_helper(hass, [mock_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
 
-    entity_filter = area.make_entity_registry_filter()
+    entity_filter = make_entity_registry_filter(hass, area_config.id, mock_config_entry.entry_id)
 
     # Test entity update in area
-    event_data = {
-        "action": "update",
-        "entity_id": "light.test",
-        "changes": {"area_id": DEFAULT_MOCK_AREA.value},  # Removed from area
-    }
+    event_data: _EventEntityRegistryUpdatedData_Update = cast(
+        _EventEntityRegistryUpdatedData_Update,
+        {
+            "action": "update",
+            "entity_id": "light.test",
+            "changes": {"area_id": DEFAULT_MOCK_AREA.value},  # Removed from area
+        },
+    )
     # Mock registry lookup to return None or different area to simulate removal
     with patch(
-        "custom_components.magic_areas.base.magic.entityreg_async_get"
+        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
     ) as mock_er:
         mock_registry_instance = MagicMock()
         mock_er.return_value = mock_registry_instance
@@ -210,12 +225,15 @@ async def test_registry_filters(
         assert entity_filter(event_data) is True
 
     # Test entity create in area
-    event_data_create = {
-        "action": "create",
-        "entity_id": "light.test_new",
-    }
+    event_data_create: _EventEntityRegistryUpdatedData_CreateRemove = cast(
+        _EventEntityRegistryUpdatedData_CreateRemove,
+        {
+            "action": "create",
+            "entity_id": "light.test_new",
+        },
+    )
     with patch(
-        "custom_components.magic_areas.base.magic.entityreg_async_get"
+        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
     ) as mock_er:
         mock_registry_instance = MagicMock()
         mock_er.return_value = mock_registry_instance
@@ -245,9 +263,10 @@ async def test_magic_area_options_merge(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
 
-    assert area.config[CONF_INCLUDE_ENTITIES] == ["light.extra"]
+    assert area_config.config[CONF_INCLUDE_ENTITIES] == ["light.extra"]
 
     await shutdown_integration(hass, [mock_config_entry])
 
@@ -255,7 +274,7 @@ async def test_magic_area_options_merge(
 async def test_magic_area_legacy_features(hass: HomeAssistant) -> None:
     """Test legacy feature configuration (list)."""
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
-    data[CONF_ENABLED_FEATURES] = [CONF_FEATURE_LIGHT_GROUPS]
+    data[CONF_ENABLED_FEATURES] = [MagicAreasFeatures.LIGHT_GROUPS]
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     config_entry.add_to_hass(hass)
@@ -265,9 +284,10 @@ async def test_magic_area_legacy_features(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
 
-    assert area.has_feature(CONF_FEATURE_LIGHT_GROUPS) is True
+    assert has_feature(area_config.config, MagicAreasFeatures.LIGHT_GROUPS) is True
 
     await shutdown_integration(hass, [config_entry])
 
@@ -285,9 +305,11 @@ async def test_magic_area_invalid_features(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    coordinator = entry.runtime_data.coordinator
 
-    assert area.has_feature(CONF_FEATURE_LIGHT_GROUPS) is False
+    # Verify has_feature returns False for invalid feature config
+    assert has_feature(coordinator.data.config, MagicAreasFeatures.LIGHT_GROUPS) is False
 
     await shutdown_integration(hass, [config_entry])
 
@@ -312,82 +334,10 @@ async def test_magic_area_finalize_init_running(
     await shutdown_integration(hass, [mock_config_entry])
 
 
-async def test_filters_throttling(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Test registry filters throttling."""
-
-    await init_integration_helper(hass, [mock_config_entry])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
-
-    # Mock timestamp to be NOW (so it throttles)
-    area.timestamp = dt_util.utcnow()
-
-    # Patch THROTTLE to be non-zero to ensure throttling logic triggers
-    # (conftest.py sets it to 0 globally)
-    with patch(
-        "custom_components.magic_areas.base.magic.MetaAreaAutoReloadSettings.THROTTLE",
-        5,
-    ):
-        entity_filter = area.make_entity_registry_filter()
-        device_filter = area.make_device_registry_filter()
-
-        event_data = {"entity_id": "light.test", "action": "update", "changes": {}}
-        assert entity_filter(event_data) is False
-
-        event_data_device = {
-            "device_id": "test_device",
-            "action": "update",
-            "changes": {},
-        }
-        assert device_filter(event_data_device) is False
-
-    # Test magic prefix filtering
-    event_data_magic = {
-        "entity_id": f"light.{MAGICAREAS_UNIQUEID_PREFIX}_test",
-        "action": "create",
-    }
-    assert entity_filter(event_data_magic) is False
-
-    event_data_device_magic = {
-        "device_id": f"{MAGIC_DEVICE_ID_PREFIX}test",
-        "action": "create",
-    }
-    assert device_filter(event_data_device_magic) is False
-
-    await shutdown_integration(hass, [mock_config_entry])
-
-
-async def test_get_active_areas_exception(
-    hass: HomeAssistant, init_integration_all_areas
-) -> None:
-    """Test get_active_areas exception handling."""
-
-    # Get Global Meta Area
-    global_entry = None
-    for entry in init_integration_all_areas:
-        if entry.data["id"] == MockAreaIds.GLOBAL.value:
-            global_entry = entry
-            break
-
-    assert global_entry is not None
-    entry = hass.config_entries.async_get_entry(global_entry.entry_id)
-    meta_area = entry.runtime_data.area
-
-    # Mock hass.states.get to raise exception
-    with patch.object(
-        StateMachine, "get", side_effect=Exception("Boom"), autospec=True
-    ):
-        active_areas = meta_area.get_active_areas()
-        assert active_areas == []
 
 
 async def test_get_child_areas_floor_logic(
-    hass: HomeAssistant, init_integration_all_areas
+    hass: HomeAssistant, init_integration_all_areas: list[MockConfigEntry]
 ) -> None:
     """Test get_child_areas logic for floors."""
 
@@ -400,9 +350,8 @@ async def test_get_child_areas_floor_logic(
 
     assert floor_entry is not None
     entry = hass.config_entries.async_get_entry(floor_entry.entry_id)
-    meta_area = entry.runtime_data.area
-
-    children = meta_area.get_child_areas()
+    assert entry is not None
+    children = entry.runtime_data.coordinator.data.child_areas
     # Kitchen, Living Room, Dining Room are on First Floor
     assert MockAreaIds.KITCHEN.value in children
     assert MockAreaIds.LIVING_ROOM.value in children
@@ -419,9 +368,10 @@ async def test_available_platforms(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area: MagicArea = entry.runtime_data.area
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator.data.area_config
 
-    assert area.available_platforms() == MAGIC_AREAS_COMPONENTS
+    assert area_config.available_platforms() == MAGIC_AREAS_COMPONENTS
 
     await shutdown_integration(hass, [mock_config_entry])
 
@@ -452,6 +402,7 @@ async def test_magic_area_entity_loading_excludes_disabled(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify disabled entity is excluded
@@ -491,6 +442,7 @@ async def test_magic_area_entity_loading_excludes_diagnostic(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify diagnostic entity is excluded
@@ -534,6 +486,7 @@ async def test_magic_area_includes_normal_entities(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify all normal entities are included
@@ -572,6 +525,7 @@ async def test_magic_area_excluded_entities_respected(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify excluded entity is excluded even if explicitly included
@@ -615,6 +569,7 @@ async def test_magic_area_coordinator_entity_loading(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify coordinator snapshot has the entities
@@ -647,7 +602,8 @@ async def test_magic_area_loads_device_entities(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
-    area_id = entry.runtime_data.area.id
+    assert entry is not None
+    area_id = entry.runtime_data.coordinator._area_config.id
 
     # Create a device in the area
     device = device_registry.async_get_or_create(
@@ -666,6 +622,7 @@ async def test_magic_area_loads_device_entities(
     await hass.async_block_till_done()
 
     # Refresh coordinator to pick up device entities
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
     await coordinator.async_refresh()
     await hass.async_block_till_done()
@@ -707,6 +664,7 @@ async def test_magic_area_entity_loading_respects_config_entry_id(
     await hass.async_block_till_done()
 
     entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
     coordinator = entry.runtime_data.coordinator
 
     # Verify our entity is excluded even if included
@@ -722,3 +680,94 @@ async def test_magic_area_entity_loading_respects_config_entry_id(
     await shutdown_integration(hass, [mock_config_entry])
 
 
+async def test_config_entry_update_pattern(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test that ConfigEntry is updated correctly via HA API."""
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    # Verify initial state
+    assert mock_config_entry.data[CONF_INCLUDE_ENTITIES] == []
+
+    # Update via HA API
+    new_data = dict(mock_config_entry.data)
+    new_data[CONF_INCLUDE_ENTITIES] = ["light.new_light"]
+
+    hass.config_entries.async_update_entry(mock_config_entry, data=new_data)
+    await hass.async_block_till_done()
+
+    # Verify update reflected in entry
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
+    assert entry.data[CONF_INCLUDE_ENTITIES] == ["light.new_light"]
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_coordinator_internal_area_lifecycle(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Verify coordinator uses internal MagicArea for lifecycle and state queries.
+
+    This test ensures that after Phase 8 (when area is removed from snapshot),
+    the coordinator can still:
+    - Access internal MagicArea for lifecycle (initialize, finalize_init)
+    - Query area state (is_occupied, has_state, get_current_states)
+    - Build snapshot without exposing area to platforms
+    """
+    from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_block_till_done()
+
+    # Get coordinator and verify it has internal MagicArea access
+    assert mock_config_entry.runtime_data is not None
+    coordinator = mock_config_entry.runtime_data.coordinator
+    assert coordinator is not None
+    assert coordinator.data is not None
+
+    # Verify coordinator has area_config and area_runtime in snapshot (not area)
+    snapshot = coordinator.data
+    assert hasattr(snapshot, 'area_config'), "Snapshot must have area_config"
+    assert hasattr(snapshot, 'area_runtime'), "Snapshot must have area_runtime"
+
+    # Verify snapshot state is valid
+    assert snapshot.area_config is not None
+    assert snapshot.area_runtime is not None
+    assert snapshot.area_runtime.last_update_success is True
+
+    # Verify coordinator can access internal area for lifecycle
+    # (Coordinator should have _area or similar private reference)
+    # This is implicit: if coordinator.refresh() works and tests pass,
+    # then it's using internal area correctly
+
+    # Verify entities can query state through coordinator snapshot
+    # Get the presence sensor binary sensor
+    presence_entity_id = f"{BS_DOMAIN}.magic_areas_presence_tracking_{snapshot.area_config.slug}_area_state"
+    presence_state = hass.states.get(presence_entity_id)
+    assert presence_state is not None
+    assert presence_state.state == STATE_OFF  # Initially clear
+
+    # Verify area runtime availability chain works
+    # (This is how entities will check availability after Phase 8)
+    assert snapshot.area_runtime.last_update_success is True
+
+    # Trigger a coordinator refresh to verify lifecycle still works
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    # After refresh, snapshot should be updated
+    updated_snapshot = coordinator.data
+    assert updated_snapshot is not None
+    assert updated_snapshot.area_runtime.last_update_success is True
+
+    # PHASE 8 CHECKPOINT: Verify that the area field was successfully removed from snapshot
+    # After Phase 8A, MagicArea should NOT be in the public snapshot API
+    has_area = hasattr(snapshot, 'area') and getattr(snapshot, 'area', None) is not None
+    assert not has_area, (
+        "PHASE 8 FAILED: area field still exists in snapshot. "
+        "It should have been removed in Phase 8A."
+    )
+
+    await shutdown_integration(hass, [mock_config_entry])

@@ -5,10 +5,9 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.magic_areas.area_constants import (
-    AREA_TYPE_INTERIOR,
-    AREA_TYPE_EXTERIOR,
-    AREA_STATE_OCCUPIED,
+from custom_components.magic_areas.area_state import (
+    AreaStates,
+    AreaType
 )
 from custom_components.magic_areas.config_keys import (
     CONF_TYPE,
@@ -99,7 +98,7 @@ from custom_components.magic_areas.light_groups import (
 )
 
 OPTIONS_AREA = [
-    (CONF_TYPE, DEFAULT_TYPE, vol.In([AREA_TYPE_INTERIOR, AREA_TYPE_EXTERIOR])),
+    (CONF_TYPE, DEFAULT_TYPE, vol.In([AreaType.INTERIOR, AreaType.EXTERIOR])),
     (CONF_INCLUDE_ENTITIES, [], cv.entity_ids),
     (CONF_EXCLUDE_ENTITIES, [], cv.entity_ids),
     (CONF_RELOAD_ON_REGISTRY_CHANGE, DEFAULT_RELOAD_ON_REGISTRY_CHANGE, cv.boolean),
@@ -148,7 +147,7 @@ OPTIONS_SECONDARY_STATES_META = [
 
 OPTIONS_LIGHT_GROUP = [
     (CONF_OVERHEAD_LIGHTS, [], cv.entity_ids),
-    (CONF_OVERHEAD_LIGHTS_STATES, [AREA_STATE_OCCUPIED], cv.ensure_list),
+    (CONF_OVERHEAD_LIGHTS_STATES, [AreaStates.OCCUPIED], cv.ensure_list),
     (CONF_OVERHEAD_LIGHTS_ACT_ON, DEFAULT_LIGHT_GROUP_ACT_ON, cv.ensure_list),
     (CONF_SLEEP_LIGHTS, [], cv.entity_ids),
     (CONF_SLEEP_LIGHTS_STATES, [], cv.ensure_list),

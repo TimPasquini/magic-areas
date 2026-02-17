@@ -1,11 +1,40 @@
-"""Config keys and primitive defaults (no HA enum defaults here)."""
+"""Configuration keys and primitive defaults organized by domain.
+
+This module centralizes all configuration constants and their default values
+for the Magic Areas integration. Keys are organized by functional category:
+
+Categories:
+    - **Area Identity**: CONF_ID, CONF_NAME, CONF_TYPE (basic area metadata)
+    - **Feature Management**: CONF_ENABLED_FEATURES, CONF_SECONDARY_STATES
+    - **Entity Selection**: Include/exclude/filter entity selection
+    - **Presence Tracking**: Device platform selection and device class detection
+    - **Aggregates**: Sensor grouping by device class and thresholds
+    - **Health Monitoring**: Health sensor device classes
+    - **Control Behavior**: Registry reload, diagnostic filtering
+    - **Secondary State Timing**: Timeouts for area state transitions (clear, sleep, extended)
+    - **Secondary State Entities**: Selectors for dark/accent/sleep state entities
+    - **Notifications**: Media devices and trigger states
+    - **Climate Control**: Entity selection and preset naming
+    - **Fan Control**: Required state, device tracking, setpoint thresholds
+    - **BLE Trackers**: Entity selection for Bluetooth tracking
+    - **Wasp in a Box**: Door+motion hybrid detection tuning
+    - **Presence Hold**: Manual occupancy override timeout
+    - **Calculation Mode**: Aggregation strategy for secondary states
+
+Note: This module contains configuration *keys* and *primitive* defaults only.
+Feature-specific enum defaults (device class lists, state lists) are in defaults.py
+to keep enum imports separate. Complex schema validation is in schemas/features.py.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from .const import EMPTY_STRING
-from .area_constants import AREA_STATE_EXTENDED, AREA_TYPE_INTERIOR
+from .area_state import (
+    AreaStates,
+    AreaType,
+)
 from .enums import CalculationMode
 from .ha_domains import (
     BINARY_SENSOR_DOMAIN,
@@ -16,7 +45,7 @@ from .ha_domains import (
 
 CONF_ID = "id"
 CONF_NAME, DEFAULT_NAME = "name", ""
-CONF_TYPE, DEFAULT_TYPE = "type", AREA_TYPE_INTERIOR
+CONF_TYPE, DEFAULT_TYPE = "type", AreaType.INTERIOR
 
 CONF_ENABLED_FEATURES = "features"
 DEFAULT_ENABLED_FEATURES: dict[str, Any] = {}
@@ -86,7 +115,7 @@ DEFAULT_NOTIFICATION_DEVICES: list[str] = []
 
 CONF_NOTIFY_STATES, DEFAULT_NOTIFY_STATES = (
     "notification_states",
-    [AREA_STATE_EXTENDED],
+    [AreaStates.EXTENDED],
 )
 
 CONF_DARK_ENTITY = "dark_entity"
@@ -137,7 +166,7 @@ CONF_CLIMATE_CONTROL_PRESET_SLEEP, DEFAULT_CLIMATE_CONTROL_PRESET_SLEEP = (
 
 CONF_FAN_GROUPS_REQUIRED_STATE, DEFAULT_FAN_GROUPS_REQUIRED_STATE = (
     "required_state",
-    AREA_STATE_EXTENDED,
+    AreaStates.EXTENDED,
 )
 CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS = "tracked_device_class"
 CONF_FAN_GROUPS_SETPOINT, DEFAULT_FAN_GROUPS_SETPOINT = ("setpoint", 0.0)

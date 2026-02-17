@@ -1,7 +1,5 @@
 """Unit tests for aggregates.py edge cases."""
 
-import pytest
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, ATTR_ENTITY_ID
 from enum import Enum
 
 from custom_components.magic_areas.core.aggregates import (
@@ -116,10 +114,10 @@ def test_min_entities_from_empty_config() -> None:
 def test_min_entities_from_config_with_explicit_value() -> None:
     """Test _min_entities with explicit min_entities value."""
     from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
-    from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+    from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 5,
         }
     }
@@ -130,10 +128,10 @@ def test_min_entities_from_config_with_explicit_value() -> None:
 def test_min_entities_from_config_with_int() -> None:
     """Test _min_entities handles int value correctly."""
     from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
-    from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+    from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: 3,
         }
     }
@@ -144,10 +142,10 @@ def test_min_entities_from_config_with_int() -> None:
 def test_min_entities_from_config_with_string_int() -> None:
     """Test _min_entities handles string int value correctly."""
     from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
-    from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+    from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: "2",
         }
     }
@@ -158,10 +156,10 @@ def test_min_entities_from_config_with_string_int() -> None:
 def test_min_entities_from_config_with_invalid_string() -> None:
     """Test _min_entities handles invalid string gracefully."""
     from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
-    from custom_components.magic_areas.features import CONF_FEATURE_AGGREGATION
+    from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
-        CONF_FEATURE_AGGREGATION: {
+        MagicAreasFeatures.AGGREGATES.value: {
             CONF_AGGREGATES_MIN_ENTITIES: "invalid",
         }
     }

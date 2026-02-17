@@ -33,13 +33,7 @@ from custom_components.magic_areas.defaults import (
     DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.core.aggregates import build_binary_sensor_aggregates
-
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_HEALTH,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
     MagicAreasFeatureInfoHealth,
@@ -99,20 +93,20 @@ async def async_setup_entry(
         entities.append(AreaStateBinarySensor(area_config, coordinator))
 
     # Create extra sensors
-    if CONF_FEATURE_AGGREGATION in data.enabled_features:
+    if MagicAreasFeatures.AGGREGATES in data.enabled_features:
         entities.extend(create_aggregate_sensors(data, entities_by_domain, area_config, coordinator))
         illuminance_threshold_sensor = create_illuminance_threshold(hass, data, area_config, coordinator)
         if illuminance_threshold_sensor:
             entities.append(illuminance_threshold_sensor)
 
         # Wasp in a box
-        if CONF_FEATURE_WASP_IN_A_BOX in data.enabled_features and not area_config.is_meta():
+        if MagicAreasFeatures.WASP_IN_A_BOX in data.enabled_features and not area_config.is_meta():
             entities.extend(create_wasp_in_a_box_sensor(data, area_config, coordinator))
 
-    if CONF_FEATURE_HEALTH in data.enabled_features:
+    if MagicAreasFeatures.HEALTH in data.enabled_features:
         entities.extend(create_health_sensors(data, entities_by_domain, area_config, coordinator))
 
-    if CONF_FEATURE_BLE_TRACKERS in data.enabled_features:
+    if MagicAreasFeatures.BLE_TRACKER in data.enabled_features:
         entities.extend(create_ble_tracker_sensor(data, area_config, coordinator))
 
     # Add all entities
@@ -133,8 +127,8 @@ def create_wasp_in_a_box_sensor(
     """Add the Wasp in a box sensor for the area."""
 
     if (
-        CONF_FEATURE_WASP_IN_A_BOX not in data.enabled_features
-        or CONF_FEATURE_AGGREGATION not in data.enabled_features
+        MagicAreasFeatures.WASP_IN_A_BOX not in data.enabled_features
+        or MagicAreasFeatures.AGGREGATES not in data.enabled_features
     ):
         return []
 
@@ -155,10 +149,10 @@ def create_ble_tracker_sensor(
     coordinator: "MagicAreasCoordinator",
 ) -> list[AreaBLETrackerBinarySensor]:
     """Add the BLE tracker sensor for the area."""
-    if CONF_FEATURE_BLE_TRACKERS not in data.enabled_features:
+    if MagicAreasFeatures.BLE_TRACKER not in data.enabled_features:
         return []
 
-    if not data.feature_configs.get(CONF_FEATURE_BLE_TRACKERS, {}).get(
+    if not data.feature_configs.get(MagicAreasFeatures.BLE_TRACKER, {}).get(
         CONF_BLE_TRACKER_ENTITIES, []
     ):
         return []
@@ -186,7 +180,7 @@ def create_health_sensors(
     coordinator: "MagicAreasCoordinator",
 ) -> list[AreaHealthBinarySensor]:
     """Add the health sensors for the area."""
-    if CONF_FEATURE_HEALTH not in data.enabled_features:
+    if MagicAreasFeatures.HEALTH not in data.enabled_features:
         return []
 
     if BINARY_SENSOR_DOMAIN not in entities_by_domain:
@@ -195,7 +189,7 @@ def create_health_sensors(
     distress_entities: list[str] = []
 
     health_sensor_device_classes = data.feature_configs.get(
-        CONF_FEATURE_HEALTH, {}
+        MagicAreasFeatures.HEALTH, {}
     ).get(CONF_HEALTH_SENSOR_DEVICE_CLASSES, DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES)
 
     for entity in entities_by_domain[BINARY_SENSOR_DOMAIN]:

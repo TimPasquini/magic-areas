@@ -5,14 +5,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import MagicAreasEvents, AreaStates
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_CLIMATE_CONTROL,
-)
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -32,7 +28,7 @@ async def test_media_player_control_clear_event_no_group_entity(
     # Setup integration with media player control enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: {}
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -40,13 +36,13 @@ async def test_media_player_control_clear_event_no_group_entity(
 
     # Get the area
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Dispatch area clear event
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([AreaStates.CLEAR], [AreaStates.OCCUPIED], [AreaStates.CLEAR]),
     )
     await hass.async_block_till_done()
@@ -67,7 +63,7 @@ async def test_media_player_control_no_state_changes(
     # Setup integration with media player control enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_AREA_AWARE_MEDIA_PLAYER: {}
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -75,13 +71,13 @@ async def test_media_player_control_no_state_changes(
 
     # Get the area
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Dispatch state change with NO actual changes
     async_dispatcher_send(
         hass,
         MagicAreasEvents.AREA_STATE_CHANGED,
-        area.id,
+        area_config.id,
         ([], [], [AreaStates.OCCUPIED]),  # No new or lost states
     )
     await hass.async_block_till_done()
@@ -102,7 +98,7 @@ async def test_presence_hold_switch_ignore_other_areas(
     # Setup integration with presence hold enabled
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_PRESENCE_HOLD: {}
+        MagicAreasFeatures.PRESENCE_HOLD: {}
     }
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -133,7 +129,7 @@ async def test_climate_control_ignores_unrelated_states(
     # Setup integration with climate control but no target entity
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
-        CONF_FEATURE_CLIMATE_CONTROL: {
+        MagicAreasFeatures.CLIMATE_CONTROL: {
             "target_entity": "climate.nonexistent",
             "presets": {
                 "occupied": "heat",
@@ -147,14 +143,14 @@ async def test_climate_control_ignores_unrelated_states(
 
     # Get the area
     runtime_data = config_entry.runtime_data
-    area = runtime_data.area
+    area_config = runtime_data.coordinator._area_config
 
     # Dispatch various state changes
     for new_state in [AreaStates.OCCUPIED, AreaStates.CLEAR, AreaStates.EXTENDED]:
         async_dispatcher_send(
             hass,
             MagicAreasEvents.AREA_STATE_CHANGED,
-            area.id,
+            area_config.id,
             ([new_state], [], [new_state]),
         )
         await hass.async_block_till_done()

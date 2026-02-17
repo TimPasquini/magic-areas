@@ -1,6 +1,5 @@
 """Test platform behavior when features are disabled."""
 
-import pytest
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
@@ -12,12 +11,6 @@ from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_FAN_GROUPS,
-    CONF_FEATURE_LIGHT_GROUPS,
-    CONF_FEATURE_COVER_GROUPS,
-)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,

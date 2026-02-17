@@ -19,9 +19,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_HEALTH,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     get_basic_config_entry_data,
@@ -43,7 +41,7 @@ def mock_config_entry_health() -> MockConfigEntry:
     data.update(
         {
             CONF_ENABLED_FEATURES: {
-                CONF_FEATURE_HEALTH: {
+                MagicAreasFeatures.HEALTH: {
                     CONF_HEALTH_SENSOR_DEVICE_CLASSES: [
                         BinarySensorDeviceClass.PROBLEM,
                         BinarySensorDeviceClass.SMOKE,
@@ -59,7 +57,7 @@ def mock_config_entry_health() -> MockConfigEntry:
 async def setup_integration_health(
     hass: HomeAssistant,
     health_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[Any]:
     """Set up integration with Health config."""
 
     await init_integration_helper(hass, [health_config_entry])
@@ -103,7 +101,7 @@ async def setup_entities_health_sensors(
 async def test_health_sensor(
     hass: HomeAssistant,
     entities_health_sensors: list[MockBinarySensor],
-    _setup_integration_health,
+    _setup_integration_health: Any,
 ) -> None:
     """Test health sensor logic."""
 

@@ -8,12 +8,7 @@ from custom_components.magic_areas.config_keys import (
 )
 from custom_components.magic_areas.core.entity_ids import EntityReferences
 from custom_components.magic_areas.core.presence import build_presence_sensors
-from custom_components.magic_areas.features import (
-    CONF_FEATURE_AGGREGATION,
-    CONF_FEATURE_BLE_TRACKERS,
-    CONF_FEATURE_PRESENCE_HOLD,
-    CONF_FEATURE_WASP_IN_A_BOX,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.ha_domains import (
     BINARY_SENSOR_DOMAIN,
     SWITCH_DOMAIN,
@@ -58,7 +53,7 @@ def test_build_presence_sensors_filters_devices() -> None:
 
 def test_build_presence_sensors_adds_feature_entities() -> None:
     """Append feature-driven presence entities when entity_references provided."""
-    entities_by_domain = {}
+    entities_by_domain: dict[str, list[dict[str, str]]] = {}
     config = {
         CONF_PRESENCE_DEVICE_PLATFORMS: [BINARY_SENSOR_DOMAIN],
         CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
@@ -76,10 +71,10 @@ def test_build_presence_sensors_adds_feature_entities() -> None:
         config=config,
         slug="kitchen",
         enabled_features={
-            CONF_FEATURE_PRESENCE_HOLD,
-            CONF_FEATURE_BLE_TRACKERS,
-            CONF_FEATURE_WASP_IN_A_BOX,
-            CONF_FEATURE_AGGREGATION,
+            MagicAreasFeatures.PRESENCE_HOLD,
+            MagicAreasFeatures.BLE_TRACKER,
+            MagicAreasFeatures.WASP_IN_A_BOX,
+            MagicAreasFeatures.AGGREGATES,
         },
         entity_references=entity_refs,
     )
@@ -101,10 +96,10 @@ def test_build_presence_sensors_skips_features_without_references() -> None:
         },
         slug="kitchen",
         enabled_features={
-            CONF_FEATURE_PRESENCE_HOLD,
-            CONF_FEATURE_BLE_TRACKERS,
-            CONF_FEATURE_WASP_IN_A_BOX,
-            CONF_FEATURE_AGGREGATION,
+            MagicAreasFeatures.PRESENCE_HOLD,
+            MagicAreasFeatures.BLE_TRACKER,
+            MagicAreasFeatures.WASP_IN_A_BOX,
+            MagicAreasFeatures.AGGREGATES,
         },
     )
 

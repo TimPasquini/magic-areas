@@ -422,7 +422,7 @@ Acceptance criteria:
 
 Task:
 - switch to snapshot `entities` and `magic_entities`
-- use snapshot feature flags for `CONF_FEATURE_COVER_GROUPS`
+- use snapshot feature flags for `MagicAreasFeatures.COVER_GROUPS`
 
 Acceptance criteria:
 - no direct read of `area.entities` or `area.magic_entities`
@@ -433,7 +433,7 @@ Acceptance criteria:
 
 Task:
 - switch to snapshot `entities` and `magic_entities`
-- use snapshot feature flags for `CONF_FEATURE_FAN_GROUPS`
+- use snapshot feature flags for `MagicAreasFeatures.FAN_GROUPS`
 
 Acceptance criteria:
 - no direct read of `area.entities` or `area.magic_entities`

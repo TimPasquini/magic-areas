@@ -1,13 +1,14 @@
 """Unit tests for base/entities.py."""
 
-from unittest.mock import AsyncMock, Mock
+from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
 
 from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.features import CONF_FEATURE_LIGHT_GROUPS
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import MagicAreasFeatureInfoLightGroups
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.core import HomeAssistant
 
 
 class MockGroupEntity(MagicGroupEntity):
@@ -15,7 +16,7 @@ class MockGroupEntity(MagicGroupEntity):
 
     feature_info = MagicAreasFeatureInfoLightGroups()
 
-    def __init__(self, area_config, coordinator, member_entity_ids):
+    def __init__(self, area_config: Any, coordinator: Any, member_entity_ids: Any) -> None:
         """Initialize mock group entity."""
         super().__init__(
             area_config=area_config,
@@ -28,7 +29,7 @@ class MockGroupEntity(MagicGroupEntity):
 class TestMagicGroupEntity:
     """Tests for MagicGroupEntity base class."""
 
-    def test_stores_member_entity_ids(self):
+    def test_stores_member_entity_ids(self) -> None:
         """Should store member entity IDs."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -41,7 +42,7 @@ class TestMagicGroupEntity:
         group = MockGroupEntity(area_config=area_config, coordinator=coordinator, member_entity_ids=entity_ids)
         assert group.member_entity_ids == entity_ids
 
-    def test_initializes_listeners_list(self):
+    def test_initializes_listeners_list(self) -> None:
         """Should initialize empty listener registry."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -53,7 +54,7 @@ class TestMagicGroupEntity:
         group = MockGroupEntity(area_config=area_config, coordinator=coordinator, member_entity_ids=["light.one"])
         assert group._listener_registry.count == 0
 
-    async def test_async_added_to_hass_writes_state(self, hass):
+    async def test_async_added_to_hass_writes_state(self, hass: HomeAssistant) -> None:
         """Should write state when added to hass."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -64,15 +65,15 @@ class TestMagicGroupEntity:
         coordinator.data = None
         group = MockGroupEntity(area_config=area_config, coordinator=coordinator, member_entity_ids=["light.one"])
         group.hass = hass
-        group._async_setup_group = AsyncMock()
-        group.async_write_ha_state = Mock()
 
-        await group.async_added_to_hass()
+        with patch.object(group, "_async_setup_group", new_callable=AsyncMock) as mock_setup, \
+             patch.object(group, "async_write_ha_state", new_callable=Mock) as mock_write:
+            await group.async_added_to_hass()
 
-        group._async_setup_group.assert_called_once()
-        group.async_write_ha_state.assert_called_once()
+            mock_setup.assert_called_once()
+            mock_write.assert_called_once()
 
-    async def test_async_will_remove_from_hass_cleans_listeners(self, hass):
+    async def test_async_will_remove_from_hass_cleans_listeners(self, hass: HomeAssistant) -> None:
         """Should clean up tracked listeners on removal."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -94,22 +95,21 @@ class TestMagicGroupEntity:
         assert group._listener_registry.count == 2
 
         # Mock the teardown hook
-        group._async_teardown_group = AsyncMock()
+        with patch.object(group, "_async_teardown_group", new_callable=AsyncMock) as mock_teardown:
+            # Remove from hass
+            await group.async_will_remove_from_hass()
 
-        # Remove from hass
-        await group.async_will_remove_from_hass()
+            # Should have called remove callbacks
+            remove_callback_1.assert_called_once()
+            remove_callback_2.assert_called_once()
 
-        # Should have called remove callbacks
-        remove_callback_1.assert_called_once()
-        remove_callback_2.assert_called_once()
+            # Should have cleared listeners
+            assert group._listener_registry.count == 0
 
-        # Should have cleared listeners
-        assert group._listener_registry.count == 0
+            # Should have called teardown hook
+            mock_teardown.assert_called_once()
 
-        # Should have called teardown hook
-        group._async_teardown_group.assert_called_once()
-
-    def test_track_group_listener_stores_callback(self):
+    def test_track_group_listener_stores_callback(self) -> None:
         """Should store listener callback for cleanup."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -126,7 +126,7 @@ class TestMagicGroupEntity:
 
         assert group._listener_registry.count == 1
 
-    def test_track_group_listener_multiple_callbacks(self):
+    def test_track_group_listener_multiple_callbacks(self) -> None:
         """Should track multiple listener callbacks."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -148,7 +148,7 @@ class TestMagicGroupEntity:
 
         assert group._listener_registry.count == 3
 
-    async def test_listener_cleanup_handles_exceptions(self, hass):
+    async def test_listener_cleanup_handles_exceptions(self, hass: HomeAssistant) -> None:
         """Should handle exceptions during listener cleanup gracefully."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -171,10 +171,9 @@ class TestMagicGroupEntity:
         group.track_group_listener(working_callback, "working_listener")
 
         # Mock the teardown hook
-        group._async_teardown_group = AsyncMock()
-
-        # Should not raise exception
-        await group.async_will_remove_from_hass()
+        with patch.object(group, "_async_teardown_group", new_callable=AsyncMock):
+            # Should not raise exception
+            await group.async_will_remove_from_hass()
 
         # Both should have been attempted
         failing_callback.assert_called_once()
@@ -183,7 +182,7 @@ class TestMagicGroupEntity:
         # Should still clear the listener registry
         assert group._listener_registry.count == 0
 
-    async def test_setup_hook_called_during_setup(self, hass):
+    async def test_setup_hook_called_during_setup(self, hass: HomeAssistant) -> None:
         """Should call _async_setup_group hook during setup."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -199,18 +198,17 @@ class TestMagicGroupEntity:
 
         setup_hook_called = False
 
-        async def mock_setup():
+        async def mock_setup() -> None:
             nonlocal setup_hook_called
             setup_hook_called = True
 
-        group._async_setup_group = mock_setup
-        group.async_write_ha_state = Mock()
-
-        await group.async_added_to_hass()
+        with patch.object(group, "_async_setup_group", side_effect=mock_setup), \
+             patch.object(group, "async_write_ha_state"):
+            await group.async_added_to_hass()
 
         assert setup_hook_called is True
 
-    async def test_teardown_hook_called_during_teardown(self, hass):
+    async def test_teardown_hook_called_during_teardown(self, hass: HomeAssistant) -> None:
         """Should call _async_teardown_group hook during teardown."""
         area_config = Mock()
         area_config.id = "test_area"
@@ -226,13 +224,12 @@ class TestMagicGroupEntity:
 
         teardown_hook_called = False
 
-        async def mock_teardown():
+        async def mock_teardown() -> None:
             nonlocal teardown_hook_called
             teardown_hook_called = True
 
-        group._async_teardown_group = mock_teardown
-
-        await group.async_will_remove_from_hass()
+        with patch.object(group, "_async_teardown_group", side_effect=mock_teardown):
+            await group.async_will_remove_from_hass()
 
         assert teardown_hook_called is True
 
@@ -240,7 +237,7 @@ class TestMagicGroupEntity:
 class TestMagicEntityFeatureConfig:
     """Tests for MagicEntity.get_feature_config()."""
 
-    def test_reads_from_coordinator_when_available(self):
+    def test_reads_from_coordinator_when_available(self) -> None:
         """Should prefer coordinator snapshot over area method."""
         from unittest.mock import Mock
 
@@ -255,7 +252,7 @@ class TestMagicEntityFeatureConfig:
         coordinator.last_update_success = True
         coordinator.data = Mock()
         coordinator.data.feature_configs = {
-            CONF_FEATURE_LIGHT_GROUPS: {"key": "snapshot_value"}
+            MagicAreasFeatures.LIGHT_GROUPS: {"key": "snapshot_value"}
         }
 
         # Create entity
@@ -266,7 +263,7 @@ class TestMagicEntityFeatureConfig:
         config = entity.get_feature_config()
         assert config == {"key": "snapshot_value"}
 
-    def test_returns_empty_dict_when_coordinator_data_unavailable(self):
+    def test_returns_empty_dict_when_coordinator_data_unavailable(self) -> None:
         """Should return empty dict when coordinator data is not available."""
         from unittest.mock import Mock
 
@@ -288,7 +285,7 @@ class TestMagicEntityFeatureConfig:
         config = entity.get_feature_config()
         assert config == {}
 
-    def test_returns_empty_dict_when_feature_not_in_snapshot(self):
+    def test_returns_empty_dict_when_feature_not_in_snapshot(self) -> None:
         """Should return empty dict when feature not in coordinator snapshot."""
         from unittest.mock import Mock
 

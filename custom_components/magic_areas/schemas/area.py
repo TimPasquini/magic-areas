@@ -5,6 +5,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
+from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.enums import CalculationMode
 from custom_components.magic_areas.area_maps import (
     CONF_DARK_ENTITY,
@@ -38,13 +39,12 @@ from custom_components.magic_areas.config_keys import (
     DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
 )
-from custom_components.magic_areas.area_constants import (
-    AREA_TYPE_INTERIOR,
-    AREA_TYPE_EXTERIOR,
-    AREA_TYPE_META,
-)
 from custom_components.magic_areas.defaults import DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS
 from custom_components.magic_areas.schemas.features import FEATURES_SCHEMA
+
+AREA_TYPE_INTERIOR = AreaType.INTERIOR
+AREA_TYPE_EXTERIOR = AreaType.EXTERIOR
+AREA_TYPE_META = AreaType.META
 
 SECONDARY_STATES_SCHEMA = vol.Schema(
     {
@@ -105,7 +105,7 @@ REGULAR_AREA_BASIC_OPTIONS_SCHEMA = vol.Schema(
 
 META_AREA_BASIC_OPTIONS_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONF_TYPE, default=AREA_TYPE_META): AREA_TYPE_META,
+        vol.Optional(CONF_TYPE, default=AREA_TYPE_META): vol.In([AREA_TYPE_META]),
         vol.Optional(CONF_ENABLED_FEATURES, default={}): FEATURES_SCHEMA,
         vol.Optional(CONF_EXCLUDE_ENTITIES, default=[]): cv.entity_ids,
         vol.Optional(
@@ -177,7 +177,7 @@ REGULAR_AREA_SCHEMA = vol.Schema(
 
 META_AREA_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONF_TYPE, default=AREA_TYPE_META): AREA_TYPE_META,
+        vol.Optional(CONF_TYPE, default=AREA_TYPE_META): vol.In([AREA_TYPE_META]),
         vol.Optional(CONF_ENABLED_FEATURES, default={}): FEATURES_SCHEMA,
         vol.Optional(CONF_EXCLUDE_ENTITIES, default=[]): cv.entity_ids,
         vol.Optional(
