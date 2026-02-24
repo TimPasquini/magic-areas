@@ -18,7 +18,6 @@ from homeassistant.helpers.floor_registry import (
 )
 from homeassistant.util import slugify
 
-from custom_components.magic_areas.base.magic import BasicArea, MagicArea
 from custom_components.magic_areas.area_state import MetaAreaType
 from custom_components.magic_areas.config_keys import CONF_TYPE
 from custom_components.magic_areas.core.area_config import AreaConfig
@@ -28,6 +27,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class BasicArea:
+    """An interchangeable area object for Magic Areas to consume."""
+
+    id: str
+    name: str
+    icon: str | None = None
+    floor_id: str | None = None
+    is_meta: bool = False
 
 
 def basic_area_from_meta(area_id: str, name: str | None = None) -> BasicArea:
@@ -80,67 +89,14 @@ def basic_area_from_floor(floor: FloorEntry) -> BasicArea:
     return basic_area
 
 
-def get_magic_area_for_config_entry(
-    hass: HomeAssistant, config_entry: "MagicAreasConfigEntry"
-) -> MagicArea | None:
-    """Return magic area object for given config entry."""
-
-    area_id = config_entry.data[ATTR_ID]
-    area_name = config_entry.data[ATTR_NAME]
-
-    _LOGGER.debug("%s: Setting up entry.", area_name)
-
-    # Load floors
-    floor_registry = floorreg_async_get(hass)
-    floors = floor_registry.async_list_floors()
-
-    non_floor_meta_ids = [
-        meta_area_type
-        for meta_area_type in MetaAreaType
-        if meta_area_type != MetaAreaType.FLOOR
-    ]
-    floor_ids = [f.floor_id for f in floors]
-
-    magic_area: MagicArea
-
-    if area_id in non_floor_meta_ids:
-        # Non-floor Meta-Area (Global/Interior/Exterior)
-        meta_area = basic_area_from_meta(area_id)
-        magic_area = MagicArea(hass, meta_area, config_entry)
-    elif area_id in floor_ids:
-        # Floor Meta-Area
-        floor_entry: FloorEntry | None = floor_registry.async_get_floor(area_id)
-        assert floor_entry is not None
-        meta_area = basic_area_from_floor(floor_entry)
-        magic_area = MagicArea(hass, meta_area, config_entry)
-    else:
-        # Regular Area
-        area_registry = areareg_async_get(hass)
-        area = area_registry.async_get_area(area_id)
-
-        if not area:
-            _LOGGER.warning("%s: ID '%s' not found on registry", area_name, area_id)
-            return None
-
-        _LOGGER.debug("%s: Got area from registry: %s", area_name, str(area))
-
-        magic_area = MagicArea(
-            hass,
-            basic_area_from_object(area),
-            config_entry,
-        )
-
-    return magic_area
-
-
 def build_area_config_for_config_entry(
     hass: HomeAssistant,
     config_entry: "MagicAreasConfigEntry",
 ) -> AreaConfig | None:
     """Build an AreaConfig directly from the area/floor registry and config entry.
 
-    This replaces the MagicArea construction path for cases where only configuration
-    data is needed (i.e. the coordinator). No MagicArea object is created.
+    This is the primary construction path for coordinator configuration.
+    No MagicArea object is created.
 
     Returns None if the area ID is not found in the registry (regular areas only).
     """

@@ -2,6 +2,11 @@
 
 from enum import Enum
 
+import pytest
+
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import (
     CONF_ENABLED_FEATURES,
@@ -13,6 +18,12 @@ from custom_components.magic_areas.core.config import (
     has_configured_state,
     has_feature,
     normalize_feature_config,
+)
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from tests.helpers import (
+    get_basic_config_entry_data,
+    init_integration as init_integration_helper,
+    shutdown_integration,
 )
 
 
@@ -124,3 +135,91 @@ def test_get_feature_config_from_list_config() -> None:
     assert get_feature_config(config, "test_feature") == {}
     assert get_feature_config(config, "plain") == {}
     assert get_feature_config(config, "unknown") == {}
+
+
+# Integration tests from test_magic.py
+
+
+async def test_has_configured_state_integration(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test has_configured_state logic with real config entry."""
+
+    from tests.const import DEFAULT_MOCK_AREA
+
+    # Configure secondary state
+    data = dict(mock_config_entry.data)
+    data[CONF_SECONDARY_STATES] = {"dark_entity": "sensor.light_sensor"}
+    hass.config_entries.async_update_entry(mock_config_entry, data=data)
+
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
+
+    # AreaStates.DARK maps to "dark_entity" in CONFIGURABLE_AREA_STATE_MAP
+    assert has_configured_state(area_config.config, AreaStates.DARK) is True
+
+    # Sleep is not configured
+    assert has_configured_state(area_config.config, AreaStates.SLEEP) is False
+
+    await shutdown_integration(hass, [mock_config_entry])
+
+
+async def test_magic_area_legacy_features(hass: HomeAssistant) -> None:
+    """Test legacy feature configuration (list)."""
+    from tests.const import DEFAULT_MOCK_AREA
+
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data[CONF_ENABLED_FEATURES] = [MagicAreasFeatures.LIGHT_GROUPS]
+
+    config_entry = MockConfigEntry(
+        domain="magic_areas", data=data
+    )
+    config_entry.add_to_hass(hass)
+
+    await init_integration_helper(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
+
+    assert has_feature(area_config.config, MagicAreasFeatures.LIGHT_GROUPS) is True
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_magic_area_invalid_features(hass: HomeAssistant) -> None:
+    """Test invalid feature configuration."""
+    from tests.const import DEFAULT_MOCK_AREA
+
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data[CONF_ENABLED_FEATURES] = "invalid_string"
+
+    config_entry = MockConfigEntry(
+        domain="magic_areas", data=data
+    )
+    config_entry.add_to_hass(hass)
+
+    await init_integration_helper(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(config_entry.entry_id)
+    assert entry is not None
+    coordinator = entry.runtime_data.coordinator
+
+    # Verify has_feature returns False for invalid feature config
+    assert (
+        has_feature(
+            coordinator.data.config, MagicAreasFeatures.LIGHT_GROUPS
+        )
+        is False
+    )
+
+    await shutdown_integration(hass, [config_entry])

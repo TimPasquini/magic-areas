@@ -986,3 +986,50 @@ def immediate_call_factory(
         return cancel
 
     return immediate_call
+
+
+# Event Payload Helpers
+
+
+def create_area_state_change_event(
+    new_states: list = None,
+    lost_states: list = None,
+    current_states: list = None,
+) -> tuple:
+    """Create an AREA_STATE_CHANGED event payload tuple.
+
+    The event dispatcher sends area state changes as a tuple:
+        (new_states, lost_states, current_states)
+
+    Where each element is a list of AreaStates enum members.
+
+    Args:
+        new_states: List of AreaStates that became active. Defaults to empty list.
+        lost_states: List of AreaStates that became inactive. Defaults to empty list.
+        current_states: List of AreaStates currently active. Defaults to empty list.
+
+    Returns:
+        tuple: (new_states, lost_states, current_states) event payload
+
+    Example:
+        # Area just became occupied:
+        from custom_components.magic_areas.area_state import AreaStates
+        payload = create_area_state_change_event(
+            new_states=[AreaStates.OCCUPIED],
+            current_states=[AreaStates.OCCUPIED]
+        )
+        # Dispatches: (new=[OCCUPIED], lost=[], current=[OCCUPIED])
+
+        # Area became clear (lost occupied):
+        payload = create_area_state_change_event(
+            lost_states=[AreaStates.OCCUPIED],
+            current_states=[]
+        )
+        # Dispatches: (new=[], lost=[OCCUPIED], current=[])
+
+    """
+    return (
+        new_states if new_states is not None else [],
+        lost_states if lost_states is not None else [],
+        current_states if current_states is not None else [],
+    )

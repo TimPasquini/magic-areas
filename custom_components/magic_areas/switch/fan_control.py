@@ -14,7 +14,6 @@ from homeassistant.const import (
     EntityCategory,
 )
 from homeassistant.core import Event, EventStateChangedData, callback
-from homeassistant.helpers import entity_registry as entity_registry_module
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -98,7 +97,6 @@ class FanControlSwitch(SwitchBase):
         from homeassistant.helpers import entity_registry as er
         from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
         from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
-        from custom_components.magic_areas.const import DOMAIN
 
         entity_registry = er.async_get(self.hass)
         if not self._area_sensor_entity_id:
@@ -146,26 +144,15 @@ class FanControlSwitch(SwitchBase):
     ) -> None:
         """Call update state from track state change event."""
 
-        # Get current states from presence binary sensor
+        # Get current states from presence binary sensor (resolved in async_added_to_hass)
         current_states = self._last_states
-        if not current_states:
-            entity_registry = entity_registry_module.async_get(self.hass)
-            presence_entity_id = entity_registry.async_get_entity_id(
-                "binary_sensor",
-                DOMAIN,
-                f"presence_tracking_{self._area_id}_area_state",
-            )
-            if presence_entity_id:
-                state = self.hass.states.get(presence_entity_id)
-                if state and "states" in state.attributes:
-                    current_states = [
-                        str(s.value) if isinstance(s, Enum) else str(s)
-                        for s in state.attributes["states"]
-                    ]
-                else:
-                    current_states = []
-            else:
-                current_states = []
+        if not current_states and self._area_sensor_entity_id:
+            state = self.hass.states.get(self._area_sensor_entity_id)
+            if state and "states" in state.attributes:
+                current_states = [
+                    str(s.value) if isinstance(s, Enum) else str(s)
+                    for s in state.attributes["states"]
+                ]
 
         await self.run_logic(current_states)
 

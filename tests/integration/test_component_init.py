@@ -4,7 +4,6 @@ from typing import Any
 from collections.abc import Callable
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-from homeassistant.const import ATTR_ID, ATTR_NAME
 from homeassistant.core import EventBus, HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -23,14 +22,6 @@ async def test_async_setup_entry_reload_skipped_before_start(
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     config_entry.add_to_hass(hass)
 
-    magic_area = MagicMock()
-    magic_area.name = data[ATTR_NAME]
-    magic_area.id = data[ATTR_ID]
-    magic_area.config = {}
-    magic_area.entities = {}
-    magic_area.magic_entities = {}
-    magic_area.initialize = AsyncMock()
-
     callbacks: dict[str, Callable[..., Any]] = {}
 
     def _fake_listen(bus: Any, event_type: Any, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Callable[[], None]:
@@ -45,10 +36,6 @@ async def test_async_setup_entry_reload_skipped_before_start(
         patch(
             "custom_components.magic_areas.build_area_config_for_config_entry",
             return_value=MagicMock(is_meta=MagicMock(return_value=False)),
-        ),
-        patch(
-            "custom_components.magic_areas.get_magic_area_for_config_entry",
-            return_value=magic_area,
         ),
         patch.object(EventBus, "async_listen", autospec=True, side_effect=_fake_listen),
         patch.object(
@@ -83,14 +70,6 @@ async def test_async_setup_entry_registry_update_respects_disabled_reload(
     )
     config_entry.add_to_hass(hass)
 
-    magic_area = MagicMock()
-    magic_area.name = data[ATTR_NAME]
-    magic_area.id = data[ATTR_ID]
-    magic_area.config = {}
-    magic_area.entities = {}
-    magic_area.magic_entities = {}
-    magic_area.initialize = AsyncMock()
-
     callbacks: dict[str, Callable[..., Any]] = {}
 
     def _fake_listen(bus: Any, event_type: Any, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Callable[[], None]:
@@ -105,10 +84,6 @@ async def test_async_setup_entry_registry_update_respects_disabled_reload(
         patch(
             "custom_components.magic_areas.build_area_config_for_config_entry",
             return_value=MagicMock(is_meta=MagicMock(return_value=False)),
-        ),
-        patch(
-            "custom_components.magic_areas.get_magic_area_for_config_entry",
-            return_value=magic_area,
         ),
         patch.object(EventBus, "async_listen", autospec=True, side_effect=_fake_listen),
         patch.object(

@@ -38,11 +38,11 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.const import (
     ADDITIONAL_LIGHT_TRACKING_ENTITIES,
 )
-from custom_components.magic_areas.enums import (
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.policy import (
     FEATURE_LIST,
     FEATURE_LIST_GLOBAL,
     FEATURE_LIST_META,
-    MagicAreasFeatures,
 )
 
 

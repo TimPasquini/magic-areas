@@ -46,25 +46,6 @@ class MagicAreasFeatures(StrEnum):
     BLE_TRACKER = "ble_trackers"
 
 
-FEATURE_LIST_META = [
-    MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
-    MagicAreasFeatures.LIGHT_GROUPS,
-    MagicAreasFeatures.COVER_GROUPS,
-    MagicAreasFeatures.CLIMATE_CONTROL,
-    MagicAreasFeatures.AGGREGATES,
-    MagicAreasFeatures.HEALTH,
-]
-
-FEATURE_LIST = FEATURE_LIST_META + [
-    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
-    MagicAreasFeatures.PRESENCE_HOLD,
-    MagicAreasFeatures.BLE_TRACKER,
-    MagicAreasFeatures.FAN_GROUPS,
-    MagicAreasFeatures.WASP_IN_A_BOX,
-]
-
-FEATURE_LIST_GLOBAL = FEATURE_LIST_META
-
 
 class MagicAreasEvents(StrEnum):
     """Event identifiers dispatched by Magic Areas."""

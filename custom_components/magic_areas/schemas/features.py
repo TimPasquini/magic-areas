@@ -54,7 +54,8 @@ from custom_components.magic_areas.defaults import (
     DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
     DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.enums import MagicAreasFeatures, FEATURE_LIST, FEATURE_LIST_GLOBAL
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.policy import FEATURE_LIST, FEATURE_LIST_GLOBAL
 from custom_components.magic_areas.light_groups import (
     CONF_ACCENT_LIGHTS,
     CONF_ACCENT_LIGHTS_ACT_ON,

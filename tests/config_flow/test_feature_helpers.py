@@ -8,11 +8,11 @@ from custom_components.magic_areas.config_flows.steps.feature_helpers import (
     get_configurable_features,
     get_feature_list,
 )
-from custom_components.magic_areas.enums import (
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.policy import (
     FEATURE_LIST,
     FEATURE_LIST_GLOBAL,
     FEATURE_LIST_META,
-    MagicAreasFeatures,
 )
 from custom_components.magic_areas.schemas.features import (
     CONFIGURABLE_FEATURES,

@@ -35,6 +35,7 @@ class LightGroupDecision:
     action: LightAction
     reason: str  # For debugging/logging
     should_track_control: bool = False  # Whether to mark as "controlled by MA"
+    reset_control: bool = False  # Whether to clear the "controlled" flag
 
 
 @dataclass(slots=True)
@@ -69,7 +70,7 @@ class LightGroupPolicy:
             LightGroupDecision with action and reason
 
         Logic:
-            1. CLEAR → noop (reset handled separately)
+            1. CLEAR → noop + reset_control flag
             2. BRIGHT (not assigned to it) → turn off if BRIGHT just added without OCCUPIED
             3. No changes → noop
             4. No assigned states → noop
@@ -78,16 +79,21 @@ class LightGroupPolicy:
             7. Apply priority filtering if enabled
             8. Check act-on modes (occupancy vs state change)
             9. If valid states remain → turn on
-            10. Otherwise → turn off (with conditions)
+            10. If no valid states:
+                a. DARK just entered → noop (dark mode takes its own control path)
+                b. Leaving an assigned priority state → turn off, take control
+                c. No new priority states → noop
+                d. New priority state entered → turn off, take control
 
         """
         current_state_set = set(current_states)
 
-        # (1) CLEAR state → noop (reset is side effect, handled by caller)
+        # (1) CLEAR state → noop; signal caller to reset control tracking
         if AreaStates.CLEAR in new_states:
             return LightGroupDecision(
                 action=LightAction.NOOP,
                 reason="area_clear",
+                reset_control=True,
             )
 
         # (2) BRIGHT state special logic
@@ -156,20 +162,48 @@ class LightGroupPolicy:
                     reason="state_change_not_configured",
                 )
 
-        # (9) Decision
+        # (9) Valid states → turn on
         if valid_states:
             return LightGroupDecision(
                 action=LightAction.TURN_ON,
                 reason=f"valid_states_present ({', '.join(valid_states)})",
                 should_track_control=True,
             )
-        else:
-            # Turn off if no valid states remain
+
+        # (10) No valid states — determine whether and why to turn off
+        # (10a) Don't turn off if entering dark (dark mode handles its own control path)
+        if AreaStates.DARK in new_states:
+            return LightGroupDecision(
+                action=LightAction.NOOP,
+                reason="entering_dark",
+            )
+
+        # (10b) Turn off if leaving an assigned priority state
+        out_of_priority = [
+            s for s in LIGHT_PRIORITY_STATES
+            if s in self.assigned_states and s in lost_states
+        ]
+        if out_of_priority:
             return LightGroupDecision(
                 action=LightAction.TURN_OFF,
-                reason="no_valid_states",
-                should_track_control=False,  # Caller decides based on prior control state
+                reason=f"leaving_priority_states ({', '.join(out_of_priority)})",
+                should_track_control=True,
             )
+
+        # (10c) Don't turn off if no new priority states are being entered
+        new_priority = [s for s in LIGHT_PRIORITY_STATES if s in new_states]
+        if not new_priority:
+            return LightGroupDecision(
+                action=LightAction.NOOP,
+                reason="no_new_priority_states",
+            )
+
+        # (10d) Entering a new priority state this group isn't assigned to — turn off
+        return LightGroupDecision(
+            action=LightAction.TURN_OFF,
+            reason="no_valid_states",
+            should_track_control=True,
+        )
 
 
 def resolve_light_category_config(

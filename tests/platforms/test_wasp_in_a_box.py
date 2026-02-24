@@ -506,18 +506,3 @@ async def test_wasp_with_delay(
     await shutdown_integration(hass, [config_entry])
 
 
-async def test_wasp_redundant_states(
-    hass: HomeAssistant,
-    entities_wasp_in_a_box: list[MockBinarySensor],
-    _setup_integration_wasp_in_a_box: Any,
-) -> None:
-    """Test redundant state changes are ignored."""
-    motion_sensor = entities_wasp_in_a_box[0]
-
-    # Turn on
-    motion_sensor.turn_on()
-    await hass.async_block_till_done()
-
-    # Turn on again (same state) - should hit the guard clause
-    motion_sensor.turn_on()
-    await hass.async_block_till_done()

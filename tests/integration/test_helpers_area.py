@@ -6,13 +6,13 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.helpers.area import (
-    get_magic_area_for_config_entry,
+    build_area_config_for_config_entry,
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import get_basic_config_entry_data
 
 
-async def test_get_magic_area_for_config_entry_missing_area(
+async def test_build_area_config_for_config_entry_missing_area(
     hass: HomeAssistant,
 ) -> None:
     """Test returning None when the area is missing."""
@@ -21,4 +21,4 @@ async def test_get_magic_area_for_config_entry_missing_area(
     config_entry = MockConfigEntry(domain=DOMAIN, data=data)
     config_entry.add_to_hass(hass)
 
-    assert get_magic_area_for_config_entry(hass, config_entry) is None
+    assert build_area_config_for_config_entry(hass, config_entry) is None

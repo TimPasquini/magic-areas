@@ -6,6 +6,7 @@ Keep voluptuous/cv out of here.
 
 from __future__ import annotations
 
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from homeassistant.components.alarm_control_panel.const import AlarmControlPanelState
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor.const import SensorDeviceClass
@@ -85,3 +86,23 @@ ALL_SENSOR_DEVICE_CLASSES = [cls.value for cls in SensorDeviceClass]
 # State groupings
 PRESENCE_SENSOR_VALID_ON_STATES = [STATE_ON, STATE_OPEN, STATE_PLAYING]
 INVALID_STATES = [STATE_UNAVAILABLE, STATE_UNKNOWN]
+
+# Feature availability by area type
+FEATURE_LIST_META = [
+    MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+    MagicAreasFeatures.LIGHT_GROUPS,
+    MagicAreasFeatures.COVER_GROUPS,
+    MagicAreasFeatures.CLIMATE_CONTROL,
+    MagicAreasFeatures.AGGREGATES,
+    MagicAreasFeatures.HEALTH,
+]
+
+FEATURE_LIST = FEATURE_LIST_META + [
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+    MagicAreasFeatures.PRESENCE_HOLD,
+    MagicAreasFeatures.BLE_TRACKER,
+    MagicAreasFeatures.FAN_GROUPS,
+    MagicAreasFeatures.WASP_IN_A_BOX,
+]
+
+FEATURE_LIST_GLOBAL = FEATURE_LIST_META

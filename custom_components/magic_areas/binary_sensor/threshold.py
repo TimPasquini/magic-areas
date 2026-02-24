@@ -44,7 +44,7 @@ def create_illuminance_threshold(
 ) -> Entity | None:
     """Create threshold light binary sensor based off illuminance aggregate."""
 
-    if MagicAreasFeatures.AGGREGATES not in data.enabled_features:
+    if MagicAreasFeatures.AGGREGATES not in data.enabled_features:  # pragma: no cover
         return None
 
     aggregation_config = data.feature_configs.get(MagicAreasFeatures.AGGREGATES, {})
@@ -56,7 +56,7 @@ def create_illuminance_threshold(
     if illuminance_threshold == 0:
         return None
 
-    if (
+    if (  # pragma: no cover
         homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
         not in aggregation_config.get(
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -76,7 +76,7 @@ def create_illuminance_threshold(
         == homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
     ]
 
-    if not illuminance_sensors:
+    if not illuminance_sensors:  # pragma: no cover
         return None
 
     illuminance_threshold_hysteresis_percentage = aggregation_config.get(

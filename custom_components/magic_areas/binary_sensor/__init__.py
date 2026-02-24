@@ -7,7 +7,6 @@ from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -27,12 +26,11 @@ from custom_components.magic_areas.binary_sensor.threshold import create_illumin
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
-    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.defaults import (
-    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+from custom_components.magic_areas.core.aggregates import (
+    build_binary_sensor_aggregates,
+    build_health_sensor_spec,
 )
-from custom_components.magic_areas.core.aggregates import build_binary_sensor_aggregates
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import (
     MagicAreasFeatureInfoAggregates,
@@ -180,39 +178,24 @@ def create_health_sensors(
     coordinator: "MagicAreasCoordinator",
 ) -> list[AreaHealthBinarySensor]:
     """Add the health sensors for the area."""
-    if MagicAreasFeatures.HEALTH not in data.enabled_features:
-        return []
+    spec = build_health_sensor_spec(
+        entities_by_domain=entities_by_domain,
+        feature_configs=data.feature_configs,
+        enabled_features=data.enabled_features,
+    )
 
-    if BINARY_SENSOR_DOMAIN not in entities_by_domain:
-        return []
-
-    distress_entities: list[str] = []
-
-    health_sensor_device_classes = data.feature_configs.get(
-        MagicAreasFeatures.HEALTH, {}
-    ).get(CONF_HEALTH_SENSOR_DEVICE_CLASSES, DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES)
-
-    for entity in entities_by_domain[BINARY_SENSOR_DOMAIN]:
-        if ATTR_DEVICE_CLASS not in entity:
-            continue
-
-        if entity[ATTR_DEVICE_CLASS] not in health_sensor_device_classes:
-            continue
-
-        distress_entities.append(entity[ATTR_ENTITY_ID])
-
-    if not distress_entities:
-        _LOGGER.debug(
-            "%s: No binary sensor found for configured device classes: %s.",
-            area_config.name,
-            str(health_sensor_device_classes),
-        )
+    if not spec:
+        if MagicAreasFeatures.HEALTH in data.enabled_features:
+            _LOGGER.debug(
+                "%s: No binary sensors found for configured health device classes.",
+                area_config.name,
+            )
         return []
 
     _LOGGER.debug(
         "%s: Creating health sensor with the following entities: %s",
         area_config.slug,
-        str(distress_entities),
+        str(spec.entity_ids),
     )
 
     try:
@@ -221,7 +204,7 @@ def create_health_sensors(
                 area_config,
                 coordinator,
                 device_class=BinarySensorDeviceClass.PROBLEM,
-                entity_ids=distress_entities,
+                entity_ids=spec.entity_ids,
             )
         ]
     except Exception as e:  # pragma: no cover  # pylint: disable=broad-exception-caught

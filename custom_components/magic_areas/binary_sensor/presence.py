@@ -64,6 +64,7 @@ from custom_components.magic_areas.core.listener_registry import (
 )
 from custom_components.magic_areas.core.meta import aggregate_secondary_states
 from custom_components.magic_areas.core.occupancy import AreaOccupancyTracker
+from custom_components.magic_areas.core.presence import compute_secondary_states
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
@@ -361,60 +362,26 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def _get_secondary_states(self) -> list[str]:
         """Return secondary states for an area."""
+        secondary_states_config: dict[str, str | None] = self._area_config_dict.get(
+            CONF_SECONDARY_STATES, {}
+        )
 
-        states: list[str] = []
+        # Read entity states from HA — only for known entity-ID config keys;
+        # CONF_SECONDARY_STATES also holds integer timeout fields which must be skipped.
+        entity_states: dict[str, str | None] = {}
+        for config_key in CONFIGURABLE_AREA_STATE_MAP.values():
+            entity_id = secondary_states_config.get(config_key)
+            if entity_id:
+                entity = self.hass.states.get(entity_id)
+                entity_states[entity_id] = entity.state if entity else None
 
-        configurable_states = self._get_configured_secondary_states()
+        valid_on_states = set(self._tracker.valid_on_states([STATE_ABOVE_HORIZON]))
 
-        # Assume AreaStates.DARK if not configured
-        if AreaStates.DARK not in configurable_states:
-            states.append(AreaStates.DARK)
-
-        for configurable_state in configurable_states:
-            configurable_state_entity = CONFIGURABLE_AREA_STATE_MAP[configurable_state]
-
-            secondary_state_entity = self._area_config_dict.get(
-                CONF_SECONDARY_STATES, {}
-            ).get(configurable_state_entity, None)
-
-            if not secondary_state_entity:
-                continue
-
-            entity = self.hass.states.get(secondary_state_entity)
-            if not entity:
-                continue
-
-            has_valid_state = entity.state.lower() in self._tracker.valid_on_states(
-                [STATE_ABOVE_HORIZON]
-            )
-            state_to_add = None
-
-            # Handle dark state from light sensor as an inverted configurable state
-            inverted_states = [AreaStates.DARK]
-
-            # Handle both forward and inverted configurable state
-            if configurable_state in inverted_states:
-                if not has_valid_state:
-                    state_to_add = configurable_state
-            else:
-                if has_valid_state:
-                    state_to_add = configurable_state
-
-            if state_to_add:
-                _LOGGER.debug(
-                    "%s: Secondary state: %s is at %s, adding %s",
-                    self._area_name,
-                    secondary_state_entity,
-                    entity.state.lower(),
-                    configurable_state,
-                )
-                states.append(configurable_state)
-
-        # Meta-state bright
-        if AreaStates.DARK in configurable_states and AreaStates.DARK not in states:
-            states.append(AreaStates.BRIGHT)
-
-        return states
+        return compute_secondary_states(
+            secondary_states_config=secondary_states_config,
+            entity_states=entity_states,
+            valid_on_states=valid_on_states,
+        )
 
     # Clear timeout
 

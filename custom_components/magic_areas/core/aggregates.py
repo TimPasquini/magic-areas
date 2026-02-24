@@ -21,11 +21,13 @@ from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
+    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     DEFAULT_AGGREGATES_MIN_ENTITIES,
 )
 from custom_components.magic_areas.defaults import (
     DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
+    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
@@ -197,3 +199,63 @@ def build_binary_sensor_aggregates(
         )
 
     return aggregates
+
+
+def build_health_sensor_spec(
+    *,
+    entities_by_domain: dict[str, list[dict[str, str]]],
+    feature_configs: dict[str, dict[str, Any]],
+    enabled_features: set[str],
+) -> BinarySensorAggregateSpec | None:
+    """Return an aggregate spec for health monitoring, or None if no entities match.
+
+    Health monitoring collects all binary sensors whose device class signals
+    a distress condition (e.g., gas, smoke, moisture, problem) into a single
+    'problem' aggregate sensor. Unlike the regular aggregate builder, all
+    matching device classes are merged into one spec rather than split by class.
+
+    Args:
+        entities_by_domain: Entity metadata grouped by domain.
+        feature_configs: Per-feature configuration dict.
+        enabled_features: Set of enabled feature IDs.
+
+    Returns:
+        A BinarySensorAggregateSpec with device_class 'problem', or None.
+
+    """
+    if MagicAreasFeatures.HEALTH not in enabled_features:
+        return None
+
+    if BINARY_SENSOR_DOMAIN not in entities_by_domain:
+        return None
+
+    health_device_classes = _normalize_allowed_device_classes(
+        feature_configs.get(MagicAreasFeatures.HEALTH, {}).get(
+            CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+            DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+        ),
+        DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+    )
+
+    distress_entity_ids: list[str] = []
+
+    for entity in entities_by_domain[BINARY_SENSOR_DOMAIN]:
+        device_class = entity.get(ATTR_DEVICE_CLASS)
+        entity_id = entity.get(ATTR_ENTITY_ID)
+        if not _is_valid_value(device_class) or not _is_valid_value(entity_id):
+            continue
+        if not isinstance(device_class, str) or not isinstance(entity_id, str):
+            continue
+
+        if device_class not in health_device_classes:
+            continue
+
+        distress_entity_ids.append(entity_id)
+
+    if not distress_entity_ids:
+        return None
+
+    return BinarySensorAggregateSpec(
+        device_class="problem",
+        entity_ids=distress_entity_ids,
+    )

@@ -4,13 +4,23 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_registry import EventEntityRegistryUpdatedData
+from homeassistant.helpers.entity_registry import (
+    EventEntityRegistryUpdatedData,
+    _EventEntityRegistryUpdatedData_CreateRemove,
+    _EventEntityRegistryUpdatedData_Update,
+)
 from homeassistant.helpers.device_registry import EventDeviceRegistryUpdatedData
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.core.registry_filters import (
     make_device_registry_filter,
     make_entity_registry_filter,
+)
+from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers import (
+    init_integration as init_integration_helper,
+    shutdown_integration,
 )
 
 
@@ -207,3 +217,65 @@ class TestMakeDeviceRegistryFilter:
             )
 
             assert filter_func(event_data) is True
+
+
+# Integration tests from test_magic.py
+
+
+async def test_registry_filters_integration(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Test registry filters with full integration setup."""
+    await init_integration_helper(hass, [mock_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entry = hass.config_entries.async_get_entry(mock_config_entry.entry_id)
+    assert entry is not None
+    area_config = entry.runtime_data.coordinator._area_config
+
+    entity_filter = make_entity_registry_filter(
+        hass, area_config.id, mock_config_entry.entry_id
+    )
+
+    # Test entity update in area
+    event_data: _EventEntityRegistryUpdatedData_Update = cast(
+        _EventEntityRegistryUpdatedData_Update,
+        {
+            "action": "update",
+            "entity_id": "light.test",
+            "changes": {"area_id": DEFAULT_MOCK_AREA.value},  # Removed from area
+        },
+    )
+    # Mock registry lookup to return None or different area to simulate removal
+    with patch(
+        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
+    ) as mock_er:
+        mock_registry_instance = MagicMock()
+        mock_er.return_value = mock_registry_instance
+        mock_registry_instance.async_get.return_value = (
+            None  # Entity not in registry anymore or moved
+        )
+
+        assert entity_filter(event_data) is True
+
+    # Test entity create in area
+    event_data_create: _EventEntityRegistryUpdatedData_CreateRemove = cast(
+        _EventEntityRegistryUpdatedData_CreateRemove,
+        {
+            "action": "create",
+            "entity_id": "light.test_new",
+        },
+    )
+    with patch(
+        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
+    ) as mock_er:
+        mock_registry_instance = MagicMock()
+        mock_er.return_value = mock_registry_instance
+        mock_entry = MagicMock()
+        mock_entry.area_id = DEFAULT_MOCK_AREA.value
+        mock_registry_instance.async_get.return_value = mock_entry
+
+        assert entity_filter(event_data_create) is True
+
+    await shutdown_integration(hass, [mock_config_entry])

@@ -39,9 +39,6 @@ from custom_components.magic_areas.core.light_control import (
     build_light_group_policy,
     LightAction,
 )
-from custom_components.magic_areas.core.state_priority import (
-    LIGHT_PRIORITY_STATES,
-)
 from custom_components.magic_areas.light_groups import (
     DEFAULT_LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_ACT_ON,
@@ -427,12 +424,9 @@ class AreaLightGroup(MagicLightGroup):
         decision = self.policy.evaluate(new_states, lost_states, current_states)
         self.logger.debug("%s: Decision: %s", self.name, decision.reason)
 
-        # Handle CLEAR reset (side effect)
-        if decision.reason == "area_clear":
+        # Handle control tracking side effects
+        if decision.reset_control:
             self.reset_control()
-            return False
-
-        # Track control if policy says so
         if decision.should_track_control:
             self.controlled = True
 
@@ -440,41 +434,6 @@ class AreaLightGroup(MagicLightGroup):
         if decision.action == LightAction.TURN_ON:
             return self._turn_on()
         elif decision.action == LightAction.TURN_OFF:
-            # BRIGHT not assigned case: turn off immediately
-            if "bright" in decision.reason:
-                return self._turn_off()
-
-            # For no_valid_states case: additional checks before turning off
-            if "no_valid_states" in decision.reason:
-                # Only turn lights off if not going into dark state
-                if AreaStates.DARK in new_states:
-                    self.logger.debug(
-                        "%s: Entering %s state, noop.", self.name, AreaStates.DARK
-                    )
-                    return False
-
-                # Turn off if we're a PRIORITY_STATE, and we're coming out of it
-                out_of_priority_states = [
-                    state
-                    for state in LIGHT_PRIORITY_STATES
-                    if state in self.assigned_states and state in lost_states
-                ]
-                if out_of_priority_states:
-                    self.controlled = True
-                    return self._turn_off()
-
-                # Do not turn off if no new PRIORITY_STATES
-                new_priority_states = [
-                    state for state in LIGHT_PRIORITY_STATES if state in new_states
-                ]
-                if not new_priority_states:
-                    self.logger.debug("%s: No new priority states. Noop.", self.name)
-                    return False
-
-                self.controlled = True
-                return self._turn_off()
-
-            # Other turn-off cases: turn off immediately
             return self._turn_off()
         else:  # NOOP
             return False

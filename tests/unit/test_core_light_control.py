@@ -14,7 +14,7 @@ class TestLightGroupPolicy:
     """Tests for LightGroupPolicy."""
 
     def test_noop_when_area_clear(self) -> None:
-        """Should noop when area goes clear."""
+        """Should noop with reset_control flag when area goes clear."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
@@ -26,6 +26,7 @@ class TestLightGroupPolicy:
         )
         assert decision.action == LightAction.NOOP
         assert "clear" in decision.reason
+        assert decision.reset_control is True
 
     def test_turn_off_when_bright_not_assigned(self) -> None:
         """Should turn off when BRIGHT appears and not assigned to it."""
@@ -146,19 +147,67 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.TURN_ON
         assert "sleep" in decision.reason.lower()
 
-    def test_turn_off_when_no_valid_states(self) -> None:
-        """Should turn off when no valid states remain."""
+    def test_turn_off_when_no_valid_states_entering_priority(self) -> None:
+        """Should turn off when no valid states remain and a priority state is entering."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
+        # SLEEP (priority) is entering, DARK was lost — overhead/dark group should turn off
         decision = policy.evaluate(
-            new_states=[],
+            new_states=[AreaStates.SLEEP],
             lost_states=[AreaStates.DARK],
-            current_states=[AreaStates.OCCUPIED],  # DARK lost, only occupied remains
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
         )
         assert decision.action == LightAction.TURN_OFF
         assert "no_valid_states" in decision.reason
+        assert decision.should_track_control is True
+
+    def test_noop_when_no_valid_states_no_priority_transition(self) -> None:
+        """Should noop when no valid states remain but no priority transition."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        # DARK was lost, nothing priority is entering — stable state, noop
+        decision = policy.evaluate(
+            new_states=[],
+            lost_states=[AreaStates.DARK],
+            current_states=[AreaStates.OCCUPIED],
+        )
+        assert decision.action == LightAction.NOOP
+        assert "no_new_priority" in decision.reason
+
+    def test_noop_when_no_valid_states_entering_dark(self) -> None:
+        """Should noop when no valid states remain because DARK is just entering."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.EXTENDED],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        # DARK just entered, EXTENDED lost — don't turn off, dark mode takes over
+        decision = policy.evaluate(
+            new_states=[AreaStates.DARK],
+            lost_states=[AreaStates.EXTENDED],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+        )
+        assert decision.action == LightAction.NOOP
+        assert "entering_dark" in decision.reason
+
+    def test_turn_off_when_leaving_priority_state(self) -> None:
+        """Should turn off when leaving an assigned priority state."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.SLEEP],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        # SLEEP mode ended, group was assigned to SLEEP — turn off
+        decision = policy.evaluate(
+            new_states=[],
+            lost_states=[AreaStates.SLEEP],
+            current_states=[AreaStates.OCCUPIED],
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "leaving_priority" in decision.reason
+        assert decision.should_track_control is True
 
     def test_noop_when_no_changes(self) -> None:
         """Should noop when no state changes."""

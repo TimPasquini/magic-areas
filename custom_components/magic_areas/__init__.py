@@ -16,10 +16,10 @@ from homeassistant.helpers.entity_registry import (
     EventEntityRegistryUpdatedData,
 )
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from custom_components.magic_areas.base.magic import MagicArea
 from custom_components.magic_areas.components import MAGICAREAS_UNIQUEID_PREFIX
 from custom_components.magic_areas.config_keys import (
     CONF_ID,
@@ -31,10 +31,9 @@ from custom_components.magic_areas.core.registry_filters import (
     make_device_registry_filter,
     make_entity_registry_filter,
 )
-from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicConfigEntryVersion
 from custom_components.magic_areas.helpers.area import (
     build_area_config_for_config_entry,
-    get_magic_area_for_config_entry,
 )
 from custom_components.magic_areas.models import (
     MagicAreasConfigEntry,
@@ -173,15 +172,29 @@ async def async_setup_entry(
             str(area_config.config),
         )
 
-        # For regular areas, initialize MagicArea to dispatch the AREA_LOADED signal
-        # so meta-area coordinators know to refresh. Meta areas handle their own
-        # reload subscription via the coordinator.
+        # For regular areas, dispatch AREA_LOADED so meta-area coordinators
+        # know to refresh. Meta areas handle their own reload subscription.
         if not area_config.is_meta():
-            magic_area: MagicArea | None = get_magic_area_for_config_entry(
-                hass, config_entry
-            )
-            assert magic_area is not None
-            await magic_area.initialize()
+            _area_type = area_config.area_type
+            _floor_id = area_config.floor_id
+            _area_id = area_config.id
+
+            @callback
+            async def _async_notify_loaded(*args: Any, **kwargs: Any) -> None:
+                dispatcher_send(
+                    hass,
+                    MagicAreasEvents.AREA_LOADED,
+                    _area_type,
+                    _floor_id,
+                    _area_id,
+                )
+
+            if hass.is_running:
+                hass.create_task(_async_notify_loaded())
+            else:
+                hass.bus.async_listen_once(
+                    EVENT_HOMEASSISTANT_STARTED, _async_notify_loaded
+                )
 
         # Setup config update listener
         tracked_listeners: list[Callable] = [

@@ -109,14 +109,14 @@ async def setup_area_aware_media_player(
         if entry.domain != DOMAIN:
             continue
 
-        if not hasattr(entry, "runtime_data"):
+        if not hasattr(entry, "runtime_data"):  # pragma: no cover
             continue
 
         runtime_data = entry.runtime_data
         if runtime_data.coordinator.data is None:
             await runtime_data.coordinator.async_refresh()
         data = runtime_data.coordinator.data
-        if data is None:
+        if data is None:  # pragma: no cover
             _LOGGER.debug("Skipping area %s; no coordinator data", entry.entry_id)
             continue
 

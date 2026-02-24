@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 
 from custom_components.magic_areas.area_state import AreaType, META_AREA_GLOBAL
 from custom_components.magic_areas.config_keys import CONF_TYPE
-from custom_components.magic_areas.enums import (
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.policy import (
     FEATURE_LIST,
     FEATURE_LIST_GLOBAL,
     FEATURE_LIST_META,
-    MagicAreasFeatures,
 )
 from custom_components.magic_areas.schemas.features import (
     CONFIGURABLE_FEATURES,
