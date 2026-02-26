@@ -44,7 +44,8 @@ A coordinator now owns a single, typed snapshot per config entry:
 ### Snapshot field sources
 
 - `entities` and `magic_entities`: collected from registry + state via
-  `MagicArea.load_entities()` and core entity grouping helpers.
+  `core/snapshot_builder.py` via `core/entity_loading/` package helpers:
+  `loader.py`, `registry_queries.py`, `filters.py`, and `snapshots.py`.
 - `presence_sensors`: computed by core presence helpers and passed into
   `binary_sensor` setup.
 - `config`: merged entry data and options so platforms read one source.
@@ -87,20 +88,21 @@ entities_by_domain = snapshot.entities
 
 ## Compatibility with the forked structure
 
-The coordinator wraps the existing `MagicArea` instance, so code that still
-uses `entry.runtime_data.area` continues to work. The main difference is that
-platforms now have a single, consistent snapshot available.
+The coordinator exposes snapshot data as the authoritative runtime model for
+platforms. `runtime_data` is coordinator-centric and platform setup paths should
+not depend on `entry.runtime_data.area`.
 
 ## Phase 8: Future Removal of MagicArea from Public API
 
-This document describes the current state where MagicArea is still exposed in
-`runtime_data` and `MagicAreasData`. **Phase 8** completes the architectural
-refactoring by making MagicArea coordinator-internal only.
+Phase 8 has been completed in the current architecture direction: MagicArea is
+treated as coordinator-internal and snapshot fields are the public read model.
+This section remains only as historical context for migration sequencing.
 
-In the final state (Phase 8 complete):
-- `runtime_data.area` will be removed
-- `MagicAreasData.area` will be removed
-- Entity constructors will change from `area: MagicArea` to `area_config: AreaConfig, coordinator: MagicAreasCoordinator`
-- Platforms will read **only** snapshot fields (AreaConfig, AreaRuntime, entities, etc.)
+Current expectations:
+- `runtime_data.area` is not part of normal platform usage.
+- `MagicAreasData.area` is not part of the snapshot contract.
+- Entity constructors use snapshot-oriented inputs (`AreaConfig`, coordinator).
+- Platforms read **only** snapshot fields (`AreaConfig`, `AreaRuntime`,
+  `entities`, `feature_configs`, etc.).
 
 See `phase-8-god-object-removal.md` for the complete post-Phase-8 architecture.

@@ -28,6 +28,8 @@ from custom_components.magic_areas.config_keys import (
     CONF_SECONDARY_STATES,
     CONF_RELOAD_ON_REGISTRY_CHANGE,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_SLEEP_TIMEOUT,
     DEFAULT_EXTENDED_TIME,
     DEFAULT_EXTENDED_TIMEOUT,

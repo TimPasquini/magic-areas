@@ -6,30 +6,14 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_NAME, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.device_registry import (
-    EVENT_DEVICE_REGISTRY_UPDATED,
-    EventDeviceRegistryUpdatedData,
-)
-from homeassistant.helpers.entity_registry import (
-    EVENT_ENTITY_REGISTRY_UPDATED,
-    EventEntityRegistryUpdatedData,
-)
-from homeassistant.helpers import entity_registry as er
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import dispatcher_send
-from homeassistant.util import dt as dt_util
-from homeassistant.util import slugify
-
-from custom_components.magic_areas.components import MAGICAREAS_UNIQUEID_PREFIX
-from custom_components.magic_areas.config_keys import (
-    CONF_ID,
-    CONF_RELOAD_ON_REGISTRY_CHANGE,
-    DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
-)
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.core.registry_filters import (
-    make_device_registry_filter,
-    make_entity_registry_filter,
+from custom_components.magic_areas.core.identity_migration import (
+    async_migrate_unique_ids,
+)
+from custom_components.magic_areas.core.registry_reload import (
+    attach_registry_listeners,
 )
 from custom_components.magic_areas.enums import MagicAreasEvents, MagicConfigEntryVersion
 from custom_components.magic_areas.helpers.area import (
@@ -43,119 +27,10 @@ from custom_components.magic_areas.models import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def _compute_unique_id_from_entity_id(
-    *, entity_id: str, area_id: str, area_slug: str
-) -> str | None:
-    """Compute the new unique_id format from a legacy entity_id."""
-    _, _, entity_name = entity_id.partition(".")
-    prefix = f"{MAGICAREAS_UNIQUEID_PREFIX}_"
-    if not entity_name.startswith(prefix):
-        return None
-
-    remainder = entity_name[len(prefix) :]
-    marker = f"_{area_slug}_"
-    if marker in remainder:
-        feature_id, suffix = remainder.split(marker, 1)
-    elif remainder.endswith(f"_{area_slug}"):
-        feature_id = remainder[: -(len(area_slug) + 1)]
-        suffix = ""
-    else:
-        return None
-
-    if not feature_id:
-        return None
-
-    if suffix:
-        return f"{feature_id}_{area_id}_{suffix}"
-    return f"{feature_id}_{area_id}"
-
-
-async def _async_migrate_unique_ids(
-    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
-) -> None:
-    """Migrate Magic Areas entity unique_ids to the new format."""
-    area_id = config_entry.data.get(CONF_ID)
-    if not area_id:
-        return
-
-    area_slug = slugify(config_entry.data.get(ATTR_NAME, area_id))
-    entity_registry = er.async_get(hass)
-    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
-
-    for entry in entries:
-        if entry.unique_id and not entry.unique_id.startswith(
-            f"{MAGICAREAS_UNIQUEID_PREFIX}_"
-        ):
-            continue
-
-        new_unique_id = _compute_unique_id_from_entity_id(
-            entity_id=entry.entity_id,
-            area_id=area_id,
-            area_slug=area_slug,
-        )
-        if not new_unique_id or new_unique_id == entry.unique_id:
-            continue
-
-        try:
-            entity_registry.async_update_entity(
-                entry.entity_id, new_unique_id=new_unique_id
-            )
-        except (
-            Exception
-        ) as err:  # pragma: no cover  # pylint: disable=broad-exception-caught
-            _LOGGER.warning(
-                "%s: Unable to migrate unique_id for %s: %s",
-                config_entry.data.get(ATTR_NAME, area_id),
-                entry.entity_id,
-                err,
-            )
-
-
 async def async_setup_entry(
     hass: HomeAssistant, config_entry: MagicAreasConfigEntry
 ) -> bool:
     """Set up the component."""
-
-    @callback
-    async def _async_reload_entry(*args: Any, **kwargs: Any) -> None:
-        # Prevent reloads if we're not fully loaded yet
-        if not hass.is_running:
-            return
-
-        hass.config_entries.async_update_entry(
-            config_entry,
-            data={**config_entry.data, "entity_ts": dt_util.utcnow()},
-        )
-
-    @callback
-    async def _async_registry_updated(
-        event: (
-            Event[EventEntityRegistryUpdatedData]
-            | Event[EventDeviceRegistryUpdatedData]
-        ),
-    ) -> None:
-        """Reload integration when entity registry is updated."""
-
-        area_data: dict[str, Any] = dict(config_entry.data)
-        if config_entry.options:
-            area_data.update(config_entry.options)
-
-        # Check if disabled
-        if not area_data.get(
-            CONF_RELOAD_ON_REGISTRY_CHANGE, DEFAULT_RELOAD_ON_REGISTRY_CHANGE
-        ):
-            _LOGGER.debug(
-                "%s: Auto-Reloading disabled for this area skipping...",
-                config_entry.data[ATTR_NAME],
-            )
-            return
-
-        _LOGGER.debug(
-            "%s: Reloading entry due entity registry change",
-            config_entry.data[ATTR_NAME],
-        )
-
-        await _async_reload_entry()
 
     async def _async_setup_integration(*args: Any, **kwargs: Any) -> None:
         """Load integration when Hass has finished starting."""
@@ -203,26 +78,7 @@ async def async_setup_entry(
 
         # Watch for area changes.
         if not area_config.is_meta():
-            tracked_listeners.append(
-                hass.bus.async_listen(
-                    EVENT_ENTITY_REGISTRY_UPDATED,
-                    _async_registry_updated,
-                    make_entity_registry_filter(
-                        hass, area_config.id, config_entry.entry_id
-                    ),
-                )
-            )
-            tracked_listeners.append(
-                hass.bus.async_listen(
-                    EVENT_DEVICE_REGISTRY_UPDATED,
-                    _async_registry_updated,
-                    make_device_registry_filter(
-                        hass, area_config.id, config_entry.entry_id
-                    ),
-                )
-            )
-            # Reload once Home Assistant has finished starting to make sure we have all entities.
-            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_reload_entry)
+            attach_registry_listeners(hass, config_entry, area_config, tracked_listeners)
 
         coordinator = MagicAreasCoordinator(hass, area_config, config_entry)
         if config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
@@ -305,7 +161,7 @@ async def async_migrate_entry(
         return False
 
     if config_entry.minor_version < MagicConfigEntryVersion.MINOR:
-        await _async_migrate_unique_ids(hass, config_entry)
+        await async_migrate_unique_ids(hass, config_entry)
 
     hass.config_entries.async_update_entry(
         config_entry,

@@ -2,7 +2,6 @@
 
 from enum import Enum
 
-import pytest
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -145,7 +144,6 @@ async def test_has_configured_state_integration(
 ) -> None:
     """Test has_configured_state logic with real config entry."""
 
-    from tests.const import DEFAULT_MOCK_AREA
 
     # Configure secondary state
     data = dict(mock_config_entry.data)

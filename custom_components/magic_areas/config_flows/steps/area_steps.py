@@ -16,7 +16,6 @@ from custom_components.magic_areas.config_flows.helpers import (
     handle_step_validation,
 )
 from custom_components.magic_areas.config_keys import (
-    ALL_PRESENCE_DEVICE_PLATFORMS,
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
@@ -32,10 +31,12 @@ from custom_components.magic_areas.config_keys import (
     CONF_EXTENDED_TIMEOUT,
     CONF_CLEAR_TIMEOUT,
     CONF_TYPE,
-    CalculationMode,
+)
+from custom_components.magic_areas.defaults import (
+    ALL_PRESENCE_DEVICE_PLATFORMS,
 )
 from custom_components.magic_areas.area_state import AreaType
-from custom_components.magic_areas.enums import SelectorTranslationKeys
+from custom_components.magic_areas.enums import CalculationMode, SelectorTranslationKeys
 from custom_components.magic_areas.policy import ALL_BINARY_SENSOR_DEVICE_CLASSES
 from custom_components.magic_areas.schemas.area import (
     META_AREA_BASIC_OPTIONS_SCHEMA,
@@ -50,14 +51,6 @@ from custom_components.magic_areas.schemas.selectors import (
     build_selector_entity_simple,
     build_selector_number,
     build_selector_select,
-)
-from custom_components.magic_areas.schemas.validation import (
-    OPTIONS_AREA,
-    OPTIONS_AREA_META,
-    OPTIONS_PRESENCE_TRACKING,
-    OPTIONS_PRESENCE_TRACKING_META,
-    OPTIONS_SECONDARY_STATES,
-    OPTIONS_SECONDARY_STATES_META,
 )
 
 if TYPE_CHECKING:
@@ -103,15 +96,10 @@ async def handle_area_config(
         CONF_IGNORE_DIAGNOSTIC_ENTITIES: build_selector_boolean(),  # type: ignore[no-untyped-call]
     }
 
-    options = (
-        OPTIONS_AREA_META if (flow._area_config and flow._area_config.is_meta())
-        else OPTIONS_AREA
-    )
-
-    selectors = {opt[0]: all_selectors[opt[0]] for opt in options}
-
-    data_schema = flow._build_options_schema(
-        options=options, saved_options=flow.area_options, selectors=selectors
+    data_schema = flow._build_schema_from_vol(
+        options_schema,
+        saved_options=flow.area_options,
+        selectors=all_selectors,
     )
 
     return flow.async_show_form(
@@ -161,16 +149,10 @@ async def handle_presence_tracking(
         CONF_CLEAR_TIMEOUT: build_selector_number(unit_of_measurement="minutes"),
     }
 
-    options = (
-        OPTIONS_PRESENCE_TRACKING_META
-        if (flow._area_config and flow._area_config.is_meta())
-        else OPTIONS_PRESENCE_TRACKING
-    )
-
-    selectors = {opt[0]: all_selectors[opt[0]] for opt in options}
-
-    data_schema = flow._build_options_schema(
-        options=options, saved_options=flow.area_options, selectors=selectors
+    data_schema = flow._build_schema_from_vol(
+        options_schema,
+        saved_options=flow.area_options,
+        selectors=all_selectors,
     )
 
     return flow.async_show_form(
@@ -205,12 +187,8 @@ async def handle_secondary_states(
 
     return flow.async_show_form(
         step_id="secondary_states",
-        data_schema=flow._build_options_schema(
-            options=(
-                OPTIONS_SECONDARY_STATES_META
-                if (flow._area_config and flow._area_config.is_meta())
-                else OPTIONS_SECONDARY_STATES
-            ),
+        data_schema=flow._build_schema_from_vol(
+            area_state_schema,
             saved_options=flow.area_options.get(CONF_SECONDARY_STATES, {}),
             dynamic_validators={
                 CONF_DARK_ENTITY: vol.In(

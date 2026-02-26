@@ -1,38 +1,40 @@
 """Fan groups & control for Magic Areas."""
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
-from homeassistant.components.group.fan import FanGroup
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.base.entities import MagicGroupEntity
-from custom_components.magic_areas.const import (
-    EMPTY_STRING,
-)
-from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoFanGroups,
-)
+from custom_components.magic_areas.features.dispatch import collect_feature_entities
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
+from custom_components.magic_areas.fan_group_entities import AreaFanGroup  # noqa: F401
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
-    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
+    from custom_components.magic_areas.features.registry import FeatureRegistry
 
 _LOGGER = logging.getLogger(__name__)
+FEATURE_REGISTRY: FeatureRegistry | None = None
+
+
+def _get_feature_registry() -> FeatureRegistry:
+    if FEATURE_REGISTRY is not None:
+        return FEATURE_REGISTRY
+    from custom_components.magic_areas.features.registry import FEATURE_REGISTRY as registry
+
+    return registry
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: "MagicAreasConfigEntry",
+    config_entry: MagicAreasConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Area config entry."""
-
+    """Set up the area fan config entry."""
     runtime_data = config_entry.runtime_data
     if runtime_data.coordinator.data is None:
         await runtime_data.coordinator.async_refresh()
@@ -42,55 +44,22 @@ async def async_setup_entry(
         return
     area_config = data.area_config
     coordinator = runtime_data.coordinator
+    magic_entities = data.magic_entities
 
-    # Check feature availability
-    if MagicAreasFeatures.FAN_GROUPS not in data.enabled_features:
-        return
+    registry = _get_feature_registry()
+    entities_to_add = collect_feature_entities(
+        domain=FAN_DOMAIN,
+        registry=registry,
+        data=data,
+        area_config=area_config,
+        coordinator=coordinator,
+        logger=_LOGGER,
+    )
 
-    # Check if there are any fan entities
-    if FAN_DOMAIN not in data.entities:
-        _LOGGER.debug("%s: No %s entities for area.", area_config.name, FAN_DOMAIN)
-        return
+    if entities_to_add:
+        async_add_entities(entities_to_add)
 
-    fan_entities: list[str] = [e["entity_id"] for e in data.entities[FAN_DOMAIN]]
-
-    fan_groups: list[AreaFanGroup] = []
-    try:
-        fan_groups = [AreaFanGroup(area_config, coordinator, fan_entities)]
-        if fan_groups:
-            async_add_entities(fan_groups)
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.error(
-            "%s: Error creating fan group: %s",
-            area_config.slug,
-            str(e),
+    if FAN_DOMAIN in magic_entities:
+        cleanup_removed_entries(
+            hass, entities_to_add, magic_entities[FAN_DOMAIN]
         )
-
-    if FAN_DOMAIN in data.magic_entities:
-        cleanup_removed_entries(hass, fan_groups, data.magic_entities[FAN_DOMAIN])
-
-
-class AreaFanGroup(MagicGroupEntity, FanGroup):
-    """Fan Group."""
-
-    feature_info = MagicAreasFeatureInfoFanGroups()
-
-    def __init__(
-        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator", entities: list[str]
-    ) -> None:
-        """Init the fan group for the area."""
-        MagicGroupEntity.__init__(
-            self,
-            area_config,
-            coordinator,
-            domain=FAN_DOMAIN,
-            member_entity_ids=entities,
-        )
-        FanGroup.__init__(
-            self,
-            entities=self.member_entity_ids,
-            name=EMPTY_STRING,
-            unique_id=self.unique_id,
-        )
-
-        delattr(self, "_attr_name")

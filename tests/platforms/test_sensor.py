@@ -125,7 +125,7 @@ async def test_sensor_setup_exception(
 
     # Patch AreaAggregateSensor to raise exception
     with patch(
-        "custom_components.magic_areas.sensor.AreaAggregateSensor",
+        "custom_components.magic_areas.sensor.aggregate_factory.AreaAggregateSensor",
         side_effect=Exception("Boom"),
     ):
         await init_integration_helper(hass, [sensor_config_entry])

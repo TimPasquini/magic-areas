@@ -14,9 +14,10 @@ from the updated structure.
   - meta-area reload subscription (via coordinator)
   - config entry migrations (unique ID updates)
 
-- `custom_components/magic_areas/base/`
-  - entity base classes and shared helpers (`base/entities.py`)
+- `custom_components/magic_areas/entity.py`
+  - shared entity base classes (`MagicEntity`, `MagicGroupEntity`)
   - *(MagicArea and MagicMetaArea classes removed; coordinator owns area state directly)*
+  - entity metadata resolved via `feature_info.py` using `feature_id` lookup
 
 - `custom_components/magic_areas/core/`
   - HA-free helpers: config normalization, presence selection, entity grouping,
@@ -24,13 +25,17 @@ from the updated structure.
   - Key modules:
     - `area_config.py` — `AreaConfig` dataclass (immutable per-entry configuration)
     - `area_runtime.py` — `AreaRuntime` dataclass (current runtime state)
-    - `aggregates.py` — `build_binary_sensor_aggregates()`, `build_sensor_aggregates()`,
-      `build_health_sensor_spec()` (all pure)
+    - `aggregate_selection.py` — aggregate spec selection, health spec building (pure)
     - `presence.py` — `build_presence_sensors()`, `compute_secondary_states()` (pure)
     - `light_control.py` — `LightGroupPolicy.evaluate()` with full turn-off conditions
     - `climate_control.py`, `fan_control.py`, `media_routing.py` — control policies
     - `meta_reload.py` — `evaluate_reload()` for meta-area reload throttling
-    - `config.py`, `entities.py`, `entity_ids.py` — config and entity helpers
+    - `config.py`, `entity_ids.py` — config and entity reference helpers
+    - `entity_loading/` — entity ingestion package:
+      - `loader.py` — area/meta-area entity load orchestration
+      - `registry_queries.py` — entity/device registry queries
+      - `filters.py` — shared exclusion rules
+      - `snapshots.py` — normalized grouped snapshot output
 
 - `custom_components/magic_areas/coordinator.py`
   - `MagicAreasCoordinator`: owns a private `AreaConfig`, refreshes snapshots
@@ -38,13 +43,20 @@ from the updated structure.
   - builds `MagicAreasData` snapshot on every refresh
 
 - `custom_components/magic_areas/{platform}.py` / `{platform}/__init__.py`
-  - platform setup functions that read `coordinator.data` exclusively
+  - platform setup functions are registry-driven routers
+  - each platform reads `coordinator.data` exclusively
   - entity constructors receive `AreaConfig` + `MagicAreasCoordinator`
+
+- `custom_components/magic_areas/features/`
+  - `base.py` defines the `FeatureModule` contract + config flow steps
+  - `registry.py` is the single runtime registry for feature modules
+  - `modules/` hosts per-feature implementations
 
 - `custom_components/magic_areas/config_flow.py`
   - UI config flow entry point
-  - `config_flows/options_flow.py` — full options flow handler
+  - `config_flows/options_flow.py` — options flow handler (dynamic feature routing)
   - `config_flows/steps/` — step handlers (area_steps, feature_selection, feature_config)
+  - `config_flows/feature_registry.py` — config-flow registry built from feature modules
 
 - Supporting modules:
   - `config_keys.py`, `defaults.py`, `enums.py`, `policy.py`
@@ -79,7 +91,13 @@ Coordinator refresh
             - entity_references (resolved entity IDs for cross-platform use)
             - updated_at
 
-Platform setup
+Options flow (schema-driven)
+  └─ config_flows/options_flow.py
+       ├─ menu built from enabled features + config-flow registry
+       ├─ feature_conf_* steps routed dynamically to a generic handler
+       └─ UI forms built directly from vol schemas
+
+Platform setup (registry-driven)
   ├─ binary_sensor/__init__.py
   ├─ sensor/__init__.py
   ├─ light.py
@@ -87,7 +105,8 @@ Platform setup
   ├─ switch/__init__.py
   ├─ fan.py, cover.py
        └─ read coordinator.data (MagicAreasData snapshot)
-          └─ skip setup if snapshot is unavailable
+          └─ dispatch to FeatureRegistry modules per domain
+             └─ skip setup if snapshot is unavailable
 ```
 
 ## Runtime data flow (fork baseline)
@@ -167,6 +186,9 @@ Platforms read coordinator.data
   ├─ sensor/__init__.py
   ├─ light.py
   ├─ fan.py
+  ├─ cover.py
+  ├─ media_player/__init__.py
+  └─ switch/__init__.py
   └─ etc.
      ↓
 Entities created from snapshot
@@ -188,6 +210,32 @@ Platform handlers (light, climate, fan, media)
 - Trigger coordinator refresh
 - Modify snapshot data
 - Bypass the snapshot to access area state
+
+## Feature modules and registry (current)
+
+Runtime feature modules are the single source of truth for:
+- platform entity construction per feature (`build_entities`)
+- feature dependencies (`depends_on`)
+- config flow steps (`config_flow_steps`)
+
+```
+FeatureRegistry (features/registry.py)
+  ├─ AggregatesFeatureModule
+  ├─ WaspInABoxFeatureModule
+  ├─ LightGroupsFeatureModule (light groups + light control switch)
+  ├─ FanGroupsFeatureModule (fan group + control switch)
+  ├─ MediaPlayerGroupsFeatureModule (group + control switch)
+  ├─ CoverGroupsFeatureModule (device-class cover groups)
+  ├─ PresenceHoldFeatureModule (switch)
+  ├─ ClimateControlFeatureModule (switch)
+  ├─ HealthFeatureModule (problem binary sensor)
+  ├─ BLETrackersFeatureModule (monitor sensor)
+  └─ AreaAwareMediaPlayerFeatureModule (config-only)
+
+Platforms call FeatureRegistry.modules_for_domain(domain) and attach entities
+per module. Config flows build their per-feature menu from the same registry,
+ensuring feature metadata is defined once.
+```
 
 This unidirectional flow ensures:
 - Consistent data reads (all use snapshot)

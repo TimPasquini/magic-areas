@@ -997,6 +997,12 @@ wheels = [
 ]
 
 [[package]]
+name = "code2flow"
+version = "2.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/a5/d1a0d78f1d31d592131eed19c48839c17a842094a683242ec0d0a825830e/code2flow-2.5.1.tar.gz", hash = "sha256:ad98717920da6598dac38a1951f38b84891f4aa4bd2f36c119b0dbac729f4785", size = 313232, upload-time = "2023-01-08T22:56:44.649Z" }
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2227,6 +2233,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+charts = [
+    { name = "code2flow" },
+    { name = "pydeps" },
+]
 test = [
     { name = "mypy" },
     { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13.2'" },
@@ -2242,14 +2252,16 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "black", specifier = ">=26.1.0" },
+    { name = "code2flow", marker = "extra == 'charts'", specifier = ">=2.5.1" },
     { name = "mypy", marker = "extra == 'test'" },
+    { name = "pydeps", marker = "extra == 'charts'", specifier = ">=3.0.2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3" },
     { name = "pytest-asyncio", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "pytest-homeassistant-custom-component", marker = "extra == 'test'", specifier = ">=0.13.179" },
     { name = "ruff", specifier = ">=0.14.13" },
 ]
-provides-extras = ["test"]
+provides-extras = ["test", "charts"]
 
 [[package]]
 name = "markupsafe"
@@ -3142,6 +3154,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/29/b53a9ca6cd366bfc928823679c6a76c7a4c69f8201c0ba7903ad18ebae2f/pydantic_core-2.41.4-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5729225de81fb65b70fdb1907fcf08c75d498f4a6f15af005aabb1fdadc19dfa", size = 2041183, upload-time = "2025-10-14T10:22:08.812Z" },
     { url = "https://files.pythonhosted.org/packages/c7/3d/f8c1a371ceebcaf94d6dd2d77c6cf4b1c078e13a5837aee83f760b4f7cfd/pydantic_core-2.41.4-cp314-cp314t-win_amd64.whl", hash = "sha256:de2cfbb09e88f0f795fd90cf955858fc2c691df65b1f21f0aa00b99f3fbc661d", size = 1993542, upload-time = "2025-10-14T10:22:11.332Z" },
     { url = "https://files.pythonhosted.org/packages/8a/ac/9fc61b4f9d079482a290afe8d206b8f490e9fd32d4fc03ed4fc698214e01/pydantic_core-2.41.4-cp314-cp314t-win_arm64.whl", hash = "sha256:d34f950ae05a83e0ede899c595f312ca976023ea1db100cd5aa188f7005e3ab0", size = 1973897, upload-time = "2025-10-14T10:22:13.444Z" },
+]
+
+[[package]]
+name = "pydeps"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "stdlib-list" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d1/3e/750b00bc373fe0ed1981be89f432bb58ff45ae137d486d5d1667b5f89e76/pydeps-3.0.2.tar.gz", hash = "sha256:9e73575ddd6b5614cb2463a4ee9392817cc51002a2e46184d4fb1ffef8d15832", size = 53202, upload-time = "2026-01-06T16:52:03.1Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/c5/e3c81d05e4ab54fab5ba613c28ec91b2baee26671c5645293b1b020c13f4/pydeps-3.0.2-py3-none-any.whl", hash = "sha256:890515899ffdb017255ba035704cfc711966469ad3aa3574c5b0b13f9f676e32", size = 47765, upload-time = "2026-01-06T16:52:01.794Z" },
 ]
 
 [[package]]
@@ -4212,6 +4236,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8d/06/7bf7c0ec16574aeb1f6602d6a7bdb020084362fb4a9b177c5465b0aae0b6/standard_telnetlib-3.13.0.tar.gz", hash = "sha256:243333696bf1659a558eb999c23add82c41ffc2f2d04a56fae13b61b536fb173", size = 12636, upload-time = "2024-10-30T16:01:42.257Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/85/a1808451ac0b36c61dffe8aea21e45c64ba7da28f6cb0d269171298c6281/standard_telnetlib-3.13.0-py3-none-any.whl", hash = "sha256:b268060a3220c80c7887f2ad9df91cd81e865f0c5052332b81d80ffda8677691", size = 9995, upload-time = "2024-10-30T16:01:29.289Z" },
+]
+
+[[package]]
+name = "stdlib-list"
+version = "0.12.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/25/f1540879c8815387980e56f973e54605bd924612399ace31487f7444171c/stdlib_list-0.12.0.tar.gz", hash = "sha256:517824f27ee89e591d8ae7c1dd9ff34f672eae50ee886ea31bb8816d77535675", size = 60923, upload-time = "2025-10-24T19:21:22.849Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/3d/2970b27a11ae17fb2d353e7a179763a2fe6f37d6d2a9f4d40104a2f132e9/stdlib_list-0.12.0-py3-none-any.whl", hash = "sha256:df2d11e97f53812a1756fb5510393a11e3b389ebd9239dc831c7f349957f62f2", size = 87615, upload-time = "2025-10-24T19:21:20.619Z" },
 ]
 
 [[package]]

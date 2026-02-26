@@ -40,56 +40,65 @@ Compared to the fork baseline, the suite now covers:
 
 ### Config flow and options flow
 
-- `tests/test_config_flow.py`: full options flow coverage, error paths,
-  selectors, and feature configuration steps.
+- `tests/config_flow/test_config_flow_basic.py`: base config flow paths.
+- `tests/config_flow/test_config_flow_options.py`: options flow behavior.
+- `tests/config_flow/test_config_flow_features.py`: feature-specific options.
+- `tests/config_flow/test_config_flow_errors.py`: error and validation paths.
+- `tests/config_flow/test_feature_config.py`,
+  `tests/config_flow/test_feature_config_climate.py`,
+  `tests/config_flow/test_feature_helpers.py`: feature-step routing and schemas.
 - `tests/test_exceptions.py`: config flow and setup exceptions.
 - `tests/AGENTS.md`: testing guidelines reinforced to avoid HA API drift.
 
 ### Coordinator and snapshot behavior
 
-- `tests/test_coordinator.py`: snapshot creation and update failure handling.
-- `tests/test_core_config.py`: core feature config normalization.
-- `tests/test_core_presence.py`: core presence sensor selection.
-- `tests/test_core_entities.py`: core entity grouping and normalization.
+- `tests/integration/test_coordinator.py`: snapshot creation and update failure handling.
+- `tests/unit/test_entity_ingestion_contract.py`: entity-ingestion package
+  contracts (include/exclude precedence, diagnostic toggle parity, meta-area
+  shape parity, API surface, snapshot-builder integration).
+- `tests/unit/test_core_entity_loading.py`: loader behavior and registry wiring.
+- `tests/unit/test_core_entity_loader.py`: exclusion/filter helpers.
+- `tests/unit/test_core_entities.py`: grouped snapshot normalization helpers.
+- `tests/unit/test_core_config.py`: core feature config normalization.
+- `tests/unit/test_core_presence.py`: core presence sensor selection.
 
 ### Sensor and aggregate behavior
 
-- `tests/test_sensor.py`: aggregate sensor creation and error handling.
-- `tests/test_aggregates.py`: aggregate logic for multiple sensors and filters.
-- `tests/test_meta_aggregates.py`: meta-area aggregate behavior.
-- `tests/test_threshold.py`: threshold sensors and edge cases.
+- `tests/platforms/test_sensor.py`: aggregate sensor creation and error handling.
+- `tests/unit/test_core_aggregates.py`: aggregate logic for multiple sensors and filters.
+- `tests/platforms/test_meta_aggregates.py`: meta-area aggregate behavior.
+- `tests/platforms/test_threshold.py`: threshold sensors and edge cases.
 
 ### Binary sensor and presence tracking
 
-- `tests/test_area_state.py`: presence and secondary state behavior.
-- `tests/test_presence_timeouts.py`: clear/extended timeout behavior.
-- `tests/test_binary_sensor_coverage.py`: binary sensor coverage gaps.
-- `tests/test_ble_tracker_monitor.py`: BLE tracker monitor behavior.
-- `tests/test_health.py`: health binary sensor aggregation.
-- `tests/test_wasp_in_a_box.py`: wasp-in-a-box behavior and edge cases.
+- `tests/integration/test_area_state.py`: presence and secondary state behavior.
+- `tests/integration/test_presence_timeouts.py`: clear/extended timeout behavior.
+- `tests/platforms/test_binary_sensor_setup.py`: binary sensor setup coverage.
+- `tests/platforms/test_ble_tracker_monitor.py`: BLE tracker monitor behavior.
+- `tests/platforms/test_health.py`: health binary sensor aggregation.
+- `tests/platforms/test_wasp_in_a_box.py`: wasp-in-a-box behavior and edge cases.
 
 ### Lights, light groups, and meta areas
 
-- `tests/test_light.py`: light group setup and service forwarding.
-- `tests/test_light_complex.py`: multi-group and feature combinations.
-- `tests/test_light_edge_cases.py`: edge cases and restoration behavior.
-- `tests/test_light_meta.py`: meta-area light behavior.
-- `tests/test_meta_area_state.py`: meta-area state aggregation.
+- `tests/platforms/test_light.py`: light group setup and service forwarding.
+- `tests/platforms/test_light_complex.py`: multi-group and feature combinations.
+- `tests/platforms/test_light_edge_cases.py`: edge cases and restoration behavior.
+- `tests/platforms/test_light_meta.py`: meta-area light behavior.
+- `tests/integration/test_meta_area_state.py`: meta-area state aggregation.
 
 ### Media player and audio features
 
-- `tests/test_media_player.py`: area-aware media player behavior and
+- `tests/platforms/test_media_player.py`: area-aware media player behavior and
   notifications.
 
 ### Switches and controls
 
-- `tests/test_switch.py`: switch behavior for control features.
-- `tests/test_switch_setup.py`: setup error handling and cleanup.
-- `tests/test_switch_media_player_control.py`: media player control switch logic.
-- `tests/test_fan_setup.py`, `tests/test_cover_setup.py`: platform setup error
-  handling.
-- `tests/test_climate_control.py`: climate control behaviors.
-- `tests/test_cover.py`, `tests/test_fan.py`: platform feature behavior.
+- `tests/platforms/test_switch.py`: switch behavior for control features.
+- `tests/platforms/test_setup_failures.py`: platform setup error handling and cleanup.
+- `tests/platforms/test_switch_media_player_control.py`: media player control switch logic.
+- `tests/platforms/test_fan_setup.py`, `tests/platforms/test_cover.py`: platform setup coverage.
+- `tests/platforms/test_climate_control.py`: climate control behaviors.
+- `tests/platforms/test_cover.py`, `tests/platforms/test_fan.py`: platform feature behavior.
 
 ### Supporting fixtures and utilities
 
@@ -97,36 +106,39 @@ Compared to the fork baseline, the suite now covers:
 - `tests/helpers.py`: integration and registry setup helpers.
 - `tests/mocks.py`: updated mocks for stable entity behavior.
 - `tests/const.py`: test constants and mock area definitions.
-- `tests/test_diagnostics.py`: diagnostics output and redaction.
-- `tests/test_icons.py`: icon handling.
-- `tests/test_restore.py`: restore behaviors.
-- `tests/test_timer.py`: timer behavior.
-- `tests/test_magic.py`: core integration behaviors.
+- `tests/integration/test_diagnostics.py`: diagnostics output and redaction.
+- `tests/unit/test_icons.py`: icon handling.
+- `tests/integration/test_restore.py`: restore behaviors.
+- `tests/unit/test_timer.py`: timer behavior.
+- `tests/integration/test_area_lifecycle.py`: core integration lifecycle behaviors.
 
 ## Delta map (tests to changes)
 
 This map ties key deltas to the tests that now cover them.
 
 - Coordinator snapshot gating and availability:
-  - `tests/test_coordinator.py`
-  - `tests/test_availability.py`
+  - `tests/integration/test_coordinator.py`
+  - `tests/integration/test_availability.py`
 - Core helper extraction:
-  - `tests/test_core_config.py`
-  - `tests/test_core_presence.py`
-  - `tests/test_core_entities.py`
+  - `tests/unit/test_core_config.py`
+  - `tests/unit/test_core_presence.py`
+  - `tests/unit/test_core_entities.py`
+  - `tests/unit/test_core_entity_loading.py`
+  - `tests/unit/test_core_entity_loader.py`
+  - `tests/unit/test_entity_ingestion_contract.py`
 - Platform snapshot usage:
-  - `tests/test_cover.py`
-  - `tests/test_fan.py`
-  - `tests/test_media_player.py`
-  - `tests/test_switch.py`
-  - `tests/test_threshold.py`
+  - `tests/platforms/test_cover.py`
+  - `tests/platforms/test_fan.py`
+  - `tests/platforms/test_media_player.py`
+  - `tests/platforms/test_switch.py`
+  - `tests/platforms/test_threshold.py`
 - Event payload updates and state-change handling:
-  - `tests/test_light_complex.py`
-  - `tests/test_light_edge_cases.py`
-  - `tests/test_switch.py`
+  - `tests/platforms/test_light_complex.py`
+  - `tests/platforms/test_light_edge_cases.py`
+  - `tests/platforms/test_switch.py`
 - Identity and migration changes:
-  - `tests/test_init.py`
-  - `tests/test_magic.py`
+  - `tests/integration/test_init.py`
+  - `tests/integration/test_area_lifecycle.py`
 
 ## Guidance for future tests
 

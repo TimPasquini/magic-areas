@@ -992,10 +992,10 @@ def immediate_call_factory(
 
 
 def create_area_state_change_event(
-    new_states: list = None,
-    lost_states: list = None,
-    current_states: list = None,
-) -> tuple:
+    new_states: list[Any] | None = None,
+    lost_states: list[Any] | None = None,
+    current_states: list[Any] | None = None,
+) -> tuple[list[Any], list[Any], list[Any]]:
     """Create an AREA_STATE_CHANGED event payload tuple.
 
     The event dispatcher sends area state changes as a tuple:

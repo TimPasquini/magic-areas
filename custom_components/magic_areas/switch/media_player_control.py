@@ -15,9 +15,7 @@ from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoMediaPlayerGroups,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 class MediaPlayerControlSwitch(SwitchBase):
     """Switch to enable/disable climate control."""
 
-    feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
+    feature_id = MagicAreasFeatures.MEDIA_PLAYER_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
 
     media_player_group_id: str | None

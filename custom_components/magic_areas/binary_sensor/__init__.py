@@ -22,8 +22,7 @@ from custom_components.magic_areas.binary_sensor.presence import (
 from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     AreaWaspInABoxBinarySensor,
 )
-from custom_components.magic_areas.binary_sensor.threshold import create_illuminance_threshold
-from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
 )
@@ -32,18 +31,25 @@ from custom_components.magic_areas.core.aggregates import (
     build_health_sensor_spec,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoAggregates,
-    MagicAreasFeatureInfoHealth,
-)
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
+from custom_components.magic_areas.features.dispatch import collect_feature_entities
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
+    from custom_components.magic_areas.features.registry import FeatureRegistry
 
 _LOGGER = logging.getLogger(__name__)
+FEATURE_REGISTRY: "FeatureRegistry | None" = None
+
+
+def _get_feature_registry() -> "FeatureRegistry":
+    if FEATURE_REGISTRY is not None:
+        return FEATURE_REGISTRY
+    from custom_components.magic_areas.features.registry import FEATURE_REGISTRY as registry
+
+    return registry
 
 # Classes
 
@@ -51,13 +57,13 @@ _LOGGER = logging.getLogger(__name__)
 class AreaAggregateBinarySensor(AreaSensorGroupBinarySensor):
     """Aggregate sensor for the area."""
 
-    feature_info = MagicAreasFeatureInfoAggregates()
+    feature_id = MagicAreasFeatures.AGGREGATES
 
 
 class AreaHealthBinarySensor(AreaSensorGroupBinarySensor):
     """Aggregate sensor for the area."""
 
-    feature_info = MagicAreasFeatureInfoHealth()
+    feature_id = MagicAreasFeatures.HEALTH
 
 
 # Setup
@@ -79,7 +85,6 @@ async def async_setup_entry(
         return
     area_config = data.area_config
     coordinator = runtime_data.coordinator
-    entities_by_domain = data.entities
     magic_entities = data.magic_entities
 
     entities: list[Entity] = []
@@ -90,22 +95,17 @@ async def async_setup_entry(
     else:
         entities.append(AreaStateBinarySensor(area_config, coordinator))
 
-    # Create extra sensors
-    if MagicAreasFeatures.AGGREGATES in data.enabled_features:
-        entities.extend(create_aggregate_sensors(data, entities_by_domain, area_config, coordinator))
-        illuminance_threshold_sensor = create_illuminance_threshold(hass, data, area_config, coordinator)
-        if illuminance_threshold_sensor:
-            entities.append(illuminance_threshold_sensor)
-
-        # Wasp in a box
-        if MagicAreasFeatures.WASP_IN_A_BOX in data.enabled_features and not area_config.is_meta():
-            entities.extend(create_wasp_in_a_box_sensor(data, area_config, coordinator))
-
-    if MagicAreasFeatures.HEALTH in data.enabled_features:
-        entities.extend(create_health_sensors(data, entities_by_domain, area_config, coordinator))
-
-    if MagicAreasFeatures.BLE_TRACKER in data.enabled_features:
-        entities.extend(create_ble_tracker_sensor(data, area_config, coordinator))
+    registry = _get_feature_registry()
+    entities.extend(
+        collect_feature_entities(
+            domain=BINARY_SENSOR_DOMAIN,
+            registry=registry,
+            data=data,
+            area_config=area_config,
+            coordinator=coordinator,
+            logger=_LOGGER,
+        )
+    )
 
     # Add all entities
     async_add_entities(entities)

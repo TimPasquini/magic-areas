@@ -60,7 +60,7 @@ tests/
     ├── test_snapshots_config_flow.py # Config flow structure snapshots
     ├── test_snapshots_coordinator.py # Coordinator data snapshots
     ├── test_snapshots_entities.py # Entity structure snapshots
-    └── __snapshots__/        # Generated snapshot baseline files (.ambr)
+    └── snapshots/            # Generated snapshot baseline files (.ambr)
     └── Total: 27 tests
 ```
 
@@ -197,7 +197,7 @@ Fixtures from parent conftest.py are automatically available to all subdirectory
 
 ## Notes
 
-- Snapshot files are auto-generated in `__snapshots__/` directories
+- Snapshot files are auto-generated in `snapshots/` directories
 - All imports use absolute paths (from `tests.*`) for consistency
 - Root-level conftest.py provides fixtures to all subdirectories
 - Python path includes the repository root for easy imports of custom_components

@@ -133,7 +133,6 @@ async def test_feature_registry_snapshot(snapshot: SnapshotAssertion) -> None:
             "key": feature_name,
             "name": feature_config.name,
             "has_schema": feature_config.schema is not None,
-            "has_options": len(feature_config.options) > 0,
             "merge_options": feature_config.merge_options,
             "has_next_step": feature_config.next_step is not None,
         }

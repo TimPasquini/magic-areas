@@ -11,26 +11,19 @@ No Home Assistant entity classes are imported.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 
-from homeassistant.const import STATE_ON
-
-from custom_components.magic_areas.config_keys import (
-    CONF_CLEAR_TIMEOUT,
-    CONF_EXTENDED_TIME,
-    CONF_EXTENDED_TIMEOUT,
-    CONF_SECONDARY_STATES,
-    CONF_SLEEP_TIMEOUT,
-    DEFAULT_CLEAR_TIMEOUT,
-    DEFAULT_EXTENDED_TIME,
-    DEFAULT_EXTENDED_TIMEOUT,
-    DEFAULT_SLEEP_TIMEOUT,
-)
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.const import ONE_MINUTE
-from custom_components.magic_areas.policy import (
-    INVALID_STATES,
-    PRESENCE_SENSOR_VALID_ON_STATES,
+from custom_components.magic_areas.core.occupancy_timers import (
+    check_timeout_exceeded,
+    compute_occupancy,
+    get_clear_timeout,
+)
+from custom_components.magic_areas.core.occupancy_transitions import (
+    build_state_list,
+    compute_sensors_active,
+    diff_states,
+    valid_on_states,
 )
 
 
@@ -106,28 +99,11 @@ class AreaOccupancyTracker:
 
     def valid_on_states(self, additional_states: list[str] | None = None) -> list[str]:
         """Return valid ON states for presence sensors."""
-        if self._is_meta:
-            return [STATE_ON]
-
-        valid = PRESENCE_SENSOR_VALID_ON_STATES.copy()
-        if additional_states:
-            valid.extend(additional_states)
-        return valid
+        return valid_on_states(self._is_meta, additional_states)
 
     def get_clear_timeout(self) -> float:
         """Return current timeout value in seconds."""
-        secondary = self._config.get(CONF_SECONDARY_STATES, {})
-
-        if self.has_state(AreaStates.SLEEP):
-            return secondary.get(CONF_SLEEP_TIMEOUT, DEFAULT_SLEEP_TIMEOUT) * ONE_MINUTE
-
-        if self.has_state(AreaStates.EXTENDED):
-            return (
-                secondary.get(CONF_EXTENDED_TIMEOUT, DEFAULT_EXTENDED_TIMEOUT)
-                * ONE_MINUTE
-            )
-
-        return self._config.get(CONF_CLEAR_TIMEOUT, DEFAULT_CLEAR_TIMEOUT) * ONE_MINUTE
+        return get_clear_timeout(self._config, self._states)
 
     def record_sensor_off(self, now: datetime) -> None:
         """Record sensor-off timestamp."""
@@ -161,7 +137,12 @@ class AreaOccupancyTracker:
 
         """
         # 1. Compute which sensors are active
-        active_list, any_active = self._compute_sensors_active(sensor_states, keep_only)
+        active_list, any_active = compute_sensors_active(
+            sensor_states,
+            keep_only,
+            self.is_occupied,
+            self.valid_on_states(),
+        )
 
         # 2. Track active sensors (rotate current → last)
         if self._active_sensors:
@@ -170,8 +151,13 @@ class AreaOccupancyTracker:
 
         # 3. Compute occupancy
         was_occupied = self.is_occupied
-        occupied, timeout_to_request, should_cancel = self._compute_occupancy(
-            any_active, now
+        occupied, timeout_to_request, should_cancel = compute_occupancy(
+            any_active,
+            self.is_occupied,
+            self._is_on_timeout,
+            self._last_off_time,
+            now,
+            self.get_clear_timeout(),
         )
 
         # 4. Track last_changed on occupancy transition
@@ -179,38 +165,16 @@ class AreaOccupancyTracker:
             self._last_changed = now
 
         # 5. Build state list
-        new_state_list: list[str] = []
-        new_state_list.append(AreaStates.OCCUPIED if occupied else AreaStates.CLEAR)
-
-        # Extended state
-        if occupied:
-            seconds_since = (now - self._last_changed).total_seconds()
-            extended_time = self._config.get(CONF_SECONDARY_STATES, {}).get(
-                CONF_EXTENDED_TIME, DEFAULT_EXTENDED_TIME
-            )
-            if (seconds_since / ONE_MINUTE) >= extended_time:
-                new_state_list.append(AreaStates.EXTENDED)
-
-        new_state_list.extend(secondary_states)
+        new_state_list = build_state_list(
+            occupied,
+            self._last_changed,
+            now,
+            self._config,
+            secondary_states,
+        )
 
         # 6. Diff against previous states
-        previous_set = set(self._states)
-        current_set = set(new_state_list)
-
-        if previous_set == current_set:
-            new_states: set[str] = set()
-            lost_states: set[str] = set()
-        else:
-            new_states = current_set - previous_set
-            lost_states = previous_set - current_set
-
-        # If primary state changed, promote all current to new
-        primary_changed = any(
-            s in new_states for s in (AreaStates.OCCUPIED, AreaStates.CLEAR)
-        )
-        if primary_changed:
-            new_states = set(new_state_list)
-            lost_states = set()
+        new_states, lost_states = diff_states(self._states, new_state_list)
 
         # Update internal state
         self._states = list(new_state_list)
@@ -226,78 +190,38 @@ class AreaOccupancyTracker:
 
     # -- Internal computation --
 
+    # Internal helpers live in occupancy_transitions/occupancy_timers.
+
     def _compute_sensors_active(
         self,
         sensor_states: dict[str, str | None],
         keep_only: list[str],
     ) -> tuple[list[str], bool]:
-        """Filter sensors and return (active_list, any_active).
-
-        Args:
-            sensor_states: Map of sensor_id → current state string (or None).
-            keep_only: Entity IDs that only count when area is already occupied.
-
-        Returns:
-            Tuple of (list of active sensor IDs, whether any are active).
-
-        """
-        valid_states = self.valid_on_states()
-        active: list[str] = []
-
-        # Determine available sensors (filter keep-only when not occupied)
-        if self.is_occupied:
-            available = list(sensor_states.keys())
-        else:
-            available = [sid for sid in sensor_states if sid not in keep_only]
-
-        for sensor_id in available:
-            state = sensor_states.get(sensor_id)
-            if state is None:
-                continue
-            if state in INVALID_STATES:
-                continue
-            if state in valid_states:
-                active.append(sensor_id)
-
-        return active, len(active) > 0
+        """Compatibility wrapper for tests."""
+        return compute_sensors_active(
+            sensor_states,
+            keep_only,
+            self.is_occupied,
+            self.valid_on_states(),
+        )
 
     def _compute_occupancy(
         self, any_active: bool, now: datetime
     ) -> tuple[bool, float | None, bool]:
-        """Compute occupancy from sensor activity.
-
-        Returns:
-            Tuple of (is_occupied, timeout_seconds_to_request, should_cancel_timeout).
-
-        """
-        if any_active:
-            # Sensors active → occupied, cancel any pending timeout
-            return True, None, True
-
-        if not self.is_occupied:
-            # Not active, not occupied → clear
-            return False, None, False
-
-        # Not active, but was occupied
-        if self._is_on_timeout:
-            if self._check_timeout_exceeded(now):
-                # Timeout exceeded → clear
-                return False, None, True
-            # Still within timeout → stay occupied
-            return True, None, False
-
-        # Occupied but no timeout running
-        timeout = self.get_clear_timeout()
-
-        # If timeout is 0 (immediate clear), clear now instead of requesting timeout
-        if timeout == 0:
-            return False, None, False
-
-        # Request timeout and stay occupied
-        return True, timeout, False
+        """Compatibility wrapper for tests."""
+        return compute_occupancy(
+            any_active,
+            self.is_occupied,
+            self._is_on_timeout,
+            self._last_off_time,
+            now,
+            self.get_clear_timeout(),
+        )
 
     def _check_timeout_exceeded(self, now: datetime) -> bool:
-        """Check if the clear timeout has been exceeded."""
-        clear_delta = timedelta(seconds=self.get_clear_timeout())
-        clear_time = self._last_off_time + clear_delta
-        return now >= clear_time
+        """Compatibility wrapper for tests."""
+        return check_timeout_exceeded(
+            self._last_off_time,
+            self.get_clear_timeout(),
+            now,
+        )

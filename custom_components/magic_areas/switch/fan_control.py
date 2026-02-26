@@ -35,9 +35,7 @@ from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoFanGroups,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,7 +44,7 @@ _LOGGER = logging.getLogger(__name__)
 class FanControlSwitch(SwitchBase):
     """Switch to enable/disable fan control."""
 
-    feature_info = MagicAreasFeatureInfoFanGroups()
+    feature_id = MagicAreasFeatures.FAN_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
 
     policy: FanControlPolicy

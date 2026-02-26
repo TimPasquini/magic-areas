@@ -16,10 +16,14 @@ from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
 )
+from custom_components.magic_areas.core.feature_access import (
+    get_feature_config,
+)
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
-from custom_components.magic_areas.feature_info import MagicAreasFeatureInfo
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.feature_info import FeatureInfo, get_feature_info
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.area_config import AreaConfig
@@ -31,11 +35,12 @@ _LOGGER = logging.getLogger(__name__)
 class MagicEntity(RestoreEntity):
     """MagicEntity is the base entity for use with all the magic classes."""
 
-    feature_info: MagicAreasFeatureInfo | None = None
+    feature_id: MagicAreasFeatures | None = None
     _extra_identifiers: list[str] | None = None
     _attr_has_entity_name = True
     _area_config: "AreaConfig"
     _coordinator: "MagicAreasCoordinator"
+    _feature_info: FeatureInfo
 
     def __init__(
         self,
@@ -49,13 +54,14 @@ class MagicEntity(RestoreEntity):
         # Avoiding using super() due multiple inheritance issues
         RestoreEntity.__init__(self)
 
-        if not self.feature_info:
-            raise NotImplementedError(f"{self.name}: Feature info not set.")
+        if not self.feature_id:
+            raise NotImplementedError(f"{self.name}: Feature id not set.")
 
         self.logger = logging.getLogger(type(self).__module__)
         self._area_config = area_config
         self._coordinator = coordinator
         self._extra_identifiers = []
+        self._feature_info = get_feature_info(self.feature_id)
 
         # Cache area identity fields (reduces coupling to MagicArea)
         self._area_id = area_config.id
@@ -94,8 +100,8 @@ class MagicEntity(RestoreEntity):
         )
 
     def _generate_entity_id(self, domain: str) -> str:
-        if not self.feature_info:
-            raise NotImplementedError(f"{self.name}: Feature info not set.")
+        if not self.feature_id:
+            raise NotImplementedError(f"{self.name}: Feature id not set.")
 
         entity_id_parts = [
             MAGICAREAS_UNIQUEID_PREFIX,
@@ -118,8 +124,8 @@ class MagicEntity(RestoreEntity):
 
     def _generate_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
         # Format: feature_area_id_[translation]_[extra...]
-        if not self.feature_info:
-            raise NotImplementedError(f"{self.name}: Feature info not set.")
+        if not self.feature_id:
+            raise NotImplementedError(f"{self.name}: Feature id not set.")
 
         unique_id_parts = [
             self.feature_info.id,
@@ -173,16 +179,12 @@ class MagicEntity(RestoreEntity):
             Feature configuration dict (empty if feature not enabled)
 
         """
-        if not self.feature_info:
-            return {}
+        return get_feature_config(self._coordinator, self.feature_id)
 
-        # Read from coordinator snapshot (single source of truth)
-        if self._coordinator.data:
-            return self._coordinator.data.feature_configs.get(
-                self.feature_info.id, {}
-            )
-
-        return {}
+    @property
+    def feature_info(self) -> FeatureInfo:
+        """Return feature metadata for the entity."""
+        return self._feature_info
 
     async def restore_state(self) -> None:
         """Restore the state of the entity."""

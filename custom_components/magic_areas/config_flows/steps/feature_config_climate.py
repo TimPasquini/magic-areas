@@ -24,7 +24,6 @@ from custom_components.magic_areas.schemas.feature_builders import (
     build_climate_preset_selectors_and_validators,
 )
 from custom_components.magic_areas.schemas.selectors import build_selector_select
-from custom_components.magic_areas.schemas.validation import OPTIONS_CLIMATE_CONTROL
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
@@ -103,8 +102,8 @@ async def handle_climate_preset_selection(
     # noinspection PyTypeChecker
     return flow.async_show_form(
         step_id="feature_conf_climate_control_select_presets",
-        data_schema=flow._build_options_schema(
-            options=OPTIONS_CLIMATE_CONTROL,
+        data_schema=flow._build_schema_from_vol(
+            CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT,
             saved_options=flow.area_options.get(CONF_ENABLED_FEATURES, {}).get(
                 MagicAreasFeatures.CLIMATE_CONTROL, {}
             ),

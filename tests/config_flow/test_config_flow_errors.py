@@ -5,7 +5,7 @@ validation errors, and config base utilities.
 """
 
 from typing import Any, cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 import voluptuous as vol
@@ -37,69 +37,6 @@ from custom_components.magic_areas.const import (
     DOMAIN,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.schemas.features import CONFIGURABLE_FEATURES
-
-
-async def test_do_feature_config_validation_error(
-    hass: HomeAssistant, init_integration: MockConfigEntry
-) -> None:
-    """Test validation error in do_feature_config."""
-    config_entry = init_integration
-
-    # Initialize options flow
-    flow = OptionsFlowHandler(config_entry)
-    flow.hass = hass
-    coordinator_data = config_entry.runtime_data.coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
-    flow._coordinator_data = coordinator_data
-    flow.area_options = config_entry.options.copy()
-    if CONF_ENABLED_FEATURES not in flow.area_options:
-        flow.area_options[CONF_ENABLED_FEATURES] = {}
-
-    # Mock CONFIGURABLE_FEATURES to return a schema that fails
-    with patch.dict(
-        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
-        {
-            MagicAreasFeatures.LIGHT_GROUPS: MagicMock(
-                side_effect=vol.MultipleInvalid([vol.Invalid("Error", path=["base"])])
-            )
-        },
-    ):
-        result = await flow.do_feature_config(
-            name=MagicAreasFeatures.LIGHT_GROUPS, options=[], user_input={"some": "input"}
-        )
-
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {"base": "malformed_input"}
-
-
-async def test_do_feature_config_generic_exception(
-    hass: HomeAssistant, init_integration: MockConfigEntry
-) -> None:
-    """Test generic exception in do_feature_config."""
-    config_entry = init_integration
-
-    # Initialize options flow
-    flow = OptionsFlowHandler(config_entry)
-    flow.hass = hass
-    coordinator_data = config_entry.runtime_data.coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
-    flow._coordinator_data = coordinator_data
-    flow.area_options = config_entry.options.copy()
-    if CONF_ENABLED_FEATURES not in flow.area_options:
-        flow.area_options[CONF_ENABLED_FEATURES] = {}
-
-    # Mock CONFIGURABLE_FEATURES to return a schema that raises Exception
-    with patch.dict(
-        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
-        {MagicAreasFeatures.LIGHT_GROUPS: MagicMock(side_effect=Exception("Boom"))},
-    ):
-        result = await flow.do_feature_config(
-            name=MagicAreasFeatures.LIGHT_GROUPS, options=[], user_input={"some": "input"}
-        )
-
-    # Should return form (stay on step)
-    assert result["type"] == FlowResultType.FORM
 
 
 async def test_options_flow_feature_conf_invalid_input(
@@ -111,40 +48,19 @@ async def test_options_flow_feature_conf_invalid_input(
     flow.hass = hass
     await flow.async_step_init()
 
-    feature_key = "test_feature"
+    feature_key = MagicAreasFeatures.HEALTH
     patched_feature = FeatureConfig(
         name=feature_key,
-        options=[("value", 1, int)],
         schema=vol.Schema({vol.Required("value"): int}),
     )
     with patch.dict(FEATURE_REGISTRY, {feature_key: patched_feature}):
-        flow.context = cast(Any, {"step_id": f"feature_conf_{feature_key}"})
+        flow.context = cast(Any, {"step_id": f"feature_conf_{feature_key.value}"})
         result = await flow.async_step_feature_conf(user_input={"value": "bad"})
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_input"}
 
 
-async def test_options_flow_do_feature_config_no_schema_value_error(
-    hass: HomeAssistant, init_integration: MockConfigEntry
-) -> None:
-    """Test ValueError when a feature schema is missing."""
-    config_entry = init_integration
-    flow = OptionsFlowHandler(config_entry)
-    flow.hass = hass
-    coordinator_data = config_entry.runtime_data.coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
-    flow._coordinator_data = coordinator_data
-    flow.area_options = {CONF_ENABLED_FEATURES: {}}
-
-    with patch.dict(CONFIGURABLE_FEATURES, {MagicAreasFeatures.LIGHT_GROUPS: None}):
-        result = await flow.do_feature_config(
-            name=MagicAreasFeatures.LIGHT_GROUPS,
-            options=[("test", 1, int)],
-            user_input={"test": 1},
-        )
-
-    assert result["type"] == FlowResultType.FORM
 
 
 async def test_options_flow_climate_select_presets_no_entity(

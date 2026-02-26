@@ -10,6 +10,8 @@ from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_PRESENCE_DEVICE_PLATFORMS,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures

@@ -8,7 +8,7 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import STATE_ON
 from homeassistant.helpers.event import async_call_later
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import ONE_MINUTE
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,

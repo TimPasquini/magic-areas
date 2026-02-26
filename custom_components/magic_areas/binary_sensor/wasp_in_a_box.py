@@ -12,11 +12,13 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import Event, EventStateChangedData, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.config_keys import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_WASP_IN_A_BOX_DELAY,
     DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
@@ -33,9 +35,7 @@ from custom_components.magic_areas.core.wasp_state_machine import (
 from custom_components.magic_areas.defaults import (
     DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoWaspInABox,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.policy import (
     WASP_IN_A_BOX_BOX_DEVICE_CLASSES,
 )
@@ -55,7 +55,7 @@ ATTR_WASP = "wasp"
 class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
     """Wasp In The Box logic tracking sensor for the area."""
 
-    feature_info = MagicAreasFeatureInfoWaspInABox()
+    feature_id = MagicAreasFeatures.WASP_IN_A_BOX
     _area_id: str
 
     def __init__(

@@ -32,7 +32,7 @@ async def test_handle_feature_conf_shows_form_on_no_input() -> None:
     flow.context = {}
     flow.area_options = {}
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
 
     result = await handle_feature_conf(flow, user_input=None)
 
@@ -48,7 +48,7 @@ async def test_handle_feature_conf_with_known_feature() -> None:
     flow.context = {}
     flow.area_options = {}
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
 
     result = await handle_feature_conf(flow, user_input=None)
 

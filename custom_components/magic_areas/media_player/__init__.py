@@ -1,43 +1,52 @@
 """Platform file for Magic Area's media_player entities."""
 
+from __future__ import annotations
+
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.area_state import META_AREA_GLOBAL
-from custom_components.magic_areas.base.entities import MagicGroupEntity
+from custom_components.magic_areas.features.dispatch import collect_feature_entities
 from custom_components.magic_areas.config_keys import (
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_NOTIFY_STATES,
-    EMPTY_STRING,
 )
-from custom_components.magic_areas.const import (
-    DOMAIN,
-)
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoMediaPlayerGroups,
+from custom_components.magic_areas.media_player.area_aware_media_player import (
+    AreaAwareMediaPlayer,
 )
-from custom_components.magic_areas.media_player.area_aware_media_player import AreaAwareMediaPlayer
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.models import MagicAreasConfigEntry
+    from custom_components.magic_areas.features.registry import FeatureRegistry
 
 _LOGGER = logging.getLogger(__name__)
+FEATURE_REGISTRY: FeatureRegistry | None = None
+
+
+def _get_feature_registry() -> FeatureRegistry:
+    if FEATURE_REGISTRY is not None:
+        return FEATURE_REGISTRY
+    from custom_components.magic_areas.features.registry import FEATURE_REGISTRY as registry
+
+    return registry
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: "MagicAreasConfigEntry",
+    config_entry: MagicAreasConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the area media player config entry."""
@@ -52,12 +61,15 @@ async def async_setup_entry(
     area_config = data.area_config
     coordinator = runtime_data.coordinator
 
-    entities_to_add: list[Entity] = []
-
-    # Media Player Groups
-    if MagicAreasFeatures.MEDIA_PLAYER_GROUPS   in data.enabled_features:
-        _LOGGER.debug("%s: Setting up media player groups.", area_config.name)
-        entities_to_add.extend(setup_media_player_group(area_config, coordinator, data.entities))
+    registry = _get_feature_registry()
+    entities_to_add = collect_feature_entities(
+        domain=MEDIA_PLAYER_DOMAIN,
+        registry=registry,
+        data=data,
+        area_config=area_config,
+        coordinator=coordinator,
+        logger=_LOGGER,
+    )
 
     # Check if we are the Global Meta Area
     if area_config.is_meta() and area_config.id == META_AREA_GLOBAL.lower():
@@ -76,26 +88,8 @@ async def async_setup_entry(
         )
 
 
-def setup_media_player_group(
-    area_config: "AreaConfig",
-    coordinator: "MagicAreasCoordinator",
-    entities_by_domain: dict[str, list[dict[str, str]]],
-) -> list[Entity]:
-    """Create the media player groups."""
-    # Check if there are any media player devices
-    if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
-        _LOGGER.debug("%s: No %s entities.", area_config.name, MEDIA_PLAYER_DOMAIN)
-        return []
-
-    media_player_entities = [
-        e["entity_id"] for e in entities_by_domain[MEDIA_PLAYER_DOMAIN]
-    ]
-
-    return [AreaMediaPlayerGroup(area_config, coordinator, media_player_entities)]
-
-
 async def setup_area_aware_media_player(
-    area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    area_config: AreaConfig, coordinator: MagicAreasCoordinator
 ) -> list[Entity]:
     """Create Area-aware media player."""
     hass = coordinator.hass
@@ -182,25 +176,4 @@ async def setup_area_aware_media_player(
     return [AreaAwareMediaPlayer(area_config, coordinator, areas_with_media_players)]
 
 
-class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
-    """Media player group."""
-
-    feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
-
-    def __init__(
-        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator", entities: list[str]
-    ) -> None:
-        """Initialize media player group."""
-        MagicGroupEntity.__init__(
-            self,
-            area_config=area_config,
-            coordinator=coordinator,
-            domain=MEDIA_PLAYER_DOMAIN,
-            member_entity_ids=entities,
-        )
-        MediaPlayerGroup.__init__(
-            self,
-            name=EMPTY_STRING,
-            unique_id=self._attr_unique_id,
-            entities=self.member_entity_ids,
-        )
+__all__ = ["setup_area_aware_media_player"]

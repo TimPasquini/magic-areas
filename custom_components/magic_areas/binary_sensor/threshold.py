@@ -7,28 +7,18 @@ from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-import homeassistant.components.sensor.const
 from homeassistant.components.threshold.binary_sensor import ThresholdSensor
-from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
 
-from custom_components.magic_areas.base.entities import MagicEntity
-from custom_components.magic_areas.const import DOMAIN, EMPTY_STRING
-from custom_components.magic_areas.coordinator import MagicAreasData, MagicAreasCoordinator
+from custom_components.magic_areas.entity import MagicEntity
+from custom_components.magic_areas.const import EMPTY_STRING
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+from custom_components.magic_areas.core.thresholds import (
+    get_illuminance_threshold_spec,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.config_keys import (
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-    DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-)
-from custom_components.magic_areas.defaults import DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoThreshold,
-)
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
@@ -47,68 +37,15 @@ def create_illuminance_threshold(
     if MagicAreasFeatures.AGGREGATES not in data.enabled_features:  # pragma: no cover
         return None
 
-    aggregation_config = data.feature_configs.get(MagicAreasFeatures.AGGREGATES, {})
-    illuminance_threshold = aggregation_config.get(
-        CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-        DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    )
-
-    if illuminance_threshold == 0:
+    spec = get_illuminance_threshold_spec(hass, data, area_config)
+    if not spec:
         return None
-
-    if (  # pragma: no cover
-        homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        not in aggregation_config.get(
-            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-            DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-        )
-    ):
-        return None
-
-    if homeassistant.components.sensor.const.DOMAIN not in data.entities:
-        return None
-
-    illuminance_sensors = [
-        sensor
-        for sensor in data.entities[homeassistant.components.sensor.const.DOMAIN]
-        if ATTR_DEVICE_CLASS in sensor
-        and sensor[ATTR_DEVICE_CLASS]
-        == homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-    ]
-
-    if not illuminance_sensors:  # pragma: no cover
-        return None
-
-    illuminance_threshold_hysteresis_percentage = aggregation_config.get(
-        CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-        DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-    )
-    illuminance_threshold_hysteresis = 0.0
-
-    if illuminance_threshold_hysteresis_percentage > 0:
-        illuminance_threshold_hysteresis = illuminance_threshold * (
-            illuminance_threshold_hysteresis_percentage / 100
-        )
-
-    # Resolve illuminance aggregate entity ID from snapshot
-    illuminance_aggregate_entity_id = (
-        data.entity_references.aggregates_by_device_class.get(
-            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        )
-    )
-    if not illuminance_aggregate_entity_id:
-        # Try direct entity registry lookup (aggregate may be registered but not yet in snapshot)
-        illuminance_aggregate_entity_id = er.async_get(hass).async_get_entity_id(
-            homeassistant.components.sensor.const.DOMAIN,
-            DOMAIN,
-            f"aggregates_{area_config.id}_aggregate_illuminance",
-        )
-    if not illuminance_aggregate_entity_id:
-        _LOGGER.debug(
-            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
-            area_config.slug,
-        )
-        return None
+    (
+        illuminance_aggregate_entity_id,
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        illuminance_threshold_hysteresis_percentage,
+    ) = spec
 
     _LOGGER.debug(
         "Creating illuminance threshold sensor for area '%s': Threshold: %d, Hysteresis: %d (%d%%)",
@@ -140,7 +77,7 @@ def create_illuminance_threshold(
 class AreaThresholdSensor(MagicEntity, ThresholdSensor):
     """Threshold sensor based off aggregates."""
 
-    feature_info = MagicAreasFeatureInfoThreshold()
+    feature_id = MagicAreasFeatures.THRESHOLD
     _area_name: str
 
     def __init__(

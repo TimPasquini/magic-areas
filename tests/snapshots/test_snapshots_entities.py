@@ -6,6 +6,7 @@ and aggregated sensors using snapshots to validate structure.
 
 
 import pytest
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.core import HomeAssistant
@@ -13,11 +14,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
 
 
-
 @pytest.mark.asyncio
 async def test_light_group_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test light group entity structure snapshot.
@@ -25,7 +25,7 @@ async def test_light_group_structure_snapshot(
     Captures the structure of light entities including
     entity domains and organization.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -41,8 +41,7 @@ async def test_light_group_structure_snapshot(
 
     # Also check for magic light group
     magic_lights = coordinator.data.magic_entities.get(LIGHT_DOMAIN, [])
-    if magic_lights:
-        light_snapshot["magic_light_count"] = len(magic_lights)
+    light_snapshot["magic_light_count"] = len(magic_lights)
 
     # Snapshot light group structure
     assert light_snapshot == snapshot
@@ -51,7 +50,7 @@ async def test_light_group_structure_snapshot(
 @pytest.mark.asyncio
 async def test_binary_sensor_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test binary sensor entity structure snapshot.
@@ -59,13 +58,11 @@ async def test_binary_sensor_structure_snapshot(
     Captures the organization of binary sensor entities
     in the coordinator data.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
 
-    # Get binary sensor entities
-    from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
     binary_sensors = coordinator.data.entities.get(BINARY_SENSOR_DOMAIN, [])
 
     # Create snapshot of binary sensors
@@ -78,10 +75,7 @@ async def test_binary_sensor_structure_snapshot(
     magic_binary_sensors = coordinator.data.magic_entities.get(
         BINARY_SENSOR_DOMAIN, []
     )
-    if magic_binary_sensors:
-        binary_sensor_snapshot["magic_binary_sensor_count"] = len(
-            magic_binary_sensors
-        )
+    binary_sensor_snapshot["magic_binary_sensor_count"] = len(magic_binary_sensors)
 
     # Snapshot binary sensor structure
     assert binary_sensor_snapshot == snapshot
@@ -90,7 +84,7 @@ async def test_binary_sensor_structure_snapshot(
 @pytest.mark.asyncio
 async def test_sensor_entity_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test sensor entity structure snapshot.
@@ -98,7 +92,7 @@ async def test_sensor_entity_structure_snapshot(
     Captures the organization of sensor entities
     within the coordinator data.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -114,8 +108,7 @@ async def test_sensor_entity_structure_snapshot(
 
     # Check for magic sensors
     magic_sensors = coordinator.data.magic_entities.get(SENSOR_DOMAIN, [])
-    if magic_sensors:
-        sensor_snapshot["magic_sensor_count"] = len(magic_sensors)
+    sensor_snapshot["magic_sensor_count"] = len(magic_sensors)
 
     # Snapshot sensor structure
     assert sensor_snapshot == snapshot
@@ -124,7 +117,7 @@ async def test_sensor_entity_structure_snapshot(
 @pytest.mark.asyncio
 async def test_presence_sensor_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test presence sensor structure snapshot.
@@ -132,7 +125,7 @@ async def test_presence_sensor_structure_snapshot(
     Captures the structure of presence tracking sensors created
     by the Magic Areas integration.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -144,6 +137,7 @@ async def test_presence_sensor_structure_snapshot(
     presence_snapshot = {
         "presence_sensor_count": len(presence_sensors),
         "has_presence_sensors": len(presence_sensors) > 0,
+        "presence_sensors": sorted(presence_sensors),
     }
 
     # Snapshot presence sensor structure
@@ -153,7 +147,7 @@ async def test_presence_sensor_structure_snapshot(
 @pytest.mark.asyncio
 async def test_magic_entity_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test magic entity structure snapshot.
@@ -161,7 +155,7 @@ async def test_magic_entity_structure_snapshot(
     Captures the structure of magic entities created by the integration
     including their domains and organization.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -171,6 +165,10 @@ async def test_magic_entity_structure_snapshot(
         "magic_domains": sorted(coordinator.data.magic_entities.keys()),
         "domain_entity_counts": {
             domain: len(entities)
+            for domain, entities in coordinator.data.magic_entities.items()
+        },
+        "magic_entity_ids": {
+            domain: sorted(entity["entity_id"] for entity in entities)
             for domain, entities in coordinator.data.magic_entities.items()
         },
         "total_magic_entities": sum(
@@ -185,7 +183,7 @@ async def test_magic_entity_structure_snapshot(
 @pytest.mark.asyncio
 async def test_entity_domain_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test entity domain structure snapshot.
@@ -193,7 +191,7 @@ async def test_entity_domain_structure_snapshot(
     Captures the overall organization of entities by domain
     including both regular and magic entities.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -202,7 +200,12 @@ async def test_entity_domain_structure_snapshot(
     entity_details = {
         "entity_domains": sorted(coordinator.data.entities.keys()),
         "domain_counts": {
-            domain: len(entities) for domain, entities in coordinator.data.entities.items()
+            domain: len(entities)
+            for domain, entities in coordinator.data.entities.items()
+        },
+        "entity_ids": {
+            domain: sorted(entity["entity_id"] for entity in entities)
+            for domain, entities in coordinator.data.entities.items()
         },
         "total_entities": sum(
             len(entities) for entities in coordinator.data.entities.values()
@@ -217,7 +220,7 @@ async def test_entity_domain_structure_snapshot(
 @pytest.mark.asyncio
 async def test_magic_sensor_structure_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test magic sensor entity structure snapshot.
@@ -225,7 +228,7 @@ async def test_magic_sensor_structure_snapshot(
     Captures the organization of magic sensor entities
     within the coordinator data.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
@@ -244,7 +247,7 @@ async def test_magic_sensor_structure_snapshot(
 @pytest.mark.asyncio
 async def test_coordinator_data_snapshot(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test full coordinator data snapshot.
@@ -252,7 +255,7 @@ async def test_coordinator_data_snapshot(
     Captures the complete structure of coordinator data
     including all entity information.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None

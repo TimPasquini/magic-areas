@@ -8,7 +8,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 
-from custom_components.magic_areas.base.entities import MagicGroupEntity
+from custom_components.magic_areas.entity import MagicGroupEntity
 from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.policy import AGGREGATE_MODE_ALL
 

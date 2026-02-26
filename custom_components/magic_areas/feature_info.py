@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
@@ -10,121 +12,94 @@ from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_D
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
-class MagicAreasFeatureInfo:
-    """Base class for feature information."""
 
-    id: str
+@dataclass(frozen=True)
+class FeatureInfo:
+    """Feature metadata for entities."""
+
+    id: MagicAreasFeatures
     translation_keys: dict[str, str | None]
-    icons: dict[str, str] = {}
+    icons: dict[str, str] = field(default_factory=dict)
 
 
-class MagicAreasFeatureInfoPresenceTracking(MagicAreasFeatureInfo):
-    """Feature metadata for presence tracking."""
-
-    id = "presence_tracking"
-    translation_keys = {BINARY_SENSOR_DOMAIN: "area_state"}
-    icons = {BINARY_SENSOR_DOMAIN: "mdi:texture-box"}
-
-
-class MagicAreasFeatureInfoPresenceHold(MagicAreasFeatureInfo):
-    """Feature metadata for presence hold."""
-
-    id = "presence_hold"
-    translation_keys = {SWITCH_DOMAIN: "presence_hold"}
-    icons = {SWITCH_DOMAIN: "mdi:car-brake-hold"}
-
-
-class MagicAreasFeatureInfoBLETrackers(MagicAreasFeatureInfo):
-    """Feature metadata for BLE trackers."""
-
-    id = "ble_trackers"
-    translation_keys = {BINARY_SENSOR_DOMAIN: "ble_tracker_monitor"}
-    icons = {BINARY_SENSOR_DOMAIN: "mdi:bluetooth"}
-
-
-class MagicAreasFeatureInfoWaspInABox(MagicAreasFeatureInfo):
-    """Feature metadata for Wasp in a Box."""
-
-    id = "wasp_in_a_box"
-    translation_keys = {BINARY_SENSOR_DOMAIN: "wasp_in_a_box"}
-    icons = {BINARY_SENSOR_DOMAIN: "mdi:bee"}
-
-
-class MagicAreasFeatureInfoAggregates(MagicAreasFeatureInfo):
-    """Feature metadata for aggregates."""
-
-    id = "aggregates"
-    translation_keys = {
-        BINARY_SENSOR_DOMAIN: "aggregate",
-        SENSOR_DOMAIN: "aggregate",
-    }
-
-
-class MagicAreasFeatureInfoThreshold(MagicAreasFeatureInfo):
-    """Feature metadata for threshold."""
-
-    id = "threshold"
-    translation_keys = {BINARY_SENSOR_DOMAIN: "threshold"}
-
-
-class MagicAreasFeatureInfoHealth(MagicAreasFeatureInfo):
-    """Feature metadata for health monitoring."""
-
-    id = "health"
-    translation_keys = {BINARY_SENSOR_DOMAIN: "health"}
-
-
-class MagicAreasFeatureInfoLightGroups(MagicAreasFeatureInfo):
-    """Feature metadata for light groups."""
-
-    id = "light_groups"
-    translation_keys = {
-        LIGHT_DOMAIN: None,  # let light category be appended to it
-        SWITCH_DOMAIN: "light_control",
-    }
-    icons = {SWITCH_DOMAIN: "mdi:lightbulb-auto-outline"}
-
-
-class MagicAreasFeatureInfoClimateControl(MagicAreasFeatureInfo):
-    """Feature metadata for climate control."""
-
-    id = "climate_control"
-    translation_keys = {SWITCH_DOMAIN: "climate_control"}
-    icons = {SWITCH_DOMAIN: "mdi:thermostat-auto"}
-
-
-class MagicAreasFeatureInfoFanGroups(MagicAreasFeatureInfo):
-    """Feature metadata for fan groups."""
-
-    id = "fan_groups"
-    translation_keys = {
-        FAN_DOMAIN: "fan_group",
-        SWITCH_DOMAIN: "fan_control",
-    }
-    icons = {SWITCH_DOMAIN: "mdi:fan-auto"}
+FEATURE_INFO_REGISTRY: dict[MagicAreasFeatures, FeatureInfo] = {
+    MagicAreasFeatures.PRESENCE_TRACKING: FeatureInfo(
+        id=MagicAreasFeatures.PRESENCE_TRACKING,
+        translation_keys={BINARY_SENSOR_DOMAIN: "area_state"},
+        icons={BINARY_SENSOR_DOMAIN: "mdi:texture-box"},
+    ),
+    MagicAreasFeatures.PRESENCE_HOLD: FeatureInfo(
+        id=MagicAreasFeatures.PRESENCE_HOLD,
+        translation_keys={SWITCH_DOMAIN: "presence_hold"},
+        icons={SWITCH_DOMAIN: "mdi:car-brake-hold"},
+    ),
+    MagicAreasFeatures.BLE_TRACKER: FeatureInfo(
+        id=MagicAreasFeatures.BLE_TRACKER,
+        translation_keys={BINARY_SENSOR_DOMAIN: "ble_tracker_monitor"},
+        icons={BINARY_SENSOR_DOMAIN: "mdi:bluetooth"},
+    ),
+    MagicAreasFeatures.WASP_IN_A_BOX: FeatureInfo(
+        id=MagicAreasFeatures.WASP_IN_A_BOX,
+        translation_keys={BINARY_SENSOR_DOMAIN: "wasp_in_a_box"},
+        icons={BINARY_SENSOR_DOMAIN: "mdi:bee"},
+    ),
+    MagicAreasFeatures.AGGREGATES: FeatureInfo(
+        id=MagicAreasFeatures.AGGREGATES,
+        translation_keys={
+            BINARY_SENSOR_DOMAIN: "aggregate",
+            SENSOR_DOMAIN: "aggregate",
+        },
+    ),
+    MagicAreasFeatures.THRESHOLD: FeatureInfo(
+        id=MagicAreasFeatures.THRESHOLD,
+        translation_keys={BINARY_SENSOR_DOMAIN: "threshold"},
+    ),
+    MagicAreasFeatures.HEALTH: FeatureInfo(
+        id=MagicAreasFeatures.HEALTH,
+        translation_keys={BINARY_SENSOR_DOMAIN: "health"},
+    ),
+    MagicAreasFeatures.LIGHT_GROUPS: FeatureInfo(
+        id=MagicAreasFeatures.LIGHT_GROUPS,
+        translation_keys={
+            LIGHT_DOMAIN: None,  # let light category be appended to it
+            SWITCH_DOMAIN: "light_control",
+        },
+        icons={SWITCH_DOMAIN: "mdi:lightbulb-auto-outline"},
+    ),
+    MagicAreasFeatures.CLIMATE_CONTROL: FeatureInfo(
+        id=MagicAreasFeatures.CLIMATE_CONTROL,
+        translation_keys={SWITCH_DOMAIN: "climate_control"},
+        icons={SWITCH_DOMAIN: "mdi:thermostat-auto"},
+    ),
+    MagicAreasFeatures.FAN_GROUPS: FeatureInfo(
+        id=MagicAreasFeatures.FAN_GROUPS,
+        translation_keys={
+            FAN_DOMAIN: "fan_group",
+            SWITCH_DOMAIN: "fan_control",
+        },
+        icons={SWITCH_DOMAIN: "mdi:fan-auto"},
+    ),
+    MagicAreasFeatures.MEDIA_PLAYER_GROUPS: FeatureInfo(
+        id=MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+        translation_keys={
+            MEDIA_PLAYER_DOMAIN: "media_player_group",
+            SWITCH_DOMAIN: "media_player_control",
+        },
+        icons={SWITCH_DOMAIN: "mdi:auto-mode"},
+    ),
+    MagicAreasFeatures.COVER_GROUPS: FeatureInfo(
+        id=MagicAreasFeatures.COVER_GROUPS,
+        translation_keys={COVER_DOMAIN: "cover_group"},
+    ),
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: FeatureInfo(
+        id=MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+        translation_keys={MEDIA_PLAYER_DOMAIN: "area_aware_media_player"},
+    ),
+}
 
 
-class MagicAreasFeatureInfoMediaPlayerGroups(MagicAreasFeatureInfo):
-    """Feature metadata for media player groups."""
-
-    id = "media_player_groups"
-    translation_keys = {
-        MEDIA_PLAYER_DOMAIN: "media_player_group",
-        SWITCH_DOMAIN: "media_player_control",
-    }
-    icons = {SWITCH_DOMAIN: "mdi:auto-mode"}
-
-
-class MagicAreasFeatureInfoCoverGroups(MagicAreasFeatureInfo):
-    """Feature metadata for cover groups."""
-
-    id = "cover_groups"
-    translation_keys = {COVER_DOMAIN: "cover_group"}
-
-
-class MagicAreasFeatureInfoAreaAwareMediaPlayer(MagicAreasFeatureInfo):
-    """Feature metadata for area-aware media player."""
-
-    id = "area_aware_media_player"
-    translation_keys = {MEDIA_PLAYER_DOMAIN: "area_aware_media_player"}
+def get_feature_info(feature: MagicAreasFeatures) -> FeatureInfo:
+    """Return FeatureInfo for a feature."""
+    return FEATURE_INFO_REGISTRY[feature]

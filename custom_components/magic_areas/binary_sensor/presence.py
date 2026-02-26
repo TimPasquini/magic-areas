@@ -22,17 +22,11 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
-from custom_components.magic_areas.policy import (
-    INVALID_STATES,
-)
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasEvents
 
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfo,
-    MagicAreasFeatureInfoPresenceTracking,
-)
-from custom_components.magic_areas.base.entities import BinaryMagicEntity
+from custom_components.magic_areas.enums import CalculationMode, MagicAreasFeatures
+from custom_components.magic_areas.entity import BinaryMagicEntity
 from custom_components.magic_areas.attrs import (
     ATTR_ACTIVE_SENSORS,
     ATTR_AREAS,
@@ -47,9 +41,10 @@ from custom_components.magic_areas.config_keys import (
     CONF_SECONDARY_STATES,
     CONF_SECONDARY_STATES_CALCULATION_MODE,
     CONF_TYPE,
-    DEFAULT_SECONDARY_STATES_CALCULATION_MODE,
     EMPTY_STRING,
-    CalculationMode,
+)
+from custom_components.magic_areas.defaults import (
+    DEFAULT_SECONDARY_STATES_CALCULATION_MODE,
 )
 from custom_components.magic_areas.area_maps import (
     CONFIGURABLE_AREA_STATE_MAP,
@@ -63,8 +58,8 @@ from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
 from custom_components.magic_areas.core.meta import aggregate_secondary_states
-from custom_components.magic_areas.core.occupancy import AreaOccupancyTracker
 from custom_components.magic_areas.core.presence import compute_secondary_states
+from custom_components.magic_areas.core.presence_tracker import PresenceTracker
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
@@ -93,9 +88,13 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         self._sensors: list[str] = []
 
-        self._tracker = AreaOccupancyTracker(
-            config=self._area_config_dict, is_meta=self._is_meta
+        self._presence_tracker = PresenceTracker(
+            hass=coordinator.hass,
+            area_name=self._area_name,
+            config=self._area_config_dict,
+            is_meta=self._is_meta,
         )
+        self._tracker = self._presence_tracker.tracker
 
         # Cache current states from tracker (no longer mutating self.area.states)
         self._current_states: list[str] = []
@@ -220,20 +219,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         to_state = event.data["new_state"].state
         entity_id = event.data["entity_id"]
 
-        _LOGGER.debug(
-            "%s: Secondary state change: entity '%s' changed to %s",
-            self._area_name,
-            entity_id,
-            to_state,
-        )
-
-        if to_state in INVALID_STATES:
-            _LOGGER.debug(
-                "%s: sensor '%s' has invalid state %s",
-                self._area_name,
-                entity_id,
-                to_state,
-            )
+        if not self._presence_tracker.handle_secondary_state_change(
+            entity_id=entity_id,
+            to_state=to_state,
+        ):
             return None
 
         self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
@@ -244,41 +233,21 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         if event.data["new_state"] is None:
             return
 
-        # Ignore state reports that aren't really a state change
-        if (
-            self.ignore_non_state_change
-            and event.data["old_state"]
-            and event.data["new_state"].state == event.data["old_state"].state
+        to_state = event.data["new_state"].state
+        entity_id = event.data["entity_id"]
+        old_state = (
+            event.data["old_state"].state if event.data["old_state"] else None
+        )
+
+        if not self._presence_tracker.handle_sensor_state_change(
+            entity_id=entity_id,
+            to_state=to_state,
+            old_state=old_state,
+            ignore_non_state_change=self.ignore_non_state_change,
         ):
             return
 
-        to_state = event.data["new_state"].state
-        entity_id = event.data["entity_id"]
-
-        _LOGGER.debug(
-            "%s: sensor '%s' changed to {%s}",
-            self._area_name,
-            entity_id,
-            to_state,
-        )
-
-        if to_state in INVALID_STATES:
-            _LOGGER.debug(
-                "%s: sensor '%s' has invalid state %s",
-                self._area_name,
-                entity_id,
-                to_state,
-            )
-            return
-
         if to_state and to_state not in self._tracker.valid_on_states():
-            _LOGGER.debug(
-                "Setting last non-normal time %s %s",
-                event.data["old_state"],
-                event.data["new_state"],
-            )
-            self._tracker.record_sensor_off(dt_util.utcnow())
-            # Clear the timeout
             self._remove_clear_timeout()
 
         self.hass.loop.call_soon_threadsafe(self._update_state, dt_util.utcnow())
@@ -292,28 +261,17 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         """Update the area's state and report changes."""
         now = extra if isinstance(extra, datetime) else dt_util.utcnow()
 
-        # Build sensor state dict from HA
-        sensor_states: dict[str, str | None] = {}
-        for sensor_id in self._sensors:
-            try:
-                entity = self.hass.states.get(sensor_id)
-                sensor_states[sensor_id] = entity.state if entity else None
-            # pylint: disable-next=broad-exception-caught
-            except Exception as e:
-                _LOGGER.error(
-                    "%s: Error getting entity state for '%s': %s",
-                    self._area_name,
-                    sensor_id,
-                    str(e),
-                )
-                sensor_states[sensor_id] = None
-
         # Compute secondary states (overridden in MetaAreaStateBinarySensor)
         secondary = self._get_secondary_states()
         keep_only = self._area_config_dict.get(CONF_KEEP_ONLY_ENTITIES, [])
 
         # Run state machine
-        update = self._tracker.update(sensor_states, secondary, keep_only, now)
+        update = self._presence_tracker.update(
+            sensor_ids=self._sensors,
+            secondary_states=secondary,
+            keep_only=keep_only,
+            now=now,
+        )
 
         # Cache current states locally for get_metadata()
         self._current_states = list(update.current_states)
@@ -333,7 +291,9 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         # Always report (matches original — dispatches even on no-change)
         # Pass current_states snapshot to prevent stale reads in handlers
-        self._report_state_change((update.new_states, update.lost_states, set(update.current_states)))
+        self._report_state_change(
+            (update.new_states, update.lost_states, set(update.current_states))
+        )
 
     def _report_state_change(
         self, states_tuple: tuple[set[str], set[str], set[str]] = (set(), set(), set())
@@ -393,7 +353,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         self._clear_timeout_callback = async_call_later(
             self.hass, delay_seconds, self._update_state
         )
-        self._tracker.on_timeout_set()
+        self._presence_tracker.record_timeout_set()
 
     def _remove_clear_timeout(self) -> None:
         if not self._clear_timeout_callback:
@@ -407,13 +367,13 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         # pylint: disable-next=not-callable
         self._clear_timeout_callback()
         self._clear_timeout_callback = None
-        self._tracker.on_timeout_cleared()
+        self._presence_tracker.record_timeout_cleared()
 
 
 class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
     """Create an area presence sensor entity that tracks the current occupied state."""
 
-    feature_info: MagicAreasFeatureInfo = MagicAreasFeatureInfoPresenceTracking()
+    feature_id = MagicAreasFeatures.PRESENCE_TRACKING
     _area_icon: str
 
     # Init & Teardown

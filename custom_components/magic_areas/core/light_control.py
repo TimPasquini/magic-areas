@@ -11,6 +11,7 @@ from custom_components.magic_areas.core.state_priority import (
     LIGHT_PRIORITY_STATES,
 )
 from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.core.control import ControlState
 
 
 class LightAction(StrEnum):
@@ -36,6 +37,18 @@ class LightGroupDecision:
     reason: str  # For debugging/logging
     should_track_control: bool = False  # Whether to mark as "controlled by MA"
     reset_control: bool = False  # Whether to clear the "controlled" flag
+    next_control_state: ControlState | None = None  # Optional control state update
+
+
+@dataclass(slots=True)
+class LightGroupPolicyInput:
+    """Policy input for an area state change."""
+
+    new_states: Sequence[str]
+    lost_states: Sequence[str]
+    current_states: Sequence[str]
+    control_state: ControlState
+    is_primary: bool
 
 
 @dataclass(slots=True)
@@ -205,6 +218,42 @@ class LightGroupPolicy:
             should_track_control=True,
         )
 
+    def evaluate_area_state_change(
+        self, context: LightGroupPolicyInput
+    ) -> LightGroupDecision:
+        """Evaluate a light group decision for an area state change."""
+        if context.is_primary:
+            if AreaStates.CLEAR in context.new_states:
+                return LightGroupDecision(
+                    action=LightAction.TURN_OFF,
+                    reason="area_clear",
+                    next_control_state=ControlState(
+                        controlling=True, controlled=False
+                    ),
+                )
+            return LightGroupDecision(
+                action=LightAction.NOOP,
+                reason="primary_noop",
+            )
+
+        decision = self.evaluate(
+            new_states=context.new_states,
+            lost_states=context.lost_states,
+            current_states=context.current_states,
+        )
+
+        next_control_state: ControlState | None = None
+        if decision.should_track_control:
+            next_control_state = context.control_state.command_issued()
+        elif decision.reset_control:
+            next_control_state = ControlState(controlling=True, controlled=False)
+
+        return LightGroupDecision(
+            action=decision.action,
+            reason=decision.reason,
+            next_control_state=next_control_state,
+        )
+
 
 def resolve_light_category_config(
     category: str,
@@ -260,3 +309,22 @@ def build_light_group_policy(
         act_on_modes=act_on_modes,
         use_priority_filtering=True,
     )
+
+
+def reset_control_state() -> ControlState:
+    """Reset control state to allow immediate command handling."""
+    return ControlState(controlling=True, controlled=False)
+
+
+def update_primary_control_state(
+    control_state: ControlState, child_controlling: bool
+) -> ControlState:
+    """Update control state for the primary (ALL) light group."""
+    return control_state.set_controlling(child_controlling)
+
+
+def update_secondary_control_state(control_state: ControlState) -> ControlState:
+    """Update control state for secondary light group state changes."""
+    if control_state.controlled:
+        return control_state.command_completed()
+    return control_state.external_change()

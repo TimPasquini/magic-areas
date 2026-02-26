@@ -8,6 +8,7 @@ from homeassistant.components.climate.const import (
     DOMAIN as CLIMATE_DOMAIN,
     SERVICE_SET_PRESET_MODE,
 )
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 
 from homeassistant.const import ATTR_ENTITY_ID, EntityCategory, STATE_OFF, STATE_ON
 from homeassistant.core import callback
@@ -29,9 +30,7 @@ from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoClimateControl,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ _LOGGER = logging.getLogger(__name__)
 class ClimateControlSwitch(SwitchBase):
     """Switch to enable/disable climate control."""
 
-    feature_info = MagicAreasFeatureInfoClimateControl()
+    feature_id = MagicAreasFeatures.CLIMATE_CONTROL
     _attr_entity_category = EntityCategory.CONFIG
 
     policy: ClimatePresetPolicy
@@ -85,6 +84,11 @@ class ClimateControlSwitch(SwitchBase):
 
             self._area_sensor_entity_id = er.async_get(self.hass).async_get_entity_id(
                 BS_DOMAIN, DOMAIN, f"presence_tracking_{self._area_id}_area_state"
+            )
+        if not self._area_sensor_entity_id:
+            # Fallback to the default entity_id pattern if registry lookup is unavailable.
+            self._area_sensor_entity_id = (
+                f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self._area_slug}_area_state"
             )
 
         self._listener_registry.track(

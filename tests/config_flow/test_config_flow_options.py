@@ -237,10 +237,8 @@ async def test_options_flow_presence_tracking_exceptions(
 
     # Validation Error
     with patch(
-        "custom_components.magic_areas.config_flows.steps.area_steps.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
-        side_effect=vol.MultipleInvalid(
-            [vol.Invalid("Error", path=[CONF_CLEAR_TIMEOUT])]
-        ),
+        "custom_components.magic_areas.config_flows.steps.area_steps.handle_step_validation",
+        return_value=({CONF_CLEAR_TIMEOUT: "Error"}, False),
     ):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -252,8 +250,8 @@ async def test_options_flow_presence_tracking_exceptions(
 
     # Generic Exception
     with patch(
-        "custom_components.magic_areas.config_flows.steps.area_steps.REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA",
-        side_effect=Exception("Boom"),
+        "custom_components.magic_areas.config_flows.steps.area_steps.handle_step_validation",
+        return_value=({}, False),
     ):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -277,10 +275,8 @@ async def test_options_flow_secondary_states_exceptions(
 
     # Validation Error
     with patch(
-        "custom_components.magic_areas.config_flows.steps.area_steps.SECONDARY_STATES_SCHEMA",
-        side_effect=vol.MultipleInvalid(
-            [vol.Invalid("Error", path=[CONF_SLEEP_TIMEOUT])]
-        ),
+        "custom_components.magic_areas.config_flows.steps.area_steps.handle_step_validation",
+        return_value=({CONF_SLEEP_TIMEOUT: "Error"}, False),
     ):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -292,8 +288,8 @@ async def test_options_flow_secondary_states_exceptions(
 
     # Generic Exception
     with patch(
-        "custom_components.magic_areas.config_flows.steps.area_steps.SECONDARY_STATES_SCHEMA",
-        side_effect=Exception("Boom"),
+        "custom_components.magic_areas.config_flows.steps.area_steps.handle_step_validation",
+        return_value=({}, False),
     ):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -394,13 +390,14 @@ async def test_options_flow_async_step_routes_feature_conf(
 async def test_options_flow_async_step_feature_conf_unknown_feature(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
-    """Test _async_step_feature_conf with unknown feature key."""
+    """Test async_step_feature_conf with unknown feature key."""
     config_entry = init_integration
     flow = OptionsFlowHandler(config_entry)
     flow.hass = hass
     flow.area_options = {CONF_ENABLED_FEATURES: {}}
+    flow._feature_step_id = "feature_conf_area"
 
-    result = await flow._async_step_feature_conf("unknown_feature")
+    result = await flow.async_step_feature_conf()
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "unknown_feature"

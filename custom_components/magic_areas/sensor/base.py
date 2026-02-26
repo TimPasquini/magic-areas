@@ -12,7 +12,7 @@ from homeassistant.components.sensor.const import (
     SensorStateClass,
 )
 
-from custom_components.magic_areas.base.entities import MagicGroupEntity
+from custom_components.magic_areas.entity import MagicGroupEntity
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig

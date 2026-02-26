@@ -78,7 +78,7 @@ async def test_handle_climate_preset_selection_shows_form_on_no_input() -> None:
     flow = MagicMock()
     flow.hass = MagicMock()
     flow.area_options = {"features": {}}
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     with patch(
@@ -128,7 +128,7 @@ async def test_handle_climate_preset_selection_builds_dynamic_selectors() -> Non
     flow = MagicMock()
     flow.hass = MagicMock()
     flow.area_options = {"features": {}}
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     with patch(
@@ -152,7 +152,7 @@ async def test_handle_climate_preset_selection_invalid_preset_input() -> None:
     flow = MagicMock()
     flow.hass = MagicMock()
     flow.area_options = {"features": {}}
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     user_input = {"invalid": "preset"}

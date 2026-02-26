@@ -25,6 +25,7 @@ from custom_components.magic_areas.light_groups import (
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
+    create_area_state_change_event,
     get_basic_config_entry_data,
     setup_mock_entities,
     shutdown_integration,
@@ -107,7 +108,10 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [], [AreaStates.OCCUPIED]),
+        create_area_state_change_event(
+            new_states=[AreaStates.OCCUPIED],
+            current_states=[AreaStates.OCCUPIED],
+        ),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)
@@ -117,7 +121,11 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.CLEAR], [AreaStates.OCCUPIED], [AreaStates.CLEAR]),
+        create_area_state_change_event(
+            new_states=[AreaStates.CLEAR],
+            lost_states=[AreaStates.OCCUPIED],
+            current_states=[AreaStates.CLEAR],
+        ),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
@@ -127,7 +135,10 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.BRIGHT], [], [AreaStates.BRIGHT, AreaStates.CLEAR]),
+        create_area_state_change_event(
+            new_states=[AreaStates.BRIGHT],
+            current_states=[AreaStates.BRIGHT, AreaStates.CLEAR],
+        ),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_OFF)
@@ -137,7 +148,11 @@ async def test_light_group_state_change_logic(
         hass,
         EVENT_MAGICAREAS_AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
-        ([AreaStates.OCCUPIED], [AreaStates.CLEAR], [AreaStates.OCCUPIED, AreaStates.BRIGHT]),
+        create_area_state_change_event(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[AreaStates.CLEAR],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+        ),
     )
     await hass.async_block_till_done()
     await wait_for_state(hass, light_group_id, STATE_ON)

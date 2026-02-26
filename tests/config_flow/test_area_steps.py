@@ -21,7 +21,7 @@ async def test_handle_area_config_shows_form_on_no_input() -> None:
     flow.area_options = {}
     flow.all_entities = ["light.kitchen"]
     flow.all_area_entities = ["light.kitchen"]
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     result = await handle_area_config(flow, user_input=None)
@@ -40,7 +40,7 @@ async def test_handle_presence_tracking_shows_form_on_no_input() -> None:
     flow.area_options = {}
     flow._coordinator_data = MagicMock()
     flow._coordinator_data.presence_sensors = ["binary_sensor.motion"]
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     result = await handle_presence_tracking(flow, user_input=None)
@@ -59,7 +59,7 @@ async def test_handle_secondary_states_shows_form_on_no_input() -> None:
     flow.area_options = {}
     flow.all_light_tracking_entities = ["light.kitchen"]
     flow.all_binary_entities = ["binary_sensor.motion"]
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     result = await handle_secondary_states(flow, user_input=None)
@@ -78,12 +78,12 @@ async def test_handle_area_config_meta_area() -> None:
     flow.area_options = {}
     flow.all_entities = ["light.kitchen", "light.living_room"]
     flow.all_area_entities = ["light.kitchen", "light.living_room"]
-    flow._build_options_schema = MagicMock(return_value={})
+    flow._build_schema_from_vol = MagicMock(return_value={})
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     result = await handle_area_config(flow, user_input=None)
 
     assert result["type"] == FlowResultType.FORM
     # Verify it was called with meta area options
-    call_args = flow._build_options_schema.call_args
+    call_args = flow._build_schema_from_vol.call_args
     assert call_args is not None

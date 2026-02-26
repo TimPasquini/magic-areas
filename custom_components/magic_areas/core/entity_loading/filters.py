@@ -3,7 +3,7 @@
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_registry import RegistryEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.defaults import (
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
 )
 

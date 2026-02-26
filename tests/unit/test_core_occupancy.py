@@ -20,6 +20,8 @@ from custom_components.magic_areas.config_keys import (
     CONF_EXTENDED_TIMEOUT,
     CONF_SECONDARY_STATES,
     CONF_SLEEP_TIMEOUT,
+)
+from custom_components.magic_areas.defaults import (
     DEFAULT_CLEAR_TIMEOUT,
     DEFAULT_EXTENDED_TIMEOUT,
     DEFAULT_SLEEP_TIMEOUT,

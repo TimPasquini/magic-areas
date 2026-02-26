@@ -17,15 +17,13 @@ from homeassistant.components.media_player.const import (
 from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.magic_areas.base.entities import MagicEntity
+from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.defaults import (
     DEFAULT_NOTIFY_STATES,
 )
 from custom_components.magic_areas.core.media_routing import evaluate_area_routing
-from custom_components.magic_areas.feature_info import (
-    MagicAreasFeatureInfoAreaAwareMediaPlayer,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.area_config import AreaConfig
@@ -37,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
     """Area-aware media player."""
 
-    feature_info = MagicAreasFeatureInfoAreaAwareMediaPlayer()
+    feature_id = MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
 
     def __init__(
         self,

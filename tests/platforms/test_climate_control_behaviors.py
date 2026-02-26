@@ -87,10 +87,12 @@ async def test_area_sensor_off_applies_clear_preset(
         blocking=True,
     )
 
-    # Set area sensor to OFF
+    # Force a state transition to ensure listener fires
     area_sensor_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     )
+    hass.states.async_set(area_sensor_id, STATE_ON)
+    await hass.async_block_till_done()
     hass.states.async_set(area_sensor_id, STATE_OFF)
     await hass.async_block_till_done()
 
@@ -125,10 +127,12 @@ async def test_area_sensor_on_applies_occupied_preset(
         blocking=True,
     )
 
-    # Set area sensor to ON
+    # Force a state transition to ensure listener fires
     area_sensor_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     )
+    hass.states.async_set(area_sensor_id, STATE_OFF)
+    await hass.async_block_till_done()
     hass.states.async_set(area_sensor_id, STATE_ON)
     await hass.async_block_till_done()
 

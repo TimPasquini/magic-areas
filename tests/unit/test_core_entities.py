@@ -2,7 +2,7 @@
 
 from homeassistant.const import ATTR_ENTITY_ID
 
-from custom_components.magic_areas.core.entities import (
+from custom_components.magic_areas.core.entity_loading.snapshots import (
     EntitySnapshot,
     build_entity_dict,
     group_entities,

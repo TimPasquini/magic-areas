@@ -32,6 +32,7 @@ class MagicAreasFeatures(StrEnum):
     """Feature identifiers for Magic Areas integration."""
 
     AREA = "area"
+    PRESENCE_TRACKING = "presence_tracking"
     PRESENCE_HOLD = "presence_hold"
     LIGHT_GROUPS = "light_groups"
     CLIMATE_CONTROL = "climate_control"

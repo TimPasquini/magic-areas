@@ -1,7 +1,8 @@
 """Snapshot tests for Magic Areas coordinator.
 
-Tests coordinator data snapshots including MagicAreasData structure,
-entity grouping, presence sensors, and feature configurations.
+Tests coordinator data snapshots with realistic data including entity grouping,
+presence sensor configuration, and feature enabling. Tests verify that the
+coordinator correctly structures data for platforms.
 """
 
 
@@ -21,242 +22,239 @@ from custom_components.magic_areas.coordinator import (
 
 
 @pytest.mark.asyncio
-async def test_coordinator_snapshot_structure(
+async def test_coordinator_basic_kitchen_area(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test MagicAreasData structure snapshot.
+    """Test coordinator snapshot for kitchen area with default config.
 
-    Captures the complete structure of MagicAreasData including all
-    fields and their types for validation and reference.
+    Validates that the coordinator builds the correct data structure for
+    a basic interior area with default presence device classes.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
     data: MagicAreasData = coordinator.data
 
-    # Create a serializable snapshot of the data structure
+    # Snapshot complete coordinator data structure
     data_snapshot = {
         "area_id": data.area_config.slug,
         "area_name": data.area_config.name,
+        "area_type": str(data.area_config.area_type),
+        "is_meta": data.area_config.is_meta(),
         "config_keys": sorted(data.config.keys()),
         "enabled_features": sorted(data.enabled_features),
-        "feature_configs": {
-            k: type(v).__name__ for k, v in data.feature_configs.items()
-        },
+        "feature_config_keys": sorted(data.feature_configs.keys()),
         "presence_sensor_count": len(data.presence_sensors),
+        "presence_sensors": sorted(data.presence_sensors),
+        "presence_device_classes": sorted(
+            str(dc) for dc in data.config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS, [])
+        ),
         "entity_domains": sorted(data.entities.keys()),
+        "entity_domain_counts": {
+            domain: len(entities) for domain, entities in data.entities.items()
+        },
         "magic_entity_domains": sorted(data.magic_entities.keys()),
-        "has_updated_at": hasattr(data, "updated_at"),
-        "active_areas_type": type(data.active_areas).__name__,
+        "magic_entity_counts": {
+            domain: len(entities) for domain, entities in data.magic_entities.items()
+        },
+        "available": data.area_runtime.last_update_success,
     }
 
-    # Snapshot the coordinator data structure
     assert data_snapshot == snapshot
 
 
 @pytest.mark.asyncio
-async def test_coordinator_snapshot_entities(
+async def test_coordinator_with_all_areas(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration_all_areas: list[MockConfigEntry],
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test entity grouping in coordinator snapshot.
+    """Test coordinator snapshot with all areas including meta areas.
 
-    Captures how entities are grouped by domain and their structure
-    within the coordinator data.
+    Validates coordinator behavior when multiple areas (regular + meta)
+    are initialized. Checks that meta areas have correct structure.
     """
-    entry = init_integration
+    entries = snapshot_integration_all_areas
+
+    meta_entry = None
+    for entry in entries:
+        coordinator = entry.runtime_data.coordinator
+        if coordinator.data and coordinator.data.area_config.is_meta():
+            meta_entry = entry
+            break
+
+    assert meta_entry is not None
+    data: MagicAreasData = meta_entry.runtime_data.coordinator.data
+    assert data is not None
+
+    # Snapshot multi-area setup structure
+    area_snapshot = {
+        "area_id": data.area_config.slug,
+        "area_name": data.area_config.name,
+        "is_meta": data.area_config.is_meta(),
+        "child_areas": sorted(data.child_areas),
+        "child_area_count": len(data.child_areas),
+        "presence_sensor_count": len(data.presence_sensors),
+        "entity_domains": sorted(data.entities.keys()),
+    }
+
+    assert area_snapshot == snapshot
+
+
+@pytest.mark.asyncio
+async def test_coordinator_data_structure_fields(
+    hass: HomeAssistant,
+    snapshot_integration: MockConfigEntry,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test that coordinator data contains all required fields.
+
+    Validates that MagicAreasData snapshot has all expected fields
+    with correct types for use by platforms.
+    """
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
     data: MagicAreasData = coordinator.data
 
-    # Create entity domain summary
-    entity_summary = {
-        "domains": list(data.entities.keys()),
-        "domain_entity_counts": {
+    # Verify all required fields exist and have correct types
+    field_validation = {
+        "has_area_config": data.area_config is not None,
+        "has_area_runtime": data.area_runtime is not None,
+        "has_config_dict": isinstance(data.config, dict),
+        "has_entities_dict": isinstance(data.entities, dict),
+        "has_magic_entities_dict": isinstance(data.magic_entities, dict),
+        "has_enabled_features_set": isinstance(data.enabled_features, set),
+        "has_feature_configs_dict": isinstance(data.feature_configs, dict),
+        "has_presence_sensors_list": isinstance(data.presence_sensors, list),
+        "has_active_areas_list": isinstance(data.active_areas, list),
+        "has_updated_at": data.updated_at is not None,
+    }
+
+    assert field_validation == snapshot
+
+
+@pytest.mark.asyncio
+async def test_coordinator_presence_configuration(
+    hass: HomeAssistant,
+    snapshot_integration: MockConfigEntry,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test presence sensor configuration in coordinator snapshot.
+
+    Validates that presence sensors are properly configured with
+    correct device classes and platform selection.
+    """
+    entry = snapshot_integration
+    coordinator = entry.runtime_data.coordinator
+
+    assert coordinator.data is not None
+    data: MagicAreasData = coordinator.data
+
+    # Snapshot presence configuration
+    presence_config = {
+        "presence_sensor_count": len(data.presence_sensors),
+        "presence_sensors": sorted(data.presence_sensors),
+        "device_classes": sorted(
+            str(dc) for dc in data.config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS, [])
+        ),
+        "device_platforms": data.config.get(CONF_PRESENCE_DEVICE_PLATFORMS),
+        "has_presence_sensors_in_snapshot": len(data.presence_sensors) > 0,
+    }
+
+    assert presence_config == snapshot
+
+
+@pytest.mark.asyncio
+async def test_coordinator_entity_grouping(
+    hass: HomeAssistant,
+    snapshot_integration: MockConfigEntry,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test entity grouping by domain in coordinator snapshot.
+
+    Validates that entities are correctly grouped by domain and that
+    magic (integration-generated) entities are properly tracked.
+    """
+    entry = snapshot_integration
+    coordinator = entry.runtime_data.coordinator
+
+    assert coordinator.data is not None
+    data: MagicAreasData = coordinator.data
+
+    # Snapshot entity grouping
+    entity_grouping = {
+        "regular_entity_domains": sorted(data.entities.keys()),
+        "regular_entity_counts": {
             domain: len(entities) for domain, entities in data.entities.items()
         },
-        "magic_domains": list(data.magic_entities.keys()),
-        "magic_domain_entity_counts": {
+        "magic_entity_domains": sorted(data.magic_entities.keys()),
+        "magic_entity_count_by_domain": {
             domain: len(entities) for domain, entities in data.magic_entities.items()
         },
     }
 
-    # Snapshot entity grouping
-    assert entity_summary == snapshot
+    assert entity_grouping == snapshot
 
 
 @pytest.mark.asyncio
-async def test_coordinator_snapshot_presence(
+async def test_coordinator_feature_configuration(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test presence sensors in coordinator snapshot.
+    """Test feature configuration structure in coordinator snapshot.
 
-    Captures the structure and configuration of presence sensors
-    including device classes and entity references.
+    Validates that feature enabling and configuration is properly
+    captured in the coordinator data for each area.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
     data: MagicAreasData = coordinator.data
-
-    # Create presence sensor summary
-    presence_summary = {
-        "presence_sensor_count": len(data.presence_sensors),
-        "presence_sensors": data.presence_sensors,
-        "presence_device_platforms": data.config.get(
-            CONF_PRESENCE_DEVICE_PLATFORMS, []
-        ),
-        "presence_device_classes": data.config.get(
-            CONF_PRESENCE_SENSOR_DEVICE_CLASS, []
-        ),
-    }
-
-    # Snapshot presence configuration
-    assert presence_summary == snapshot
-
-
-@pytest.mark.asyncio
-async def test_coordinator_snapshot_features(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    snapshot: SnapshotAssertion,
-) -> None:
-    """Test feature configs in coordinator snapshot.
-
-    Captures the structure of enabled features and their configurations
-    as stored in the coordinator data.
-    """
-    entry = init_integration
-    coordinator = entry.runtime_data.coordinator
-
-    assert coordinator.data is not None
-    data: MagicAreasData = coordinator.data
-
-    # Create feature summary
-    feature_summary = {
-        "enabled_features": sorted(data.enabled_features),
-        "feature_config_keys": sorted(data.feature_configs.keys()),
-        "has_feature_configs": len(data.feature_configs) > 0,
-    }
 
     # Snapshot feature configuration
-    assert feature_summary == snapshot
-
-
-@pytest.mark.asyncio
-async def test_coordinator_data_feature_structure(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    snapshot: SnapshotAssertion,
-) -> None:
-    """Test coordinator snapshot feature data structure.
-
-    Captures the structure of enabled features in coordinator data.
-    """
-    entry = init_integration
-    coordinator = entry.runtime_data.coordinator
-
-    assert coordinator.data is not None
-
-    # Create feature structure snapshot
-    feature_snapshot = {
-        "enabled_features_count": len(coordinator.data.enabled_features),
-        "feature_configs_count": len(coordinator.data.feature_configs),
-        "feature_names": sorted(coordinator.data.enabled_features),
+    feature_config = {
+        "enabled_features": sorted(data.enabled_features),
+        "feature_config_keys": sorted(data.feature_configs.keys()),
+        "feature_configs": {
+            key: data.feature_configs[key]
+            for key in sorted(data.feature_configs.keys())
+        },
+        "feature_configs_count": len(data.feature_configs),
+        "config_has_features_entry": CONF_ENABLED_FEATURES in data.config,
     }
 
-    # Snapshot feature structure
-    assert feature_snapshot == snapshot
+    assert feature_config == snapshot
 
 
 @pytest.mark.asyncio
-async def test_coordinator_config_snapshot(
+async def test_coordinator_availability(
     hass: HomeAssistant,
-    init_integration: MockConfigEntry,
+    snapshot_integration: MockConfigEntry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    """Test full config snapshot in coordinator.
+    """Test coordinator availability status snapshot.
 
-    Captures the complete configuration stored in the coordinator
-    including all area-specific settings.
+    Validates that coordinator refresh success is properly tracked
+    and reflected in the area runtime data.
     """
-    entry = init_integration
+    entry = snapshot_integration
     coordinator = entry.runtime_data.coordinator
 
     assert coordinator.data is not None
     data: MagicAreasData = coordinator.data
 
-    # Extract key configuration fields
-    config_snapshot = {
-        "area_id": data.config.get("id"),
-        "area_type": data.config.get("type"),
-        "presence_platforms": data.config.get(CONF_PRESENCE_DEVICE_PLATFORMS),
-        "presence_device_classes": data.config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS),
-        "enabled_features_keys": list(data.config.get(CONF_ENABLED_FEATURES, {}).keys()),
+    # Snapshot availability
+    availability = {
+        "area_available": data.area_runtime.last_update_success,
+        "coordinator_last_update_success": coordinator.last_update_success,
+        "has_updated_at_timestamp": data.updated_at is not None,
     }
 
-    # Snapshot config state
-    assert config_snapshot == snapshot
-
-
-@pytest.mark.asyncio
-async def test_coordinator_active_areas(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    snapshot: SnapshotAssertion,
-) -> None:
-    """Test active areas tracking in coordinator.
-
-    Captures the structure of active areas tracking including
-    area state resolution.
-    """
-    entry = init_integration
-    coordinator = entry.runtime_data.coordinator
-
-    assert coordinator.data is not None
-    data: MagicAreasData = coordinator.data
-
-    # Create active areas snapshot
-    active_areas_snapshot = {
-        "active_areas": data.active_areas,
-        "active_areas_count": len(data.active_areas),
-        "active_areas_type": type(data.active_areas).__name__,
-    }
-
-    # Snapshot active areas
-    assert active_areas_snapshot == snapshot
-
-
-@pytest.mark.asyncio
-async def test_coordinator_metadata(
-    hass: HomeAssistant,
-    init_integration: MockConfigEntry,
-    snapshot: SnapshotAssertion,
-) -> None:
-    """Test coordinator metadata and timestamps.
-
-    Captures metadata like update timestamps and last update success status.
-    """
-    entry = init_integration
-    coordinator = entry.runtime_data.coordinator
-
-    assert coordinator.data is not None
-    data: MagicAreasData = coordinator.data
-
-    # Create metadata snapshot
-    metadata_snapshot = {
-        "has_updated_at": data.updated_at is not None,
-        "area_id": data.area_config.slug,
-        "area_last_update_success": data.area_runtime.last_update_success,
-    }
-
-    # Snapshot metadata
-    assert metadata_snapshot == snapshot
+    assert availability == snapshot

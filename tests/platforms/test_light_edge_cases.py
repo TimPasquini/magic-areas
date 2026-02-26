@@ -207,60 +207,27 @@ async def test_group_state_changed_logic(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     )
 
-    # Setup test scenario 1: area not occupied (clear state)
-    hass.states.async_set(
-        area_sensor_entity_id, STATE_OFF, {ATTR_STATES: [AreaStates.CLEAR]}
-    )
-    target_group.reset_control = MagicMock()
-
-    # Test area not occupied
-    event = MagicMock()
-    target_group.group_state_changed(event)
-    target_group.reset_control.assert_called_once()
-
-    # Setup test scenario 2: area occupied
+    # Area occupied
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
-    target_group.reset_control.reset_mock()
 
-    # Test invalid event (no context)
+    # Invalid event (no context)
+    event = MagicMock()
     event.context = None
     assert not target_group.group_state_changed(event)
 
-    # Test valid context but invalid origin event
+    # state_changed event with missing data
     event.context = MagicMock()
-    event.context.origin_event = None
-
-    original_handle_secondary = target_group.handle_group_state_change_secondary
-    target_group.handle_group_state_change_secondary = MagicMock()
-    target_group.group_state_changed(event)
-    target_group.handle_group_state_change_secondary.assert_called_once()
-
-    # Test origin event state_changed but invalid states
-    event.context.origin_event = MagicMock()
-    event.context.origin_event.event_type = "state_changed"
-    event.context.origin_event.data = {}
-
-    target_group.handle_group_state_change_secondary.reset_mock()
+    event.context.origin_event = MagicMock(event_type="state_changed", data={})
     assert not target_group.group_state_changed(event)
-    target_group.handle_group_state_change_secondary.assert_not_called()
 
-    # Test restored event
+    # Restored event should be ignored
     event.context.origin_event.data = {
         "old_state": MagicMock(state=STATE_ON, attributes={"restored": True}),
         "new_state": MagicMock(state=STATE_OFF),
     }
     assert not target_group.group_state_changed(event)
-    target_group.handle_group_state_change_secondary.assert_not_called()
-
-    # Restore original method
-    target_group.handle_group_state_change_secondary = original_handle_secondary
-
-    # Test controlled logic in handle_group_state_change_secondary
-    target_group.controlled = True
-    target_group.handle_group_state_change_secondary()
-    assert not target_group.controlled
 
     await shutdown_integration(hass, [light_edge_cases_config_entry])
 
@@ -302,66 +269,11 @@ async def test_manual_control_detection(
     }
 
     target_group.group_state_changed(event)
-
-    # Should set controlling to False
-    assert target_group.controlling is False
-
-    await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
-
-
-async def test_primary_change_no_children(
-    hass: HomeAssistant,
-    light_edge_cases_config_entry_limited: MockConfigEntry,
-    entities_light_edge_cases: list[MockLight],
-) -> None:
-    """Test primary change with no children (521)."""
-
-    await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
-    await hass.async_start()
     await hass.async_block_till_done()
 
-    # We need the ALL group.
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_all_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
-        light_group_id
-    )
-
-    # Force child_ids to empty
-    target_group._child_ids = []
-
-    # Let's set controlling to True first.
-    target_group.controlling = True
-    target_group.handle_group_state_change_primary()
-    assert target_group.controlling is True
+    group_state = hass.states.get(light_group_id)
+    assert group_state is not None
+    assert group_state.attributes.get("controlling") is False
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
 
-
-async def test_primary_change_controlling(
-    hass: HomeAssistant,
-    light_edge_cases_config_entry_limited: MockConfigEntry,
-    entities_light_edge_cases: list[MockLight],
-) -> None:
-    """Test primary change controlling logic (525-526)."""
-
-    await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
-    await hass.async_start()
-    await hass.async_block_till_done()
-
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_all_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
-        light_group_id
-    )
-
-    # Mock is_child_controllable
-    target_group.is_child_controllable = MagicMock(return_value=True)
-
-    target_group.handle_group_state_change_primary()
-
-    assert target_group.controlling is True
-
-    await shutdown_integration(hass, [light_edge_cases_config_entry_limited])

@@ -79,6 +79,7 @@ migration documents.
   platform setup rules (as of current implementation).
 - Read `config-flow.md` for config/option flow structure and schema layout.
 - Read `tests.md` for the test coverage delta and delta-to-test mapping.
+- Read `release-notes.md` for a concise summary of the fork delta.
 
 ## Reviewer checklist
 

@@ -9,7 +9,7 @@ rules:
   entity-unique-id: done
   
   # Silver
-  entity-unavailable: todo
+  entity-unavailable: done
   parallel-updates: todo
   reauthentication-flow: todo
   

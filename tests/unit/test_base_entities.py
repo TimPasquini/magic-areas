@@ -4,9 +4,8 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 
-from custom_components.magic_areas.base.entities import MagicGroupEntity
+from custom_components.magic_areas.entity import MagicGroupEntity
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import MagicAreasFeatureInfoLightGroups
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.core import HomeAssistant
 
@@ -14,7 +13,7 @@ from homeassistant.core import HomeAssistant
 class MockGroupEntity(MagicGroupEntity):
     """Mock group entity for testing."""
 
-    feature_info = MagicAreasFeatureInfoLightGroups()
+    feature_id = MagicAreasFeatures.LIGHT_GROUPS
 
     def __init__(self, area_config: Any, coordinator: Any, member_entity_ids: Any) -> None:
         """Initialize mock group entity."""

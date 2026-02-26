@@ -21,6 +21,10 @@ test = [
     "pytest-cov",
     "mypy",
 ]
+charts = [
+    "code2flow>=2.5.1",
+    "pydeps>=3.0.2",
+]
 
 [tool.black]
 target-version = ["py313"]

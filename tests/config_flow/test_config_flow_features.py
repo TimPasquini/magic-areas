@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 
 import voluptuous as vol
-from homeassistant import config_entries
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
 )
@@ -685,8 +684,7 @@ async def test_options_flow_feature_conf_next_step_calls_handler(
 
     patched_feature = FeatureConfig(
         name=MagicAreasFeatures.HEALTH,
-        options=[],
-        next_step="async_step_show_menu",
+        next_step="show_menu",
     )
     with patch.dict(FEATURE_REGISTRY, {MagicAreasFeatures.HEALTH: patched_feature}):
         # Cast: intentionally adding step_id to ConfigFlowContext for test flow simulation
@@ -707,19 +705,18 @@ async def test_options_flow_feature_conf_merge_options(
     flow.hass = hass
     await flow.async_step_init()
     flow.area_options[CONF_ENABLED_FEATURES] = {
-        "test_feature": {"existing": 1}
+        MagicAreasFeatures.HEALTH: {"existing": 1}
     }
 
-    feature_key = "test_feature"
+    feature_key = MagicAreasFeatures.HEALTH
     patched_feature = FeatureConfig(
         name=feature_key,
-        options=[("value", 1, int)],
         schema=vol.Schema({vol.Required("value"): int}),
         merge_options=True,
     )
     with patch.dict(FEATURE_REGISTRY, {feature_key: patched_feature}):
         # Cast: intentionally adding step_id to ConfigFlowContext for test flow simulation
-        flow.context = cast(Any, {"step_id": f"feature_conf_{feature_key}"})
+        flow.context = cast(Any, {"step_id": f"feature_conf_{feature_key.value}"})
         result = await flow.async_step_feature_conf(user_input={"value": 2})
 
     assert result["type"] == FlowResultType.MENU
@@ -727,57 +724,6 @@ async def test_options_flow_feature_conf_merge_options(
         "existing": 1,
         "value": 2,
     }
-
-
-async def test_options_flow_do_feature_config_merge_options_return_to(
-    hass: HomeAssistant, init_integration: MockConfigEntry
-) -> None:
-    """Test merge options handling and return_to in do_feature_config."""
-    config_entry = init_integration
-    flow = OptionsFlowHandler(config_entry)
-    flow.hass = hass
-    coordinator_data = config_entry.runtime_data.coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
-    flow._coordinator_data = coordinator_data
-    flow.area_options = {CONF_ENABLED_FEATURES: {}}
-
-    async def _return_to() -> config_entries.ConfigFlowResult:
-        return flow.async_abort(reason="return_to")
-
-    result = await flow.do_feature_config(
-        name=MagicAreasFeatures.HEALTH,
-        options=[("test", 1, int)],
-        custom_schema=vol.Schema({vol.Optional("test", default=1): int}),
-        merge_options=True,
-        user_input={"test": 2},
-        return_to=_return_to,
-    )
-
-    assert result["type"] == FlowResultType.ABORT
-    assert flow.area_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.HEALTH] == {"test": 2}
-
-
-async def test_options_flow_do_feature_config_replace_options(
-    hass: HomeAssistant, init_integration: MockConfigEntry
-) -> None:
-    """Test replacing options in do_feature_config."""
-    config_entry = init_integration
-    flow = OptionsFlowHandler(config_entry)
-    flow.hass = hass
-    coordinator_data = config_entry.runtime_data.coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
-    flow._coordinator_data = coordinator_data
-    flow.area_options = {CONF_ENABLED_FEATURES: {}}
-
-    result = await flow.do_feature_config(
-        name=MagicAreasFeatures.HEALTH,
-        options=[("test", 1, int)],
-        custom_schema=vol.Schema({vol.Optional("test", default=1): int}),
-        user_input={"test": 3},
-    )
-
-    assert result["type"] == FlowResultType.MENU
-    assert flow.area_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.HEALTH] == {"test": 3}
 
 
 async def test_options_flow_feature_conf_validation_error(
@@ -801,10 +747,13 @@ async def test_options_flow_feature_conf_validation_error(
 
     # Mock schema to raise validation error
     # Cast: MultipleInvalid expects list[Invalid] or None, but we pass exception for mock
-    with patch.dict(
-        "custom_components.magic_areas.config_flows.options_flow.CONFIGURABLE_FEATURES",
-        {MagicAreasFeatures.HEALTH: MagicMock(side_effect=cast(Exception, vol.MultipleInvalid(None)))},
-    ):
+    patched_feature = FeatureConfig(
+        name=MagicAreasFeatures.HEALTH,
+        schema=MagicMock(
+            side_effect=cast(Exception, vol.MultipleInvalid(None))
+        ),
+    )
+    with patch.dict(FEATURE_REGISTRY, {MagicAreasFeatures.HEALTH: patched_feature}):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["problem"]},

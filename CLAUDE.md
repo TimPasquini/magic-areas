@@ -86,7 +86,7 @@ Maximize determinism, minimize duplication, and ensure the integration can be de
 pytest ./tests --cov=custom_components.magic_areas --cov-report term-missing --numprocesses=auto
 
 # Run specific test file
-pytest tests/test_area_state.py -v
+pytest tests/integration/test_area_state.py -v
 
 # Run with durations (slowest tests)
 pytest ./tests --durations=10
@@ -298,7 +298,7 @@ The refactoring is moving toward this **target module layout**:
 - **Key principle**: No HA entity classes or registry calls (pure logic)
 - **Modules**:
   - `core/area_model.py` - Core representation of MagicArea state
-  - `core/entities.py` - Normalized entity list assembly by domain
+  - `core/entity_loading/` - Entity ingestion package (`loader.py`, `registry_queries.py`, `filters.py`, `snapshots.py`)
   - `core/presence.py` - Presence, timeouts, and secondary states
   - `core/aggregates.py` - Aggregate sensor logic
   - `core/meta.py` - Meta area orchestration and child area resolution
@@ -351,7 +351,7 @@ The refactoring is moving toward this **target module layout**:
 - `aggregates.py` - Sensor aggregation by device class
 - `presence.py` - Presence sensor selection logic
 - `meta.py` - Meta-area helpers
-- `entities.py` - Entity grouping and snapshots
+- `entity_loading/` - Entity ingestion + grouping pipeline
 - `config.py` - Feature configuration normalization
 - `area_model.py` - AreaDescriptor dataclass
 
@@ -492,16 +492,15 @@ Configuration stored per-area in ConfigEntry data/options.
 ### Test Organization
 ```
 tests/
-├── conftest.py           # pytest fixtures (mock_config_entry, init_integration)
-├── const.py              # Test constants
-├── helpers.py            # Test utilities (area setup, entity creation)
-├── mocks.py              # Mock entity classes (MockLight, MockSensor, etc.)
-├── test_aggregates.py    # Sensor aggregation
-├── test_area_state.py    # State management
-├── test_config_flow.py   # Config UI (58KB, complex)
-├── test_coordinator.py   # Coordinator pattern
-├── test_core_*.py        # Core module unit tests
-└── test_*_platform.py    # Platform-specific tests
+├── conftest.py              # pytest fixtures (mock_config_entry, init_integration)
+├── const.py                 # Test constants
+├── helpers.py               # Test utilities (area setup, entity creation)
+├── mocks.py                 # Mock entity classes (MockLight, MockSensor, etc.)
+├── unit/                    # Core logic unit tests
+├── integration/             # HA integration tests (area/coordinator lifecycle)
+├── platforms/               # Platform-specific tests (light/switch/etc.)
+├── config_flow/             # Config flow and options flow tests
+└── snapshots/               # Syrupy snapshot tests
 ```
 
 ### Key Test Patterns
@@ -529,10 +528,10 @@ tests/
 pytest tests/
 
 # Specific test file
-pytest tests/test_core_aggregates.py -v
+pytest tests/unit/test_core_aggregates.py -v
 
 # Specific test
-pytest tests/test_area_state.py::test_area_presence -v
+pytest tests/integration/test_area_state.py::test_area_presence -v
 
 # With snapshots
 pytest tests/test_config_flow.py --snapshot-update
