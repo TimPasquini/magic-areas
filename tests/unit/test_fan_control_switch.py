@@ -9,6 +9,8 @@ from homeassistant.const import STATE_OFF, STATE_ON
 
 from custom_components.magic_areas.switch.fan_control import FanControlSwitch
 from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.core.control_group import ControlGroupContext
 
 
 @pytest.fixture
@@ -43,7 +45,9 @@ def mock_hass() -> Any:
     hass = AsyncMock()
     hass.states = MagicMock()
     hass.services = AsyncMock()
-    hass.async_create_task = MagicMock()
+    hass.async_create_task = MagicMock(
+        side_effect=lambda coro: coro.close() if hasattr(coro, "close") else None
+    )
     return hass
 
 
@@ -127,10 +131,7 @@ def test_fan_control_area_sensor_state_changed_state_not_off(
 def test_fan_control_area_sensor_state_changed_no_fan_group(
     mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
 ) -> None:
-    """Test _area_sensor_state_changed when fan_group_entity_id is None.
-
-    Covers lines 208-212 - the debug log when no fan group.
-    """
+    """Test _area_sensor_state_changed schedules control reevaluation on CLEAR."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
     switch.hass = mock_hass
     switch._attr_is_on = True
@@ -143,11 +144,11 @@ def test_fan_control_area_sensor_state_changed_no_fan_group(
     event = MagicMock(spec=Event)
     event.data = {"new_state": new_state}
 
-    # Should return early without calling any services
+    # Should schedule reevaluation even when group resolution is missing.
     result = switch._area_sensor_state_changed(event)
     assert result is None
 
-    mock_hass.async_create_task.assert_not_called()
+    mock_hass.async_create_task.assert_called_once()
 
 
 
@@ -183,10 +184,11 @@ async def test_fan_control_run_logic_sensor_value_error(
     # Should not raise an exception
     await switch.run_logic(["occupied"])
 
-    # Policy should be called with None sensor_value due to parse error
+    # Policy should receive canonical context with normalized signal values.
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
-    assert args[1] is None  # sensor_value should be None due to exception
+    assert isinstance(args[0], ControlGroupContext)
+    assert args[0].signals["sensor_value"] is None
 
 
 @pytest.mark.asyncio
@@ -217,10 +219,11 @@ async def test_fan_control_run_logic_sensor_type_error(
     # Should not raise an exception
     await switch.run_logic(["occupied"])
 
-    # Policy should be called with None sensor_value
+    # Policy should receive canonical context with normalized signal values.
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
-    assert args[1] is None
+    assert isinstance(args[0], ControlGroupContext)
+    assert args[0].signals["sensor_value"] is None
 
 
 @pytest.mark.asyncio
@@ -249,9 +252,58 @@ async def test_fan_control_run_logic_sensor_not_found(
     # Should not raise an exception
     await switch.run_logic(["occupied"])
 
-    # Policy should be called with None sensor_value
+    # Policy should receive canonical context with normalized signal values.
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
-    assert args[1] is None
+    assert isinstance(args[0], ControlGroupContext)
+    assert args[0].signals["sensor_value"] is None
 
 
+@pytest.mark.asyncio
+async def test_aggregate_sensor_state_uses_area_sensor_fallback(
+    mock_area_config: Any,
+    mock_coordinator: Any,
+    mock_hass: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """aggregate_sensor_state_changed should read area-sensor states when cache is empty."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._last_states = []
+    switch._area_sensor_entity_id = "binary_sensor.test_area_state"
+    run_logic_mock = AsyncMock()
+    monkeypatch.setattr(switch, "run_logic", run_logic_mock)
+
+    area_state = MagicMock()
+    area_state.attributes = {
+        "states": [AreaStates.OCCUPIED, AreaStates.EXTENDED.value],
+    }
+    mock_hass.states.get.return_value = area_state
+
+    await switch.aggregate_sensor_state_changed(MagicMock(spec=Event))
+
+    run_logic_mock.assert_awaited_once_with(
+        [AreaStates.OCCUPIED.value, AreaStates.EXTENDED.value]
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_logic_returns_early_without_resolved_fan_group(
+    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+) -> None:
+    """run_logic should still evaluate policy and emit a NOOP decision."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._attr_is_on = True
+    switch._fan_group_entity_id = None
+    switch._attr_name = "Test Switch"
+    switch.policy = MagicMock()
+    switch.policy.evaluate.return_value = MagicMock(
+        action_type="noop",
+        actions=(),
+        reason="fan_group_unavailable",
+    )
+
+    await switch.run_logic(["occupied"])
+
+    switch.policy.evaluate.assert_called_once()

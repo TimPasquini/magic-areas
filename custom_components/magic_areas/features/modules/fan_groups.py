@@ -15,6 +15,8 @@ from custom_components.magic_areas.config_keys import (
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
+from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.defaults import (
     DEFAULT_FAN_GROUPS_REQUIRED_STATE,
     DEFAULT_FAN_GROUPS_SETPOINT,
@@ -74,6 +76,7 @@ class FanGroupsFeatureModule(BaseFeatureModule):
     ) -> list[Entity]:
         """Build entities for the fan groups feature."""
         entities: list[Entity] = []
+        group_definitions: list[ControlGroupDefinition] = []
 
         if FAN_DOMAIN not in data.entities:
             _LOGGER.debug("%s: No %s entities for area.", area_config.name, FAN_DOMAIN)
@@ -82,12 +85,36 @@ class FanGroupsFeatureModule(BaseFeatureModule):
             if fan_entities:
                 try:
                     entities.append(AreaFanGroup(area_config, coordinator, fan_entities))
+                    group_definitions.append(
+                        ControlGroupDefinition(
+                            group_id=f"fan_groups_{area_config.id}_fan_group",
+                            members=tuple(fan_entities),
+                            trigger_states=(
+                                str(
+                                    data.feature_configs.get(
+                                        MagicAreasFeatures.FAN_GROUPS, {}
+                                    ).get(
+                                        CONF_FAN_GROUPS_REQUIRED_STATE,
+                                        DEFAULT_FAN_GROUPS_REQUIRED_STATE,
+                                    )
+                                ),
+                            ),
+                            policy_id="fan_groups",
+                            metadata={"feature": str(MagicAreasFeatures.FAN_GROUPS)},
+                        )
+                    )
                 except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught
                     _LOGGER.error(
                         "%s: Error creating fan group: %s",
                         area_config.slug,
                         str(exc),
                     )
+
+        GROUP_REGISTRY.register_area_defaults(
+            area_id=area_config.id,
+            definitions=group_definitions,
+            policy_id="fan_groups",
+        )
 
         if not area_config.is_meta():
             try:

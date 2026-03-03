@@ -13,12 +13,15 @@ from homeassistant.helpers.event import EventStateChangedData
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import LightGroupCategory
-from custom_components.magic_areas.core.light_control import (
-    LightAction,
-    LightGroupPolicyInput,
+from custom_components.magic_areas.light_groups.policy import (
     reset_control_state,
     update_primary_control_state,
     update_secondary_control_state,
+)
+from custom_components.magic_areas.core.control_group import (
+    ControlActionType,
+    ControlGroupContext,
+    ControlGroupDecision,
 )
 
 
@@ -62,16 +65,20 @@ def state_change_primary(
 ) -> bool:
     """Handle primary state change."""
     new_states, lost_states, current_states = states_tuple
-    context = LightGroupPolicyInput(
-        new_states=new_states,
-        lost_states=lost_states,
-        current_states=current_states,
-        control_state=group._control_state,
-        is_primary=True,
+    context = ControlGroupContext(
+        group_id=group.entity_id,
+        new_states=tuple(new_states),
+        lost_states=tuple(lost_states),
+        current_states=tuple(current_states),
+        signals={
+            "is_primary": True,
+            "control_state": group._echo_state,
+        },
     )
-    decision = group.policy.evaluate_area_state_change(context)
+    decision = group.policy.evaluate(context)
+    next_control_state = group.policy.next_control_state(context)
     group.logger.debug("%s: Decision: %s", group.name, decision.reason)
-    return _apply_decision(group, decision)
+    return _apply_decision(group, decision, next_control_state)
 
 
 def state_change_secondary(
@@ -79,16 +86,20 @@ def state_change_secondary(
 ) -> bool:
     """Handle secondary state change."""
     new_states, lost_states, current_states = states_tuple
-    context = LightGroupPolicyInput(
-        new_states=new_states,
-        lost_states=lost_states,
-        current_states=current_states,
-        control_state=group._control_state,
-        is_primary=False,
+    context = ControlGroupContext(
+        group_id=group.entity_id,
+        new_states=tuple(new_states),
+        lost_states=tuple(lost_states),
+        current_states=tuple(current_states),
+        signals={
+            "is_primary": False,
+            "control_state": group._echo_state,
+        },
     )
-    decision = group.policy.evaluate_area_state_change(context)
+    decision = group.policy.evaluate(context)
+    next_control_state = group.policy.next_control_state(context)
     group.logger.debug("%s: Decision: %s", group.name, decision.reason)
-    return _apply_decision(group, decision)
+    return _apply_decision(group, decision, next_control_state)
 
 
 def is_child_controllable(hass: HomeAssistant, entity_id: str) -> bool:
@@ -112,19 +123,19 @@ def handle_group_state_change_primary(group: Any) -> None:
         if is_child_controllable(group.hass, entity_id):
             controlling = True
             break
-    group._set_control_state(
-        update_primary_control_state(group._control_state, controlling)
+    group._set_echo_state(
+        update_primary_control_state(group._echo_state, controlling)
     )
     group.schedule_update_ha_state()
 
 
 def handle_group_state_change_secondary(group: Any) -> None:
     """Handle group state change for secondary area state events."""
-    if group._control_state.controlled:
+    if group._echo_state.controlled:
         group.logger.debug("%s: Group controlled by us.", group.name)
     else:
         group.logger.debug("%s: Group controlled by something else.", group.name)
-    group._set_control_state(update_secondary_control_state(group._control_state))
+    group._set_echo_state(update_secondary_control_state(group._echo_state))
 
 
 def group_state_changed(group: Any, event: Event[EventStateChangedData]) -> bool:
@@ -150,7 +161,7 @@ def group_state_changed(group: Any, event: Event[EventStateChangedData]) -> bool
                 ]
 
     if AreaStates.OCCUPIED.value not in current_area_states:
-        group._set_control_state(reset_control_state())
+        group._set_echo_state(reset_control_state())
         group.logger.debug("%s: Control Reset.", group.name)
     else:
         origin_event = event.context.origin_event
@@ -188,12 +199,16 @@ def group_state_changed(group: Any, event: Event[EventStateChangedData]) -> bool
     return True
 
 
-def _apply_decision(group: Any, decision: Any) -> bool:
-    if decision.next_control_state is not None:
-        group._set_control_state(decision.next_control_state)
+def _apply_decision(
+    group: Any,
+    decision: ControlGroupDecision,
+    next_control_state: Any,
+) -> bool:
+    if next_control_state is not None:
+        group._set_echo_state(next_control_state)
 
-    if decision.action == LightAction.TURN_ON:
+    if decision.action_type == ControlActionType.ACTIVATE:
         return group._turn_on()
-    if decision.action == LightAction.TURN_OFF:
+    if decision.action_type == ControlActionType.DEACTIVATE:
         return group._turn_off()
     return False

@@ -30,6 +30,7 @@ from custom_components.magic_areas.config_flow import (
 )
 from custom_components.magic_areas.config_keys import (
     CONF_CLEAR_TIMEOUT,
+    CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_SLEEP_TIMEOUT,
@@ -194,6 +195,149 @@ async def test_options_flow_validation_error(
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"type": "Error"}
+
+
+async def test_options_flow_custom_control_groups_step(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Custom control groups should validate and persist through options flow."""
+    config_entry = init_integration
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "custom_control_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "custom_control_groups"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    "group_id": "control.task",
+                    "members": ["light.test_light"],
+                    "trigger_states": ["occupied"],
+                    "policy_id": "custom_control_group",
+                    "metadata": {"label": "Task"},
+                }
+            ]
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "show_menu"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.task"
+
+
+async def test_options_flow_custom_control_groups_applies_templates_by_default(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Custom control groups step should seed starter templates when unset."""
+    config_entry = init_integration
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "custom_control_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "custom_control_groups"
+
+    # Submit without explicit groups; defaults should populate from templates.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={},
+    )
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "show_menu"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    group_ids = {group["group_id"] for group in config_entry.options[CONF_CUSTOM_CONTROL_GROUPS]}
+    assert group_ids == {"control.task", "control.reading", "control.media"}
+
+
+async def test_options_flow_custom_control_groups_rejects_invalid_payload(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Custom control groups step should reject invalid payloads."""
+    config_entry = init_integration
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "custom_control_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "custom_control_groups"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    # Missing required group_id.
+                    "members": ["light.test_light"],
+                    "trigger_states": ["occupied"],
+                }
+            ]
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "custom_control_groups"
+    assert result["errors"]
+
+
+async def test_options_flow_custom_control_groups_step_meta_area(
+    hass: HomeAssistant, init_integration_all_areas: list[MockConfigEntry]
+) -> None:
+    """Meta-area options flow should allow custom control groups."""
+    config_entry = next(
+        entry for entry in init_integration_all_areas if entry.data.get(CONF_TYPE) == AreaType.META
+    )
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "custom_control_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "custom_control_groups"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    "group_id": "control.meta_task",
+                    "members": ["light.test_light"],
+                    "trigger_states": ["occupied"],
+                    "policy_id": "custom_control_group",
+                }
+            ]
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "show_menu"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.meta_task"
 
 
 async def test_options_flow_generic_exception(

@@ -8,9 +8,11 @@ from typing import Any
 from custom_components.magic_areas.area_maps import CONFIGURABLE_AREA_STATE_MAP
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import (
+    CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
 )
+from custom_components.magic_areas.core.control_group import ControlGroupDefinition
 
 
 def normalize_feature_key(feature: Any) -> str:
@@ -67,3 +69,34 @@ def get_feature_config(config: dict[str, Any], feature: str) -> dict[str, Any]:
         return {}
 
     return feature_configs.get(feature, {})
+
+
+def normalize_custom_control_groups(
+    config: dict[str, Any],
+) -> list[ControlGroupDefinition]:
+    """Return normalized custom control-group definitions from area config."""
+    raw_groups = config.get(CONF_CUSTOM_CONTROL_GROUPS, [])
+    if not isinstance(raw_groups, list):
+        return []
+
+    normalized: list[ControlGroupDefinition] = []
+    for raw_group in raw_groups:
+        if not isinstance(raw_group, dict):
+            continue
+        group_id = raw_group.get("group_id")
+        members = raw_group.get("members")
+        if not isinstance(group_id, str) or not isinstance(members, list):
+            continue
+        metadata_value = raw_group.get("metadata")
+        metadata: dict[str, Any] = metadata_value if isinstance(metadata_value, dict) else {}
+        normalized.append(
+            ControlGroupDefinition(
+                group_id=group_id,
+                members=tuple(str(member) for member in members),
+                trigger_states=tuple(str(state) for state in raw_group.get("trigger_states", [])),
+                policy_id=str(raw_group.get("policy_id", "custom_control_group")),
+                metadata=metadata,
+            )
+        )
+
+    return normalized

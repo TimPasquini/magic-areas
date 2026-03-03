@@ -10,10 +10,17 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.binary_sensor import (
     AreaAggregateBinarySensor,
-    create_aggregate_sensors as create_binary_aggregates,
+    create_aggregate_sensors_from_definitions as create_binary_aggregates,
 )
 from custom_components.magic_areas.binary_sensor.threshold import (
     create_illuminance_threshold,
+)
+from custom_components.magic_areas.core.aggregate_policy import (
+    AggregatePolicyContext,
+    build_default_aggregate_selection_policy,
+)
+from custom_components.magic_areas.core.aggregate_runtime import (
+    register_aggregate_definitions,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
@@ -36,7 +43,7 @@ from custom_components.magic_areas.defaults import (
 )
 from custom_components.magic_areas.sensor.aggregate_factory import (
     AreaAggregateSensor,
-    create_aggregate_sensors as create_sensor_aggregates,
+    create_aggregate_sensors_from_definitions as create_sensor_aggregates,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -92,15 +99,31 @@ class AggregatesFeatureModule(BaseFeatureModule):
         data: MagicAreasData,
     ) -> list[Entity]:
         """Build entities for the aggregates feature."""
-        entities_by_domain = data.entities
+        policy = build_default_aggregate_selection_policy()
+        definitions = policy.aggregate_definitions(
+            AggregatePolicyContext(
+                entities_by_domain=data.entities,
+                feature_configs=data.feature_configs,
+                enabled_features=data.enabled_features,
+            )
+        )
+        register_aggregate_definitions(area_id=area_config.id, definitions=definitions)
         entities: list[Entity] = []
 
         entities.extend(
-            create_sensor_aggregates(data, entities_by_domain, area_config, coordinator)
+            create_sensor_aggregates(
+                definitions=definitions,
+                area_config=area_config,
+                coordinator=coordinator,
+            )
         )
 
         entities.extend(
-            create_binary_aggregates(data, entities_by_domain, area_config, coordinator)
+            create_binary_aggregates(
+                definitions=definitions,
+                area_config=area_config,
+                coordinator=coordinator,
+            )
         )
 
         threshold_entity = create_illuminance_threshold(

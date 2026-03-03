@@ -13,11 +13,16 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import LightGroupCategory, MagicAreasFeatures
+from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
 )
-from custom_components.magic_areas.light_group_entities import AreaLightGroup, MagicLightGroup
+from custom_components.magic_areas.light_groups.entities import (
+    AreaLightGroup,
+    MagicLightGroup,
+)
 from custom_components.magic_areas.light_groups import (
     CONF_ACCENT_LIGHTS,
     CONF_ACCENT_LIGHTS_ACT_ON,
@@ -33,6 +38,7 @@ from custom_components.magic_areas.light_groups import (
     CONF_TASK_LIGHTS_STATES,
     DEFAULT_LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_CATEGORIES,
+    LIGHT_GROUP_STATES,
 )
 import custom_components.magic_areas.switch as switch_platform
 
@@ -101,6 +107,7 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         else:
             light_entities = [e["entity_id"] for e in entities_by_domain[LIGHT_DOMAIN]]
             feature_config = data.feature_configs.get(MagicAreasFeatures.LIGHT_GROUPS, {})
+            registered_group_defs: list[ControlGroupDefinition] = []
 
             # Create light groups
             if area_config.is_meta():
@@ -110,6 +117,14 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                         coordinator,
                         light_entities,
                         translation_key=LightGroupCategory.ALL,
+                    )
+                )
+                registered_group_defs.append(
+                    self._build_control_group_definition(
+                        area_id=area_config.id,
+                        category=LightGroupCategory.ALL,
+                        members=light_entities,
+                        trigger_states=(),
                     )
                 )
             else:
@@ -139,6 +154,19 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                         )
                         light_groups.append(light_group_object)
                         child_categories.append(category)
+                        registered_group_defs.append(
+                            self._build_control_group_definition(
+                                area_id=area_config.id,
+                                category=category,
+                                members=category_lights,
+                                trigger_states=tuple(
+                                    str(state)
+                                    for state in feature_config.get(
+                                        LIGHT_GROUP_STATES[category], []
+                                    )
+                                ),
+                            )
+                        )
 
                 _LOGGER.debug(
                     "%s: Creating Area light group for area with child categories: %s",
@@ -155,6 +183,20 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                         feature_config=feature_config,
                     )
                 )
+                registered_group_defs.append(
+                    self._build_control_group_definition(
+                        area_id=area_config.id,
+                        category=LightGroupCategory.ALL,
+                        members=light_entities,
+                        trigger_states=(),
+                    )
+                )
+
+            GROUP_REGISTRY.register_area_defaults(
+                area_id=area_config.id,
+                definitions=registered_group_defs,
+                policy_id="light_groups",
+            )
 
         if not area_config.is_meta():
             light_groups.append(
@@ -172,6 +214,26 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                 schema=LIGHT_GROUP_FEATURE_SCHEMA,
             )
         ]
+
+    @staticmethod
+    def _build_control_group_definition(
+        *,
+        area_id: str,
+        category: str,
+        members: list[str],
+        trigger_states: tuple[str, ...],
+    ) -> ControlGroupDefinition:
+        """Build a control-group definition for a light category."""
+        return ControlGroupDefinition(
+            group_id=f"light_groups_{area_id}_{category}",
+            members=tuple(members),
+            trigger_states=trigger_states,
+            policy_id="light_groups",
+            metadata={
+                "feature": str(MagicAreasFeatures.LIGHT_GROUPS),
+                "category": category,
+            },
+        )
 
 
 __all__ = ["LightGroupsFeatureModule"]

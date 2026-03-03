@@ -5,14 +5,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum, auto
+from typing import Any
+
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
 
 from custom_components.magic_areas.core.state_priority import (
     filter_by_priority,
     LIGHT_PRIORITY_STATES,
 )
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.control import ControlState
-
+from custom_components.magic_areas.core.command_echo import CommandEchoState
+from custom_components.magic_areas.core.control_group import (
+    ControlAction,
+    ControlActionType,
+    ControlGroupContext,
+    ControlGroupDecision,
+    ControlGroupPolicy,
+)
 
 class LightAction(StrEnum):
     """Light group action to take."""
@@ -37,7 +47,7 @@ class LightGroupDecision:
     reason: str  # For debugging/logging
     should_track_control: bool = False  # Whether to mark as "controlled by MA"
     reset_control: bool = False  # Whether to clear the "controlled" flag
-    next_control_state: ControlState | None = None  # Optional control state update
+    next_control_state: CommandEchoState | None = None  # Optional control state update
 
 
 @dataclass(slots=True)
@@ -47,7 +57,7 @@ class LightGroupPolicyInput:
     new_states: Sequence[str]
     lost_states: Sequence[str]
     current_states: Sequence[str]
-    control_state: ControlState
+    control_state: Any
     is_primary: bool
 
 
@@ -227,8 +237,8 @@ class LightGroupPolicy:
                 return LightGroupDecision(
                     action=LightAction.TURN_OFF,
                     reason="area_clear",
-                    next_control_state=ControlState(
-                        controlling=True, controlled=False
+                    next_control_state=CommandEchoState(
+                        controlling=True, awaiting_echo=False
                     ),
                 )
             return LightGroupDecision(
@@ -242,11 +252,11 @@ class LightGroupPolicy:
             current_states=context.current_states,
         )
 
-        next_control_state: ControlState | None = None
+        next_control_state: CommandEchoState | None = None
         if decision.should_track_control:
-            next_control_state = context.control_state.command_issued()
+            next_control_state = _as_echo_state(context.control_state.command_issued())
         elif decision.reset_control:
-            next_control_state = ControlState(controlling=True, controlled=False)
+            next_control_state = CommandEchoState(controlling=True, awaiting_echo=False)
 
         return LightGroupDecision(
             action=decision.action,
@@ -311,20 +321,117 @@ def build_light_group_policy(
     )
 
 
-def reset_control_state() -> ControlState:
+@dataclass(slots=True)
+class LightControlGroupPolicy(ControlGroupPolicy):
+    """Canonical control-group adapter for light group policy evaluation."""
+
+    policy: LightGroupPolicy
+    light_group_entity_id: str
+
+    def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
+        """Evaluate canonical control-group context for light actions."""
+        decision = self._evaluate_light_decision(context)
+        mapped = light_action_to_control_group(decision.action, self.light_group_entity_id)
+        return ControlGroupDecision(
+            action_type=mapped.action_type,
+            actions=mapped.actions,
+            reason=decision.reason,
+        )
+
+    def next_control_state(self, context: ControlGroupContext) -> CommandEchoState | None:
+        """Return next echo state transition for the given control-group context."""
+        return self._evaluate_light_decision(context).next_control_state
+
+    def _evaluate_light_decision(self, context: ControlGroupContext) -> LightGroupDecision:
+        """Map canonical context into the legacy light policy input model."""
+        is_primary = bool(context.signals.get("is_primary", False))
+        control_state = _as_echo_state(context.signals.get("control_state"))
+        return self.policy.evaluate_area_state_change(
+            LightGroupPolicyInput(
+                new_states=context.new_states,
+                lost_states=context.lost_states,
+                current_states=context.current_states,
+                control_state=control_state,
+                is_primary=is_primary,
+            )
+        )
+
+
+def build_light_control_group_policy(
+    *,
+    assigned_states: Sequence[str],
+    act_on_modes: Sequence[str],
+    light_group_entity_id: str,
+) -> LightControlGroupPolicy:
+    """Build canonical light control-group policy adapter."""
+    return LightControlGroupPolicy(
+        policy=build_light_group_policy(
+            assigned_states=assigned_states,
+            act_on_modes=act_on_modes,
+        ),
+        light_group_entity_id=light_group_entity_id,
+    )
+
+
+def reset_control_state() -> CommandEchoState:
     """Reset control state to allow immediate command handling."""
-    return ControlState(controlling=True, controlled=False)
+    return CommandEchoState(controlling=True, awaiting_echo=False)
 
 
 def update_primary_control_state(
-    control_state: ControlState, child_controlling: bool
-) -> ControlState:
+    control_state: CommandEchoState, child_controlling: bool
+) -> CommandEchoState:
     """Update control state for the primary (ALL) light group."""
     return control_state.set_controlling(child_controlling)
 
 
-def update_secondary_control_state(control_state: ControlState) -> ControlState:
+def update_secondary_control_state(control_state: CommandEchoState) -> CommandEchoState:
     """Update control state for secondary light group state changes."""
     if control_state.controlled:
         return control_state.command_completed()
     return control_state.external_change()
+
+
+def _as_echo_state(state: Any) -> CommandEchoState:
+    """Normalize legacy control-state objects to command-echo state."""
+    if state is None:
+        return CommandEchoState(controlling=True, awaiting_echo=False)
+    if isinstance(state, CommandEchoState):
+        return state
+    return CommandEchoState(
+        controlling=state.controlling,
+        awaiting_echo=state.controlled,
+    )
+
+
+def light_action_to_control_group(
+    action: LightAction, light_group_entity_id: str
+) -> ControlGroupDecision:
+    """Translate a light group action into control-group execution form."""
+    if action == LightAction.TURN_ON:
+        return ControlGroupDecision(
+            action_type=ControlActionType.ACTIVATE,
+            reason="light_turn_on",
+            actions=(
+                ControlAction(
+                    domain=LIGHT_DOMAIN,
+                    service=SERVICE_TURN_ON,
+                    target_entity_ids=(light_group_entity_id,),
+                ),
+            ),
+        )
+
+    if action == LightAction.TURN_OFF:
+        return ControlGroupDecision(
+            action_type=ControlActionType.DEACTIVATE,
+            reason="light_turn_off",
+            actions=(
+                ControlAction(
+                    domain=LIGHT_DOMAIN,
+                    service=SERVICE_TURN_OFF,
+                    target_entity_ids=(light_group_entity_id,),
+                ),
+            ),
+        )
+
+    return ControlGroupDecision(action_type=ControlActionType.NOOP, reason="light_noop")

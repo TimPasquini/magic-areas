@@ -25,12 +25,14 @@ from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_CLIMATE_CONTROL_ENTITY_ID,
+    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
     CONF_BLE_TRACKER_ENTITIES,
 )
 from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.core.group_registry import GroupRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.sensor.aggregate_factory import (
     create_aggregate_sensors as create_sensor_aggregates,
@@ -352,6 +354,95 @@ def test_aggregates_module_respects_min_entities_config() -> None:
     assert module_entities == []
 
 
+def test_aggregates_module_registers_group_registry_definitions() -> None:
+    """Aggregates module should register canonical aggregate definitions in group registry."""
+    area_config = _make_area_config()
+    entities_by_domain = {
+        SENSOR_DOMAIN: [
+            {
+                ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+                ATTR_ENTITY_ID: "sensor.temp_1",
+                ATTR_UNIT_OF_MEASUREMENT: "°C",
+            },
+            {
+                ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+                ATTR_ENTITY_ID: "sensor.temp_2",
+                ATTR_UNIT_OF_MEASUREMENT: "°C",
+            },
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES: {
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [SensorDeviceClass.TEMPERATURE],
+            CONF_AGGREGATES_MIN_ENTITIES: 1,
+        }
+    }
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.AGGREGATES},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_aggregates_module()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.aggregates.register_aggregate_definitions"
+    ) as register_defs:
+        module.build_entities(area_config, coordinator, snapshot)
+
+    register_defs.assert_called_once()
+    _, kwargs = register_defs.call_args
+    assert kwargs["area_id"] == area_config.id
+    assert any(
+        definition.domain == SENSOR_DOMAIN and definition.device_class == SensorDeviceClass.TEMPERATURE
+        for definition in kwargs["definitions"]
+    )
+
+
+def test_aggregates_module_registers_health_definition_without_creating_health_aggregate_entity() -> None:
+    """Aggregates module should register health definitions but not emit health aggregate entities."""
+    area_config = _make_area_config()
+    entities_by_domain = {
+        BINARY_SENSOR_DOMAIN: [
+            {ATTR_DEVICE_CLASS: "smoke", ATTR_ENTITY_ID: "binary_sensor.smoke_1"},
+            {ATTR_DEVICE_CLASS: "smoke", ATTR_ENTITY_ID: "binary_sensor.smoke_2"},
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES: {
+            CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: ["motion"],
+            CONF_AGGREGATES_MIN_ENTITIES: 1,
+        },
+        MagicAreasFeatures.HEALTH: {
+            CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["smoke"],
+        },
+    }
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.AGGREGATES, MagicAreasFeatures.HEALTH},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_aggregates_module()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.aggregates.register_aggregate_definitions"
+    ) as register_defs:
+        module_entities = module.build_entities(area_config, coordinator, snapshot)
+
+    _, kwargs = register_defs.call_args
+    assert any(
+        definition.domain == BINARY_SENSOR_DOMAIN
+        and definition.device_class == "problem"
+        for definition in kwargs["definitions"]
+    )
+    assert all(
+        "_aggregate_problem" not in entity.entity_id
+        for entity in module_entities
+        if getattr(entity, "entity_id", None)
+    )
+
+
 def test_wasp_module_matches_legacy_entities_and_config() -> None:
     """Wasp module should match legacy output and config usage."""
     area_config = _make_area_config()
@@ -457,6 +548,90 @@ def test_light_groups_module_builds_expected_entities() -> None:
     ]
 
 
+def test_light_groups_module_registers_default_control_groups() -> None:
+    """Light module should register area-scoped default control-group definitions."""
+    area_config = _make_area_config()
+    entities_by_domain = {
+        "light": [
+            {"entity_id": "light.overhead_1"},
+            {"entity_id": "light.task_1"},
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.LIGHT_GROUPS: {
+            "overhead_lights": ["light.overhead_1"],
+            "overhead_lights_states": ["occupied", "bright"],
+            "overhead_lights_act_on": ["occupancy", "state"],
+            "task_lights": ["light.task_1"],
+            "task_lights_states": ["occupied"],
+            "task_lights_act_on": ["occupancy"],
+        }
+    }
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_light_groups_module()
+    registry = GroupRegistry()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.light_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, coordinator, snapshot)
+
+    registered = registry.get_for_area(area_config.id)
+    registered_ids = sorted(group.definition.group_id for group in registered)
+    assert registered_ids == [
+        "light_groups_area-1_all_lights",
+        "light_groups_area-1_overhead_lights",
+        "light_groups_area-1_task_lights",
+    ]
+
+
+def test_light_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
+    """Light module should replace prior light_groups policy entries on rebuild."""
+    area_config = _make_area_config()
+    module = _get_light_groups_module()
+    registry = GroupRegistry()
+
+    initial_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+                "task_lights": ["light.task_1"],
+                "task_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}, {"entity_id": "light.task_1"}]},
+    )
+    updated_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+
+    with patch(
+        "custom_components.magic_areas.features.modules.light_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, _make_coordinator(initial_snapshot), initial_snapshot)
+        module.build_entities(area_config, _make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "light_groups_area-1_overhead_lights" in group_ids
+    assert "light_groups_area-1_task_lights" not in group_ids
+
+
 def test_fan_groups_module_builds_group_and_control_switch() -> None:
     """Fan groups module should build fan group and control switch."""
     area_config = _make_area_config()
@@ -482,6 +657,58 @@ def test_fan_groups_module_builds_group_and_control_switch() -> None:
     ]
 
 
+def test_fan_groups_module_registers_default_control_group() -> None:
+    """Fan module should register area-scoped default control-group definitions."""
+    area_config = _make_area_config()
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.FAN_GROUPS},
+        feature_configs={MagicAreasFeatures.FAN_GROUPS: {"required_state": "occupied"}},
+        entities={FAN_DOMAIN: [{"entity_id": "fan.ceiling_1"}]},
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_fan_groups_module()
+    registry = GroupRegistry()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.fan_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, coordinator, snapshot)
+
+    groups = registry.get_for_area(area_config.id)
+    assert any(
+        group.definition.group_id == "fan_groups_area-1_fan_group" for group in groups
+    )
+
+
+def test_fan_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
+    """Fan module should clear stale fan_groups entries when no fan entities remain."""
+    area_config = _make_area_config()
+    module = _get_fan_groups_module()
+    registry = GroupRegistry()
+
+    initial_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.FAN_GROUPS},
+        feature_configs={MagicAreasFeatures.FAN_GROUPS: {"required_state": "occupied"}},
+        entities={FAN_DOMAIN: [{"entity_id": "fan.ceiling_1"}]},
+    )
+    updated_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.FAN_GROUPS},
+        feature_configs={MagicAreasFeatures.FAN_GROUPS: {"required_state": "occupied"}},
+        entities={},
+    )
+
+    with patch(
+        "custom_components.magic_areas.features.modules.fan_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, _make_coordinator(initial_snapshot), initial_snapshot)
+        module.build_entities(area_config, _make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "fan_groups_area-1_fan_group" not in group_ids
+
+
 def test_media_player_groups_module_builds_group_and_control_switch() -> None:
     """Media player groups module should build group and control switch."""
     area_config = _make_area_config()
@@ -505,6 +732,59 @@ def test_media_player_groups_module_builds_group_and_control_switch() -> None:
         "media_player.magic_areas_media_player_groups_kitchen_media_player_group",
         "switch.magic_areas_media_player_groups_kitchen_media_player_control",
     ]
+
+
+def test_media_player_groups_module_registers_default_control_group() -> None:
+    """Media-player module should register area-scoped default control-group definitions."""
+    area_config = _make_area_config()
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.MEDIA_PLAYER_GROUPS},
+        feature_configs={},
+        entities={MEDIA_PLAYER_DOMAIN: [{"entity_id": "media_player.tv"}]},
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_media_player_groups_module()
+    registry = GroupRegistry()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.media_player_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, coordinator, snapshot)
+
+    groups = registry.get_for_area(area_config.id)
+    assert any(
+        group.definition.group_id == "media_player_groups_area-1_media_player_group"
+        for group in groups
+    )
+
+
+def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
+    """Media module should clear stale media_player_groups entries on rebuild."""
+    area_config = _make_area_config()
+    module = _get_media_player_groups_module()
+    registry = GroupRegistry()
+
+    initial_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.MEDIA_PLAYER_GROUPS},
+        feature_configs={},
+        entities={MEDIA_PLAYER_DOMAIN: [{"entity_id": "media_player.tv"}]},
+    )
+    updated_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.MEDIA_PLAYER_GROUPS},
+        feature_configs={},
+        entities={},
+    )
+
+    with patch(
+        "custom_components.magic_areas.features.modules.media_player_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, _make_coordinator(initial_snapshot), initial_snapshot)
+        module.build_entities(area_config, _make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "media_player_groups_area-1_media_player_group" not in group_ids
 
 
 def test_cover_groups_module_builds_device_class_groups() -> None:
@@ -571,6 +851,83 @@ def test_climate_control_module_builds_switch() -> None:
     assert [entity.entity_id for entity in entities] == [
         "switch.magic_areas_climate_control_kitchen"
     ]
+
+
+def test_climate_control_module_registers_default_control_group() -> None:
+    """Climate module should register default control-group definition."""
+    area_config = _make_area_config()
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.CLIMATE_CONTROL},
+        feature_configs={
+            MagicAreasFeatures.CLIMATE_CONTROL: {
+                CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen",
+            }
+        },
+        entities={},
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_climate_control_module()
+    registry = GroupRegistry()
+
+    with patch(
+        "custom_components.magic_areas.features.modules.climate_control.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, coordinator, snapshot)
+
+    groups = registry.get_for_area(area_config.id)
+    assert any(
+        group.definition.group_id == "climate_control_area-1_climate_control"
+        for group in groups
+    )
+
+
+def test_climate_module_replaces_stale_policy_groups_on_rebuild() -> None:
+    """Climate module should clear stale climate_control entries when unset."""
+    area_config = _make_area_config()
+    module = _get_climate_control_module()
+    registry = GroupRegistry()
+
+    initial_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.CLIMATE_CONTROL},
+        feature_configs={
+            MagicAreasFeatures.CLIMATE_CONTROL: {
+                CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen",
+            }
+        },
+        entities={},
+    )
+    updated_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.CLIMATE_CONTROL},
+        feature_configs={MagicAreasFeatures.CLIMATE_CONTROL: {}},
+        entities={},
+    )
+
+    with patch(
+        "custom_components.magic_areas.features.modules.climate_control.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, _make_coordinator(initial_snapshot), initial_snapshot)
+        module.build_entities(area_config, _make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "climate_control_area-1_climate_control" not in group_ids
+
+
+def test_climate_control_module_skips_switch_without_entity() -> None:
+    """Climate module should not build switch when climate entity is unset."""
+    area_config = _make_area_config()
+    snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.CLIMATE_CONTROL},
+        feature_configs={MagicAreasFeatures.CLIMATE_CONTROL: {}},
+        entities={},
+    )
+    coordinator = _make_coordinator(snapshot)
+    module = _get_climate_control_module()
+
+    entities = module.build_entities(area_config, coordinator, snapshot)
+
+    assert entities == []
 
 
 def test_health_module_builds_health_sensor() -> None:

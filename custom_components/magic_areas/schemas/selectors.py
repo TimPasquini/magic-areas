@@ -17,6 +17,8 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    ObjectSelector,
+    ObjectSelectorConfig,
 )
 
 from custom_components.magic_areas.config_keys import EMPTY_STRING
@@ -128,3 +130,8 @@ def build_selector_number(
             unit_of_measurement=unit_of_measurement,
         )
     )
+
+
+def build_selector_object() -> ObjectSelector:
+    """Build a generic object selector for structured JSON-style payloads."""
+    return ObjectSelector(ObjectSelectorConfig())

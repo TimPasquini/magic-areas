@@ -6,12 +6,8 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.const import (
-    ATTR_ENTITY_ID,
-    SERVICE_TURN_OFF,
-    SERVICE_TURN_ON,
-    STATE_OFF,
-    STATE_ON,
     EntityCategory,
+    STATE_OFF,
 )
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -21,8 +17,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.core.fan_control import (
-    build_fan_policy,
-    FanControlPolicy,
+    build_fan_control_group_policy,
+    FanControlGroupPolicy,
+)
+from custom_components.magic_areas.core.control_group import ControlGroupContext
+from custom_components.magic_areas.core.control_group_executor import (
+    execute_control_group_decision,
 )
 from custom_components.magic_areas.config_keys import (
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
@@ -30,10 +30,14 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.defaults import (
     DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
+)
+from custom_components.magic_areas.core.control_group_runtime import (
+    resolve_group_entity_id,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
@@ -47,7 +51,7 @@ class FanControlSwitch(SwitchBase):
     feature_id = MagicAreasFeatures.FAN_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
 
-    policy: FanControlPolicy
+    policy: FanControlGroupPolicy
     tracked_entity_id: str | None
     _tracked_device_class: str
     _last_states: list[str]
@@ -73,8 +77,8 @@ class FanControlSwitch(SwitchBase):
         self._area_sensor_entity_id = None
         self._fan_group_entity_id = None
 
-        # Build policy from feature configuration
-        self.policy = build_fan_policy(feature_config)
+        # Build canonical control-group policy from feature configuration.
+        self.policy = build_fan_control_group_policy(feature_config)
         self._last_states = []
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
@@ -108,8 +112,11 @@ class FanControlSwitch(SwitchBase):
                 f"aggregates_{self._area_id}_aggregate_{self._tracked_device_class}",
             )
         if not self._fan_group_entity_id:
-            self._fan_group_entity_id = entity_registry.async_get_entity_id(
-                FAN_DOMAIN, DOMAIN, f"fan_groups_{self._area_id}_fan_group"
+            self._fan_group_entity_id = resolve_group_entity_id(
+                self.hass,
+                area_id=self._area_id,
+                policy_id="fan_groups",
+                domain=FAN_DOMAIN,
             )
 
         self._listener_registry.track(
@@ -176,7 +183,7 @@ class FanControlSwitch(SwitchBase):
 
     @callback
     def _area_sensor_state_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Ensure fan group turns off when area is clear."""
+        """Ensure clear-state transitions trigger control reevaluation."""
         if not self.is_on:
             return
 
@@ -187,33 +194,13 @@ class FanControlSwitch(SwitchBase):
         if new_state.state != STATE_OFF:
             return
 
-        if not self._fan_group_entity_id:
-            _LOGGER.debug(
-                "%s: No fan group entity ID resolved, cannot turn off",
-                self.name,
-            )
-            return
-
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                FAN_DOMAIN,
-                SERVICE_TURN_OFF,
-                {ATTR_ENTITY_ID: self._fan_group_entity_id},
-            )
-        )
+        self.hass.async_create_task(self.run_logic([str(AreaStates.CLEAR)]))
 
     async def run_logic(self, states: list[str]) -> None:
         """Run fan control logic."""
 
         if not self.is_on:
             _LOGGER.debug("%s: Control disabled, skipping.", self.name)
-            return
-
-        if not self._fan_group_entity_id:
-            _LOGGER.debug(
-                "%s: No fan group entity ID resolved, cannot control fans",
-                self.name,
-            )
             return
 
         # Read sensor value
@@ -237,23 +224,25 @@ class FanControlSwitch(SwitchBase):
                     self.tracked_entity_id,
                 )
 
-        # Evaluate policy
-        decision = self.policy.evaluate(states, sensor_value)
+        fan_state = (
+            self.hass.states.get(self._fan_group_entity_id)
+            if self._fan_group_entity_id
+            else None
+        )
+        context = ControlGroupContext(
+            group_id=f"fan_groups_{self._area_id}",
+            current_states=tuple(states),
+            signals={
+                "sensor_value": sensor_value,
+                "fan_group_entity_id": self._fan_group_entity_id,
+                "fan_group_state": fan_state.state if fan_state else None,
+            },
+            is_enabled=self.is_on,
+        )
+        decision = self.policy.evaluate(context)
         _LOGGER.debug("%s: Decision: %s", self.name, decision.reason)
 
-        # Execute decision (only HA service calls remain)
-        if decision.should_turn_on:
-            await self.hass.services.async_call(
-                FAN_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: self._fan_group_entity_id}
-            )
-        elif decision.should_turn_off:
-            fan_state = self.hass.states.get(self._fan_group_entity_id)
-            if fan_state and fan_state.state == STATE_ON:
-                await self.hass.services.async_call(
-                    FAN_DOMAIN,
-                    SERVICE_TURN_OFF,
-                    {ATTR_ENTITY_ID: self._fan_group_entity_id},
-                )
+        await execute_control_group_decision(self.hass, decision)
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up listeners on removal."""

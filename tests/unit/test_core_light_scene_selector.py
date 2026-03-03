@@ -1,7 +1,7 @@
 """Tests for light scene/category configuration resolution."""
 
 
-from custom_components.magic_areas.core.light_control import (
+from custom_components.magic_areas.light_groups.policy import (
     resolve_light_category_config,
 )
 

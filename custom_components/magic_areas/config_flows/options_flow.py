@@ -13,6 +13,7 @@ from custom_components.magic_areas.config_flows.entity_gatherer import (
 )
 from custom_components.magic_areas.config_flows.steps.area_steps import (
     handle_area_config,
+    handle_custom_control_groups,
     handle_presence_tracking,
     handle_secondary_states,
 )
@@ -144,6 +145,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             "area_config",
             "presence_tracking",
             "secondary_states",
+            "custom_control_groups",
             "select_features",
         ]
 
@@ -176,6 +178,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
     ) -> config_entries.ConfigFlowResult:
         """Gather secondary states settings for the area."""
         return await handle_secondary_states(self, user_input)
+
+    async def async_step_custom_control_groups(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure custom control groups for this area."""
+        return await handle_custom_control_groups(self, user_input)
 
     async def async_step_select_features(
         self, user_input: dict[str, Any] | None = None

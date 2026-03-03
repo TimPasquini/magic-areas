@@ -22,13 +22,15 @@ from custom_components.magic_areas.binary_sensor.presence import (
 from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     AreaWaspInABoxBinarySensor,
 )
+from custom_components.magic_areas.core.aggregate_policy import (
+    AggregateDefinition,
+    AggregateKind,
+    AggregatePolicyContext,
+    build_default_aggregate_selection_policy,
+)
 from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
-)
-from custom_components.magic_areas.core.aggregates import (
-    build_binary_sensor_aggregates,
-    build_health_sensor_spec,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.helpers.cleanup import cleanup_removed_entries
@@ -178,10 +180,13 @@ def create_health_sensors(
     coordinator: "MagicAreasCoordinator",
 ) -> list[AreaHealthBinarySensor]:
     """Add the health sensors for the area."""
-    spec = build_health_sensor_spec(
-        entities_by_domain=entities_by_domain,
-        feature_configs=data.feature_configs,
-        enabled_features=data.enabled_features,
+    policy = build_default_aggregate_selection_policy()
+    spec = policy.health_spec(
+        AggregatePolicyContext(
+            entities_by_domain=entities_by_domain,
+            feature_configs=data.feature_configs,
+            enabled_features=data.enabled_features,
+        )
     )
 
     if not spec:
@@ -223,24 +228,49 @@ def create_aggregate_sensors(
     coordinator: "MagicAreasCoordinator",
 ) -> list[Entity]:
     """Create the aggregate sensors for the area."""
-    aggregates: list[Entity] = []
-
-    aggregate_specs = build_binary_sensor_aggregates(
-        entities_by_domain=entities_by_domain,
-        feature_configs=data.feature_configs,
-        enabled_features=data.enabled_features,
+    policy = build_default_aggregate_selection_policy()
+    definitions = policy.aggregate_definitions(
+        AggregatePolicyContext(
+            entities_by_domain=entities_by_domain,
+            feature_configs=data.feature_configs,
+            enabled_features=data.enabled_features,
+        )
+    )
+    return create_aggregate_sensors_from_definitions(
+        definitions=definitions,
+        area_config=area_config,
+        coordinator=coordinator,
     )
 
-    for spec in aggregate_specs:
+
+def create_aggregate_sensors_from_definitions(
+    *,
+    definitions: list[AggregateDefinition],
+    area_config: "AreaConfig",
+    coordinator: "MagicAreasCoordinator",
+) -> list[Entity]:
+    """Create binary-sensor aggregates from canonical aggregate definitions."""
+    aggregates: list[Entity] = []
+
+    for definition in definitions:
+        if definition.domain != BINARY_SENSOR_DOMAIN:
+            continue
+        if definition.kind is not AggregateKind.STANDARD:
+            continue
         _LOGGER.debug(
             "Creating aggregate sensor for device_class '%s' with %s entities (%s)",
-            spec.device_class,
-            len(spec.entity_ids),
+            definition.device_class,
+            len(definition.entity_ids),
             area_config.slug,
         )
         try:
             aggregates.append(
-                AreaAggregateBinarySensor(area_config, coordinator, spec.device_class, spec.entity_ids)
+                AreaAggregateBinarySensor(
+                    area_config,
+                    coordinator,
+                    definition.device_class,
+                    list(definition.entity_ids),
+                )
             )
         except (
             Exception
@@ -248,7 +278,7 @@ def create_aggregate_sensors(
             _LOGGER.error(
                 "%s: Error creating '%s' aggregate sensor: %s",
                 area_config.slug,
-                spec.device_class,
+                definition.device_class,
                 str(e),
             )
 

@@ -17,19 +17,15 @@ and control logic.
 ---
 
 ## Phase 0: Stabilize & Clarify Current Boundaries
-**Status:** `Partial`
+**Status:** `Implemented`
 **Goal:** Make existing boundaries explicit without large behavior changes.
 
 Implemented:
 - Feature schemas moved into feature modules.
 - Feature modules are the practical feature entry points.
 - Entity-loading cluster packaged under `core/entity_loading/` with public API exports.
-
-Partial:
-- Entry-point/boundary documentation still needs final canonicalization.
-
-Remaining:
-- Canonicalize docs around current entry-point expectations.
+- Canonical runtime entry-point and boundary documentation exists in
+  `docs/contributing/runtime-boundaries.md`.
 
 Exit criteria:
 - Entity loading is packaged as one cohesive boundary.
@@ -38,8 +34,18 @@ Exit criteria:
 ---
 
 ## Phase 1: Control Group Foundation
-**Status:** `Planned`
+**Status:** `Implemented`
 **Goal:** Establish a reusable abstraction for control actions.
+
+Implemented:
+- `core/control_group.py` now defines control-group contracts
+  (definitions, context, actions, policy protocol, decision type).
+- `core/command_echo.py` now provides a generic command-echo ownership tracker.
+- `core/control_group_executor.py` now provides shared service execution for
+  control-group decisions.
+- Light runtime commands are now executed through control-group mapping +
+  shared executor.
+- Foundation contract tests exist for control-group objects and echo transitions.
 
 Deliverables:
 - `control_group` model (members, triggers, actions, policy binding).
@@ -54,20 +60,26 @@ Exit criteria:
 ---
 
 ## Phase 2: Light System Recomposition
-**Status:** `Partial`
+**Status:** `Implemented`
 **Goal:** Collapse light sprawl and prove the control-group abstraction.
 
 Implemented:
 - Light decision logic consolidated in policy code.
-
-Partial:
-- Light-related files remain spread across multiple locations.
-- Light control is improved but not yet expressed as a generalized control group.
+- Light implementation moved into `custom_components/magic_areas/light_groups/`
+  (`config.py`, `entities.py`, `events.py`, `actions.py`, `policy.py`).
+- Feature module now imports light entities from the vertical-slice package.
+- Light runtime control tracking now uses shared command-echo state/tracker
+  (`core/command_echo.py`) rather than direct `core/control.py` usage.
+- Light evaluation now runs through a canonical control-group adapter in
+  `light_groups/policy.py` (`LightControlGroupPolicy`) with context-driven
+  evaluation in `light_groups/events.py`.
+- Light compatibility control-state shims were removed; runtime uses explicit
+  echo-state internals only.
+- Added adapter coverage in
+  `tests/unit/test_light_control_group_policy_adapter.py`.
 
 Remaining:
-- Execute `docs/notes/light_system_recomposition_plan.md`.
-- Move light implementation into a cohesive vertical slice package.
-- Migrate from light-specific control tracking to shared control-group tracking.
+- Ongoing maintenance and parity checks only.
 
 Exit criteria:
 - Light behavior unchanged, with clear package boundaries.
@@ -76,8 +88,28 @@ Exit criteria:
 ---
 
 ## Phase 3: Fan / Climate / Media Control Migration
-**Status:** `Planned`
+**Status:** `Implemented`
 **Goal:** Replace bespoke control paths with control groups.
+
+Implemented:
+- Added shared executor: `core/control_group_executor.py`.
+- Added shared runtime target resolution helper:
+  `core/control_group_runtime.py`.
+- Fan control now maps policy decisions through `fan_decision_to_control_group`
+  and executes via the shared executor.
+- Climate control now maps preset application through
+  `climate_preset_to_control_group` and executes via the shared executor.
+- Media player control now maps area-state changes through
+  `media_state_change_to_control_group` and executes via the shared executor.
+- Fan/media target entity resolution is now registry-first via shared runtime
+  resolver, with legacy entity-registry fallback retained.
+- Added Phase C contract tests:
+  - `tests/unit/test_fan_control_group_parity.py`
+  - `tests/unit/test_climate_control_group_parity.py`
+  - `tests/unit/test_media_control_group_parity.py`
+  - `tests/unit/test_control_group_executor.py`
+  - `tests/unit/test_control_group_runtime.py`
+  - `tests/unit/test_control_group_registry_runtime_resolution.py`
 
 Deliverables:
 - Fan control uses control-group policy + executor.
@@ -91,8 +123,35 @@ Exit criteria:
 ---
 
 ## Phase 4: Group Registry + Custom Control Groups
-**Status:** `Planned`
+**Status:** `Implemented`
 **Goal:** Support both defaults and custom cross-domain groups.
+
+Implemented:
+- Added registry foundation in `core/group_registry.py` with:
+  - default group registration
+  - area-scoped custom group registration
+  - area resolution with custom-over-default precedence
+  - policy-scoped area-default replacement (`register_area_defaults`) to prevent
+    stale defaults during config/category changes
+  - policy-filtered lookups for runtime consumers
+- Feature modules now register area-scoped default control-group definitions
+  for light, fan, climate, and media-player groups.
+- Area schema/config now supports `custom_control_groups` definitions and
+  snapshot build registers them as area-scoped custom groups at runtime.
+- Options flow now exposes a `custom_control_groups` step for authoring
+  validated custom group definitions in UI.
+- Added starter templates for custom control groups (task/reading/media) in
+  `core/control_group_templates.py`, seeded by options flow when unset.
+- Fan/media control switches now resolve their target group entity IDs through
+  group-registry definitions.
+- Climate control runtime can resolve its target climate entity from
+  group-registry members as a runtime fallback.
+- Light ALL-group child resolution now consumes group-registry metadata first
+  (with entity-registry fallback retained).
+- Removed legacy fallback unique-id target resolution from
+  `core/control_group_runtime.py`; control target resolution is now
+  registry-driven.
+- Added unit coverage in `tests/unit/test_group_registry.py`.
 
 Deliverables:
 - Group registry for default and user-defined groups.
@@ -101,24 +160,54 @@ Deliverables:
 
 Exit criteria:
 - Custom cross-domain groups are possible without writing new feature code.
+- Control target resolution is registry-driven only (no dual-path fallback).
+
+---
+
+## Phase 6: Migration Cleanup (Fallback + Shim Removal)
+**Status:** `Implemented`
+**Goal:** Eliminate dual-path runtime behavior after parity is proven.
+
+Deliverables:
+- Remove `fallback_unique_id` usage from `core/control_group_runtime.py` call
+  sites and helper internals.
+- Remove light compatibility control-state shims from
+  `light_groups/entities.py`.
+- Add explicit contract tests for:
+  - registry target resolution coverage for fan/climate/media/light paths,
+  - expected behavior when registry entries are missing (deterministic NOOP),
+  - no direct legacy control-state access in light runtime/event flow.
+
+Exit criteria:
+- No runtime control path depends on legacy unique-id fallback.
+- No light runtime code relies on legacy compatibility state properties.
+- Full suite remains green with parity maintained.
 
 ---
 
 ## Phase 5: Aggregation Generalization
-**Status:** `Partial`
+**Status:** `Implemented`
 **Goal:** Make aggregates a reusable, universal mechanism.
 
 Implemented:
 - Strong aggregate foundation exists (selection/specs/factory + entities).
-
-Partial:
-- Aggregates are feature-oriented and not yet fully abstracted as a universal
-  aggregation subsystem shared by all group types.
-
-Remaining:
-- Define a general aggregation policy contract.
-- Align binary and numeric aggregation paths under shared definitions.
-- Tie aggregate definitions into the future group registry.
+- Added canonical aggregate policy layer:
+  - `core/aggregate_policy.py` with `AggregatePolicyContext` and
+    `AggregateSelectionPolicy`.
+  - Binary/sensor/health aggregate consumers now execute through the shared
+    policy contract rather than directly calling selection helpers.
+- Canonical aggregate definition model now unifies aggregate outputs:
+  - `AggregateDefinition` + `AggregateKind` in `core/aggregate_policy.py`.
+  - Sensor/binary aggregate entity factories now consume shared definitions.
+- Aggregate definitions are now registered in the shared group registry:
+  - `core/aggregate_runtime.py` registers area aggregate definitions under
+    policy scope `aggregate`.
+  - Threshold and Wasp runtime resolution now consume aggregate-runtime
+    registry lookups first, with deterministic metadata-driven resolution.
+- Added contract coverage:
+  - `tests/unit/test_aggregate_policy.py`
+  - `tests/unit/test_aggregate_runtime.py`
+  - `tests/unit/test_feature_module_contracts.py`
 
 Exit criteria:
 - Aggregation behavior is unified and reusable across features.
@@ -161,20 +250,25 @@ Current:
 - Generalized control-group policy does not exist yet.
 
 ## Layer 4: Execution Layer (Service Calls / Echo Tracking)
-**Status:** `Partial`
+**Status:** `Implemented`
 **Purpose:** Apply actions and track command echo/ownership.
 
 Current:
-- Light has control-tracking mechanics.
-- Shared executor and generalized echo tracker are not implemented.
+- Shared control-group executor: `core/control_group_executor.py`.
+- Shared runtime resolver: `core/control_group_runtime.py`.
+- Generalized echo tracker: `core/command_echo.py`.
+- Light/fan/climate/media control execution paths run through shared
+  control-group execution.
 
 ## Layer 5: Groups (Definitions + Membership)
-**Status:** `Planned`
+**Status:** `Partial`
 **Purpose:** Explicit group definitions for control and aggregation.
 
 Current:
-- Domain-specific group concepts exist.
-- Unified group registry and cross-domain control groups are not implemented.
+- Unified group registry exists for defaults and area-scoped custom groups.
+- Feature modules register area-scoped default control-group definitions.
+- Cross-domain custom control groups are exposed through config flow, with
+  starter templates for common scenarios.
 
 ## Layer 6: Entities (Thin Adapters)
 **Status:** `Partial`
@@ -208,8 +302,5 @@ Current:
 ---
 
 ## Near-Term Recommended Order
-1. Finish entity-loading packaging (Phase 0 completion).
-2. Build control-group foundation (Phase 1).
-3. Recompose light system around control groups (Phase 2).
-4. Migrate fan/climate/media onto shared control infrastructure (Phase 3).
-5. Add group registry and custom groups, then finalize aggregation unification (Phases 4-5).
+1. Continue policy-layer convergence (Layer 3) for cross-feature decision
+   contracts.

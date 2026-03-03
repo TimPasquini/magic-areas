@@ -147,3 +147,51 @@ async def test_light_group_basic(
 
     # Check light group is off
     await wait_for_state(hass, light_group_entity_id, STATE_OFF)
+
+
+async def test_light_group_canonical_policy_transition_parity(
+    hass: HomeAssistant,
+    entities_light_one: list[MockLight],
+    entities_binary_sensor_motion_one: list[MockBinarySensor],
+    _setup_integration_light_groups: Any,
+) -> None:
+    """Canonical light context path preserves key transition behavior."""
+    light_group_entity_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
+        light_group_entity_id
+    )
+    assert target_group is not None
+
+    # Secondary OCCUPIED transition should request turn-on behavior.
+    changed = target_group.state_change_secondary(
+        (
+            [AreaStates.OCCUPIED.value],
+            [],
+            [AreaStates.OCCUPIED.value],
+        )
+    )
+    assert changed is True
+
+    # Secondary CLEAR transition should no-op action and clear control tracking.
+    changed = target_group.state_change_secondary(
+        (
+            [AreaStates.CLEAR.value],
+            [AreaStates.OCCUPIED.value],
+            [AreaStates.CLEAR.value],
+        )
+    )
+    assert changed is False
+    assert target_group._echo_state.controlled is False
+
+    # Primary CLEAR transition should issue turn-off when group is on.
+    target_group._attr_is_on = True
+    changed = target_group.state_change_primary(
+        (
+            [AreaStates.CLEAR.value],
+            [AreaStates.OCCUPIED.value],
+            [AreaStates.CLEAR.value],
+        )
+    )
+    assert changed is True

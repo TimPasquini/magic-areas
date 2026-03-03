@@ -100,6 +100,19 @@ Acceptance criteria:
 - Cross-domain control group can combine multi-domain members and trigger criteria.
 - Config-flow integration is schema-driven and test-covered.
 
+### Phase E — Migration cleanup (remove transitional paths)
+- Remove light compatibility shims in `light_groups/entities.py`:
+  - `controlling` setter/getter bridge,
+  - `controlled` setter/getter bridge,
+  - `_control_state` compatibility accessor.
+- Enforce registry-only target resolution for control runtime paths by removing
+  fallback unique-id behavior after coverage confirms all targets are registered.
+
+Acceptance criteria:
+- Light runtime uses only canonical command-echo state transitions.
+- Control target resolution is registry-first and registry-only.
+- Missing-target paths are deterministic NOOPs and test-covered.
+
 ## Test-First Plan (write before implementation)
 Create failing-first, contract-oriented tests before each phase, while keeping pytest
 collection stable and deterministic.
@@ -122,6 +135,14 @@ Phase C tests:
 1. `tests/unit/test_fan_control_group_parity.py`
 2. `tests/unit/test_climate_control_group_parity.py`
 3. `tests/unit/test_media_control_group_parity.py`
+
+Phase E tests:
+1. `tests/unit/test_control_group_runtime.py`
+   - remove/replace fallback assertions with registry-only expectations.
+2. `tests/unit/test_control_group_registry_runtime_resolution.py`
+   - assert required targets are resolvable from registry definitions.
+3. `tests/unit/test_light_group_contract.py` (or equivalent)
+   - assert no external dependency on compatibility control-state shims.
 
 Pytest stability rules:
 - Use existing fixtures only; avoid introducing environment-heavy fixtures in early phase.

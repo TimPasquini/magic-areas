@@ -23,6 +23,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.attrs import ATTR_STATES
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.command_echo import CommandEchoState
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
@@ -232,6 +233,34 @@ async def test_group_state_changed_logic(
     await shutdown_integration(hass, [light_edge_cases_config_entry])
 
 
+async def test_light_group_listener_setup_idempotent(
+    hass: HomeAssistant,
+    light_edge_cases_config_entry: MockConfigEntry,
+    entities_light_edge_cases: list[MockLight],
+) -> None:
+    """Listener setup should not register duplicate callbacks."""
+
+    await init_integration_helper(hass, [light_edge_cases_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    light_group_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
+        light_group_id
+    )
+    assert target_group is not None
+
+    # Initial setup wires two listeners: dispatcher + group state change.
+    assert target_group._listener_registry.count == 2
+
+    await target_group._setup_listeners()
+    assert target_group._listener_registry.count == 2
+
+    await shutdown_integration(hass, [light_edge_cases_config_entry])
+
+
 
 
 async def test_manual_control_detection(
@@ -277,3 +306,122 @@ async def test_manual_control_detection(
 
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
 
+
+async def test_owned_echo_completes_without_releasing_control(
+    hass: HomeAssistant,
+    light_edge_cases_config_entry_limited: MockConfigEntry,
+    entities_light_edge_cases: list[MockLight],
+) -> None:
+    """Owned state-change echo should clear pending echo but keep control."""
+
+    await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    light_group_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
+        light_group_id
+    )
+    assert target_group is not None
+
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
+    )
+    hass.states.async_set(
+        area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
+    )
+    target_group._last_known_area_states = [AreaStates.OCCUPIED.value]
+
+    assert target_group._turn_on() is True
+    assert target_group._echo_state.awaiting_echo is True
+    assert target_group._echo_state.owner_id == target_group.unique_id
+
+    event = MagicMock()
+    event.context.origin_event.event_type = "state_changed"
+    event.context.origin_event.data = {
+        "old_state": State(light_group_id, STATE_OFF),
+        "new_state": State(light_group_id, STATE_ON),
+    }
+    target_group.group_state_changed(event)
+
+    assert target_group._echo_state.controlling is True
+    assert target_group._echo_state.awaiting_echo is False
+    assert target_group._echo_state.owner_id == target_group.unique_id
+
+    await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
+
+
+async def test_external_change_releases_control_owner(
+    hass: HomeAssistant,
+    light_edge_cases_config_entry_limited: MockConfigEntry,
+    entities_light_edge_cases: list[MockLight],
+) -> None:
+    """Manual changes while not awaiting echo should release ownership."""
+
+    await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    light_group_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
+        light_group_id
+    )
+    assert target_group is not None
+
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
+    )
+    hass.states.async_set(
+        area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
+    )
+    target_group._last_known_area_states = [AreaStates.OCCUPIED.value]
+    target_group._set_echo_state(
+        CommandEchoState(
+            owner_id=target_group.unique_id,
+            controlling=True,
+            awaiting_echo=False,
+        )
+    )
+
+    event = MagicMock()
+    event.context.origin_event.event_type = "state_changed"
+    event.context.origin_event.data = {
+        "old_state": State(light_group_id, STATE_OFF),
+        "new_state": State(light_group_id, STATE_ON),
+    }
+    target_group.group_state_changed(event)
+
+    assert target_group._echo_state.controlling is False
+    assert target_group._echo_state.awaiting_echo is False
+    assert target_group._echo_state.owner_id is None
+
+    await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
+
+
+async def test_listeners_cleaned_up_on_unload(
+    hass: HomeAssistant,
+    light_edge_cases_config_entry: MockConfigEntry,
+    entities_light_edge_cases: list[MockLight],
+) -> None:
+    """Listener registry should be empty after integration unload."""
+
+    await init_integration_helper(hass, [light_edge_cases_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    light_group_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
+        light_group_id
+    )
+    assert target_group is not None
+    assert target_group._listener_registry.count == 2
+
+    await shutdown_integration(hass, [light_edge_cases_config_entry])
+
+    assert target_group._listener_registry.count == 0

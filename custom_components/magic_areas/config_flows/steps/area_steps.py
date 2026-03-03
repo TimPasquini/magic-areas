@@ -16,6 +16,7 @@ from custom_components.magic_areas.config_flows.helpers import (
     handle_step_validation,
 )
 from custom_components.magic_areas.config_keys import (
+    CONF_CUSTOM_CONTROL_GROUPS,
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
@@ -50,7 +51,14 @@ from custom_components.magic_areas.schemas.selectors import (
     build_selector_boolean,
     build_selector_entity_simple,
     build_selector_number,
+    build_selector_object,
     build_selector_select,
+)
+from custom_components.magic_areas.schemas.control_groups import (
+    CUSTOM_CONTROL_GROUPS_SCHEMA,
+)
+from custom_components.magic_areas.core.control_group_templates import (
+    get_custom_control_group_templates,
 )
 
 if TYPE_CHECKING:
@@ -221,6 +229,48 @@ async def handle_secondary_states(
                     options=list(CalculationMode),
                     translation_key=SelectorTranslationKeys.CALCULATION_MODE,
                 ),
+            },
+        ),
+        errors=errors,
+    )
+
+
+async def handle_custom_control_groups(
+    flow: "OptionsFlowHandler", user_input: dict[str, Any] | None = None
+) -> config_entries.ConfigFlowResult:
+    """Handle custom control-group configuration step."""
+    default_groups = flow.area_options.get(CONF_CUSTOM_CONTROL_GROUPS, [])
+    if not default_groups:
+        default_groups = get_custom_control_group_templates()
+
+    schema = vol.Schema(
+        {
+            vol.Optional(
+                CONF_CUSTOM_CONTROL_GROUPS, default=default_groups
+            ): CUSTOM_CONTROL_GROUPS_SCHEMA,
+        },
+        extra=vol.REMOVE_EXTRA,
+    )
+
+    errors, validated = await handle_step_validation(
+        user_input=user_input,
+        schema=schema,
+        area_name=flow._area_config.name if flow._area_config else "Unknown",
+        step_name="custom_control_groups",
+        area_options=flow.area_options,
+        on_success=flow.async_step_show_menu,
+    )
+
+    if validated:
+        return await flow.async_step_show_menu()
+
+    return flow.async_show_form(
+        step_id="custom_control_groups",
+        data_schema=flow._build_schema_from_vol(
+            schema,
+            saved_options=flow.area_options,
+            selectors={
+                CONF_CUSTOM_CONTROL_GROUPS: build_selector_object(),
             },
         ),
         errors=errors,

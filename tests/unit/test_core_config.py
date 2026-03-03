@@ -8,6 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import (
+    CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
     CONF_SLEEP_ENTITY,
@@ -16,6 +17,7 @@ from custom_components.magic_areas.core.config import (
     get_feature_config,
     has_configured_state,
     has_feature,
+    normalize_custom_control_groups,
     normalize_feature_config,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
@@ -134,6 +136,45 @@ def test_get_feature_config_from_list_config() -> None:
     assert get_feature_config(config, "test_feature") == {}
     assert get_feature_config(config, "plain") == {}
     assert get_feature_config(config, "unknown") == {}
+
+
+def test_normalize_custom_control_groups() -> None:
+    """Custom control-group config should normalize to definitions."""
+    config = {
+        CONF_CUSTOM_CONTROL_GROUPS: [
+            {
+                "group_id": "control.task",
+                "members": ["light.task", "switch.vent"],
+                "trigger_states": ["occupied"],
+                "policy_id": "custom_task",
+                "metadata": {"label": "Task Group"},
+            }
+        ]
+    }
+
+    groups = normalize_custom_control_groups(config)
+
+    assert len(groups) == 1
+    assert groups[0].group_id == "control.task"
+    assert groups[0].members == ("light.task", "switch.vent")
+    assert groups[0].trigger_states == ("occupied",)
+    assert groups[0].policy_id == "custom_task"
+    assert groups[0].metadata == {"label": "Task Group"}
+
+
+def test_normalize_custom_control_groups_ignores_invalid() -> None:
+    """Invalid custom group payloads should be ignored."""
+    config = {
+        CONF_CUSTOM_CONTROL_GROUPS: [
+            {"group_id": "missing_members"},
+            "invalid",
+            {"members": ["light.task"]},
+        ]
+    }
+
+    groups = normalize_custom_control_groups(config)
+
+    assert groups == []
 
 
 # Integration tests from test_magic.py

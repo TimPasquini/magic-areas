@@ -15,6 +15,7 @@ from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.core.area_runtime import AreaRuntime
 from custom_components.magic_areas.core.config import normalize_feature_config
+from custom_components.magic_areas.core.config import normalize_custom_control_groups
 from custom_components.magic_areas.core.entity_ids import (
     EntityReferences,
     build_entity_references,
@@ -27,6 +28,7 @@ from custom_components.magic_areas.core.meta import (
     collect_child_areas,
     resolve_active_areas,
 )
+from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.core.presence import build_presence_sensors
 
 
@@ -84,6 +86,10 @@ async def build_snapshot(
         )
 
     enabled_features, feature_configs = normalize_feature_config(area_config.config)
+    GROUP_REGISTRY.register_area_customs(
+        area_id=area_config.id,
+        definitions=normalize_custom_control_groups(area_config.config),
+    )
     entity_registry = er.async_get(hass)
 
     entity_references = build_entity_references(

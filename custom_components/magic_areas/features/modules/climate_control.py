@@ -11,6 +11,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
@@ -111,6 +113,35 @@ class ClimateControlFeatureModule(BaseFeatureModule):
     ) -> list[Entity]:
         """Build entities for climate control."""
         try:
+            feature_config = data.feature_configs.get(
+                MagicAreasFeatures.CLIMATE_CONTROL, {}
+            )
+            climate_entity = feature_config.get(CONF_CLIMATE_CONTROL_ENTITY_ID)
+            group_definitions: list[ControlGroupDefinition] = []
+            if not climate_entity:
+                GROUP_REGISTRY.register_area_defaults(
+                    area_id=area_config.id,
+                    definitions=[],
+                    policy_id="climate_control",
+                )
+                return []
+
+            group_definitions.append(
+                ControlGroupDefinition(
+                    group_id=f"climate_control_{area_config.id}_climate_control",
+                    members=(climate_entity,),
+                    trigger_states=(),
+                    policy_id="climate_control",
+                    metadata={
+                        "feature": str(MagicAreasFeatures.CLIMATE_CONTROL),
+                    },
+                )
+            )
+            GROUP_REGISTRY.register_area_defaults(
+                area_id=area_config.id,
+                definitions=group_definitions,
+                policy_id="climate_control",
+            )
             return [switch_platform.ClimateControlSwitch(area_config, coordinator)]
         except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught
             _LOGGER.error(

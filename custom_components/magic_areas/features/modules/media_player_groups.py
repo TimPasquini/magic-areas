@@ -11,6 +11,8 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
@@ -48,6 +50,7 @@ class MediaPlayerGroupsFeatureModule(BaseFeatureModule):
     ) -> list[Entity]:
         """Build entities for the media player groups feature."""
         entities: list[Entity] = []
+        group_definitions: list[ControlGroupDefinition] = []
 
         if MEDIA_PLAYER_DOMAIN not in data.entities:
             _LOGGER.debug(
@@ -66,12 +69,31 @@ class MediaPlayerGroupsFeatureModule(BaseFeatureModule):
                             area_config, coordinator, media_player_entities
                         )
                     )
+                    group_definitions.append(
+                        ControlGroupDefinition(
+                            group_id=(
+                                f"media_player_groups_{area_config.id}_media_player_group"
+                            ),
+                            members=tuple(media_player_entities),
+                            trigger_states=(),
+                            policy_id="media_player_groups",
+                            metadata={
+                                "feature": str(MagicAreasFeatures.MEDIA_PLAYER_GROUPS)
+                            },
+                        )
+                    )
                 except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught
                     _LOGGER.error(
                         "%s: Error creating media player group: %s",
                         area_config.slug,
                         str(exc),
                     )
+
+        GROUP_REGISTRY.register_area_defaults(
+            area_id=area_config.id,
+            definitions=group_definitions,
+            policy_id="media_player_groups",
+        )
 
         if not area_config.is_meta():
             try:

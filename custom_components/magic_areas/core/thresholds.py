@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 import homeassistant.components.sensor.const
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 
-from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.aggregate_runtime import (
+    resolve_aggregate_entity_id,
+)
 from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
@@ -82,16 +83,17 @@ def get_illuminance_threshold_spec(
             illuminance_threshold_hysteresis_percentage / 100
         )
 
-    illuminance_aggregate_entity_id = (
-        data.entity_references.aggregates_by_device_class.get(
+    illuminance_aggregate_entity_id = resolve_aggregate_entity_id(
+        hass,
+        area_id=area_config.id,
+        domain=homeassistant.components.sensor.const.DOMAIN,
+        device_class=str(
             homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        )
+        ),
     )
     if not illuminance_aggregate_entity_id:
-        illuminance_aggregate_entity_id = er.async_get(hass).async_get_entity_id(
-            homeassistant.components.sensor.const.DOMAIN,
-            DOMAIN,
-            f"aggregates_{area_config.id}_aggregate_illuminance",
+        illuminance_aggregate_entity_id = data.entity_references.aggregates_by_device_class.get(
+            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
         )
     if not illuminance_aggregate_entity_id:
         _LOGGER.debug(

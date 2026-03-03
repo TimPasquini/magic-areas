@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from enum import Enum
 from typing import Any
 
@@ -36,7 +36,9 @@ from custom_components.magic_areas.defaults import (
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
-def _min_entities(feature_configs: dict[str, dict[str, Any]]) -> int:
+def _min_entities(
+    feature_configs: Mapping[str | MagicAreasFeatures, Mapping[str, Any]]
+) -> int:
     """Return minimum entities required for aggregates."""
     raw_value = feature_configs.get(MagicAreasFeatures.AGGREGATES, {}).get(
         CONF_AGGREGATES_MIN_ENTITIES,
@@ -73,8 +75,8 @@ def _normalize_allowed_device_classes(value: Any, fallback: Sequence[str]) -> se
 def build_sensor_aggregates(
     *,
     entities_by_domain: dict[str, list[dict[str, str]]],
-    feature_configs: dict[str, dict[str, Any]],
-    enabled_features: set[str],
+    feature_configs: Mapping[str | MagicAreasFeatures, Mapping[str, Any]],
+    enabled_features: Collection[str | MagicAreasFeatures],
 ) -> list[SensorAggregateSpec]:
     """Return aggregate specs for sensor entities."""
     if MagicAreasFeatures.AGGREGATES not in enabled_features:
@@ -138,8 +140,8 @@ def build_sensor_aggregates(
 def build_binary_sensor_aggregates(
     *,
     entities_by_domain: dict[str, list[dict[str, str]]],
-    feature_configs: dict[str, dict[str, Any]],
-    enabled_features: set[str],
+    feature_configs: Mapping[str | MagicAreasFeatures, Mapping[str, Any]],
+    enabled_features: Collection[str | MagicAreasFeatures],
 ) -> list[BinarySensorAggregateSpec]:
     """Return aggregate specs for binary sensor entities."""
     if MagicAreasFeatures.AGGREGATES not in enabled_features:
@@ -191,8 +193,8 @@ def build_binary_sensor_aggregates(
 def build_health_sensor_spec(
     *,
     entities_by_domain: dict[str, list[dict[str, str]]],
-    feature_configs: dict[str, dict[str, Any]],
-    enabled_features: set[str],
+    feature_configs: Mapping[str | MagicAreasFeatures, Mapping[str, Any]],
+    enabled_features: Collection[str | MagicAreasFeatures],
 ) -> BinarySensorAggregateSpec | None:
     """Return an aggregate spec for health monitoring, or None if no entities match.
 

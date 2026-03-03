@@ -28,6 +28,9 @@ from custom_components.magic_areas.const import (
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
+from custom_components.magic_areas.core.aggregate_runtime import (
+    resolve_aggregate_entity_id,
+)
 from custom_components.magic_areas.core.wasp_state_machine import (
     WaspStateMachine,
     WaspStateUpdate,
@@ -95,15 +98,9 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         await super().async_added_to_hass()
         await self.restore_state()
 
-        # Resolve aggregate sensor entity IDs from coordinator snapshot or entity registry
-        from homeassistant.helpers import entity_registry as er
-        from custom_components.magic_areas.const import DOMAIN
-
         entity_refs = None
         if self._coordinator.data:
             entity_refs = self._coordinator.data.entity_references
-
-        entity_registry = er.async_get(self.hass)
 
         feature_config = self.get_feature_config()
         wasp_device_classes = feature_config.get(
@@ -112,16 +109,17 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         )
 
         for device_class in wasp_device_classes:
-            dc_entity_id = (
-                entity_refs.binary_aggregates_by_device_class.get(device_class)
-                if entity_refs
-                else None
+            dc_entity_id = resolve_aggregate_entity_id(
+                self.hass,
+                area_id=self._area_id,
+                domain=BINARY_SENSOR_DOMAIN,
+                device_class=str(device_class),
             )
             if not dc_entity_id:
-                dc_entity_id = entity_registry.async_get_entity_id(
-                    BINARY_SENSOR_DOMAIN,
-                    DOMAIN,
-                    f"aggregates_{self._area_id}_aggregate_{device_class}",
+                dc_entity_id = (
+                    entity_refs.binary_aggregates_by_device_class.get(device_class)
+                    if entity_refs
+                    else None
                 )
             if dc_entity_id:
                 dc_state = self.hass.states.get(dc_entity_id)
@@ -129,16 +127,17 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
                     self._wasp_sensors.append(dc_entity_id)
 
         for device_class in WASP_IN_A_BOX_BOX_DEVICE_CLASSES:
-            dc_entity_id = (
-                entity_refs.binary_aggregates_by_device_class.get(device_class)
-                if entity_refs
-                else None
+            dc_entity_id = resolve_aggregate_entity_id(
+                self.hass,
+                area_id=self._area_id,
+                domain=BINARY_SENSOR_DOMAIN,
+                device_class=str(device_class),
             )
             if not dc_entity_id:
-                dc_entity_id = entity_registry.async_get_entity_id(
-                    BINARY_SENSOR_DOMAIN,
-                    DOMAIN,
-                    f"aggregates_{self._area_id}_aggregate_{device_class}",
+                dc_entity_id = (
+                    entity_refs.binary_aggregates_by_device_class.get(device_class)
+                    if entity_refs
+                    else None
                 )
             if dc_entity_id:
                 dc_state = self.hass.states.get(dc_entity_id)

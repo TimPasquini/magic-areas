@@ -1,8 +1,8 @@
 """Unit tests for core/light_control.py."""
 
 
-from custom_components.magic_areas.core.control import ControlState
-from custom_components.magic_areas.core.light_control import (
+from custom_components.magic_areas.core.command_echo import CommandEchoState
+from custom_components.magic_areas.light_groups.policy import (
     ActOnMode,
     LightAction,
     LightGroupPolicy,
@@ -26,7 +26,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.CLEAR],
                 lost_states=[AreaStates.OCCUPIED],
                 current_states=[AreaStates.CLEAR],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -47,7 +47,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.BRIGHT],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -68,7 +68,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.BRIGHT, AreaStates.OCCUPIED],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -88,7 +88,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -96,6 +96,49 @@ class TestLightGroupPolicy:
         # This triggers bright_active_but_stable and returns NOOP
         assert decision.action == LightAction.NOOP
         assert "bright" in decision.reason
+
+    def test_legacy_control_state_input_is_normalized(self) -> None:
+        """Legacy state objects should be converted to command-echo state."""
+
+        class LegacyState:
+            def __init__(self, controlling: bool, controlled: bool) -> None:
+                self.controlling = controlling
+                self.controlled = controlled
+
+            def command_issued(self) -> "LegacyState":
+                return LegacyState(controlling=True, controlled=True)
+
+            def command_completed(self) -> "LegacyState":
+                return LegacyState(controlling=self.controlling, controlled=False)
+
+            def external_change(self) -> "LegacyState":
+                return LegacyState(controlling=False, controlled=False)
+
+            def set_controlled(self, controlled: bool) -> "LegacyState":
+                return LegacyState(controlling=self.controlling, controlled=controlled)
+
+            def set_controlling(self, controlling: bool) -> "LegacyState":
+                return LegacyState(controlling=controlling, controlled=self.controlled)
+
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_area_state_change(
+            LightGroupPolicyInput(
+                new_states=[AreaStates.DARK],
+                lost_states=[],
+                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+                control_state=LegacyState(controlling=True, controlled=False),
+                is_primary=False,
+            )
+        )
+
+        assert decision.action == LightAction.TURN_ON
+        assert decision.next_control_state is not None
+        assert isinstance(decision.next_control_state, CommandEchoState)
+        assert decision.next_control_state.controlling is True
+        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_not_occupied(self) -> None:
         """Should noop when area not occupied."""
@@ -108,7 +151,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.DARK],  # Not occupied
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -126,7 +169,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -147,7 +190,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.OCCUPIED],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -165,7 +208,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -185,7 +228,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.SLEEP],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK, AreaStates.SLEEP],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -204,7 +247,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.SLEEP],
                 lost_states=[AreaStates.DARK],
                 current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -226,7 +269,7 @@ class TestLightGroupPolicy:
                 new_states=[],
                 lost_states=[AreaStates.DARK],
                 current_states=[AreaStates.OCCUPIED],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -245,7 +288,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[AreaStates.EXTENDED],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -264,7 +307,7 @@ class TestLightGroupPolicy:
                 new_states=[],
                 lost_states=[AreaStates.SLEEP],
                 current_states=[AreaStates.OCCUPIED],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -285,7 +328,7 @@ class TestLightGroupPolicy:
                 new_states=[],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -303,7 +346,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -322,7 +365,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -339,7 +382,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.OCCUPIED],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -357,7 +400,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.OCCUPIED],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -369,7 +412,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=ControlState(controlling=True, controlled=False),
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
                 is_primary=False,
             )
         )
@@ -386,7 +429,7 @@ class TestLightGroupPolicy:
                 new_states=[AreaStates.CLEAR],
                 lost_states=[AreaStates.OCCUPIED],
                 current_states=[AreaStates.CLEAR],
-                control_state=ControlState(controlling=False, controlled=False),
+                control_state=CommandEchoState(controlling=False, awaiting_echo=False),
                 is_primary=True,
             )
         )

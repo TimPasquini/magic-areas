@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.config_keys import (
+    CONF_CUSTOM_CONTROL_GROUPS,
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
@@ -18,6 +19,7 @@ from custom_components.magic_areas.core import entity_loading
 from custom_components.magic_areas.core.entity_loading.filters import (
     should_exclude_entity,
 )
+from custom_components.magic_areas.core.group_registry import GroupRegistry
 from custom_components.magic_areas.core.snapshot_builder import build_snapshot
 
 
@@ -267,3 +269,130 @@ async def test_snapshot_builder_entity_ingestion_integration_parity(
     assert snapshot.entities["sensor"][0]["entity_id"] == "sensor.room_temp"
     assert "sensor" in snapshot.magic_entities
     assert snapshot.magic_entities["sensor"][0]["entity_id"] == "sensor.magic_area_temp"
+
+
+@pytest.mark.asyncio
+async def test_snapshot_builder_registers_custom_control_groups(
+    hass: HomeAssistant,
+) -> None:
+    """Snapshot builder should register area custom groups from config."""
+    area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type=AreaType.INTERIOR,
+        config={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    "group_id": "control.task",
+                    "members": ["light.task", "switch.vent"],
+                    "trigger_states": ["occupied"],
+                    "policy_id": "custom_task",
+                }
+            ]
+        },
+        hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
+    )
+
+    async def _load_entities(*args: object, **kwargs: object) -> tuple[dict, dict]:
+        return ({}, {})
+
+    mock_registry = MagicMock()
+    mock_registry.async_get_entity_id.return_value = None
+    mock_registry.entities.values.return_value = []
+    mock_group_registry = MagicMock()
+
+    with patch(
+        "custom_components.magic_areas.core.snapshot_builder.load_area_entities",
+        side_effect=_load_entities,
+    ), patch(
+        "custom_components.magic_areas.core.snapshot_builder.er.async_get",
+        return_value=mock_registry,
+    ), patch(
+        "custom_components.magic_areas.core.snapshot_builder.GROUP_REGISTRY",
+        mock_group_registry,
+    ):
+        await build_snapshot(
+            hass=hass,
+            area_config=area_config,
+            config_entry_id="entry_id",
+        )
+
+    mock_group_registry.register_area_customs.assert_called_once()
+    _args, kwargs = mock_group_registry.register_area_customs.call_args
+    assert kwargs["area_id"] == "test_area"
+    definitions = kwargs["definitions"]
+    assert len(definitions) == 1
+    assert definitions[0].group_id == "control.task"
+
+
+@pytest.mark.asyncio
+async def test_snapshot_builder_replaces_stale_custom_control_groups_on_refresh(
+    hass: HomeAssistant,
+) -> None:
+    """Refreshing snapshot should replace old custom groups for the same area."""
+    initial_area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type=AreaType.INTERIOR,
+        config={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    "group_id": "control.old",
+                    "members": ["light.old"],
+                    "policy_id": "custom_control_group",
+                }
+            ]
+        },
+        hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
+    )
+    updated_area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type=AreaType.INTERIOR,
+        config={
+            CONF_CUSTOM_CONTROL_GROUPS: [
+                {
+                    "group_id": "control.new",
+                    "members": ["light.new"],
+                    "policy_id": "custom_control_group",
+                }
+            ]
+        },
+        hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
+    )
+
+    async def _load_entities(*args: object, **kwargs: object) -> tuple[dict, dict]:
+        return ({}, {})
+
+    mock_registry = MagicMock()
+    mock_registry.async_get_entity_id.return_value = None
+    mock_registry.entities.values.return_value = []
+    group_registry = GroupRegistry()
+
+    with patch(
+        "custom_components.magic_areas.core.snapshot_builder.load_area_entities",
+        side_effect=_load_entities,
+    ), patch(
+        "custom_components.magic_areas.core.snapshot_builder.er.async_get",
+        return_value=mock_registry,
+    ), patch(
+        "custom_components.magic_areas.core.snapshot_builder.GROUP_REGISTRY",
+        group_registry,
+    ):
+        await build_snapshot(
+            hass=hass,
+            area_config=initial_area_config,
+            config_entry_id="entry_id",
+        )
+        await build_snapshot(
+            hass=hass,
+            area_config=updated_area_config,
+            config_entry_id="entry_id",
+        )
+
+    registered = group_registry.get_for_area_policy("test_area", "custom_control_group")
+    assert len(registered) == 1
+    assert registered[0].definition.group_id == "control.new"

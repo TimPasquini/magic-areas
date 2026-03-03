@@ -4,16 +4,26 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.core.control_group_executor import (
+    execute_control_group_decision,
+)
+from custom_components.magic_areas.core.control_group import ControlGroupContext
+from custom_components.magic_areas.core.media_control import (
+    build_media_control_group_policy,
+    MediaControlPolicy,
+)
 from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
+)
+from custom_components.magic_areas.core.control_group_runtime import (
+    resolve_group_entity_id,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
@@ -27,6 +37,7 @@ class MediaPlayerControlSwitch(SwitchBase):
     feature_id = MagicAreasFeatures.MEDIA_PLAYER_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
 
+    policy: MediaControlPolicy
     media_player_group_id: str | None
     _listener_registry: ListenerRegistry
 
@@ -37,6 +48,7 @@ class MediaPlayerControlSwitch(SwitchBase):
 
         SwitchBase.__init__(self, area_config, coordinator)
 
+        self.policy = build_media_control_group_policy()
         # Entity ID resolved in async_added_to_hass from coordinator snapshot
         self.media_player_group_id = None
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
@@ -51,13 +63,11 @@ class MediaPlayerControlSwitch(SwitchBase):
                 self._coordinator.data.entity_references.media_player_group
             )
         if not self.media_player_group_id:
-            from homeassistant.helpers import entity_registry as er
-            from custom_components.magic_areas.const import DOMAIN
-
-            self.media_player_group_id = er.async_get(self.hass).async_get_entity_id(
-                MEDIA_PLAYER_DOMAIN,
-                DOMAIN,
-                f"media_player_groups_{self._area_id}_media_player_group",
+            self.media_player_group_id = resolve_group_entity_id(
+                self.hass,
+                area_id=self._area_id,
+                policy_id="media_player_groups",
+                domain=MEDIA_PLAYER_DOMAIN,
             )
 
         self._listener_registry.track(
@@ -89,20 +99,19 @@ class MediaPlayerControlSwitch(SwitchBase):
         if not new_states and not lost_states:
             return
 
-        if AreaStates.CLEAR in new_states:
-            if not self.media_player_group_id:
-                _LOGGER.debug(
-                    "%s: No media player group ID resolved, cannot turn off",
-                    self.name,
-                )
-                return
-            _LOGGER.debug("%s: Area clear, turning off media players.", self.name)
-            await self.hass.services.async_call(
-                MEDIA_PLAYER_DOMAIN,
-                SERVICE_TURN_OFF,
-                {ATTR_ENTITY_ID: self.media_player_group_id},
+        decision = self.policy.evaluate(
+            ControlGroupContext(
+                group_id=f"media_player_groups_{self._area_id}",
+                new_states=tuple(new_states),
+                lost_states=tuple(lost_states),
+                current_states=(),
+                signals={"media_player_group_id": self.media_player_group_id},
+                is_enabled=self.is_on,
             )
-            return
+        )
+        if decision.actions:
+            _LOGGER.debug("%s: Area clear, turning off media players.", self.name)
+        await execute_control_group_decision(self.hass, decision)
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up listeners on removal."""
