@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 from homeassistant.components.group.light import LightGroup
@@ -11,34 +10,28 @@ from homeassistant.const import (
     STATE_ON,
 )
 from homeassistant.core import Event, callback
-from homeassistant.helpers import entity_registry as entity_registry_module
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import (
-    async_track_state_change_event,
-    EventStateChangedData,
-)
+from homeassistant.helpers.event import EventStateChangedData
 
-from custom_components.magic_areas.const import DOMAIN, EVENT_MAGICAREAS_AREA_STATE_CHANGED
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.command_echo import (
     CommandEchoState,
     CommandEchoTracker,
-)
-from custom_components.magic_areas.core.control_group_executor import (
-    execute_control_group_decision,
 )
 from custom_components.magic_areas.core.control_group_runtime import (
     resolve_group_entity_ids_by_metadata,
 )
 from custom_components.magic_areas.light_groups.policy import (
-    LightAction,
     build_light_control_group_policy,
-    light_action_to_control_group,
     reset_control_state,
 )
 from custom_components.magic_areas.entity import MagicGroupEntity
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.light_groups.actions import forward_turn_on
+from custom_components.magic_areas.light_groups.actions import (
+    execute_group_turn_off,
+    execute_group_turn_on,
+    forward_turn_on,
+)
 from custom_components.magic_areas.light_groups import events as group_events
 from custom_components.magic_areas.light_groups.config import (
     DEFAULT_LIGHT_GROUP_ACT_ON,
@@ -258,41 +251,8 @@ class AreaLightGroup(MagicLightGroup):
         if self._listeners_initialized:
             return
 
-        # Initialize cache from live HA state (read from presence binary sensor)
-        entity_registry = entity_registry_module.async_get(self.hass)
-        presence_entity_id = entity_registry.async_get_entity_id(
-            "binary_sensor",
-            DOMAIN,
-            f"presence_tracking_{self._area_id}_area_state",
-        )
-        if presence_entity_id:
-            state = self.hass.states.get(presence_entity_id)
-            if state and "states" in state.attributes:
-                self._last_known_area_states = [
-                    str(s.value) if isinstance(s, Enum) else str(s)
-                    for s in state.attributes["states"]
-                ]
-            else:
-                self._last_known_area_states = []
-        else:
-            self._last_known_area_states = []
-        self.track_group_listener(
-            async_dispatcher_connect(
-                self.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, self.area_state_changed
-            ),
-            "area_state_dispatcher",
-        )
-        self.track_group_listener(
-            async_track_state_change_event(
-                self.hass,
-                [
-                    self.entity_id,
-                ],
-                self.group_state_changed,
-            ),
-            "group_state_change",
-        )
-        self._listeners_initialized = True
+        group_events.initialize_last_known_states(self)
+        group_events.register_group_listeners(self)
 
     # State Change Handling
 
@@ -319,39 +279,11 @@ class AreaLightGroup(MagicLightGroup):
 
     def _turn_on(self) -> bool:
         """Turn on light if it's not already on and if we're controlling it."""
-        if not self._echo_state.controlling:
-            return False
-
-        if self.is_on:
-            return False
-
-        self._set_echo_state(self._echo_state.command_issued(self.unique_id))
-
-        self.hass.async_create_task(
-            execute_control_group_decision(
-                self.hass,
-                light_action_to_control_group(LightAction.TURN_ON, self.entity_id),
-            )
-        )
-
-        return True
+        return execute_group_turn_on(self)
 
     def _turn_off(self) -> bool:
         """Turn off light if it's not already off, and we're controlling it."""
-        if not self._echo_state.controlling:
-            return False
-
-        if not self.is_on:
-            return False
-
-        self.hass.async_create_task(
-            execute_control_group_decision(
-                self.hass,
-                light_action_to_control_group(LightAction.TURN_OFF, self.entity_id),
-            )
-        )
-
-        return True
+        return execute_group_turn_off(self)
 
     # Control Release
 

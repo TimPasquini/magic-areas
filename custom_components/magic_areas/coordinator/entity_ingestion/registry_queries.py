@@ -9,7 +9,7 @@ from homeassistant.helpers.device_registry import async_get as devicereg_async_g
 from homeassistant.helpers.entity_registry import async_get as entityreg_async_get
 
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.entity_loading.filters import (
+from custom_components.magic_areas.coordinator.entity_ingestion.filters import (
     should_exclude_entity,
 )
 

@@ -9,7 +9,7 @@ from homeassistant.helpers.entity import Entity
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
-    from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+    from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.features.registry import FeatureRegistry
 

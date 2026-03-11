@@ -22,6 +22,8 @@ from custom_components.magic_areas.core.control_group import (
     ControlGroupContext,
     ControlGroupDecision,
     ControlGroupPolicy,
+    ControlRuntimeEffect,
+    ControlRuntimeEffectType,
 )
 
 class LightAction(StrEnum):
@@ -332,27 +334,33 @@ class LightControlGroupPolicy(ControlGroupPolicy):
         """Evaluate canonical control-group context for light actions."""
         decision = self._evaluate_light_decision(context)
         mapped = light_action_to_control_group(decision.action, self.light_group_entity_id)
+        runtime_effects: tuple[ControlRuntimeEffect, ...] = ()
+        if decision.next_control_state is not None:
+            runtime_effects = (
+                ControlRuntimeEffect(
+                    effect_type=ControlRuntimeEffectType.SET_STATE,
+                    namespace="command_echo",
+                    key="state",
+                    value=decision.next_control_state,
+                ),
+            )
         return ControlGroupDecision(
             action_type=mapped.action_type,
             actions=mapped.actions,
             reason=decision.reason,
+            runtime_effects=runtime_effects,
         )
-
-    def next_control_state(self, context: ControlGroupContext) -> CommandEchoState | None:
-        """Return next echo state transition for the given control-group context."""
-        return self._evaluate_light_decision(context).next_control_state
 
     def _evaluate_light_decision(self, context: ControlGroupContext) -> LightGroupDecision:
         """Map canonical context into the legacy light policy input model."""
-        is_primary = bool(context.signals.get("is_primary", False))
-        control_state = _as_echo_state(context.signals.get("control_state"))
+        signals = LightPolicySignals.from_signals(context.signals)
         return self.policy.evaluate_area_state_change(
             LightGroupPolicyInput(
                 new_states=context.new_states,
                 lost_states=context.lost_states,
                 current_states=context.current_states,
-                control_state=control_state,
-                is_primary=is_primary,
+                control_state=signals.control_state,
+                is_primary=signals.is_primary,
             )
         )
 
@@ -373,6 +381,24 @@ def build_light_control_group_policy(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class LightPolicySignals:
+    """Typed runtime inputs for light policy adapters."""
+
+    is_primary: bool
+    control_state: CommandEchoState
+
+    @classmethod
+    def from_signals(cls, signals: Any) -> LightPolicySignals:
+        """Parse typed light signals from control-group context."""
+        if isinstance(signals, cls):
+            return signals
+        return cls(
+            is_primary=False,
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+        )
+
+
 def reset_control_state() -> CommandEchoState:
     """Reset control state to allow immediate command handling."""
     return CommandEchoState(controlling=True, awaiting_echo=False)
@@ -387,7 +413,7 @@ def update_primary_control_state(
 
 def update_secondary_control_state(control_state: CommandEchoState) -> CommandEchoState:
     """Update control state for secondary light group state changes."""
-    if control_state.controlled:
+    if control_state.awaiting_echo:
         return control_state.command_completed()
     return control_state.external_change()
 
@@ -398,9 +424,14 @@ def _as_echo_state(state: Any) -> CommandEchoState:
         return CommandEchoState(controlling=True, awaiting_echo=False)
     if isinstance(state, CommandEchoState):
         return state
+    if hasattr(state, "controlling") and hasattr(state, "awaiting_echo"):
+        return CommandEchoState(
+            controlling=bool(state.controlling),
+            awaiting_echo=bool(state.awaiting_echo),
+        )
     return CommandEchoState(
-        controlling=state.controlling,
-        awaiting_echo=state.controlled,
+        controlling=bool(state.controlling),
+        awaiting_echo=bool(state.controlled),
     )
 
 

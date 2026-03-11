@@ -39,19 +39,33 @@ class FanControlGroupPolicy(ControlGroupPolicy):
 
     def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
         """Evaluate fan control for a canonical control-group context."""
-        sensor_value = _as_float_or_none(context.signals.get("sensor_value"))
-        fan_group_entity_id = _as_optional_str(context.signals.get("fan_group_entity_id"))
-        fan_group_state = _as_optional_str(context.signals.get("fan_group_state"))
+        signals = FanPolicySignals.from_signals(context.signals)
 
         decision = self.policy.evaluate(
             current_states=context.current_states,
-            sensor_value=sensor_value,
+            sensor_value=signals.sensor_value,
         )
         return fan_decision_to_control_group(
             decision=decision,
-            fan_group_entity_id=fan_group_entity_id,
-            fan_group_state=fan_group_state,
+            fan_group_entity_id=signals.fan_group_entity_id,
+            fan_group_state=signals.fan_group_state,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class FanPolicySignals:
+    """Typed runtime inputs for fan policy adapters."""
+
+    sensor_value: float | None
+    fan_group_entity_id: str | None
+    fan_group_state: str | None
+
+    @classmethod
+    def from_signals(cls, signals: Any) -> FanPolicySignals:
+        """Parse typed fan signals from control-group context."""
+        if isinstance(signals, cls):
+            return signals
+        return cls(sensor_value=None, fan_group_entity_id=None, fan_group_state=None)
 
 
 def build_fan_control_group_policy(feature_config: dict[str, Any]) -> FanControlGroupPolicy:

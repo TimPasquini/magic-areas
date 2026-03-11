@@ -19,6 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from custom_components.magic_areas.core.fan_control import (
     build_fan_control_group_policy,
     FanControlGroupPolicy,
+    FanPolicySignals,
 )
 from custom_components.magic_areas.core.control_group import ControlGroupContext
 from custom_components.magic_areas.core.control_group_executor import (
@@ -232,11 +233,11 @@ class FanControlSwitch(SwitchBase):
         context = ControlGroupContext(
             group_id=f"fan_groups_{self._area_id}",
             current_states=tuple(states),
-            signals={
-                "sensor_value": sensor_value,
-                "fan_group_entity_id": self._fan_group_entity_id,
-                "fan_group_state": fan_state.state if fan_state else None,
-            },
+            signals=FanPolicySignals(
+                sensor_value=sensor_value,
+                fan_group_entity_id=self._fan_group_entity_id,
+                fan_group_state=fan_state.state if fan_state else None,
+            ),
             is_enabled=self.is_on,
         )
         decision = self.policy.evaluate(context)

@@ -28,7 +28,7 @@ from custom_components.magic_areas.core.aggregate_policy import (
     AggregatePolicyContext,
     build_default_aggregate_selection_policy,
 )
-from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.config_keys import (
     CONF_BLE_TRACKER_ENTITIES,
 )

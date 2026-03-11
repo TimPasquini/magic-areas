@@ -11,6 +11,7 @@ from custom_components.magic_areas.switch.fan_control import FanControlSwitch
 from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.control_group import ControlGroupContext
+from custom_components.magic_areas.core.fan_control import FanPolicySignals
 
 
 @pytest.fixture
@@ -188,7 +189,8 @@ async def test_fan_control_run_logic_sensor_value_error(
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
     assert isinstance(args[0], ControlGroupContext)
-    assert args[0].signals["sensor_value"] is None
+    assert isinstance(args[0].signals, FanPolicySignals)
+    assert args[0].signals.sensor_value is None
 
 
 @pytest.mark.asyncio
@@ -223,7 +225,8 @@ async def test_fan_control_run_logic_sensor_type_error(
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
     assert isinstance(args[0], ControlGroupContext)
-    assert args[0].signals["sensor_value"] is None
+    assert isinstance(args[0].signals, FanPolicySignals)
+    assert args[0].signals.sensor_value is None
 
 
 @pytest.mark.asyncio
@@ -256,7 +259,8 @@ async def test_fan_control_run_logic_sensor_not_found(
     switch.policy.evaluate.assert_called_once()
     args = switch.policy.evaluate.call_args[0]
     assert isinstance(args[0], ControlGroupContext)
-    assert args[0].signals["sensor_value"] is None
+    assert isinstance(args[0].signals, FanPolicySignals)
+    assert args[0].signals.sensor_value is None
 
 
 @pytest.mark.asyncio

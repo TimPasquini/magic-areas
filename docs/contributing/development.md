@@ -1,186 +1,138 @@
 # Development Guide
 
-This guide covers setting up your development environment and running common development tasks for Magic Areas.
+This guide covers local setup and the repo-standard commands for development.
 
 ## Prerequisites
 
 - Python 3.13+
-- [uv](https://docs.astral.sh/uv/) package manager
+- [`uv`](https://docs.astral.sh/uv/)
 - Git
 
-## Initial Setup
+## Initial setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/magic-areas.git
+git clone <your-fork-or-origin>
 cd magic-areas
-
-# Install dependencies using uv
 uv sync
-
-# This creates a virtual environment and installs:
-# - Runtime dependencies (from manifest.json)
-# - Development dependencies (from pyproject.toml)
-# - Test dependencies
 ```
 
-## Running Tests
+## Required quality gates
+
+Run these before committing:
 
 ```bash
-# Full test suite with coverage
-uv run pytest tests/ --cov=custom_components.magic_areas --cov-report=term-missing
-
-# Run specific test file
-uv run pytest tests/integration/test_init.py -v
-
-# Run with parallel execution (faster)
-uv run pytest tests/ --numprocesses=auto
-
-# Update snapshots (for snapshot-based tests)
-uv run pytest tests/ --snapshot-update
-
-# Show slowest tests
-uv run pytest tests/ --durations=10
+uv run ruff check custom_components/magic_areas tests
+uv run mypy custom_components/magic_areas tests
+uv run pytest ./tests --numprocesses=auto -q
 ```
 
-## Code Quality
-
-### Linting
+Optional formatting check:
 
 ```bash
-# Run ruff linter
-uv run ruff check custom_components/magic_areas/
-
-# Auto-fix issues where possible
-uv run ruff check --fix custom_components/magic_areas/
-
-# Format code
-uv run ruff format custom_components/magic_areas/
+uv run ruff format --check custom_components/magic_areas tests
 ```
 
-### Type Checking
+## Common test commands
 
 ```bash
-# Run mypy type checker
-uv run mypy custom_components/magic_areas/
+# Full suite (parallel)
+uv run pytest ./tests --numprocesses=auto -q
+
+# Single test file
+uv run pytest tests/unit/test_control_group_executor.py -q
+
+# Snapshot updates (when intentionally changing snapshots)
+uv run pytest ./tests --snapshot-update
+
+# Slowest tests
+uv run pytest ./tests --durations=10
 ```
 
-### All Quality Checks
+## Working in Home Assistant locally
+
+1. Symlink integration into your HA config:
 
 ```bash
-# Run all checks before committing
-uv run ruff check custom_components/magic_areas/ && \
-uv run ruff format --check custom_components/magic_areas/ && \
-uv run mypy custom_components/magic_areas/ && \
-uv run pytest tests/ --cov=custom_components.magic_areas
+ln -s /path/to/magic-areas/custom_components/magic_areas \
+      /path/to/ha-config/custom_components/magic_areas
 ```
 
-## Development Workflow
+2. Restart Home Assistant.
 
-### Making Changes
+3. Enable debug logs:
 
-1. Create a feature branch:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. Make your changes following the coding standards in [AGENTS.md](../../AGENTS.md)
-
-3. Write tests for new functionality
-
-4. Run quality checks (see above)
-
-5. Commit with descriptive messages:
-   ```bash
-   git commit -m "feat: add new feature description"
-   ```
-
-### Commit Message Format
-
-Follow conventional commits:
-- `feat:` - New features
-- `fix:` - Bug fixes
-- `refactor:` - Code refactoring
-- `test:` - Test additions/changes
-- `docs:` - Documentation updates
-- `chore:` - Maintenance tasks
-
-### Running in Home Assistant Dev Environment
-
-1. Create a symbolic link to your development checkout:
-   ```bash
-   # From your Home Assistant config directory
-   ln -s /path/to/magic-areas/custom_components/magic_areas \
-         custom_components/magic_areas
-   ```
-
-2. Restart Home Assistant
-
-3. Enable debug logging in `configuration.yaml`:
-   ```yaml
-   logger:
-     default: info
-     logs:
-       custom_components.magic_areas: debug
-   ```
-
-## Project Structure
-
-See [CLAUDE.md](../../CLAUDE.md) for detailed architecture documentation.
-
-Key directories:
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.magic_areas: debug
 ```
+
+## Current project layout (high level)
+
+```text
 custom_components/magic_areas/
-├── core/              # Pure domain logic (HA-free)
-├── base/              # Base entity classes
-├── config_flows/      # Config flow helpers
-├── schemas/           # Validation schemas
-├── binary_sensor/     # Binary sensor platform
-├── sensor/            # Sensor platform
-├── light.py           # Light platform
-├── switch/            # Switch platform
+├── coordinator/          # Snapshot + ingestion lifecycle
+├── core/                 # Domain logic and shared runtime abstractions
+├── features/             # Feature registry/dispatch/modules
+├── config_flows/         # Config/options flow steps and helpers
+├── schemas/              # Voluptuous/schema definitions
+├── light_groups/         # Light vertical slice (policy/events/entities)
+├── binary_sensor/        # Platform adapters
+├── sensor/               # Platform adapters
+├── switch/               # Platform adapters
 └── ...
 
 tests/
-├── unit/              # Unit tests (pure logic)
-├── integration/       # Integration tests (full HA setup)
-├── platforms/         # Platform-specific tests
-└── config_flow/       # Config flow tests
+├── unit/
+├── integration/
+├── platforms/
+├── snapshots/
+└── ...
 ```
+
+## Development workflow
+
+1. Create a branch.
+2. Make a focused change.
+3. Add/adjust tests for boundary/behavior contracts.
+4. Run required quality gates.
+5. Commit with descriptive, scoped message.
+
+## Commit message guidance
+
+Recommended prefixes:
+- `refactor:` internal structure or boundary changes
+- `fix:` behavior correction
+- `test:` test additions/updates
+- `docs:` documentation updates
+- `chore:` non-functional maintenance
 
 ## Troubleshooting
 
-### Dependencies Not Installing
+### Dependency issues
 
 ```bash
-# Clear uv cache and reinstall
 uv cache clean
 uv sync --reinstall
 ```
 
-### Tests Failing Locally
+### Stale test caches
 
 ```bash
-# Ensure you're using Python 3.13+
-python --version
-
-# Re-sync dependencies
-uv sync
-
-# Clear pytest cache
-rm -rf .pytest_cache __pycache__
+rm -rf .pytest_cache
+find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 ```
 
-### Type Errors
+### Type-check cache reset
 
 ```bash
-# Regenerate mypy cache
-uv run mypy --clear-cache custom_components/magic_areas/
+uv run mypy --clear-cache custom_components/magic_areas tests
 ```
 
-## Resources
+## References
 
-- [Home Assistant Developer Docs](https://developers.home-assistant.io/)
-- [AGENTS.md](../../AGENTS.md) - Comprehensive HA coding standards
-- [CLAUDE.md](../../CLAUDE.md) - Project-specific architecture guide
-- [Refactoring Guide](refactoring-guide.md) - Current refactoring philosophy
+- `CLAUDE.md` (repo workflow + standards)
+- `docs/contributing/runtime-boundaries.md`
+- `docs/contributing/refactoring-guide.md`
+- `docs/notes/theoretical_architecture_map.md`

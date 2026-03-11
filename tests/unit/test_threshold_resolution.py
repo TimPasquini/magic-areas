@@ -15,7 +15,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.thresholds import get_illuminance_threshold_spec
 from custom_components.magic_areas.enums import MagicAreasFeatures
 

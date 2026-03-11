@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from homeassistant.const import EntityCategory
 
-from custom_components.magic_areas.core.entity_loading.filters import (
+from custom_components.magic_areas.coordinator.entity_ingestion.filters import (
     filter_entity_list,
     is_magic_area_entity,
     should_exclude_entity,

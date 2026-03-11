@@ -22,7 +22,7 @@ from custom_components.magic_areas.defaults import DEFAULT_BLE_TRACKER_ENTITIES
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
-    from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+    from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 

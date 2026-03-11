@@ -19,6 +19,7 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.core.climate_control import (
     build_climate_control_group_policy,
     build_preset_policy,
+    ClimatePolicySignals,
     ClimateControlGroupPolicy,
     ClimatePresetPolicy,
 )
@@ -143,7 +144,10 @@ class ClimateControlSwitch(SwitchBase):
                 new_states=tuple(new_states),
                 lost_states=tuple(lost_states),
                 current_states=tuple(current_states),
-                signals={"climate_entity_id": self.climate_entity_id},
+                signals=ClimatePolicySignals(
+                    climate_entity_id=self.climate_entity_id,
+                    preset_name=None,
+                ),
                 is_enabled=self.is_on,
             )
         )
@@ -194,10 +198,10 @@ class ClimateControlSwitch(SwitchBase):
                 ControlGroupContext(
                     group_id=f"climate_control_{self._area_id}",
                     current_states=(),
-                    signals={
-                        "climate_entity_id": self.climate_entity_id,
-                        "preset_name": preset_name,
-                    },
+                    signals=ClimatePolicySignals(
+                        climate_entity_id=self.climate_entity_id,
+                        preset_name=preset_name,
+                    ),
                     is_enabled=bool(self.is_on),
                 )
             )

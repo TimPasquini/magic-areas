@@ -14,7 +14,7 @@ from homeassistant.helpers.entity import Entity
 from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.thresholds import (
     get_illuminance_threshold_spec,
 )

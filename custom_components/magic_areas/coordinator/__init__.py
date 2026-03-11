@@ -16,10 +16,8 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.core.snapshot_builder import (
-    MagicAreasData,
-    build_snapshot,
-)
+from custom_components.magic_areas.coordinator.snapshot_builder import build_snapshot
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.meta_reload import (
     evaluate_reload,
     should_reload_on_area_change,

@@ -23,7 +23,8 @@ and control logic.
 Implemented:
 - Feature schemas moved into feature modules.
 - Feature modules are the practical feature entry points.
-- Entity-loading cluster packaged under `core/entity_loading/` with public API exports.
+- Entity ingestion is now packaged under
+  `coordinator/entity_ingestion/` with public API exports.
 - Canonical runtime entry-point and boundary documentation exists in
   `docs/contributing/runtime-boundaries.md`.
 
@@ -101,8 +102,8 @@ Implemented:
   `climate_preset_to_control_group` and executes via the shared executor.
 - Media player control now maps area-state changes through
   `media_state_change_to_control_group` and executes via the shared executor.
-- Fan/media target entity resolution is now registry-first via shared runtime
-  resolver, with legacy entity-registry fallback retained.
+- Fan/media target entity resolution now uses the shared registry runtime
+  resolver path.
 - Added Phase C contract tests:
   - `tests/unit/test_fan_control_group_parity.py`
   - `tests/unit/test_climate_control_group_parity.py`
@@ -217,21 +218,17 @@ Exit criteria:
 # Layer Map (Target Architecture + Current Status)
 
 ## Layer 1: Snapshot / Ingestion (Coordinator-owned)
-**Status:** `Partial`
+**Status:** `Implemented`
 **Purpose:** Build a single snapshot from HA registries + runtime state.
 
 Current:
-- `custom_components/magic_areas/core/snapshot_builder.py`
-- `custom_components/magic_areas/core/entity_loading/loader.py`
-- `custom_components/magic_areas/core/entity_loading/registry_queries.py`
-- `custom_components/magic_areas/core/entity_loading/filters.py`
-- `custom_components/magic_areas/core/entity_loading/snapshots.py`
-
-Target:
-- `coordinator/snapshot_builder.py`
-- `coordinator/snapshot_models.py`
-- `coordinator/entity_ingestion/`
-- `coordinator/presence_ingestion/`
+- `custom_components/magic_areas/coordinator/snapshot_builder.py`
+- `custom_components/magic_areas/coordinator/snapshot_models.py`
+- `custom_components/magic_areas/coordinator/entity_ingestion/loader.py`
+- `custom_components/magic_areas/coordinator/entity_ingestion/registry_queries.py`
+- `custom_components/magic_areas/coordinator/entity_ingestion/filters.py`
+- `custom_components/magic_areas/coordinator/entity_ingestion/snapshots.py`
+- `custom_components/magic_areas/coordinator/presence_ingestion/presence.py`
 
 ## Layer 2: Feature Modules (Entry Points)
 **Status:** `Implemented`
@@ -242,12 +239,17 @@ Current:
 - `custom_components/magic_areas/features/registry.py`
 
 ## Layer 3: Policy Layer (Pure Decisions)
-**Status:** `Partial`
+**Status:** `Implemented`
 **Purpose:** Deterministic decision logic with no HA side-effects.
 
 Current:
-- Light/fan/climate policy code exists.
-- Generalized control-group policy does not exist yet.
+- Light/fan/climate/media policy adapters evaluate canonical
+  `ControlGroupContext` and return canonical `ControlGroupDecision`.
+- Typed feature signal payloads are used at runtime boundaries.
+- Light runtime command-echo transitions are encoded as canonical runtime
+  effects on decisions.
+- Policy purity is locked via contract tests (no executor/service calls in
+  policy modules).
 
 ## Layer 4: Execution Layer (Service Calls / Echo Tracking)
 **Status:** `Implemented`
@@ -302,5 +304,9 @@ Current:
 ---
 
 ## Near-Term Recommended Order
-1. Continue policy-layer convergence (Layer 3) for cross-feature decision
-   contracts.
+1. Continue entity-thinning work (Layer 6), especially reducing light event
+   glue and pushing remaining orchestration into shared runtime helpers.
+2. Continue group-model consolidation (Layer 5) so control/aggregate group
+   lifecycle and lookup patterns remain consistent across features.
+3. Continue constants cleanup (Layer 9) to keep only true cross-cutting shared
+   values in central constants modules.

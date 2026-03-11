@@ -86,7 +86,7 @@ async def test_turn_on_uses_control_group_executor(
     """AreaLightGroup._turn_on should delegate execution through control-group executor."""
     execute_mock = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.execute_control_group_decision",
+        "custom_components.magic_areas.light_groups.actions.execute_control_group_decision",
         execute_mock,
     )
     group = _FakeAreaLightGroup(is_on=False)
@@ -111,7 +111,7 @@ async def test_turn_off_uses_control_group_executor(
     """AreaLightGroup._turn_off should delegate execution through control-group executor."""
     execute_mock = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.execute_control_group_decision",
+        "custom_components.magic_areas.light_groups.actions.execute_control_group_decision",
         execute_mock,
     )
     group = _FakeAreaLightGroup(is_on=True)

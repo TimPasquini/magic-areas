@@ -2,6 +2,7 @@
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.climate_control import (
+    ClimatePolicySignals,
     build_climate_control_group_policy,
 )
 from custom_components.magic_areas.core.control_group import (
@@ -9,9 +10,11 @@ from custom_components.magic_areas.core.control_group import (
     ControlGroupContext,
 )
 from custom_components.magic_areas.core.fan_control import (
+    FanPolicySignals,
     build_fan_control_group_policy,
 )
 from custom_components.magic_areas.core.media_control import (
+    MediaPolicySignals,
     build_media_control_group_policy,
 )
 from custom_components.magic_areas.config_keys import (
@@ -33,11 +36,11 @@ def test_fan_policy_adapter_evaluates_from_canonical_context() -> None:
         ControlGroupContext(
             group_id="fan_groups_kitchen",
             current_states=(AreaStates.OCCUPIED,),
-            signals={
-                "sensor_value": 30.0,
-                "fan_group_entity_id": "fan.kitchen_group",
-                "fan_group_state": "off",
-            },
+            signals=FanPolicySignals(
+                sensor_value=30.0,
+                fan_group_entity_id="fan.kitchen_group",
+                fan_group_state="off",
+            ),
         )
     )
 
@@ -57,7 +60,10 @@ def test_climate_policy_adapter_evaluates_from_state_transition() -> None:
             group_id="climate_control_bedroom",
             new_states=(AreaStates.SLEEP,),
             current_states=(AreaStates.OCCUPIED, AreaStates.SLEEP),
-            signals={"climate_entity_id": "climate.bedroom"},
+            signals=ClimatePolicySignals(
+                climate_entity_id="climate.bedroom",
+                preset_name=None,
+            ),
         )
     )
 
@@ -73,7 +79,9 @@ def test_media_policy_adapter_evaluates_from_canonical_context() -> None:
             group_id="media_player_groups_living_room",
             new_states=(AreaStates.CLEAR,),
             current_states=(),
-            signals={"media_player_group_id": "media_player.living_room_group"},
+            signals=MediaPolicySignals(
+                media_player_group_id="media_player.living_room_group"
+            ),
         )
     )
 

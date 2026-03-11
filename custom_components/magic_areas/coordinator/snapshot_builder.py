@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -16,44 +12,20 @@ from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.core.area_runtime import AreaRuntime
 from custom_components.magic_areas.core.config import normalize_feature_config
 from custom_components.magic_areas.core.config import normalize_custom_control_groups
-from custom_components.magic_areas.core.entity_ids import (
-    EntityReferences,
-    build_entity_references,
-)
-from custom_components.magic_areas.core.entity_loading import (
+from custom_components.magic_areas.core.entity_ids import build_entity_references
+from custom_components.magic_areas.coordinator.entity_ingestion import (
     load_area_entities,
     load_meta_area_entities,
 )
+from custom_components.magic_areas.coordinator.presence_ingestion import (
+    build_presence_sensors,
+)
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.meta import (
     collect_child_areas,
     resolve_active_areas,
 )
 from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
-from custom_components.magic_areas.core.presence import build_presence_sensors
-
-
-@dataclass(slots=True)
-class MagicAreasData:
-    """Snapshot of area data used by platforms.
-
-    Coordinator builds a complete snapshot with:
-    - area_config: Immutable configuration
-    - area_runtime: Mutable state
-    - Platforms read snapshot only; MagicArea is coordinator-internal
-    """
-
-    entities: dict[str, list[dict[str, str]]]
-    magic_entities: dict[str, list[dict[str, str]]]
-    presence_sensors: list[str]
-    active_areas: list[str]
-    child_areas: list[str]
-    config: dict[str, Any]
-    enabled_features: set[str]
-    feature_configs: dict[str, dict[str, Any]]
-    entity_references: EntityReferences
-    area_config: AreaConfig
-    area_runtime: AreaRuntime
-    updated_at: datetime
 
 
 async def build_snapshot(

@@ -128,8 +128,9 @@ class ClimateControlGroupPolicy(ControlGroupPolicy):
 
     def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
         """Evaluate climate control for a canonical control-group context."""
-        climate_entity_id = _as_optional_str(context.signals.get("climate_entity_id"))
-        preset_name = _as_optional_str(context.signals.get("preset_name"))
+        signals = ClimatePolicySignals.from_signals(context.signals)
+        climate_entity_id = signals.climate_entity_id
+        preset_name = signals.preset_name
 
         if not preset_name:
             preset_name = self.preset_policy.select_preset_for_state_change(
@@ -148,6 +149,21 @@ def build_climate_control_group_policy(
 ) -> ClimateControlGroupPolicy:
     """Build canonical climate control-group policy from feature config."""
     return ClimateControlGroupPolicy(preset_policy=build_preset_policy(feature_config))
+
+
+@dataclass(frozen=True, slots=True)
+class ClimatePolicySignals:
+    """Typed runtime inputs for climate policy adapters."""
+
+    climate_entity_id: str | None
+    preset_name: str | None
+
+    @classmethod
+    def from_signals(cls, signals: Any) -> ClimatePolicySignals:
+        """Parse typed climate signals from control-group context."""
+        if isinstance(signals, cls):
+            return signals
+        return cls(climate_entity_id=None, preset_name=None)
 
 
 def climate_preset_to_control_group(

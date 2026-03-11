@@ -17,6 +17,7 @@ from custom_components.magic_areas.core.control_group import ControlGroupContext
 from custom_components.magic_areas.core.media_control import (
     build_media_control_group_policy,
     MediaControlPolicy,
+    MediaPolicySignals,
 )
 from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.core.listener_registry import (
@@ -105,7 +106,9 @@ class MediaPlayerControlSwitch(SwitchBase):
                 new_states=tuple(new_states),
                 lost_states=tuple(lost_states),
                 current_states=(),
-                signals={"media_player_group_id": self.media_player_group_id},
+                signals=MediaPolicySignals(
+                    media_player_group_id=self.media_player_group_id
+                ),
                 is_enabled=self.is_on,
             )
         )

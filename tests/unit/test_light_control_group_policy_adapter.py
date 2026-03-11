@@ -5,9 +5,11 @@ from custom_components.magic_areas.core.command_echo import CommandEchoState
 from custom_components.magic_areas.core.control_group import (
     ControlActionType,
     ControlGroupContext,
+    ControlRuntimeEffectType,
 )
 from custom_components.magic_areas.light_groups.policy import (
     ActOnMode,
+    LightPolicySignals,
     build_light_control_group_policy,
 )
 
@@ -26,29 +28,21 @@ def test_light_policy_adapter_primary_clear_turns_off() -> None:
             new_states=(AreaStates.CLEAR,),
             lost_states=(AreaStates.OCCUPIED,),
             current_states=(AreaStates.CLEAR,),
-            signals={
-                "is_primary": True,
-                "control_state": CommandEchoState(controlling=True, awaiting_echo=False),
-            },
+            signals=LightPolicySignals(
+                is_primary=True,
+                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            ),
         )
     )
-    next_state = policy.next_control_state(
-        ControlGroupContext(
-            group_id="light.magic_areas_light_groups_kitchen_all_lights",
-            new_states=(AreaStates.CLEAR,),
-            lost_states=(AreaStates.OCCUPIED,),
-            current_states=(AreaStates.CLEAR,),
-            signals={
-                "is_primary": True,
-                "control_state": CommandEchoState(controlling=True, awaiting_echo=False),
-            },
-        )
-    )
-
     assert decision.action_type == ControlActionType.DEACTIVATE
-    assert next_state is not None
-    assert next_state.controlling is True
-    assert next_state.controlled is False
+    assert len(decision.runtime_effects) == 1
+    effect = decision.runtime_effects[0]
+    assert effect.effect_type == ControlRuntimeEffectType.SET_STATE
+    assert effect.namespace == "command_echo"
+    assert effect.key == "state"
+    assert isinstance(effect.value, CommandEchoState)
+    assert effect.value.controlling is True
+    assert effect.value.controlled is False
 
 
 def test_light_policy_adapter_secondary_occupied_dark_turns_on() -> None:
@@ -64,17 +58,18 @@ def test_light_policy_adapter_secondary_occupied_dark_turns_on() -> None:
         new_states=(AreaStates.OCCUPIED, AreaStates.DARK),
         lost_states=(),
         current_states=(AreaStates.OCCUPIED, AreaStates.DARK),
-        signals={
-            "is_primary": False,
-            "control_state": CommandEchoState(controlling=True, awaiting_echo=False),
-        },
+        signals=LightPolicySignals(
+            is_primary=False,
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+        ),
     )
     decision = policy.evaluate(context)
-    next_state = policy.next_control_state(context)
 
     assert decision.action_type == ControlActionType.ACTIVATE
-    assert next_state is not None
-    assert next_state.controlled is True
+    assert len(decision.runtime_effects) == 1
+    effect = decision.runtime_effects[0]
+    assert isinstance(effect.value, CommandEchoState)
+    assert effect.value.controlled is True
 
 
 def test_light_policy_adapter_defaults_when_control_state_signal_missing() -> None:
@@ -90,13 +85,13 @@ def test_light_policy_adapter_defaults_when_control_state_signal_missing() -> No
         new_states=(AreaStates.BRIGHT,),
         lost_states=(),
         current_states=(AreaStates.OCCUPIED, AreaStates.BRIGHT),
-        signals={"is_primary": False},
+        signals=LightPolicySignals.from_signals({}),
     )
 
     decision = policy.evaluate(context)
-    next_state = policy.next_control_state(context)
-
     assert decision.action_type == ControlActionType.DEACTIVATE
-    assert next_state is not None
-    assert next_state.controlling is True
-    assert next_state.controlled is True
+    assert len(decision.runtime_effects) == 1
+    effect = decision.runtime_effects[0]
+    assert isinstance(effect.value, CommandEchoState)
+    assert effect.value.controlling is True
+    assert effect.value.controlled is True

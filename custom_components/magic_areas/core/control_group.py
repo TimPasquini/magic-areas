@@ -15,6 +15,12 @@ class ControlActionType(StrEnum):
     NOOP = "noop"
 
 
+class ControlRuntimeEffectType(StrEnum):
+    """Runtime effect types attached to policy decisions."""
+
+    SET_STATE = "set_state"
+
+
 @dataclass(frozen=True, slots=True)
 class ControlAction:
     """Single service action to apply."""
@@ -32,6 +38,17 @@ class ControlGroupDecision:
     action_type: ControlActionType
     actions: tuple[ControlAction, ...] = ()
     reason: str = ""
+    runtime_effects: tuple[ControlRuntimeEffect, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ControlRuntimeEffect:
+    """Runtime-side effect applied outside policy evaluation."""
+
+    effect_type: ControlRuntimeEffectType
+    namespace: str
+    key: str
+    value: Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +70,7 @@ class ControlGroupContext:
     current_states: tuple[str, ...]
     new_states: tuple[str, ...] = ()
     lost_states: tuple[str, ...] = ()
-    signals: dict[str, Any] = field(default_factory=dict)
+    signals: Any = field(default_factory=dict)
     is_enabled: bool = True
 
 

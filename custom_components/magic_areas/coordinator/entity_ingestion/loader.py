@@ -10,12 +10,12 @@ from custom_components.magic_areas.config_keys import (
     CONF_INCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
 )
-from custom_components.magic_areas.core.entity_loading.snapshots import (
+from custom_components.magic_areas.coordinator.entity_ingestion.snapshots import (
     EntitySnapshot,
     build_entity_dict,
     group_entities,
 )
-from custom_components.magic_areas.core.entity_loading.registry_queries import (
+from custom_components.magic_areas.coordinator.entity_ingestion.registry_queries import (
     get_area_entities,
     get_child_magic_entities,
     get_device_entities_for_area,

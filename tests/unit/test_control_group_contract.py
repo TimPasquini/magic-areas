@@ -10,6 +10,8 @@ from custom_components.magic_areas.core.control_group import (
     ControlGroupContext,
     ControlGroupDecision,
     ControlGroupDefinition,
+    ControlRuntimeEffect,
+    ControlRuntimeEffectType,
     build_noop_decision,
 )
 
@@ -56,3 +58,23 @@ def test_policy_input_and_action_contract() -> None:
     assert context.signals["priority"] == "dark"
     assert action.target_entity_ids[0] == "light.kitchen_main"
     assert action.service_data["brightness_pct"] == 60
+
+
+def test_runtime_effect_contract_shape() -> None:
+    """Runtime effect metadata should be carried by canonical decisions."""
+    decision = ControlGroupDecision(
+        action_type=ControlActionType.NOOP,
+        reason="set_runtime_state",
+        runtime_effects=(
+            ControlRuntimeEffect(
+                effect_type=ControlRuntimeEffectType.SET_STATE,
+                namespace="command_echo",
+                key="state",
+                value={"controlling": True, "awaiting_echo": False},
+            ),
+        ),
+    )
+
+    effect = decision.runtime_effects[0]
+    assert effect.effect_type == ControlRuntimeEffectType.SET_STATE
+    assert effect.namespace == "command_echo"

@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.core.entity_loading import (
+from custom_components.magic_areas.coordinator.entity_ingestion import (
     load_area_entities,
     load_meta_area_entities,
 )
@@ -20,10 +20,10 @@ async def test_load_area_entities_with_no_entities(hass: HomeAssistant) -> None:
     mock_device_registry.devices.get_devices_for_area_id.return_value = []
 
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, magic_entities = await load_area_entities(
@@ -56,10 +56,10 @@ async def test_load_area_entities_with_include_list(hass: HomeAssistant) -> None
     mock_entity_registry.async_get.return_value = included_entity
 
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, magic_entities = await load_area_entities(
@@ -96,10 +96,10 @@ async def test_load_area_entities_excludes_our_config_entry(
     mock_device_registry.devices.get_devices_for_area_id.return_value = []
 
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, magic_entities = await load_area_entities(
@@ -137,10 +137,10 @@ async def test_load_area_entities_with_exclude_list(hass: HomeAssistant) -> None
     mock_device_registry.devices.get_devices_for_area_id.return_value = []
 
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, magic_entities = await load_area_entities(
@@ -164,7 +164,7 @@ async def test_load_meta_area_entities_empty(hass: HomeAssistant) -> None:
     # Mock hass.config_entries to return empty list
     with patch.object(hass.config_entries, "async_entries", return_value=[]), \
          patch(
-            "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+            "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
             return_value=mock_entity_registry,
         ):
         entities, magic_entities = await load_meta_area_entities(
@@ -205,7 +205,7 @@ async def test_load_meta_area_entities_with_child_areas(hass: HomeAssistant) -> 
 
     # Mock async_entries to return our mock entry
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch.object(
         hass.config_entries, "async_entries", return_value=[mock_child_entry]
@@ -251,7 +251,7 @@ async def test_load_meta_area_entities_respects_exclude_list(
     mock_child_entry.runtime_data.coordinator.data.area_config.slug = "bedroom"
 
     with patch(
-        "custom_components.magic_areas.core.entity_loading.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch.object(
         hass.config_entries, "async_entries", return_value=[mock_child_entry]

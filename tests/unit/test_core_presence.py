@@ -10,11 +10,11 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.core.entity_ids import EntityReferences
-from custom_components.magic_areas.core.presence import (
+from custom_components.magic_areas.coordinator.presence_ingestion import (
     build_presence_sensors,
-    compute_secondary_states,
 )
+from custom_components.magic_areas.core.entity_ids import EntityReferences
+from custom_components.magic_areas.core.presence import compute_secondary_states
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.ha_domains import (
     BINARY_SENSOR_DOMAIN,

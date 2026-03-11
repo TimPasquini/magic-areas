@@ -23,7 +23,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.core.snapshot_builder import MagicAreasData
+from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.ha_domains import BINARY_SENSOR_DOMAIN
 from custom_components.magic_areas.models import MagicAreasConfigEntry
@@ -86,7 +86,7 @@ async def test_coordinator_update_failure(
     coordinator = MagicAreasCoordinator(hass, area_config, mock_config_entry)
 
     with patch(
-        "custom_components.magic_areas.core.snapshot_builder.load_area_entities",
+        "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
         side_effect=RuntimeError("boom"),
     ), pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
@@ -137,7 +137,7 @@ async def test_coordinator_refresh_updates_snapshot(
     coordinator = MagicAreasCoordinator(hass, area_config, mock_config_entry)
 
     with patch(
-        "custom_components.magic_areas.core.snapshot_builder.load_area_entities",
+        "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
         side_effect=_load_entities_impl,
     ):
         await coordinator.async_refresh()
@@ -164,7 +164,7 @@ async def test_coordinator_refresh_updates_snapshot(
             )
 
         with patch(
-            "custom_components.magic_areas.core.snapshot_builder.load_area_entities",
+            "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
             side_effect=_load_entities_second,
         ):
             await coordinator.async_refresh()

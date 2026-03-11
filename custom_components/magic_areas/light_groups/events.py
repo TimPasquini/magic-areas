@@ -8,12 +8,15 @@ from typing import Any
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers import entity_registry as entity_registry_module
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.event import EventStateChangedData
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.const import DOMAIN, EVENT_MAGICAREAS_AREA_STATE_CHANGED
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.light_groups.policy import (
+    LightPolicySignals,
     reset_control_state,
     update_primary_control_state,
     update_secondary_control_state,
@@ -22,7 +25,37 @@ from custom_components.magic_areas.core.control_group import (
     ControlActionType,
     ControlGroupContext,
     ControlGroupDecision,
+    ControlRuntimeEffect,
+    ControlRuntimeEffectType,
 )
+from custom_components.magic_areas.core.command_echo import CommandEchoState
+from custom_components.magic_areas.core.control_group_executor import (
+    execute_control_group_runtime_effects,
+)
+
+
+def initialize_last_known_states(group: Any) -> None:
+    """Initialize cached area states from the presence sensor."""
+    group._last_known_area_states = _read_presence_states(group)
+
+
+def register_group_listeners(group: Any) -> None:
+    """Register light-group listeners once during setup."""
+    group.track_group_listener(
+        async_dispatcher_connect(
+            group.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, group.area_state_changed
+        ),
+        "area_state_dispatcher",
+    )
+    group.track_group_listener(
+        async_track_state_change_event(
+            group.hass,
+            [group.entity_id],
+            group.group_state_changed,
+        ),
+        "group_state_change",
+    )
+    group._listeners_initialized = True
 
 
 def area_state_changed(
@@ -70,15 +103,14 @@ def state_change_primary(
         new_states=tuple(new_states),
         lost_states=tuple(lost_states),
         current_states=tuple(current_states),
-        signals={
-            "is_primary": True,
-            "control_state": group._echo_state,
-        },
+        signals=LightPolicySignals(
+            is_primary=True,
+            control_state=group._echo_state,
+        ),
     )
     decision = group.policy.evaluate(context)
-    next_control_state = group.policy.next_control_state(context)
     group.logger.debug("%s: Decision: %s", group.name, decision.reason)
-    return _apply_decision(group, decision, next_control_state)
+    return _apply_decision(group, decision)
 
 
 def state_change_secondary(
@@ -91,15 +123,14 @@ def state_change_secondary(
         new_states=tuple(new_states),
         lost_states=tuple(lost_states),
         current_states=tuple(current_states),
-        signals={
-            "is_primary": False,
-            "control_state": group._echo_state,
-        },
+        signals=LightPolicySignals(
+            is_primary=False,
+            control_state=group._echo_state,
+        ),
     )
     decision = group.policy.evaluate(context)
-    next_control_state = group.policy.next_control_state(context)
     group.logger.debug("%s: Decision: %s", group.name, decision.reason)
-    return _apply_decision(group, decision, next_control_state)
+    return _apply_decision(group, decision)
 
 
 def is_child_controllable(hass: HomeAssistant, entity_id: str) -> bool:
@@ -131,7 +162,7 @@ def handle_group_state_change_primary(group: Any) -> None:
 
 def handle_group_state_change_secondary(group: Any) -> None:
     """Handle group state change for secondary area state events."""
-    if group._echo_state.controlled:
+    if group._echo_state.awaiting_echo:
         group.logger.debug("%s: Group controlled by us.", group.name)
     else:
         group.logger.debug("%s: Group controlled by something else.", group.name)
@@ -146,19 +177,7 @@ def group_state_changed(group: Any, event: Event[EventStateChangedData]) -> bool
     current_area_states = group._last_known_area_states
 
     if not current_area_states or AreaStates.OCCUPIED.value not in current_area_states:
-        entity_registry = entity_registry_module.async_get(group.hass)
-        presence_entity_id = entity_registry.async_get_entity_id(
-            "binary_sensor",
-            DOMAIN,
-            f"presence_tracking_{group._area_id}_area_state",
-        )
-        if presence_entity_id:
-            state = group.hass.states.get(presence_entity_id)
-            if state and "states" in state.attributes:
-                current_area_states = [
-                    str(s.value) if isinstance(s, Enum) else str(s)
-                    for s in state.attributes["states"]
-                ]
+        current_area_states = _read_presence_states(group)
 
     if AreaStates.OCCUPIED.value not in current_area_states:
         group._set_echo_state(reset_control_state())
@@ -202,13 +221,46 @@ def group_state_changed(group: Any, event: Event[EventStateChangedData]) -> bool
 def _apply_decision(
     group: Any,
     decision: ControlGroupDecision,
-    next_control_state: Any,
 ) -> bool:
-    if next_control_state is not None:
-        group._set_echo_state(next_control_state)
+    execute_control_group_runtime_effects(
+        decision,
+        on_runtime_effect=lambda effect: _apply_runtime_effect(group, effect),
+    )
 
     if decision.action_type == ControlActionType.ACTIVATE:
         return group._turn_on()
     if decision.action_type == ControlActionType.DEACTIVATE:
         return group._turn_off()
     return False
+
+
+def _apply_runtime_effect(group: Any, effect: ControlRuntimeEffect) -> None:
+    """Apply a single runtime effect attached to a policy decision."""
+    if (
+        effect.effect_type == ControlRuntimeEffectType.SET_STATE
+        and effect.namespace == "command_echo"
+        and effect.key == "state"
+        and isinstance(effect.value, CommandEchoState)
+    ):
+        group._set_echo_state(effect.value)
+
+
+def _read_presence_states(group: Any) -> list[str]:
+    """Read current area states from the area presence sensor entity."""
+    entity_registry = entity_registry_module.async_get(group.hass)
+    presence_entity_id = entity_registry.async_get_entity_id(
+        "binary_sensor",
+        DOMAIN,
+        f"presence_tracking_{group._area_id}_area_state",
+    )
+    if not presence_entity_id:
+        return []
+
+    state = group.hass.states.get(presence_entity_id)
+    if not state or "states" not in state.attributes:
+        return []
+
+    return [
+        str(s.value) if isinstance(s, Enum) else str(s)
+        for s in state.attributes["states"]
+    ]

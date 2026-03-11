@@ -25,18 +25,30 @@ class MediaControlPolicy(ControlGroupPolicy):
 
     def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
         """Evaluate media control for a canonical control-group context."""
-        media_player_group_id = _as_optional_str(
-            context.signals.get("media_player_group_id")
-        )
+        signals = MediaPolicySignals.from_signals(context.signals)
         return media_state_change_to_control_group(
             new_states=context.new_states,
-            media_player_group_id=media_player_group_id,
+            media_player_group_id=signals.media_player_group_id,
         )
 
 
 def build_media_control_group_policy() -> MediaControlPolicy:
     """Build canonical media control-group policy adapter."""
     return MediaControlPolicy()
+
+
+@dataclass(frozen=True, slots=True)
+class MediaPolicySignals:
+    """Typed runtime inputs for media policy adapters."""
+
+    media_player_group_id: str | None
+
+    @classmethod
+    def from_signals(cls, signals: Any) -> MediaPolicySignals:
+        """Parse typed media signals from control-group context."""
+        if isinstance(signals, cls):
+            return signals
+        return cls(media_player_group_id=None)
 
 
 def media_state_change_to_control_group(
