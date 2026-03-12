@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any
 from homeassistant import config_entries
 from homeassistant.const import ATTR_ENTITY_ID
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.features import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
-    CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.schemas.features import (

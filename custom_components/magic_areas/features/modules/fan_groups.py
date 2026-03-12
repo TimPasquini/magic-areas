@@ -10,14 +10,19 @@ from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.helpers.entity import Entity
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
 from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_contracts import (
+    ControlGroupPolicyId,
+    build_fan_group_id,
+)
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_FAN_GROUPS_REQUIRED_STATE,
     DEFAULT_FAN_GROUPS_SETPOINT,
     DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
@@ -87,7 +92,7 @@ class FanGroupsFeatureModule(BaseFeatureModule):
                     entities.append(AreaFanGroup(area_config, coordinator, fan_entities))
                     group_definitions.append(
                         ControlGroupDefinition(
-                            group_id=f"fan_groups_{area_config.id}_fan_group",
+                            group_id=build_fan_group_id(area_id=area_config.id),
                             members=tuple(fan_entities),
                             trigger_states=(
                                 str(
@@ -99,8 +104,11 @@ class FanGroupsFeatureModule(BaseFeatureModule):
                                     )
                                 ),
                             ),
-                            policy_id="fan_groups",
-                            metadata={"feature": str(MagicAreasFeatures.FAN_GROUPS)},
+                            policy_id=str(ControlGroupPolicyId.FAN_GROUPS),
+                            metadata={
+                                GroupMetadataKey.FEATURE: str(MagicAreasFeatures.FAN_GROUPS),
+                                GroupMetadataKey.ROLE: str(GroupRole.PRIMARY),
+                            },
                         )
                     )
                 except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught
@@ -113,7 +121,7 @@ class FanGroupsFeatureModule(BaseFeatureModule):
         GROUP_REGISTRY.register_area_defaults(
             area_id=area_config.id,
             definitions=group_definitions,
-            policy_id="fan_groups",
+            policy_id=str(ControlGroupPolicyId.FAN_GROUPS),
         )
 
         if not area_config.is_meta():

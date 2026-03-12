@@ -6,7 +6,6 @@ from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.group.fan import FanGroup
 
 from custom_components.magic_areas.entity import MagicGroupEntity
-from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -36,7 +35,7 @@ class AreaFanGroup(MagicGroupEntity, FanGroup):
         FanGroup.__init__(
             self,
             entities=self.member_entity_ids,
-            name=EMPTY_STRING,
+            name="",
             unique_id=self.unique_id,
         )
 

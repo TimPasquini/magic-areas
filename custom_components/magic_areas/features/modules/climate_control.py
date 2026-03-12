@@ -12,19 +12,24 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_contracts import (
+    ControlGroupPolicyId,
+    build_climate_control_group_id,
+)
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 from custom_components.magic_areas.core.group_registry import GROUP_REGISTRY
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
     DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
     DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,
@@ -122,25 +127,26 @@ class ClimateControlFeatureModule(BaseFeatureModule):
                 GROUP_REGISTRY.register_area_defaults(
                     area_id=area_config.id,
                     definitions=[],
-                    policy_id="climate_control",
+                    policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
                 )
                 return []
 
             group_definitions.append(
                 ControlGroupDefinition(
-                    group_id=f"climate_control_{area_config.id}_climate_control",
+                    group_id=build_climate_control_group_id(area_id=area_config.id),
                     members=(climate_entity,),
                     trigger_states=(),
-                    policy_id="climate_control",
+                    policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
                     metadata={
-                        "feature": str(MagicAreasFeatures.CLIMATE_CONTROL),
+                        GroupMetadataKey.FEATURE: str(MagicAreasFeatures.CLIMATE_CONTROL),
+                        GroupMetadataKey.ROLE: str(GroupRole.PRIMARY),
                     },
                 )
             )
             GROUP_REGISTRY.register_area_defaults(
                 area_id=area_config.id,
                 definitions=group_definitions,
-                policy_id="climate_control",
+                policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
             )
             return [switch_platform.ClimateControlSwitch(area_config, coordinator)]
         except Exception as exc:  # pragma: no cover  # pylint: disable=broad-exception-caught

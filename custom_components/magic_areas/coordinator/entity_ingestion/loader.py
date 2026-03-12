@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.entities import (
     CONF_EXCLUDE_ENTITIES,
     CONF_INCLUDE_ENTITIES,
+)
+from custom_components.magic_areas.config_keys.system import (
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
 )
 from custom_components.magic_areas.coordinator.entity_ingestion.snapshots import (

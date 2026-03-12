@@ -8,11 +8,11 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
 )
-from custom_components.magic_areas.defaults import DEFAULT_NOTIFY_STATES
+from custom_components.magic_areas.core.feature_defaults import DEFAULT_NOTIFY_STATES
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,

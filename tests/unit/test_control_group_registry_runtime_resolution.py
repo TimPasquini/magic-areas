@@ -75,6 +75,7 @@ async def test_fan_switch_resolves_group_from_registry(
             group_id="fan_groups_test_area_fan_group",
             members=("fan.ceiling",),
             policy_id="fan_groups",
+            metadata={"role": "primary"},
         ),
     )
     monkeypatch.setattr(
@@ -126,6 +127,7 @@ async def test_media_switch_resolves_group_from_registry(
             group_id="media_player_groups_test_area_media_player_group",
             members=("media_player.tv",),
             policy_id="media_player_groups",
+            metadata={"role": "primary"},
         ),
     )
     monkeypatch.setattr(

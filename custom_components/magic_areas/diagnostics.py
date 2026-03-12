@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as entityreg_async_get
 
 from custom_components.magic_areas.attrs import ATTR_STATES
-from custom_components.magic_areas.config_keys import CONF_ID, CONF_NAME
+from custom_components.magic_areas.config_keys.area import CONF_ID, CONF_NAME
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 

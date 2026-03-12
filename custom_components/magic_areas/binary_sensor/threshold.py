@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
 from custom_components.magic_areas.core.thresholds import (
@@ -101,7 +100,7 @@ class AreaThresholdSensor(MagicEntity, ThresholdSensor):
             self,
             hass,
             entity_id=entity_id,
-            name=EMPTY_STRING,
+            name="",
             unique_id=self.unique_id,
             lower=lower,
             upper=upper,

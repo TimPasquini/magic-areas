@@ -1,0 +1,12 @@
+{
+  "commit": "0a1ce6016b7e5bf4eb8ec2291e3614900a57071e",
+  "date": "2026-03-02",
+  "label": "Recomposition start",
+  "py_files": 123,
+  "reference_id": "recomposition_start",
+  "role": "reference",
+  "short": "0a1ce60",
+  "subject": "refactor(light): recompose light groups into vertical slice and remove legacy control shims",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 134
+}

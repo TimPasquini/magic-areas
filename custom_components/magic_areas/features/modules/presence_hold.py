@@ -10,8 +10,12 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
-from custom_components.magic_areas.config_keys import CONF_PRESENCE_HOLD_TIMEOUT
-from custom_components.magic_areas.defaults import DEFAULT_PRESENCE_HOLD_TIMEOUT
+from custom_components.magic_areas.config_keys.features import (
+    CONF_PRESENCE_HOLD_TIMEOUT,
+)
+from custom_components.magic_areas.core.feature_defaults import (
+    DEFAULT_PRESENCE_HOLD_TIMEOUT,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,

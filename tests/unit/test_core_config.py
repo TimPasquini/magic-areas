@@ -177,6 +177,52 @@ def test_normalize_custom_control_groups_ignores_invalid() -> None:
     assert groups == []
 
 
+def test_normalize_custom_control_groups_ignores_reserved_policy_ids() -> None:
+    """Custom groups should reject reserved built-in policy IDs."""
+    config = {
+        CONF_CUSTOM_CONTROL_GROUPS: [
+            {
+                "group_id": "control.invalid",
+                "members": ["light.task"],
+                "policy_id": "fan_groups",
+            },
+            {
+                "group_id": "control.valid",
+                "members": ["light.task"],
+                "policy_id": "custom_control_group",
+            },
+        ]
+    }
+
+    groups = normalize_custom_control_groups(config)
+
+    assert len(groups) == 1
+    assert groups[0].group_id == "control.valid"
+
+
+def test_normalize_custom_control_groups_ignores_duplicate_ids() -> None:
+    """Custom groups should keep first unique group_id and ignore duplicates."""
+    config = {
+        CONF_CUSTOM_CONTROL_GROUPS: [
+            {
+                "group_id": "control.task",
+                "members": ["light.a"],
+                "policy_id": "custom_control_group",
+            },
+            {
+                "group_id": "control.task",
+                "members": ["light.b"],
+                "policy_id": "custom_control_group",
+            },
+        ]
+    }
+
+    groups = normalize_custom_control_groups(config)
+
+    assert len(groups) == 1
+    assert groups[0].members == ("light.a",)
+
+
 # Integration tests from test_magic.py
 
 

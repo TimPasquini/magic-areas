@@ -6,11 +6,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_FAN_GROUPS_REQUIRED_STATE,
     DEFAULT_FAN_GROUPS_SETPOINT,
 )

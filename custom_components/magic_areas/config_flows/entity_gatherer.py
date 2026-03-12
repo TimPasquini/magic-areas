@@ -18,7 +18,7 @@ from custom_components.magic_areas.config_flow_filters import (
     CONFIG_FLOW_ENTITY_FILTER_BOOL,
     CONFIG_FLOW_ENTITY_FILTER_EXT,
 )
-from custom_components.magic_areas.config_keys import CONF_EXCLUDE_ENTITIES
+from custom_components.magic_areas.config_keys.entities import CONF_EXCLUDE_ENTITIES
 
 # Additional light tracking entities (e.g., non-device-class based)
 ADDITIONAL_LIGHT_TRACKING_ENTITIES = [

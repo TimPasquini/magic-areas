@@ -12,11 +12,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.area_state import META_AREA_GLOBAL
 from custom_components.magic_areas.features.dispatch import collect_feature_entities
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_NOTIFY_STATES,
 )
 from custom_components.magic_areas.const import DOMAIN

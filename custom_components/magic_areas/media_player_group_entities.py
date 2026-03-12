@@ -6,7 +6,6 @@ from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 
 from custom_components.magic_areas.entity import MagicGroupEntity
-from custom_components.magic_areas.config_keys import EMPTY_STRING
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -35,7 +34,7 @@ class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
         )
         MediaPlayerGroup.__init__(
             self,
-            name=EMPTY_STRING,
+            name="",
             unique_id=self._attr_unique_id,
             entities=self.member_entity_ids,
         )

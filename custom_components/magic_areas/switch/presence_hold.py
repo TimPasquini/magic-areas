@@ -7,10 +7,10 @@ from homeassistant.const import EntityCategory
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_PRESENCE_HOLD_TIMEOUT,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_PRESENCE_HOLD_TIMEOUT,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures

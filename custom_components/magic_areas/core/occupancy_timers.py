@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import CONF_SECONDARY_STATES
+from custom_components.magic_areas.config_keys.presence import (
     CONF_CLEAR_TIMEOUT,
     CONF_EXTENDED_TIMEOUT,
-    CONF_SECONDARY_STATES,
     CONF_SLEEP_TIMEOUT,
 )
 from custom_components.magic_areas.defaults import (

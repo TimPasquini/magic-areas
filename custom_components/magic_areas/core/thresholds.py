@@ -12,16 +12,18 @@ from homeassistant.core import HomeAssistant
 from custom_components.magic_areas.core.aggregate_runtime import (
     resolve_aggregate_entity_id,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.aggregates import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.aggregate_defaults import (
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
 )
-from custom_components.magic_areas.defaults import DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES
+from custom_components.magic_areas.core.aggregate_defaults import (
+    DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover

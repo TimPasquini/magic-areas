@@ -29,8 +29,14 @@ High-level status:
   - Policy runtime transitions are represented as canonical runtime effects.
 - **Layer 4 (Execution Layer): Implemented**
   - Shared execution in `core/control_group_executor.py`.
-- **Layer 5/6/9: Partial**
-  - Group-model consolidation, entity thinning, and constants cleanup remain.
+- **Layer 5 (Groups): Implemented**
+  - Group contracts, typed metadata, deterministic selectors, and custom-group
+    guardrails are in place.
+- **Layer 9: Partial**
+  - Constants cleanup remains.
+- **Layer 6 (Entities): Implemented**
+  - Entity adapters are now thin and delegate decision/execution concerns to
+    helper/policy/runtime boundaries.
 
 ## What “Good Refactoring” Means Here
 
@@ -50,9 +56,7 @@ A change is not good if it:
 ## Current Priorities
 
 From the architecture roadmap, current order is:
-1. **Layer 6**: Thin remaining heavy entity/event adapters (especially light glue).
-2. **Layer 5**: Consolidate group lifecycle and lookup patterns.
-3. **Layer 9**: Continue constants cleanup to keep only true shared values central.
+1. **Layer 9**: Continue constants cleanup to keep only true shared values central.
 
 ## Contributor Rules
 
@@ -81,7 +85,7 @@ uv run mypy custom_components/magic_areas tests
 uv run pytest ./tests --numprocesses=auto -q
 ```
 
-As of this update, latest full run baseline is **823 passing tests**.
+As of this update, latest full run baseline is **843 passing tests**.
 
 ## Recommended Workflow
 

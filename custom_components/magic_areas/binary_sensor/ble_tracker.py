@@ -15,7 +15,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_BLE_TRACKER_ENTITIES,
 )
 from custom_components.magic_areas.attrs import (

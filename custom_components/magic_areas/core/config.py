@@ -7,12 +7,15 @@ from typing import Any
 
 from custom_components.magic_areas.area_maps import CONFIGURABLE_AREA_STATE_MAP
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
 )
 from custom_components.magic_areas.core.control_group import ControlGroupDefinition
+from custom_components.magic_areas.core.group_contracts import ControlGroupPolicyId
+from custom_components.magic_areas.core.group_contracts import is_reserved_policy_id
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 
 
 def normalize_feature_key(feature: Any) -> str:
@@ -80,21 +83,43 @@ def normalize_custom_control_groups(
         return []
 
     normalized: list[ControlGroupDefinition] = []
+    seen_group_ids: set[str] = set()
+    primary_role_policies: set[str] = set()
     for raw_group in raw_groups:
         if not isinstance(raw_group, dict):
             continue
         group_id = raw_group.get("group_id")
         members = raw_group.get("members")
-        if not isinstance(group_id, str) or not isinstance(members, list):
+        if (
+            not isinstance(group_id, str)
+            or not group_id
+            or not isinstance(members, list)
+            or group_id in seen_group_ids
+        ):
             continue
+        seen_group_ids.add(group_id)
+
+        policy_id = str(raw_group.get("policy_id", ControlGroupPolicyId.CUSTOM_CONTROL_GROUP))
+        if (
+            is_reserved_policy_id(policy_id)
+            and policy_id != str(ControlGroupPolicyId.CUSTOM_CONTROL_GROUP)
+        ):
+            continue
+
         metadata_value = raw_group.get("metadata")
         metadata: dict[str, Any] = metadata_value if isinstance(metadata_value, dict) else {}
+        role = metadata.get(str(GroupMetadataKey.ROLE))
+        if role == str(GroupRole.PRIMARY):
+            if policy_id in primary_role_policies:
+                continue
+            primary_role_policies.add(policy_id)
+
         normalized.append(
             ControlGroupDefinition(
                 group_id=group_id,
                 members=tuple(str(member) for member in members),
                 trigger_states=tuple(str(state) for state in raw_group.get("trigger_states", [])),
-                policy_id=str(raw_group.get("policy_id", "custom_control_group")),
+                policy_id=policy_id,
                 metadata=metadata,
             )
         )

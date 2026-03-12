@@ -17,10 +17,6 @@ from custom_components.magic_areas.entity import MagicGroupEntity
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.config_keys import (
-    EMPTY_STRING,
-)
-from custom_components.magic_areas.const import DEFAULT_SENSOR_PRECISION
 from custom_components.magic_areas.policy import (
     AGGREGATE_MODE_SUM,
     AGGREGATE_MODE_TOTAL_INCREASING_SENSOR,
@@ -28,6 +24,7 @@ from custom_components.magic_areas.policy import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+DEFAULT_SENSOR_DISPLAY_PRECISION = 2
 
 
 class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
@@ -60,7 +57,7 @@ class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
         else:
             final_unit_of_measurement = unit_of_measurement
 
-        self._attr_suggested_display_precision = DEFAULT_SENSOR_PRECISION
+        self._attr_suggested_display_precision = DEFAULT_SENSOR_DISPLAY_PRECISION
 
         sensor_device_class: SensorDeviceClass | None = (
             SensorDeviceClass(device_class) if device_class else None
@@ -77,7 +74,7 @@ class AreaSensorGroupSensor(MagicGroupEntity, SensorGroup):
         SensorGroup.__init__(
             self,
             hass,
-            name=EMPTY_STRING,
+            name="",
             unique_id=self._attr_unique_id,
             entity_ids=self.member_entity_ids,
             unit_of_measurement=final_unit_of_measurement,

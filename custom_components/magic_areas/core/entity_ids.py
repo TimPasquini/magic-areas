@@ -18,6 +18,11 @@ from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.group_contracts import (
+    ControlGroupPolicyId,
+    build_fan_group_id,
+    build_media_player_group_id,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.helpers.entity_registry import EntityRegistry
@@ -120,7 +125,7 @@ def build_entity_references(
     refs.fan_group = _lookup(
         entity_registry,
         FAN_DOMAIN,
-        f"fan_groups_{area_id}_fan_group",
+        build_fan_group_id(area_id=area_id),
     )
     refs.fan_control_switch = _lookup(
         entity_registry,
@@ -132,7 +137,7 @@ def build_entity_references(
     refs.media_player_group = _lookup(
         entity_registry,
         MEDIA_PLAYER_DOMAIN,
-        f"media_player_groups_{area_id}_media_player_group",
+        build_media_player_group_id(area_id=area_id),
     )
     refs.media_player_control_switch = _lookup(
         entity_registry,
@@ -179,7 +184,7 @@ def build_entity_references(
     aggregate_sensor_prefix = f"{_AGGREGATES_PREFIX}_{area_id}_aggregate_"
 
     # Light group unique_ids: light_groups_{area_id}_{category}
-    light_group_prefix = f"light_groups_{area_id}_"
+    light_group_prefix = f"{ControlGroupPolicyId.LIGHT_GROUPS}_{area_id}_"
 
     # Threshold unique_ids: threshold_{area_id}_{device_class}
     threshold_prefix = f"threshold_{area_id}_"

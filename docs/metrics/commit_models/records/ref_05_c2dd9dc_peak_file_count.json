@@ -1,0 +1,12 @@
+{
+  "commit": "c2dd9dc6258115259b570d5d05dee78d9dda4135",
+  "date": "2026-03-12",
+  "label": "Peak file-count point",
+  "py_files": 155,
+  "reference_id": "peak_file_count",
+  "role": "reference",
+  "short": "c2dd9dc",
+  "subject": "refactor(config-keys): decompose config_keys into scoped modules",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 169
+}

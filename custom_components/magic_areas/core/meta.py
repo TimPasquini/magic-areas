@@ -15,7 +15,7 @@ from custom_components.magic_areas.area_state import (
     AreaType,
     MetaAreaType,
 )
-from custom_components.magic_areas.config_keys import CONF_TYPE
+from custom_components.magic_areas.config_keys.area import CONF_TYPE
 from custom_components.magic_areas.core.area_model import AreaDescriptor
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -13,7 +13,8 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.event import EventStateChangedData
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.const import DOMAIN, EVENT_MAGICAREAS_AREA_STATE_CHANGED
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.light_groups.policy import (
     LightPolicySignals,
@@ -43,7 +44,7 @@ def register_group_listeners(group: Any) -> None:
     """Register light-group listeners once during setup."""
     group.track_group_listener(
         async_dispatcher_connect(
-            group.hass, EVENT_MAGICAREAS_AREA_STATE_CHANGED, group.area_state_changed
+            group.hass, MagicAreasEvents.AREA_STATE_CHANGED, group.area_state_changed
         ),
         "area_state_dispatcher",
     )

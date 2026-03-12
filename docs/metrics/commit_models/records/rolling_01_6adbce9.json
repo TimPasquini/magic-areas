@@ -1,0 +1,11 @@
+{
+  "commit": "6adbce9ebbfa33c06be909024c9b635183c51275",
+  "date": "2026-03-12",
+  "py_files": 146,
+  "role": "rolling",
+  "rolling_index": 1,
+  "short": "6adbce9",
+  "subject": "refactor(layer9): reduce tiny-module sprawl across config keys and feature defaults",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 160
+}

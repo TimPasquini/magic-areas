@@ -12,13 +12,13 @@ from homeassistant.components.climate.const import (
     SERVICE_SET_PRESET_MODE,
 )
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_EXTENDED,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_CLIMATE_CONTROL_PRESET_CLEAR,
     DEFAULT_CLIMATE_CONTROL_PRESET_EXTENDED,
     DEFAULT_CLIMATE_CONTROL_PRESET_OCCUPIED,

@@ -25,10 +25,10 @@ from custom_components.magic_areas.core.control_group import ControlGroupContext
 from custom_components.magic_areas.core.control_group_executor import (
     execute_control_group_decision,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS,
 )
 from custom_components.magic_areas.area_state import AreaStates
@@ -38,8 +38,10 @@ from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
 from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_entity_id,
+    resolve_group_entity_id_by_metadata,
 )
+from custom_components.magic_areas.core.group_contracts import ControlGroupPolicyId
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
 
@@ -113,13 +115,14 @@ class FanControlSwitch(SwitchBase):
                 f"aggregates_{self._area_id}_aggregate_{self._tracked_device_class}",
             )
         if not self._fan_group_entity_id:
-            self._fan_group_entity_id = resolve_group_entity_id(
+            self._fan_group_entity_id = resolve_group_entity_id_by_metadata(
                 self.hass,
                 area_id=self._area_id,
-                policy_id="fan_groups",
+                policy_id=str(ControlGroupPolicyId.FAN_GROUPS),
                 domain=FAN_DOMAIN,
+                metadata_key=str(GroupMetadataKey.ROLE),
+                metadata_value=str(GroupRole.PRIMARY),
             )
-
         self._listener_registry.track(
             "area_state_dispatcher",
             async_dispatcher_connect(

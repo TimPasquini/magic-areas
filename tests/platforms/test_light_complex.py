@@ -11,10 +11,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
-from custom_components.magic_areas.const import (
-    DOMAIN,
-    EVENT_MAGICAREAS_AREA_STATE_CHANGED,
-)
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
@@ -106,7 +104,7 @@ async def test_light_group_state_change_logic(
     # 1. Area occupied -> Light ON
     async_dispatcher_send(
         hass,
-        EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+        MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
         create_area_state_change_event(
             new_states=[AreaStates.OCCUPIED],
@@ -119,7 +117,7 @@ async def test_light_group_state_change_logic(
     # 2. Area clear -> Light OFF
     async_dispatcher_send(
         hass,
-        EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+        MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
         create_area_state_change_event(
             new_states=[AreaStates.CLEAR],
@@ -133,7 +131,7 @@ async def test_light_group_state_change_logic(
     # 3. Area Bright (but not occupied) -> Light OFF (should stay off)
     async_dispatcher_send(
         hass,
-        EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+        MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
         create_area_state_change_event(
             new_states=[AreaStates.BRIGHT],
@@ -146,7 +144,7 @@ async def test_light_group_state_change_logic(
     # 4. Area Occupied + Bright -> Light ON (because Bright is configured state)
     async_dispatcher_send(
         hass,
-        EVENT_MAGICAREAS_AREA_STATE_CHANGED,
+        MagicAreasEvents.AREA_STATE_CHANGED,
         DEFAULT_MOCK_AREA.value,
         create_area_state_change_event(
             new_states=[AreaStates.OCCUPIED],

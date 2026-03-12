@@ -21,8 +21,6 @@ from homeassistant.helpers.selector import (
     ObjectSelectorConfig,
 )
 
-from custom_components.magic_areas.config_keys import EMPTY_STRING
-
 
 class NullableEntitySelector(EntitySelector):
     """Entity selector that supports null values.
@@ -52,7 +50,7 @@ def build_selector_boolean() -> BooleanSelector:
 def build_selector_select(
     options: list | None = None,
     multiple: bool = False,
-    translation_key: str = EMPTY_STRING,
+    translation_key: str = "",
 ) -> SelectSelector:
     """Build a select dropdown selector.
 

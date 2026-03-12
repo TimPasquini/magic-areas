@@ -12,8 +12,12 @@ from homeassistant.helpers.entity import Entity
 from custom_components.magic_areas.binary_sensor import (
     create_health_sensors,
 )
-from custom_components.magic_areas.config_keys import CONF_HEALTH_SENSOR_DEVICE_CLASSES
-from custom_components.magic_areas.defaults import DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES
+from custom_components.magic_areas.config_keys.aggregates import (
+    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+)
+from custom_components.magic_areas.core.aggregate_defaults import (
+    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,

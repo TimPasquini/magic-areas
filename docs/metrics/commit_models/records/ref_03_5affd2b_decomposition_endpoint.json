@@ -1,0 +1,12 @@
+{
+  "commit": "5affd2b40aa7cf61cce55c4fc6497960f4ea0ec1",
+  "date": "2026-03-02",
+  "label": "Decomposition endpoint",
+  "py_files": 121,
+  "reference_id": "decomposition_endpoint",
+  "role": "reference",
+  "short": "5affd2b",
+  "subject": "refactor(core): package entity loading pipeline and add contracts",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 132
+}

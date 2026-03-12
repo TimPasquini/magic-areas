@@ -73,7 +73,7 @@ async def test_async_added_to_hass_resolves_climate_entity_from_registry_member(
 
     resolver_mock = MagicMock(return_value="climate.test_area")
     monkeypatch.setattr(
-        "custom_components.magic_areas.switch.climate_control.resolve_group_member_entity_id",
+        "custom_components.magic_areas.switch.climate_control.resolve_group_member_entity_id_by_metadata",
         resolver_mock,
     )
 
@@ -85,6 +85,8 @@ async def test_async_added_to_hass_resolves_climate_entity_from_registry_member(
     resolver_mock.assert_called_once_with(
         area_id="test_area",
         policy_id="climate_control",
+        metadata_key="role",
+        metadata_value="primary",
     )
     assert switch.climate_entity_id == "climate.test_area"
 

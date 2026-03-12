@@ -13,7 +13,9 @@ from custom_components.magic_areas.config_keys import (
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.defaults import DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES
+from custom_components.magic_areas.core.aggregate_defaults import (
+    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (

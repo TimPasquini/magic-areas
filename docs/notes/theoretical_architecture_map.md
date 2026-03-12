@@ -263,21 +263,30 @@ Current:
   control-group execution.
 
 ## Layer 5: Groups (Definitions + Membership)
-**Status:** `Partial`
+**Status:** `Implemented`
 **Purpose:** Explicit group definitions for control and aggregation.
 
 Current:
 - Unified group registry exists for defaults and area-scoped custom groups.
-- Feature modules register area-scoped default control-group definitions.
+- Feature modules register area-scoped default control-group definitions with
+  canonical policy IDs and metadata keys.
 - Cross-domain custom control groups are exposed through config flow, with
   starter templates for common scenarios.
+- Deterministic metadata-based target resolution is used for fan/climate/media.
+- Aggregate runtime resolution uses shared metadata-filtered resolver primitives.
+- Custom-group schema/config normalization now enforces guardrails for duplicate
+  IDs, reserved policy IDs, and ambiguous primary-role metadata.
 
 ## Layer 6: Entities (Thin Adapters)
-**Status:** `Partial`
+**Status:** `Implemented`
 **Purpose:** HA entity adapters without policy-heavy logic.
 
 Current:
-- Some entities are thin; light still has meaningful event/control glue.
+- Entity adapters delegate policy decisions to canonical policy modules.
+- Light-group runtime/event glue is split into focused helper modules:
+  `light_groups/actions.py`, `light_groups/events.py`, and
+  `light_groups/runtime.py`.
+- Entities focus on HA lifecycle wiring, state restoration, and dispatch.
 
 ## Layer 7: Platforms (HA Required)
 **Status:** `Implemented`
@@ -298,15 +307,19 @@ Current:
 **Purpose:** Shared values only.
 
 Current:
-- Improved but still evolving (`config_keys.py` + `defaults.py` split).
-- Additional consolidation may follow during control-group work.
+- Feature defaults are now localized; cross-cutting `defaults.py` contains
+  area-level shared values only.
+- Duplicated empty-string constants were removed from central modules.
+- Module-scoped tuning constants now live in owners (for example sensor display
+  precision and presence polling interval).
+- `config_keys` is now decomposed as feature/domain-scoped modules behind a
+  stable public package surface.
+- Runtime and feature modules now consume scoped key modules directly; broad
+  package imports remain only in mixed schema/config-flow surfaces.
+- Additional consolidation still remains for non-config runtime constants.
 
 ---
 
 ## Near-Term Recommended Order
-1. Continue entity-thinning work (Layer 6), especially reducing light event
-   glue and pushing remaining orchestration into shared runtime helpers.
-2. Continue group-model consolidation (Layer 5) so control/aggregate group
-   lifecycle and lookup patterns remain consistent across features.
-3. Continue constants cleanup (Layer 9) to keep only true cross-cutting shared
+1. Continue constants cleanup (Layer 9) to keep only true cross-cutting shared
    values in central constants modules.

@@ -18,7 +18,7 @@ from homeassistant.helpers.entity_registry import (
 )
 from homeassistant.util import dt as dt_util
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.system import (
     CONF_RELOAD_ON_REGISTRY_CHANGE,
 )
 from custom_components.magic_areas.defaults import (

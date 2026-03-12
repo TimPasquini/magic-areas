@@ -19,7 +19,7 @@ from homeassistant.helpers.floor_registry import (
 from homeassistant.util import slugify
 
 from custom_components.magic_areas.area_state import MetaAreaType
-from custom_components.magic_areas.config_keys import CONF_TYPE
+from custom_components.magic_areas.config_keys.area import CONF_TYPE
 from custom_components.magic_areas.core.area_config import AreaConfig
 from custom_components.magic_areas.icons import MetaAreaIcons
 

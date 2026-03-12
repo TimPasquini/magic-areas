@@ -24,8 +24,10 @@ from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
 )
 from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_entity_id,
+    resolve_group_entity_id_by_metadata,
 )
+from custom_components.magic_areas.core.group_contracts import ControlGroupPolicyId
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.switch.base import SwitchBase
 
@@ -64,13 +66,14 @@ class MediaPlayerControlSwitch(SwitchBase):
                 self._coordinator.data.entity_references.media_player_group
             )
         if not self.media_player_group_id:
-            self.media_player_group_id = resolve_group_entity_id(
+            self.media_player_group_id = resolve_group_entity_id_by_metadata(
                 self.hass,
                 area_id=self._area_id,
-                policy_id="media_player_groups",
+                policy_id=str(ControlGroupPolicyId.MEDIA_PLAYER_GROUPS),
                 domain=MEDIA_PLAYER_DOMAIN,
+                metadata_key=str(GroupMetadataKey.ROLE),
+                metadata_value=str(GroupRole.PRIMARY),
             )
-
         self._listener_registry.track(
             "area_state_dispatcher",
             async_dispatcher_connect(

@@ -632,6 +632,45 @@ def test_light_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
     assert "light_groups_area-1_task_lights" not in group_ids
 
 
+def test_light_groups_module_clears_stale_groups_when_no_lights_remain() -> None:
+    """Light module should clear stale light_groups entries when no lights remain."""
+    area_config = _make_area_config()
+    module = _get_light_groups_module()
+    registry = GroupRegistry()
+
+    initial_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    updated_snapshot = _make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={},
+    )
+
+    with patch(
+        "custom_components.magic_areas.features.modules.light_groups.GROUP_REGISTRY",
+        registry,
+    ):
+        module.build_entities(area_config, _make_coordinator(initial_snapshot), initial_snapshot)
+        module.build_entities(area_config, _make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "light_groups_area-1_all_lights" not in group_ids
+    assert "light_groups_area-1_overhead_lights" not in group_ids
+
+
 def test_fan_groups_module_builds_group_and_control_switch() -> None:
     """Fan groups module should build fan group and control switch."""
     area_config = _make_area_config()

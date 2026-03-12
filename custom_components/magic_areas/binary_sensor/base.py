@@ -9,7 +9,6 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.components.group.binary_sensor import BinarySensorGroup
 
 from custom_components.magic_areas.entity import MagicGroupEntity
-from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.policy import AGGREGATE_MODE_ALL
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -42,7 +41,7 @@ class AreaSensorGroupBinarySensor(MagicGroupEntity, BinarySensorGroup):
             device_class=(
                 BinarySensorDeviceClass(device_class) if device_class else None
             ),
-            name=EMPTY_STRING,
+            name="",
             unique_id=self._attr_unique_id,
             entity_ids=self.member_entity_ids,
             mode=device_class in AGGREGATE_MODE_ALL,

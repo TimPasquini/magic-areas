@@ -37,8 +37,8 @@ Snapshot of current state:
 - Layer 2 (Feature Modules): Implemented
 - Layer 3 (Policy Layer): Implemented
 - Layer 4 (Execution Layer): Implemented
-- Layer 5 (Groups): Partial
-- Layer 6 (Entities): Partial
+- Layer 5 (Groups): Implemented
+- Layer 6 (Entities): Implemented
 - Layer 7 (Platforms): Implemented
 - Layer 8 (Config Flow): Implemented
 - Layer 9 (Constants/Enums): Partial
@@ -52,41 +52,32 @@ Snapshot of current state:
 - Canonical runtime effects in `ControlGroupDecision`
 - Shared runtime effect execution support in executor boundary
 - Policy purity contract coverage
+- Layer 5 group-model consolidation:
+  - canonical group/policy contracts (`core/group_contracts.py`)
+  - typed metadata contracts (`core/group_metadata.py`)
+  - deterministic metadata-based resolution for fan/climate/media targets
+  - unified metadata-filtered runtime lookup surface for aggregate/control paths
+  - custom-group guardrails in schema + normalization
+  - stale-default prevention across rebuild cycles
+- Layer 9 progress:
+  - moved fan/climate/wasp/presence-hold/aggregate/media feature defaults into
+    feature-local default modules
+  - reduced cross-cutting `defaults.py` to area-level shared defaults only
+  - removed duplicated empty-string constants from `const.py`/`config_keys.py`
+    and localized empty-name handling at call sites
+  - moved sensor display precision and presence polling interval constants to
+    their owning modules
+  - kept config-flow light-tracking extras in
+    `config_flows/entity_gatherer.py` (instead of global `const.py`)
+  - split `config_keys` into a package with feature/domain-scoped key modules
+    while preserving `custom_components.magic_areas.config_keys` public imports
+  - migrated nearly all source imports to scoped key modules
+    (`config_keys.area`, `config_keys.entities`, etc.); only mixed-purpose
+    schema/config-flow forms still use broad imports
 
 ## Active priorities
 
-### Priority 1: Layer 6 entity thinning
-
-Target:
-- reduce policy/execution glue still embedded in entities/events
-- align entity/event handlers to adapter-only responsibilities
-
-Expected work:
-- move reusable orchestration logic into shared runtime helpers
-- keep entity code focused on lifecycle + dispatch wiring
-- remove duplicate event transition handling where shared patterns exist
-
-Acceptance criteria:
-- entity/event modules become smaller and more uniform
-- no policy-side effects introduced
-- full quality gates pass
-
-### Priority 2: Layer 5 group-model consolidation
-
-Target:
-- make control/aggregate group lifecycle and lookup behavior consistent
-
-Expected work:
-- align registration, resolution, and precedence paths
-- reduce feature-specific custom lookup branches
-- tighten group metadata contracts
-
-Acceptance criteria:
-- shared group lookup patterns across features
-- fewer per-feature fallback paths
-- parity tests remain green
-
-### Priority 3: Layer 9 constants/enums cleanup
+### Priority 1: Layer 9 constants/enums cleanup
 
 Target:
 - keep central constants files limited to true cross-cutting values

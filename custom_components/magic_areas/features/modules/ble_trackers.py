@@ -17,13 +17,14 @@ from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
 )
-from custom_components.magic_areas.config_keys import CONF_BLE_TRACKER_ENTITIES
-from custom_components.magic_areas.defaults import DEFAULT_BLE_TRACKER_ENTITIES
+from custom_components.magic_areas.config_keys.features import CONF_BLE_TRACKER_ENTITIES
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+
+DEFAULT_BLE_TRACKER_ENTITIES: list[str] = []
 
 
 BLE_TRACKER_FEATURE_SCHEMA = vol.Schema(

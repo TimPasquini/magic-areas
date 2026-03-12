@@ -7,9 +7,9 @@ from datetime import datetime
 from homeassistant.const import STATE_ON
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import CONF_SECONDARY_STATES
+from custom_components.magic_areas.config_keys.presence import (
     CONF_EXTENDED_TIME,
-    CONF_SECONDARY_STATES,
 )
 from custom_components.magic_areas.defaults import (
     DEFAULT_EXTENDED_TIME,

@@ -170,6 +170,32 @@ def test_get_first_for_area_policy_returns_match() -> None:
     assert missing is None
 
 
+def test_get_first_for_area_policy_is_deterministic() -> None:
+    """Policy-filtered lookup should be deterministic across insertion order."""
+    registry = GroupRegistry()
+    registry.register_area_default(
+        "office",
+        ControlGroupDefinition(
+            group_id="fan_groups_office_zeta",
+            members=("fan.zeta",),
+            policy_id="fan_groups",
+        ),
+    )
+    registry.register_area_default(
+        "office",
+        ControlGroupDefinition(
+            group_id="fan_groups_office_alpha",
+            members=("fan.alpha",),
+            policy_id="fan_groups",
+        ),
+    )
+
+    match = registry.get_first_for_area_policy("office", "fan_groups")
+
+    assert match is not None
+    assert match.definition.group_id == "fan_groups_office_alpha"
+
+
 def test_register_area_customs_replaces_prior_custom_groups() -> None:
     """register_area_customs should replace existing area custom entries."""
     registry = GroupRegistry()

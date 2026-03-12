@@ -27,14 +27,14 @@ from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigStep,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.aggregates import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.aggregate_defaults import (
     DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
     DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,

@@ -10,9 +10,7 @@ from homeassistant.core import callback
 
 from custom_components.magic_areas.config_flows.base import ConfigBase
 from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
-from custom_components.magic_areas.config_keys import (
-    CONF_ID,
-)
+from custom_components.magic_areas.config_keys.area import CONF_ID
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.discovery import (
     build_area_selector_options,

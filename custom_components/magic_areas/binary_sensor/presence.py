@@ -36,12 +36,13 @@ from custom_components.magic_areas.attrs import (
     ATTR_STATES,
     ATTR_TYPE,
 )
-from custom_components.magic_areas.config_keys import (
-    CONF_KEEP_ONLY_ENTITIES,
+from custom_components.magic_areas.config_keys.area import (
     CONF_SECONDARY_STATES,
-    CONF_SECONDARY_STATES_CALCULATION_MODE,
     CONF_TYPE,
-    EMPTY_STRING,
+)
+from custom_components.magic_areas.config_keys.entities import CONF_KEEP_ONLY_ENTITIES
+from custom_components.magic_areas.config_keys.presence import (
+    CONF_SECONDARY_STATES_CALCULATION_MODE,
 )
 from custom_components.magic_areas.defaults import (
     DEFAULT_SECONDARY_STATES_CALCULATION_MODE,
@@ -52,7 +53,6 @@ from custom_components.magic_areas.area_maps import (
 from custom_components.magic_areas.const import (
     DOMAIN,
     ONE_MINUTE,
-    UPDATE_INTERVAL,
 )
 from custom_components.magic_areas.core.listener_registry import (
     ListenerRegistry,
@@ -66,6 +66,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+UPDATE_INTERVAL_SECONDS = ONE_MINUTE
 
 
 class AreaStateTrackerEntity(BinaryMagicEntity):
@@ -142,7 +143,7 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             )
 
         # Timed self update
-        delta = timedelta(seconds=UPDATE_INTERVAL)
+        delta = timedelta(seconds=UPDATE_INTERVAL_SECONDS)
         self._listener_registry.track(
             "periodic_update",
             async_track_time_interval(self.hass, self._update_state, delta),
@@ -387,7 +388,7 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
         BinarySensorEntity.__init__(self)
 
         self._area_icon = area_config.icon or self.feature_info.icons.get(
-            BINARY_SENSOR_DOMAIN, EMPTY_STRING
+            BINARY_SENSOR_DOMAIN, ""
         )
 
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY

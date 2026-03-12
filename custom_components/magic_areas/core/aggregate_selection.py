@@ -15,20 +15,20 @@ from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
 )
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.aggregates import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.aggregate_defaults import (
     DEFAULT_AGGREGATES_MIN_ENTITIES,
 )
 from custom_components.magic_areas.core.aggregate_specs import (
     BinarySensorAggregateSpec,
     SensorAggregateSpec,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.aggregate_defaults import (
     DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
     DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,

@@ -8,8 +8,8 @@ from homeassistant import config_entries
 from custom_components.magic_areas.config_flows.feature_registry import (
     FEATURE_REGISTRY,
 )
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.features import (
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures

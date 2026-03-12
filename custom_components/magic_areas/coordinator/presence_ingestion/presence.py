@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.presence import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )

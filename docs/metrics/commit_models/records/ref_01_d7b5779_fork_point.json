@@ -1,0 +1,12 @@
+{
+  "commit": "d7b577915a2b692d3f8b55987781d5601c2fec37",
+  "date": "2025-10-29",
+  "label": "Fork point",
+  "py_files": 29,
+  "reference_id": "fork_point",
+  "role": "reference",
+  "short": "d7b5779",
+  "subject": "Polish translation (#574)",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 39
+}

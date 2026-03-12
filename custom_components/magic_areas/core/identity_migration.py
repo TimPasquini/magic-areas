@@ -10,7 +10,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import slugify
 
 from custom_components.magic_areas.components import MAGICAREAS_UNIQUEID_PREFIX
-from custom_components.magic_areas.config_keys import CONF_ID
+from custom_components.magic_areas.config_keys.area import CONF_ID
 from custom_components.magic_areas.models import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

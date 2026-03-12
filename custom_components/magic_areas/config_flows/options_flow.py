@@ -26,7 +26,7 @@ from custom_components.magic_areas.config_flows.steps.feature_config import (
 from custom_components.magic_areas.config_flows.steps.feature_config_climate import (
     handle_climate_preset_selection,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.models import MagicAreasConfigEntry

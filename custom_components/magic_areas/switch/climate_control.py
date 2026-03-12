@@ -13,7 +13,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.area_config import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
 )
 from custom_components.magic_areas.core.climate_control import (
@@ -25,8 +25,10 @@ from custom_components.magic_areas.core.climate_control import (
 )
 from custom_components.magic_areas.core.control_group import ControlGroupContext
 from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_member_entity_id,
+    resolve_group_member_entity_id_by_metadata,
 )
+from custom_components.magic_areas.core.group_contracts import ControlGroupPolicyId
+from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 from custom_components.magic_areas.core.control_group_executor import (
     execute_control_group_decision,
 )
@@ -75,11 +77,12 @@ class ClimateControlSwitch(SwitchBase):
         await super().async_added_to_hass()
 
         if not self.climate_entity_id:
-            self.climate_entity_id = resolve_group_member_entity_id(
+            self.climate_entity_id = resolve_group_member_entity_id_by_metadata(
                 area_id=self._area_id,
-                policy_id="climate_control",
+                policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
+                metadata_key=str(GroupMetadataKey.ROLE),
+                metadata_value=str(GroupRole.PRIMARY),
             )
-
         # Resolve area sensor entity ID from coordinator snapshot or entity registry
         if self._coordinator.data:
             self._area_sensor_entity_id = (

@@ -6,19 +6,12 @@ from typing import Any, TYPE_CHECKING
 
 from homeassistant.components.group.light import LightGroup
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import (
-    STATE_ON,
-)
 from homeassistant.core import Event, callback
 from homeassistant.helpers.event import EventStateChangedData
 
-from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.command_echo import (
     CommandEchoState,
     CommandEchoTracker,
-)
-from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_entity_ids_by_metadata,
 )
 from custom_components.magic_areas.light_groups.policy import (
     build_light_control_group_policy,
@@ -33,6 +26,11 @@ from custom_components.magic_areas.light_groups.actions import (
     forward_turn_on,
 )
 from custom_components.magic_areas.light_groups import events as group_events
+from custom_components.magic_areas.light_groups.runtime import (
+    is_group_control_enabled,
+    resolve_child_group_ids,
+    restore_group_state,
+)
 from custom_components.magic_areas.light_groups.config import (
     DEFAULT_LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_ACT_ON,
@@ -193,52 +191,16 @@ class AreaLightGroup(MagicLightGroup):
 
         # Resolve child_ids from entity registry (category groups are registered before ALL group)
         if self.category == LightGroupCategory.ALL and self._child_categories:
-            resolved_ids = []
-            category_entity_ids = resolve_group_entity_ids_by_metadata(
+            self._child_ids = resolve_child_group_ids(
                 self.hass,
                 area_id=self._area_id,
-                policy_id="light_groups",
-                domain=LIGHT_DOMAIN,
-                metadata_key="category",
+                child_categories=self._child_categories,
             )
-            for category in self._child_categories:
-                entity_id = category_entity_ids.get(category)
-                if entity_id:
-                    resolved_ids.append(entity_id)
-            if not resolved_ids:
-                from homeassistant.helpers import entity_registry as er
-
-                registry = er.async_get(self.hass)
-                for category in self._child_categories:
-                    child_uid = f"light_groups_{self._area_id}_{category}"
-                    child_entity_id = registry.async_get_entity_id(
-                        LIGHT_DOMAIN, DOMAIN, child_uid
-                    )
-                    if child_entity_id:
-                        resolved_ids.append(child_entity_id)
-            self._child_ids = resolved_ids or None
             self._attr_extra_state_attributes["child_ids"] = self._child_ids
 
         # Get last state
         last_state = await self.async_get_last_state()
-
-        if last_state:
-            self.logger.debug(
-                "%s: State restored [state=%s]", self.name, last_state.state
-            )
-            self._attr_is_on = last_state.state == STATE_ON
-
-            if "controlling" in last_state.attributes:
-                controlling = last_state.attributes["controlling"]
-                self._set_echo_state(
-                    CommandEchoState(
-                        owner_id=self.unique_id,
-                        controlling=controlling,
-                        awaiting_echo=False,
-                    )
-                )
-        else:
-            self._attr_is_on = False
+        restore_group_state(self, last_state)
 
         self._attr_extra_state_attributes["lights"] = self._entity_ids
         self._attr_extra_state_attributes["controlling"] = self.controlling
@@ -289,22 +251,7 @@ class AreaLightGroup(MagicLightGroup):
 
     def is_control_enabled(self) -> bool:
         """Check if light control is enabled by checking light control switch state."""
-        # Resolve light control switch from entity references
-        if not self._coordinator.data:
-            return True  # Default to enabled if coordinator data unavailable
-
-        entity_refs = self._coordinator.data.entity_references
-        entity_id = entity_refs.light_control_switch
-
-        if not entity_id:
-            return True  # Default to enabled if switch not found
-
-        switch_entity = self.hass.states.get(entity_id)
-
-        if not switch_entity:
-            return True
-
-        return switch_entity.state.lower() == STATE_ON
+        return is_group_control_enabled(self)
 
     def reset_control(self) -> None:
         """Reset control status."""

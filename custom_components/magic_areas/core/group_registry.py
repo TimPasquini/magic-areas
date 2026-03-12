@@ -102,7 +102,7 @@ class GroupRegistry:
             if entry_area_id == area_id:
                 scoped[group_id] = entry
 
-        return list(scoped.values())
+        return [scoped[group_id] for group_id in sorted(scoped)]
 
     def get_for_area_policy(
         self, area_id: str, policy_id: str

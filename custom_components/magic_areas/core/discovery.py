@@ -15,7 +15,7 @@ from homeassistant.helpers.floor_registry import async_get as floorreg_async_get
 from homeassistant.util import slugify
 
 from custom_components.magic_areas.area_state import AreaType, MetaAreaType
-from custom_components.magic_areas.config_keys import CONF_ID, CONF_TYPE
+from custom_components.magic_areas.config_keys.area import CONF_ID, CONF_TYPE
 from custom_components.magic_areas.helpers.area import (
     BasicArea,
     basic_area_from_floor,

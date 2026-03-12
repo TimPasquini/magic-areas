@@ -12,7 +12,6 @@ import voluptuous as vol
 from homeassistant.components.climate.const import ATTR_PRESET_MODES
 from homeassistant.helpers.entity_registry import async_get as entityreg_async_get
 
-from custom_components.magic_areas.config_keys import EMPTY_STRING
 from custom_components.magic_areas.enums import SelectorTranslationKeys
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -96,7 +95,7 @@ def build_climate_preset_selectors_and_validators(
         )
 
     # Build list of available preset modes (with empty option for "no preset")
-    available_preset_modes = [EMPTY_STRING] + list(preset_modes)
+    available_preset_modes = [""] + list(preset_modes)
 
     # Unpack config keys
     (

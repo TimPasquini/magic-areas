@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant import config_entries
 
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.config_flows.steps.feature_helpers import (
     get_feature_list,
 )

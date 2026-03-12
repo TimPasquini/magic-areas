@@ -13,12 +13,12 @@ from homeassistant.core import Event, EventStateChangedData, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_WASP_IN_A_BOX_DELAY,
     DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
@@ -35,7 +35,7 @@ from custom_components.magic_areas.core.wasp_state_machine import (
     WaspStateMachine,
     WaspStateUpdate,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures

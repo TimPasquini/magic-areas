@@ -11,12 +11,12 @@ from homeassistant.helpers.entity import Entity
 from custom_components.magic_areas.binary_sensor import (
     create_wasp_in_a_box_sensor,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.features import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_WASP_IN_A_BOX_DELAY,
     DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT,

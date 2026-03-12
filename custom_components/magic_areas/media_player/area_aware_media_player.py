@@ -19,7 +19,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
-from custom_components.magic_areas.defaults import (
+from custom_components.magic_areas.core.feature_defaults import (
     DEFAULT_NOTIFY_STATES,
 )
 from custom_components.magic_areas.core.media_routing import evaluate_area_routing

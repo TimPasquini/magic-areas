@@ -36,7 +36,7 @@ from custom_components.magic_areas.config_keys import (
     CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
 )
-from custom_components.magic_areas.const import (
+from custom_components.magic_areas.config_flows.entity_gatherer import (
     ADDITIONAL_LIGHT_TRACKING_ENTITIES,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures

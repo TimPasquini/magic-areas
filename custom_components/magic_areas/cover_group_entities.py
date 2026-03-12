@@ -7,7 +7,6 @@ from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.group.cover import CoverGroup
 
 from custom_components.magic_areas.entity import MagicGroupEntity
-from custom_components.magic_areas.const import EMPTY_STRING
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -45,7 +44,7 @@ class AreaCoverGroup(MagicGroupEntity, CoverGroup):
         CoverGroup.__init__(
             self,
             entities=self.member_entity_ids,
-            name=EMPTY_STRING,
+            name="",
             unique_id=self._attr_unique_id,
         )
         delattr(self, "_attr_name")
