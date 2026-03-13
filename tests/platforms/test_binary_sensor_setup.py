@@ -1,19 +1,20 @@
 """Test binary_sensor platform setup with coordinator data conditions."""
 
-from typing import Any, cast
+from collections.abc import Iterable
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity import Entity
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.binary_sensor import (
     async_setup_entry,
+    create_aggregate_sensors_from_definitions,
     create_wasp_in_a_box_sensor,
     create_ble_tracker_sensor,
     create_health_sensors,
-    create_aggregate_sensors,
 )
+from custom_components.magic_areas.core.aggregates import AggregateDefinition, AggregateKind
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
@@ -46,7 +47,13 @@ async def test_binary_sensor_setup_calls_refresh_when_coordinator_data_none(
     config_entry.runtime_data = mock_runtime_data
 
     # Call async_setup_entry with no entities added
-    async_add_entities: AddEntitiesCallback = cast(Any, AsyncMock())
+    added_entities: list[list[Entity]] = []
+
+    def async_add_entities(
+        new_entities: Iterable[Entity], update_before_add: bool = False
+    ) -> None:
+        del update_before_add
+        added_entities.append(list(new_entities))
 
     # Call the function
     await async_setup_entry(hass, config_entry, async_add_entities)
@@ -55,7 +62,7 @@ async def test_binary_sensor_setup_calls_refresh_when_coordinator_data_none(
     mock_coordinator.async_refresh.assert_called_once()
 
     # Verify that no entities were added (because data remained None)
-    cast(Any, async_add_entities).assert_not_called()
+    assert added_entities == []
 
 
 def test_create_wasp_in_a_box_sensor_returns_empty_when_aggregation_disabled() -> None:
@@ -146,8 +153,8 @@ def test_create_health_sensors_handles_exception_during_creation() -> None:
 
     # Patch AreaHealthBinarySensor to raise an exception
     with patch(
-        "custom_components.magic_areas.binary_sensor.AreaHealthBinarySensor",
-        side_effect=Exception("Test exception"),
+        "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaHealthBinarySensor",
+        side_effect=RuntimeError("Test exception"),
     ):
         result = create_health_sensors(mock_data, entities_by_domain, mock_area_config, mock_coordinator)
 
@@ -157,45 +164,34 @@ def test_create_health_sensors_handles_exception_during_creation() -> None:
 
 
 def test_create_aggregate_sensors_handles_exception_during_creation() -> None:
-    """Test that create_aggregate_sensors handles exceptions during sensor creation."""
+    """Test aggregate creation handles exceptions during entity construction."""
     from homeassistant.components.binary_sensor import BinarySensorDeviceClass
-    from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
 
     # Create mock data
     mock_area_config = MagicMock()
     mock_area_config.slug = "test_area"
 
-    mock_data = MagicMock()
-    mock_data.enabled_features = {MagicAreasFeatures.AGGREGATES}
-    # Configure aggregation with min 1 entity
-    mock_data.feature_configs = {
-        MagicAreasFeatures.AGGREGATES: {
-            CONF_AGGREGATES_MIN_ENTITIES: 1,
-        }
-    }
-
     mock_coordinator = MagicMock()
 
-    # Create entities with binary sensors for aggregation
-    entities_by_domain = {
-        "binary_sensor": [
-            {
-                "entity_id": "binary_sensor.motion_1",
-                "device_class": BinarySensorDeviceClass.MOTION,
-            },
-            {
-                "entity_id": "binary_sensor.motion_2",
-                "device_class": BinarySensorDeviceClass.MOTION,
-            },
-        ]
-    }
+    definitions = [
+        AggregateDefinition(
+            domain="binary_sensor",
+            device_class=BinarySensorDeviceClass.MOTION,
+            entity_ids=("binary_sensor.motion_1", "binary_sensor.motion_2"),
+            kind=AggregateKind.STANDARD,
+        )
+    ]
 
     # Patch AreaAggregateBinarySensor to raise an exception
     with patch(
-        "custom_components.magic_areas.binary_sensor.AreaAggregateBinarySensor",
-        side_effect=Exception("Test exception"),
+        "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaAggregateBinarySensor",
+        side_effect=RuntimeError("Test exception"),
     ):
-        result = create_aggregate_sensors(mock_data, entities_by_domain, mock_area_config, mock_coordinator)
+        result = create_aggregate_sensors_from_definitions(
+            definitions=definitions,
+            area_config=mock_area_config,
+            coordinator=mock_coordinator,
+        )
 
     # Should return empty list (exception was caught, no sensors created)
     assert result == []

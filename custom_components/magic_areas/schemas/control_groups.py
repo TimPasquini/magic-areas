@@ -5,11 +5,12 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from custom_components.magic_areas.core.group_contracts import (
+from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
+    GroupMetadataKey,
+    GroupRole,
     is_reserved_policy_id,
 )
-from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
 
 CUSTOM_CONTROL_GROUP_SCHEMA = vol.Schema(
     {

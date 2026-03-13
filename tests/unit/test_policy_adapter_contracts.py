@@ -1,23 +1,23 @@
 """Cross-feature Layer 3 adapter contract tests."""
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.climate_control import (
+from custom_components.magic_areas.core.controls.policies.climate import (
     ClimatePolicySignals,
     build_climate_control_group_policy,
 )
-from custom_components.magic_areas.core.control_group import (
+from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
     ControlGroupDecision,
 )
-from custom_components.magic_areas.core.fan_control import (
+from custom_components.magic_areas.core.controls.policies.fan import (
     FanPolicySignals,
     build_fan_control_group_policy,
 )
-from custom_components.magic_areas.core.media_control import (
+from custom_components.magic_areas.core.controls.policies.media import (
     MediaPolicySignals,
     build_media_control_group_policy,
 )
-from custom_components.magic_areas.light_groups.policy import (
+from custom_components.magic_areas.light_groups import (
     ActOnMode,
     LightPolicySignals,
     build_light_control_group_policy,

@@ -6,9 +6,13 @@ data loss or errors.
 """
 
 
+from unittest.mock import AsyncMock, patch
+
 from custom_components.magic_areas.enums import MagicConfigEntryVersion
 from custom_components.magic_areas.migrations import (
     CONFIG_MIGRATIONS,
+    ConfigMigration,
+    apply_applicable_migrations,
     get_applicable_migrations,
 )
 
@@ -48,6 +52,48 @@ class TestMigrationRegistry:
             to_version = current
             migrations = get_applicable_migrations(from_version, to_version)
             assert len(migrations) > 0
+
+    async def test_apply_applicable_migrations_executes_in_order(self) -> None:
+        """Applicable migrations should execute once each in registry order."""
+        calls: list[str] = []
+
+        async def _handler_1(hass: object, config_entry: object) -> None:
+            del hass, config_entry
+            calls.append("1")
+
+        async def _handler_2(hass: object, config_entry: object) -> None:
+            del hass, config_entry
+            calls.append("2")
+
+        mock_entry = AsyncMock()
+        mock_hass = AsyncMock()
+
+        with patch(
+            "custom_components.magic_areas.migrations.CONFIG_MIGRATIONS",
+            [
+                ConfigMigration(
+                    from_version=(1, 0),
+                    to_version=(2, 0),
+                    description="first",
+                    handler=_handler_1,
+                ),
+                ConfigMigration(
+                    from_version=(2, 0),
+                    to_version=(2, 2),
+                    description="second",
+                    handler=_handler_2,
+                ),
+            ],
+        ):
+            applied = await apply_applicable_migrations(
+                mock_hass,
+                mock_entry,
+                from_version=(1, 0),
+                to_version=(2, 2),
+            )
+
+        assert applied == 2
+        assert calls == ["1", "2"]
 
 
 class TestOldConfigLoading:
@@ -128,7 +174,7 @@ class TestBackwardCompatibility:
 
         # Old: CONF_FEATURE_AGGREGATION = "aggregates"
         # New: MagicAreasFeatures.AGGREGATES = "aggregates"
-        assert MagicAreasFeatures.AGGREGATES == "aggregates"
+        assert MagicAreasFeatures.AGGREGATES.value == "aggregates"
         assert MagicAreasFeatures.AGGREGATES.value == "aggregates"
 
 

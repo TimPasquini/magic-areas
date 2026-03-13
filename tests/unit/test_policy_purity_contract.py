@@ -7,9 +7,9 @@ from pathlib import Path
 
 
 POLICY_MODULES = (
-    Path("custom_components/magic_areas/core/fan_control.py"),
-    Path("custom_components/magic_areas/core/climate_control.py"),
-    Path("custom_components/magic_areas/core/media_control.py"),
+    Path("custom_components/magic_areas/core/controls/policies/fan.py"),
+    Path("custom_components/magic_areas/core/controls/policies/climate.py"),
+    Path("custom_components/magic_areas/core/controls/policies/media.py"),
     Path("custom_components/magic_areas/light_groups/policy.py"),
 )
 

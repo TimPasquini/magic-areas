@@ -52,7 +52,7 @@ class MagicAreasEvents(StrEnum):
     """Event identifiers dispatched by Magic Areas."""
 
     AREA_STATE_CHANGED = "magicareas_area_state_changed"
-    AREA_LOADED = "magicareas_area_loaded"
+    AREA_SNAPSHOT_READY = "magicareas_area_snapshot_ready"
 
 
 class SelectorTranslationKeys(StrEnum):

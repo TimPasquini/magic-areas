@@ -1,6 +1,6 @@
 """Contracts for canonical group metadata keys and values."""
 
-from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
+from custom_components.magic_areas.core.runtime_model import GroupMetadataKey, GroupRole
 
 
 def test_group_metadata_keys_are_stable() -> None:

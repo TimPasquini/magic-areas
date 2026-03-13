@@ -1,17 +1,15 @@
-"""Unit tests for core.control_group_executor."""
+"""Unit tests for core.controls.control_group_executor."""
 
 from unittest.mock import AsyncMock
 
-from custom_components.magic_areas.core.control_group import (
+from custom_components.magic_areas.core.controls import (
     ControlAction,
     ControlActionType,
     ControlGroupDecision,
     ControlRuntimeEffect,
     ControlRuntimeEffectType,
 )
-from custom_components.magic_areas.core.control_group_executor import (
-    execute_control_group_decision,
-)
+from custom_components.magic_areas.core.controls import execute_control_group_decision
 
 
 async def test_execute_noop_decision_skips_service_calls() -> None:

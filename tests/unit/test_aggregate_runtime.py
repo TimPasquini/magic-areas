@@ -6,15 +6,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.aggregate_policy import (
+from custom_components.magic_areas.core.aggregates import (
     AggregateDefinition,
     AggregateKind,
 )
-from custom_components.magic_areas.core.aggregate_runtime import (
+from custom_components.magic_areas.core.aggregates import (
     register_aggregate_definitions,
     resolve_aggregate_entity_id,
     resolve_aggregate_entity_ids_by_device_class,
 )
+from custom_components.magic_areas.core.controls import GroupRegistry
 
 
 def test_register_and_resolve_aggregate_entity_ids_by_domain(
@@ -22,7 +23,9 @@ def test_register_and_resolve_aggregate_entity_ids_by_domain(
 ) -> None:
     """Aggregate runtime should resolve IDs using registered aggregate metadata."""
     area_id = "runtime-area"
+    group_registry = GroupRegistry()
     register_aggregate_definitions(
+        group_registry=group_registry,
         area_id=area_id,
         definitions=[
             AggregateDefinition(
@@ -65,14 +68,14 @@ def test_register_and_resolve_aggregate_entity_ids_by_domain(
     )
 
     sensor_map = resolve_aggregate_entity_ids_by_device_class(
-        hass, area_id=area_id, domain="sensor"
+        hass, group_registry=group_registry, area_id=area_id, domain="sensor"
     )
     assert sensor_map == {
         "temperature": "sensor.magic_areas_aggregates_runtime_area_aggregate_temperature"
     }
 
     binary_map = resolve_aggregate_entity_ids_by_device_class(
-        hass, area_id=area_id, domain="binary_sensor"
+        hass, group_registry=group_registry, area_id=area_id, domain="binary_sensor"
     )
     assert binary_map == {
         "motion": "binary_sensor.magic_areas_aggregates_runtime_area_aggregate_motion",
@@ -82,6 +85,7 @@ def test_register_and_resolve_aggregate_entity_ids_by_domain(
     assert (
         resolve_aggregate_entity_id(
             hass,
+            group_registry=group_registry,
             area_id=area_id,
             domain="sensor",
             device_class="motion",
@@ -95,7 +99,9 @@ def test_register_aggregate_definitions_replaces_old_area_defaults(
 ) -> None:
     """Re-registering an area should replace old aggregate defaults."""
     area_id = "replace-area"
+    group_registry = GroupRegistry()
     register_aggregate_definitions(
+        group_registry=group_registry,
         area_id=area_id,
         definitions=[
             AggregateDefinition(
@@ -107,6 +113,7 @@ def test_register_aggregate_definitions_replaces_old_area_defaults(
     )
 
     register_aggregate_definitions(
+        group_registry=group_registry,
         area_id=area_id,
         definitions=[
             AggregateDefinition(
@@ -132,7 +139,7 @@ def test_register_aggregate_definitions_replaces_old_area_defaults(
     )
 
     sensor_map = resolve_aggregate_entity_ids_by_device_class(
-        hass, area_id=area_id, domain="sensor"
+        hass, group_registry=group_registry, area_id=area_id, domain="sensor"
     )
     assert "temperature" not in sensor_map
     assert sensor_map["humidity"] == "sensor.magic_areas_aggregates_replace_area_aggregate_humidity"

@@ -6,16 +6,14 @@ from homeassistant.const import LIGHT_LUX
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_ENABLED_FEATURES,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.aggregate_defaults import (
-    DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES,
-)
+from custom_components.magic_areas.defaults import DEFAULT_HEALTH_SENSOR_DEVICE_CLASSES
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (

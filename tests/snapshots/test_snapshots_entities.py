@@ -7,11 +7,12 @@ and aggregated sensors using snapshots to validate structure.
 
 import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
+
 
 
 @pytest.mark.asyncio

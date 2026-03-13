@@ -5,6 +5,7 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.components import MagicAreasRuntimeData
 from tests.const import MockAreaIds
 
 
@@ -21,9 +22,11 @@ async def test_magic_meta_area_active_areas(
             break
 
     assert global_entry is not None
-    entry = hass.config_entries.async_get_entry(global_entry.entry_id)
-    assert entry is not None
-    coordinator = entry.runtime_data.coordinator
+    config_entry = hass.config_entries.async_get_entry(global_entry.entry_id)
+    assert config_entry is not None
+    runtime_data = config_entry.runtime_data
+    assert isinstance(runtime_data, MagicAreasRuntimeData)
+    coordinator = runtime_data.coordinator
     meta_area_config = coordinator.data.area_config
 
     assert meta_area_config.is_meta()
@@ -66,9 +69,11 @@ async def test_get_child_areas_floor_logic(
             break
 
     assert floor_entry is not None
-    entry = hass.config_entries.async_get_entry(floor_entry.entry_id)
-    assert entry is not None
-    children = entry.runtime_data.coordinator.data.child_areas
+    config_entry = hass.config_entries.async_get_entry(floor_entry.entry_id)
+    assert config_entry is not None
+    runtime_data = config_entry.runtime_data
+    assert isinstance(runtime_data, MagicAreasRuntimeData)
+    children = runtime_data.coordinator.data.child_areas
     # Kitchen, Living Room, Dining Room are on First Floor
     assert MockAreaIds.KITCHEN.value in children
     assert MockAreaIds.LIVING_ROOM.value in children

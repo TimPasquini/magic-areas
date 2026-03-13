@@ -1,15 +1,13 @@
 """Config Flow for Magic Area."""
 
 import logging
-from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 
-from custom_components.magic_areas.config_flows.base import ConfigBase
-from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
+from custom_components.magic_areas.config_flows import ConfigBase, OptionsFlowHandler
 from custom_components.magic_areas.config_keys.area import CONF_ID
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.discovery import (
@@ -19,11 +17,17 @@ from custom_components.magic_areas.core.discovery import (
     lookup_area_by_display_name,
 )
 from custom_components.magic_areas.enums import MagicConfigEntryVersion
-from custom_components.magic_areas.models import MagicAreasConfigEntry
+from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
 EMPTY_ENTRY = [""]
+
+__all__ = [
+    "ConfigBase",
+    "ConfigFlow",
+    "OptionsFlowHandler",
+]
 
 class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
     """Handle a config flow for Magic Areas."""
@@ -32,7 +36,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
     MINOR_VERSION = MagicConfigEntryVersion.MINOR
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
@@ -41,8 +45,12 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
         areas, reserved_ids = await load_candidate_areas(self.hass)
 
         if user_input is not None:
+            area_name = user_input.get(CONF_NAME)
+            if not isinstance(area_name, str):
+                return self.async_abort(reason="invalid_area")
+
             # Look up area object by display name
-            area_object = lookup_area_by_display_name(areas, user_input[CONF_NAME])
+            area_object = lookup_area_by_display_name(areas, area_name)
 
             # Fail if area name not found
             if not area_object:
@@ -56,8 +64,7 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
             # Create area entry with default config
             config_entry = create_area_config_entry(area_object, reserved_ids)
 
-            # noinspection PyTypeChecker
-            return self.async_create_entry(title=area_object.name, data=config_entry)  # type: ignore[arg-type]
+            return self.async_create_entry(title=area_object.name, data=config_entry)
 
         # Filter out already-configured areas
         configured_areas = []

@@ -1,10 +1,10 @@
 """Test media player platform setup with coordinator data conditions."""
 
-from typing import Any, cast
+from collections.abc import Iterable
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity import Entity
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.media_player import async_setup_entry
@@ -39,16 +39,23 @@ async def test_media_player_setup_calls_refresh_when_coordinator_data_none(
     config_entry.runtime_data = mock_runtime_data
 
     # Call async_setup_entry with no entities added
-    async_add_entities: AddEntitiesCallback = cast(Any, AsyncMock())
+    added_entities: list[list[Entity]] = []
+
+    def async_add_entities(
+        new_entities: Iterable[Entity], update_before_add: bool = False
+    ) -> None:
+        del update_before_add
+        added_entities.append(list(new_entities))
 
     # Call the function
-    result: Any = cast(Any, await async_setup_entry(hass, config_entry, async_add_entities))
+    await async_setup_entry(
+        hass,
+        config_entry,
+        async_add_entities,
+    )
 
     # Verify that async_refresh was called (line 51)
     mock_coordinator.async_refresh.assert_called_once()
 
     # Verify that no entities were added (because data remained None)
-    assert len(cast(Any, async_add_entities).call_args_list) == 0
-
-    # Result should be None (early return at line 55)
-    assert result is None
+    assert added_entities == []

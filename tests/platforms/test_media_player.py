@@ -2,7 +2,6 @@
 
 from collections.abc import AsyncGenerator
 import logging
-from typing import Any
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -25,9 +24,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.attrs import ATTR_STATES
+from custom_components.magic_areas.const import ATTR_STATES
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_NOTIFICATION_DEVICES,
     CONF_NOTIFY_STATES,
@@ -84,7 +83,7 @@ async def setup_integration_area_aware_media_player(
     hass: HomeAssistant,
     area_aware_media_player_global_config_entry: MockConfigEntry,
     area_aware_media_player_area_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[None]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(
@@ -128,7 +127,7 @@ async def test_area_aware_media_player(
     hass: HomeAssistant,
     entities_media_player_single: list[MockMediaPlayer],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_area_aware_media_player: AsyncGenerator[Any],
+    _setup_integration_area_aware_media_player: AsyncGenerator[None],
 ) -> None:
     """Test the area aware media player."""
 

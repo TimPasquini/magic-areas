@@ -1,39 +1,32 @@
 """Options flow for Magic Area configuration."""
 
+from collections.abc import Mapping
 import logging
-from typing import Any
 from homeassistant import config_entries
 
 from custom_components.magic_areas.config_flows.base import ConfigBase
-from custom_components.magic_areas.config_flows.feature_registry import (
-    FEATURE_REGISTRY,
-)
 from custom_components.magic_areas.config_flows.entity_gatherer import (
     ConfigFlowEntityGatherer,
 )
-from custom_components.magic_areas.config_flows.steps.area_steps import (
+from custom_components.magic_areas.config_flows.base import (
+    enabled_feature_map,
+    get_feature_config_steps,
+)
+from custom_components.magic_areas.config_flows.steps import (
     handle_area_config,
+    handle_climate_preset_selection,
     handle_custom_control_groups,
+    handle_feature_conf,
+    handle_feature_selection,
     handle_presence_tracking,
     handle_secondary_states,
 )
-from custom_components.magic_areas.config_flows.steps.feature_selection import (
-    handle_feature_selection,
-)
-from custom_components.magic_areas.config_flows.steps.feature_config import (
-    handle_feature_conf,
-)
-from custom_components.magic_areas.config_flows.steps.feature_config_climate import (
-    handle_climate_preset_selection,
-)
-from custom_components.magic_areas.config_keys.area import (
-    CONF_ENABLED_FEATURES,
-)
-from custom_components.magic_areas.models import MagicAreasConfigEntry
-from custom_components.magic_areas.schemas.area import (
+from custom_components.magic_areas.components import MagicAreasConfigEntry
+from custom_components.magic_areas.schemas import (
     META_AREA_SCHEMA,
     REGULAR_AREA_SCHEMA,
 )
+from custom_components.magic_areas.config_flows.base import MutableConfigMap
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +42,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         """Initialize options flow."""
         self._config_entry = config_entry
         self.handler = config_entry.entry_id
-        self.data: dict[str, Any] = {}
+        self.data: dict[str, object] = {}
         self.all_entities: list[str] = []
         self.area_entities: list[str] = []
         self.all_area_entities: list[str] = []
@@ -57,17 +50,17 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self.all_media_players: list[str] = []
         self.all_binary_entities: list[str] = []
         self.all_light_tracking_entities: list[str] = []
-        self.area_options: dict[str, Any] = {}
+        self.area_options: MutableConfigMap = {}
         self._feature_step_id: str | None = None
         super().__init__()
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Dynamically handle feature configuration steps."""
         if name.startswith("async_step_feature_conf_"):
             step_id = name.replace("async_step_", "")
 
             async def _dynamic_step(
-                user_input: dict[str, Any] | None = None,
+                user_input: Mapping[str, object] | None = None,
             ) -> config_entries.ConfigFlowResult:
                 return await self.async_step(step_id, user_input)
 
@@ -76,7 +69,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
 
     async def async_step_feature_conf(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Configure a specific feature."""
         return await handle_feature_conf(self, user_input)
@@ -87,7 +80,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return self.async_create_entry(title="", data=dict(self.area_options))
 
     async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Initialize the options flow."""
         del user_input
@@ -136,12 +129,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return await self.async_step_show_menu()
 
     async def async_step_show_menu(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Show options selection menu."""
         del user_input
         # Show options menu
-        menu_options: list = [
+        menu_options: list[str] = [
             "area_config",
             "presence_tracking",
             "secondary_states",
@@ -150,9 +143,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         ]
 
         # Add entries for features
+        feature_registry = get_feature_config_steps()
         menu_options_features = []
-        for feature in self.area_options.get(CONF_ENABLED_FEATURES, {}):
-            if feature in FEATURE_REGISTRY:
+        for feature in enabled_feature_map(self.area_options):
+            if feature in feature_registry:
                 menu_options_features.append(f"feature_conf_{feature}")
 
         menu_options.extend(sorted(menu_options_features))
@@ -162,37 +156,37 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return self.async_show_menu(step_id="show_menu", menu_options=menu_options)
 
     async def async_step_area_config(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather basic settings for the area."""
         return await handle_area_config(self, user_input)
 
     async def async_step_presence_tracking(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather presence tracking settings for the area."""
         return await handle_presence_tracking(self, user_input)
 
     async def async_step_secondary_states(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather secondary states settings for the area."""
         return await handle_secondary_states(self, user_input)
 
     async def async_step_custom_control_groups(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Configure custom control groups for this area."""
         return await handle_custom_control_groups(self, user_input)
 
     async def async_step_select_features(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Ask the user to select features to enable for the area."""
         return await handle_feature_selection(self, user_input)
 
     async def async_step_finish(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Save options and exit options flow."""
         _LOGGER.debug(
@@ -204,7 +198,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return await self._update_options()
 
     async def async_step(
-        self, step_id: str, user_input: dict[str, Any] | None = None
+        self, step_id: str, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Route dynamic steps for feature configuration."""
         if step_id.startswith("feature_conf_"):
@@ -215,7 +209,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         raise ValueError(f"Unknown step {step_id}")
 
     async def async_step_feature_conf_climate_control_select_presets(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Second climate step: select presets based on chosen climate entity."""
         return await handle_climate_preset_selection(self, user_input)

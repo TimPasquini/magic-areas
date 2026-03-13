@@ -20,3 +20,6 @@ stubs/*
 
 # Home Assistant configuration
 config/*
+
+# Local diagram artifacts (kept intentionally untracked)
+docs/diagrams/

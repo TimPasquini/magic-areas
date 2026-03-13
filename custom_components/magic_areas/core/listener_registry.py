@@ -15,6 +15,13 @@ import logging
 from collections.abc import Callable
 
 _LOGGER = logging.getLogger(__name__)
+_EXPECTED_LISTENER_CLEANUP_ERRORS = (
+    KeyError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 class ListenerRegistry:
@@ -78,7 +85,7 @@ class ListenerRegistry:
             try:
                 remove_fn()
                 self._logger.debug("Cleaned up listener: %s", name)
-            except Exception as err:
+            except _EXPECTED_LISTENER_CLEANUP_ERRORS as err:
                 self._logger.exception("Error cleaning up listener '%s': %s", name, err)
 
         self._listeners.clear()

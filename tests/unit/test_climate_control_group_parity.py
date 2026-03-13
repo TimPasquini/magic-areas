@@ -1,9 +1,9 @@
 """Parity tests for climate preset -> control-group conversion."""
 
-from custom_components.magic_areas.core.climate_control import (
+from custom_components.magic_areas.core.controls.policies.climate import (
     climate_preset_to_control_group,
 )
-from custom_components.magic_areas.core.control_group import ControlActionType
+from custom_components.magic_areas.core.controls import ControlActionType
 
 
 def test_preset_maps_to_activate_action() -> None:

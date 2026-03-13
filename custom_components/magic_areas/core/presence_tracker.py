@@ -5,15 +5,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
+from custom_components.magic_areas.config_keys.area import CONFIGURABLE_AREA_STATE_MAP
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.policy import INVALID_STATES
 from custom_components.magic_areas.core.occupancy import AreaOccupancyTracker
 
 _LOGGER = logging.getLogger(__name__)
+_EXPECTED_STATE_READ_ERRORS = (
+    KeyError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    RuntimeError,
+)
+
+AreaConfigDict = dict[str, object]
 
 
 @dataclass(slots=True)
@@ -35,7 +45,7 @@ class PresenceTracker:
         *,
         hass: HomeAssistant,
         area_name: str,
-        config: dict[str, Any],
+        config: AreaConfigDict,
         is_meta: bool,
     ) -> None:
         """Initialize tracker with HA access and area context."""
@@ -133,7 +143,7 @@ class PresenceTracker:
             try:
                 entity = self._hass.states.get(sensor_id)
                 sensor_states[sensor_id] = entity.state if entity else None
-            except Exception as err:  # pylint: disable=broad-exception-caught
+            except _EXPECTED_STATE_READ_ERRORS as err:
                 _LOGGER.error(
                     "%s: Error getting entity state for '%s': %s",
                     self._area_name,
@@ -159,3 +169,47 @@ class PresenceTracker:
     def record_timeout_cleared(self) -> None:
         """Record that a timeout has been cleared."""
         self._tracker.on_timeout_cleared()
+
+
+def compute_secondary_states(
+    *,
+    secondary_states_config: dict[str, str | None],
+    entity_states: dict[str, str | None],
+    valid_on_states: set[str],
+) -> list[str]:
+    """Compute which secondary states are currently active from entity readings."""
+    configured_states: list[AreaStates] = [
+        state
+        for state, config_key in CONFIGURABLE_AREA_STATE_MAP.items()
+        if secondary_states_config.get(config_key)
+    ]
+
+    active_states: list[str] = []
+
+    if AreaStates.DARK not in configured_states:
+        active_states.append(AreaStates.DARK)
+
+    inverted_states: set[AreaStates] = {AreaStates.DARK}
+
+    for configurable_state in configured_states:
+        config_key = CONFIGURABLE_AREA_STATE_MAP[configurable_state]
+        entity_id = secondary_states_config.get(config_key)
+        if not entity_id:
+            continue
+
+        state_value = entity_states.get(entity_id)
+        if state_value is None:
+            continue
+
+        has_valid_state = state_value.lower() in valid_on_states
+
+        if configurable_state in inverted_states:
+            if not has_valid_state:
+                active_states.append(str(configurable_state))
+        elif has_valid_state:
+            active_states.append(str(configurable_state))
+
+    if AreaStates.DARK in configured_states and AreaStates.DARK not in active_states:
+        active_states.append(AreaStates.BRIGHT)
+
+    return active_states

@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.attrs import ATTR_AREAS
+from custom_components.magic_areas.const import ATTR_AREAS
 
 from tests.const import MockAreaIds
 from tests.helpers import assert_state

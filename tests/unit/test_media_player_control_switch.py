@@ -1,18 +1,20 @@
 """Unit tests for MediaPlayerControlSwitch with mocked dependencies."""
 
-from typing import Any
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.switch.media_player_control import (
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.switch import (
     MediaPlayerControlSwitch,
 )
 
 
 @pytest.fixture
-def mock_area_config() -> Any:
+def mock_area_config() -> AreaConfig:
     """Create a mock AreaConfig."""
     config = MagicMock(spec=AreaConfig)
     config.id = "test_area"
@@ -22,34 +24,34 @@ def mock_area_config() -> Any:
     config.icon = None
     config.floor_id = None
     config.area_type = "interior"
-    return config
+    return cast(AreaConfig, config)
 
 
 @pytest.fixture
-def mock_coordinator() -> Any:
+def mock_coordinator() -> MagicAreasCoordinator:
     """Create a mock coordinator."""
     coordinator = AsyncMock()
     coordinator.data = MagicMock()
     coordinator.data.entity_references = MagicMock()
     coordinator.data.entity_references.media_player_group = "media_player.test_group"
-    return coordinator
+    return cast(MagicAreasCoordinator, coordinator)
 
 
 @pytest.fixture
-def mock_hass() -> Any:
+def mock_hass() -> HomeAssistant:
     """Create a mock hass object."""
     hass = AsyncMock()
     hass.states = MagicMock()
     hass.services = AsyncMock()
     hass.async_create_task = MagicMock()
-    return hass
+    return cast(HomeAssistant, hass)
 
 
 @pytest.mark.asyncio
 async def test_area_state_changed_noop_when_no_state_delta(
-    mock_area_config: Any,
-    mock_coordinator: Any,
-    mock_hass: Any,
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No new/lost states should skip decision mapping and execution."""
@@ -61,12 +63,9 @@ async def test_area_state_changed_noop_when_no_state_delta(
     execute_mock = AsyncMock()
     decision_mock = MagicMock()
 
-    monkeypatch.setattr(
-        "custom_components.magic_areas.switch.media_player_control.execute_control_group_decision",
-        execute_mock,
-    )
     switch.policy = MagicMock()
     switch.policy.evaluate = decision_mock
+    monkeypatch.setattr(switch, "_execute_decision", execute_mock)
     await switch.area_state_changed("test_area", ([], [], ["occupied"]))
 
     decision_mock.assert_not_called()

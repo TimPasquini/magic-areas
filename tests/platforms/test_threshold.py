@@ -1,6 +1,4 @@
 """Test for aggregate (group) sensor behavior."""
-
-import asyncio
 from typing import cast
 
 import pytest
@@ -17,7 +15,7 @@ from homeassistant.const import LIGHT_LUX, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
@@ -34,6 +32,7 @@ from tests.helpers import (
 from tests.helpers import (
     setup_mock_entities,
     shutdown_integration,
+    wait_for_state,
 )
 from tests.mocks import MockSensor
 
@@ -128,8 +127,7 @@ async def test_threshold_sensor_light(
             attributes=attributes,
         )
     await hass.async_block_till_done()
-    await asyncio.sleep(0.1)
-    await hass.async_block_till_done()
+    await wait_for_state(hass, threshold_sensor_id, STATE_ON)
 
     # Ensure aggregate sensor updated
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
@@ -155,8 +153,7 @@ async def test_threshold_sensor_light(
             attributes=attributes,
         )
     await hass.async_block_till_done()
-    await asyncio.sleep(0.1)
-    await hass.async_block_till_done()
+    await wait_for_state(hass, threshold_sensor_id, STATE_OFF)
 
     # Ensure aggregate sensor updated
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)

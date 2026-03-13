@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-from custom_components.magic_areas.switch.media_player_control import (
+from custom_components.magic_areas.switch import (
     MediaPlayerControlSwitch,
 )
 
@@ -29,3 +29,5 @@ async def test_media_player_control_ignores_other_area() -> None:
     await switch.area_state_changed("area-two", ([], [], []))
 
     switch.hass.services.async_call.assert_not_called()
+    assert switch.hass.services.async_call.call_count == 0
+    assert switch.media_player_group_id is None

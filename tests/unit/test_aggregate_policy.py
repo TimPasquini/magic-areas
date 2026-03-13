@@ -1,19 +1,17 @@
 """Tests for canonical aggregate selection policy."""
 
-from typing import Any
-
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.core.aggregate_policy import (
+from custom_components.magic_areas.core.aggregates import (
     AggregateKind,
     AggregatePolicyContext,
     build_default_aggregate_selection_policy,
 )
-from custom_components.magic_areas.core.aggregate_selection import (
+from custom_components.magic_areas.core.aggregates.selection import (
     build_binary_sensor_aggregates,
     build_health_sensor_spec,
     build_sensor_aggregates,
@@ -180,7 +178,7 @@ def test_default_policy_matches_existing_selection_helpers() -> None:
             },
         ],
     }
-    feature_configs: dict[str | MagicAreasFeatures, dict[str, Any]] = {
+    feature_configs: dict[str | MagicAreasFeatures, dict[str, object]] = {
         MagicAreasFeatures.AGGREGATES: {
             CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: ["temperature"],
             CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES: ["motion"],

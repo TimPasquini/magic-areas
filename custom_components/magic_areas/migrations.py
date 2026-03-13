@@ -14,15 +14,24 @@ Migration Application:
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 
-if False:  # pragma: no cover
-    from custom_components.magic_areas.models import MagicAreasConfigEntry
+from custom_components.magic_areas.core.runtime_model import async_migrate_unique_ids
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+type MigrationHandler = Callable[
+    [HomeAssistant, "MagicAreasConfigEntry"],
+    Awaitable[None],
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +51,7 @@ class ConfigMigration:
     description: str
     """Human-readable description of what this migration does."""
 
-    handler: Callable
+    handler: MigrationHandler
     """Async function to apply the migration."""
 
     async def apply(
@@ -58,7 +67,6 @@ class ConfigMigration:
         await self.handler(hass, config_entry)
 
 
-# Placeholder migration handlers (actual migrations go here)
 async def _migrate_1_0_to_2_0(
     hass: HomeAssistant, config_entry: MagicAreasConfigEntry
 ) -> None:
@@ -67,10 +75,9 @@ async def _migrate_1_0_to_2_0(
     Changes unique_id format from magic_areas_<feature>_<domain>_<area>_<extra>
     to <feature>_<area>_<extra> (removes domain prefix for stability).
 
-    This migration is handled in __init__.py's _async_migrate_unique_ids().
+    This migration maps legacy unique IDs to canonical feature/area IDs.
     """
-    # Actual implementation is in __init__.py
-    pass
+    await async_migrate_unique_ids(hass, config_entry)
 
 
 # Registry of all migrations in order
@@ -80,6 +87,12 @@ CONFIG_MIGRATIONS: list[ConfigMigration] = [
         from_version=(1, 0),
         to_version=(2, 0),
         description="Migrate unique_id format to new stable IDs (remove domain prefix)",
+        handler=_migrate_1_0_to_2_0,
+    ),
+    ConfigMigration(
+        from_version=(2, 1),
+        to_version=(2, 2),
+        description="Backfill unique_id migration for entries created before 2.2",
         handler=_migrate_1_0_to_2_0,
     ),
     # Future migrations follow this pattern:
@@ -125,3 +138,25 @@ def get_applicable_migrations(
         applicable.append(migration)
 
     return applicable
+
+
+async def apply_applicable_migrations(
+    hass: HomeAssistant,
+    config_entry: MagicAreasConfigEntry,
+    *,
+    from_version: tuple[int, int],
+    to_version: tuple[int, int],
+) -> int:
+    """Apply all applicable migrations and return count applied."""
+    applicable = get_applicable_migrations(from_version, to_version)
+
+    for migration in applicable:
+        _LOGGER.info(
+            "Applying migration %s -> %s: %s",
+            migration.from_version,
+            migration.to_version,
+            migration.description,
+        )
+        await migration.apply(hass, config_entry)
+
+    return len(applicable)

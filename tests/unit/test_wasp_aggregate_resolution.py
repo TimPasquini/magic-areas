@@ -14,12 +14,13 @@ from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     AreaWaspInABoxBinarySensor,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
-from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.policy import WASP_IN_A_BOX_BOX_DEVICE_CLASSES
 
@@ -46,7 +47,7 @@ def _make_coordinator() -> MagicMock:
                 CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES: ["motion"],
             }
         },
-        entity_references=SimpleNamespace(binary_aggregates_by_device_class={}),
+        group_registry=GroupRegistry(),
     )
     return coordinator
 
@@ -105,16 +106,11 @@ async def test_wasp_uses_registry_aggregate_resolution(
 
 
 @pytest.mark.asyncio
-async def test_wasp_falls_back_to_snapshot_aggregate_references(
+async def test_wasp_skips_targets_when_unresolvable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Wasp sensor should fallback to snapshot refs when resolver returns no target."""
+    """Wasp sensor should keep sensor lists empty when no aggregate targets resolve."""
     coordinator = _make_coordinator()
-    fallback_box = str(WASP_IN_A_BOX_BOX_DEVICE_CLASSES[0])
-    coordinator.data.entity_references.binary_aggregates_by_device_class = {
-        "motion": "binary_sensor.snapshot_motion",
-        fallback_box: f"binary_sensor.snapshot_{fallback_box}",
-    }
 
     sensor = AreaWaspInABoxBinarySensor(_make_area_config(), coordinator)
     monkeypatch.setattr(
@@ -135,10 +131,8 @@ async def test_wasp_falls_back_to_snapshot_aggregate_references(
         AsyncMock(return_value=None),
     )
 
-    sensor.hass = _set_hass_state_map(
-        {"binary_sensor.snapshot_motion", f"binary_sensor.snapshot_{fallback_box}"}
-    )
+    sensor.hass = _set_hass_state_map(set())
     await sensor.async_added_to_hass()
 
-    assert sensor._wasp_sensors == ["binary_sensor.snapshot_motion"]
-    assert sensor._box_sensors == [f"binary_sensor.snapshot_{fallback_box}"]
+    assert sensor._wasp_sensors == []
+    assert sensor._box_sensors == []

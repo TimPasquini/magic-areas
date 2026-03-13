@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum, auto
-from typing import Any
+from collections.abc import Mapping
 
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON
 
 from custom_components.magic_areas.core.state_priority import (
-    filter_by_priority,
     LIGHT_PRIORITY_STATES,
+    filter_by_priority,
 )
-from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.command_echo import CommandEchoState
-from custom_components.magic_areas.core.control_group import (
+from custom_components.magic_areas.core.controls import (
     ControlAction,
     ControlActionType,
     ControlGroupContext,
@@ -25,6 +24,50 @@ from custom_components.magic_areas.core.control_group import (
     ControlRuntimeEffect,
     ControlRuntimeEffectType,
 )
+from custom_components.magic_areas.area_state import AreaStates
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class CommandEchoState:
+    """Immutable snapshot of command ownership state."""
+
+    owner_id: str | None = None
+    controlling: bool = False
+    awaiting_echo: bool = False
+
+    def command_issued(self, owner_id: str | None = None) -> CommandEchoState:
+        """Return state after issuing a command."""
+        return CommandEchoState(
+            owner_id=owner_id if owner_id is not None else self.owner_id,
+            controlling=True,
+            awaiting_echo=True,
+        )
+
+    def command_completed(self) -> CommandEchoState:
+        """Return state after receiving an expected echo."""
+        return CommandEchoState(
+            owner_id=self.owner_id,
+            controlling=self.controlling,
+            awaiting_echo=False,
+        )
+
+    def external_change(self) -> CommandEchoState:
+        """Return neutral state after non-owned change."""
+        return CommandEchoState()
+
+    def set_controlling(self, controlling: bool) -> CommandEchoState:
+        """Return state with updated controlling flag."""
+        return CommandEchoState(
+            owner_id=self.owner_id,
+            controlling=controlling,
+            awaiting_echo=self.awaiting_echo,
+        )
+
+
+CONTROLLED_READY_STATE = CommandEchoState(controlling=True, awaiting_echo=False)
+
 
 class LightAction(StrEnum):
     """Light group action to take."""
@@ -46,37 +89,37 @@ class LightGroupDecision:
     """Light group control decision result."""
 
     action: LightAction
-    reason: str  # For debugging/logging
-    should_track_control: bool = False  # Whether to mark as "controlled by MA"
-    reset_control: bool = False  # Whether to clear the "controlled" flag
-    next_control_state: CommandEchoState | None = None  # Optional control state update
-
-
-@dataclass(slots=True)
-class LightGroupPolicyInput:
-    """Policy input for an area state change."""
-
-    new_states: Sequence[str]
-    lost_states: Sequence[str]
-    current_states: Sequence[str]
-    control_state: Any
-    is_primary: bool
+    reason: str
+    should_track_control: bool = False
+    reset_control: bool = False
+    next_control_state: CommandEchoState | None = None
 
 
 @dataclass(slots=True)
 class LightGroupPolicy:
-    """Policy for controlling a light group based on area states.
-
-    Attributes:
-        assigned_states: States this light group reacts to (e.g., ["sleep", "dark"] for sleep lights)
-        act_on_modes: When to act (["occupancy", "state"] or subset)
-        use_priority_filtering: Whether to filter by priority states
-
-    """
+    """Policy for controlling a light group based on area-state transitions."""
 
     assigned_states: Sequence[str]
     act_on_modes: Sequence[str]
     use_priority_filtering: bool = True
+
+    @staticmethod
+    def _decision(
+        action: LightAction,
+        reason: str,
+        *,
+        should_track_control: bool = False,
+        reset_control: bool = False,
+        next_control_state: CommandEchoState | None = None,
+    ) -> LightGroupDecision:
+        """Build a policy decision in one place."""
+        return LightGroupDecision(
+            action=action,
+            reason=reason,
+            should_track_control=should_track_control,
+            reset_control=reset_control,
+            next_control_state=next_control_state,
+        )
 
     def evaluate(
         self,
@@ -84,243 +127,123 @@ class LightGroupPolicy:
         lost_states: Sequence[str],
         current_states: Sequence[str],
     ) -> LightGroupDecision:
-        """Evaluate whether light group should turn on, off, or do nothing.
-
-        Args:
-            new_states: States just added
-            lost_states: States just lost
-            current_states: All currently active states
-
-        Returns:
-            LightGroupDecision with action and reason
-
-        Logic:
-            1. CLEAR → noop + reset_control flag
-            2. BRIGHT (not assigned to it) → turn off if BRIGHT just added without OCCUPIED
-            3. No changes → noop
-            4. No assigned states → noop
-            5. Not occupied → noop
-            6. Filter to valid states (assigned & current)
-            7. Apply priority filtering if enabled
-            8. Check act-on modes (occupancy vs state change)
-            9. If valid states remain → turn on
-            10. If no valid states:
-                a. DARK just entered → noop (dark mode takes its own control path)
-                b. Leaving an assigned priority state → turn off, take control
-                c. No new priority states → noop
-                d. New priority state entered → turn off, take control
-
-        """
+        """Evaluate a secondary-group light action from area state transitions."""
         current_state_set = set(current_states)
 
-        # (1) CLEAR state → noop; signal caller to reset control tracking
         if AreaStates.CLEAR in new_states:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="area_clear",
-                reset_control=True,
-            )
+            return self._decision(LightAction.NOOP, "area_clear", reset_control=True)
 
-        # (2) BRIGHT state special logic
         if (
             AreaStates.BRIGHT in current_state_set
             and AreaStates.BRIGHT not in self.assigned_states
         ):
-            # Only turn off if BRIGHT just added AND not occupancy change
             if (
                 AreaStates.BRIGHT in new_states
                 and AreaStates.OCCUPIED not in new_states
             ):
-                return LightGroupDecision(
-                    action=LightAction.TURN_OFF,
-                    reason="bright_not_assigned",
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "bright_not_assigned",
                     should_track_control=True,
                 )
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="bright_active_but_stable",
-            )
+            return self._decision(LightAction.NOOP, "bright_active_but_stable")
 
-        # (3) No changes → noop
         if not new_states and not lost_states:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="no_state_changes",
-            )
+            return self._decision(LightAction.NOOP, "no_state_changes")
 
-        # (4) No assigned states → noop
         if not self.assigned_states:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="no_assigned_states",
-            )
+            return self._decision(LightAction.NOOP, "no_assigned_states")
 
-        # (5) Not occupied → noop
         if AreaStates.OCCUPIED not in current_state_set:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="not_occupied",
-            )
+            return self._decision(LightAction.NOOP, "not_occupied")
 
-        # (6) Filter to valid states
         valid_states = [
             state for state in self.assigned_states if state in current_state_set
         ]
 
-        # (7) Apply priority filtering
         if self.use_priority_filtering:
             valid_states = filter_by_priority(valid_states, LIGHT_PRIORITY_STATES)
 
-        # (8) Check act-on modes
         if AreaStates.OCCUPIED in new_states:
-            # Occupancy change
             if ActOnMode.OCCUPANCY_CHANGE not in self.act_on_modes:
-                return LightGroupDecision(
-                    action=LightAction.NOOP,
-                    reason="occupancy_change_not_configured",
+                return self._decision(
+                    LightAction.NOOP, "occupancy_change_not_configured"
                 )
         else:
-            # State change (not occupancy)
             if ActOnMode.STATE_CHANGE not in self.act_on_modes:
-                return LightGroupDecision(
-                    action=LightAction.NOOP,
-                    reason="state_change_not_configured",
-                )
+                return self._decision(LightAction.NOOP, "state_change_not_configured")
 
-        # (9) Valid states → turn on
         if valid_states:
-            return LightGroupDecision(
-                action=LightAction.TURN_ON,
-                reason=f"valid_states_present ({', '.join(valid_states)})",
+            return self._decision(
+                LightAction.TURN_ON,
+                f"valid_states_present ({', '.join(valid_states)})",
                 should_track_control=True,
             )
 
-        # (10) No valid states — determine whether and why to turn off
-        # (10a) Don't turn off if entering dark (dark mode handles its own control path)
         if AreaStates.DARK in new_states:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="entering_dark",
-            )
+            return self._decision(LightAction.NOOP, "entering_dark")
 
-        # (10b) Turn off if leaving an assigned priority state
         out_of_priority = [
             s for s in LIGHT_PRIORITY_STATES
             if s in self.assigned_states and s in lost_states
         ]
         if out_of_priority:
-            return LightGroupDecision(
-                action=LightAction.TURN_OFF,
-                reason=f"leaving_priority_states ({', '.join(out_of_priority)})",
+            return self._decision(
+                LightAction.TURN_OFF,
+                f"leaving_priority_states ({', '.join(out_of_priority)})",
                 should_track_control=True,
             )
 
-        # (10c) Don't turn off if no new priority states are being entered
         new_priority = [s for s in LIGHT_PRIORITY_STATES if s in new_states]
         if not new_priority:
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="no_new_priority_states",
-            )
+            return self._decision(LightAction.NOOP, "no_new_priority_states")
 
-        # (10d) Entering a new priority state this group isn't assigned to — turn off
-        return LightGroupDecision(
-            action=LightAction.TURN_OFF,
-            reason="no_valid_states",
+        return self._decision(
+            LightAction.TURN_OFF,
+            "no_valid_states",
             should_track_control=True,
         )
 
-    def evaluate_area_state_change(
-        self, context: LightGroupPolicyInput
+    def evaluate_control_context(
+        self,
+        *,
+        new_states: Sequence[str],
+        lost_states: Sequence[str],
+        current_states: Sequence[str],
+        control_state: object,
+        is_primary: bool,
     ) -> LightGroupDecision:
-        """Evaluate a light group decision for an area state change."""
-        if context.is_primary:
-            if AreaStates.CLEAR in context.new_states:
-                return LightGroupDecision(
-                    action=LightAction.TURN_OFF,
-                    reason="area_clear",
-                    next_control_state=CommandEchoState(
-                        controlling=True, awaiting_echo=False
-                    ),
+        """Evaluate a light group decision from explicit control-context fields."""
+        if not isinstance(control_state, CommandEchoState):
+            msg = "control_state must be CommandEchoState"
+            raise TypeError(msg)
+
+        if is_primary:
+            if AreaStates.CLEAR in new_states:
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "area_clear",
+                    next_control_state=CONTROLLED_READY_STATE,
                 )
-            return LightGroupDecision(
-                action=LightAction.NOOP,
-                reason="primary_noop",
-            )
+            return self._decision(LightAction.NOOP, "primary_noop")
 
         decision = self.evaluate(
-            new_states=context.new_states,
-            lost_states=context.lost_states,
-            current_states=context.current_states,
+            new_states=new_states,
+            lost_states=lost_states,
+            current_states=current_states,
         )
 
         next_control_state: CommandEchoState | None = None
         if decision.should_track_control:
-            next_control_state = _as_echo_state(context.control_state.command_issued())
+            next_control_state = control_state.command_issued()
         elif decision.reset_control:
-            next_control_state = CommandEchoState(controlling=True, awaiting_echo=False)
+            next_control_state = CONTROLLED_READY_STATE
 
-        return LightGroupDecision(
-            action=decision.action,
-            reason=decision.reason,
+        return self._decision(
+            decision.action,
+            decision.reason,
             next_control_state=next_control_state,
         )
-
-
-def resolve_light_category_config(
-    category: str,
-    feature_config: dict,
-    light_group_states_map: dict,
-    light_group_act_on_map: dict,
-    default_act_on: Sequence[str],
-) -> tuple[list[str], list[str]]:
-    """Resolve assigned states and act-on modes for a light category.
-
-    Args:
-        category: Light category (overhead, sleep, accent, task)
-        feature_config: Feature configuration dict
-        light_group_states_map: Map from category to config key for states
-        light_group_act_on_map: Map from category to config key for act-on modes
-        default_act_on: Default act-on modes to use
-
-    Returns:
-        Tuple of (assigned_states, act_on_modes)
-
-    """
-    # No states/act-on if category not in maps
-    if category not in light_group_states_map or category not in light_group_act_on_map:
-        return [], list(default_act_on)
-
-    # Get config keys for this category
-    states_key = light_group_states_map[category]
-    act_on_key = light_group_act_on_map[category]
-
-    # Get values from feature config, with defaults
-    assigned_states = feature_config.get(states_key, [])
-    act_on = feature_config.get(act_on_key, default_act_on)
-
-    return assigned_states, list(act_on)
-
-
-def build_light_group_policy(
-    assigned_states: Sequence[str],
-    act_on_modes: Sequence[str],
-) -> LightGroupPolicy:
-    """Build light group policy from configuration.
-
-    Args:
-        assigned_states: States this light group reacts to
-        act_on_modes: When to act (occupancy/state change)
-
-    Returns:
-        Configured LightGroupPolicy
-
-    """
-    return LightGroupPolicy(
-        assigned_states=assigned_states,
-        act_on_modes=act_on_modes,
-        use_priority_filtering=True,
-    )
 
 
 @dataclass(slots=True)
@@ -352,16 +275,27 @@ class LightControlGroupPolicy(ControlGroupPolicy):
         )
 
     def _evaluate_light_decision(self, context: ControlGroupContext) -> LightGroupDecision:
-        """Map canonical context into the legacy light policy input model."""
+        """Map canonical control-group context into light policy evaluation."""
         signals = LightPolicySignals.from_signals(context.signals)
-        return self.policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=context.new_states,
-                lost_states=context.lost_states,
-                current_states=context.current_states,
-                control_state=signals.control_state,
-                is_primary=signals.is_primary,
+        if signals.fallback_used and signals.is_primary is None:
+            _LOGGER.warning(
+                "Light policy signals missing primary-group identity; skipping light action."
             )
+            return LightGroupDecision(
+                action=LightAction.NOOP,
+                reason="invalid_light_policy_signals",
+            )
+        if signals.is_primary is None:
+            return LightGroupDecision(
+                action=LightAction.NOOP,
+                reason="missing_primary_flag",
+            )
+        return self.policy.evaluate_control_context(
+            new_states=context.new_states,
+            lost_states=context.lost_states,
+            current_states=context.current_states,
+            control_state=signals.control_state,
+            is_primary=signals.is_primary,
         )
 
 
@@ -373,9 +307,10 @@ def build_light_control_group_policy(
 ) -> LightControlGroupPolicy:
     """Build canonical light control-group policy adapter."""
     return LightControlGroupPolicy(
-        policy=build_light_group_policy(
+        policy=LightGroupPolicy(
             assigned_states=assigned_states,
             act_on_modes=act_on_modes,
+            use_priority_filtering=True,
         ),
         light_group_entity_id=light_group_entity_id,
     )
@@ -385,81 +320,70 @@ def build_light_control_group_policy(
 class LightPolicySignals:
     """Typed runtime inputs for light policy adapters."""
 
-    is_primary: bool
+    is_primary: bool | None
     control_state: CommandEchoState
+    fallback_used: bool = False
+
+    @staticmethod
+    def _default_control_state() -> CommandEchoState:
+        """Return fallback command-echo state for malformed signals."""
+        return CONTROLLED_READY_STATE
 
     @classmethod
-    def from_signals(cls, signals: Any) -> LightPolicySignals:
+    def from_signals(cls, signals: object) -> LightPolicySignals:
         """Parse typed light signals from control-group context."""
         if isinstance(signals, cls):
             return signals
+        if isinstance(signals, Mapping):
+            is_primary_raw = signals.get("is_primary")
+            is_primary = is_primary_raw if isinstance(is_primary_raw, bool) else None
+            control_state_raw = signals.get("control_state")
+            control_state = (
+                control_state_raw
+                if isinstance(control_state_raw, CommandEchoState)
+                else cls._default_control_state()
+            )
+            return cls(
+                is_primary=is_primary,
+                control_state=control_state,
+                fallback_used=(
+                    is_primary is None
+                    or not isinstance(control_state_raw, CommandEchoState)
+                ),
+            )
         return cls(
-            is_primary=False,
-            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=None,
+            control_state=cls._default_control_state(),
+            fallback_used=True,
         )
-
-
-def reset_control_state() -> CommandEchoState:
-    """Reset control state to allow immediate command handling."""
-    return CommandEchoState(controlling=True, awaiting_echo=False)
-
-
-def update_primary_control_state(
-    control_state: CommandEchoState, child_controlling: bool
-) -> CommandEchoState:
-    """Update control state for the primary (ALL) light group."""
-    return control_state.set_controlling(child_controlling)
-
-
-def update_secondary_control_state(control_state: CommandEchoState) -> CommandEchoState:
-    """Update control state for secondary light group state changes."""
-    if control_state.awaiting_echo:
-        return control_state.command_completed()
-    return control_state.external_change()
-
-
-def _as_echo_state(state: Any) -> CommandEchoState:
-    """Normalize legacy control-state objects to command-echo state."""
-    if state is None:
-        return CommandEchoState(controlling=True, awaiting_echo=False)
-    if isinstance(state, CommandEchoState):
-        return state
-    if hasattr(state, "controlling") and hasattr(state, "awaiting_echo"):
-        return CommandEchoState(
-            controlling=bool(state.controlling),
-            awaiting_echo=bool(state.awaiting_echo),
-        )
-    return CommandEchoState(
-        controlling=bool(state.controlling),
-        awaiting_echo=bool(state.controlled),
-    )
 
 
 def light_action_to_control_group(
     action: LightAction, light_group_entity_id: str
 ) -> ControlGroupDecision:
     """Translate a light group action into control-group execution form."""
-    if action == LightAction.TURN_ON:
+    service_map: dict[LightAction, tuple[ControlActionType, str, str]] = {
+        LightAction.TURN_ON: (
+            ControlActionType.ACTIVATE,
+            "light_turn_on",
+            SERVICE_TURN_ON,
+        ),
+        LightAction.TURN_OFF: (
+            ControlActionType.DEACTIVATE,
+            "light_turn_off",
+            SERVICE_TURN_OFF,
+        ),
+    }
+    mapped = service_map.get(action)
+    if mapped is not None:
+        action_type, reason, service = mapped
         return ControlGroupDecision(
-            action_type=ControlActionType.ACTIVATE,
-            reason="light_turn_on",
+            action_type=action_type,
+            reason=reason,
             actions=(
                 ControlAction(
                     domain=LIGHT_DOMAIN,
-                    service=SERVICE_TURN_ON,
-                    target_entity_ids=(light_group_entity_id,),
-                ),
-            ),
-        )
-
-    if action == LightAction.TURN_OFF:
-        return ControlGroupDecision(
-            action_type=ControlActionType.DEACTIVATE,
-            reason="light_turn_off",
-            actions=(
-                ControlAction(
-                    domain=LIGHT_DOMAIN,
-                    service=SERVICE_TURN_OFF,
+                    service=service,
                     target_entity_ids=(light_group_entity_id,),
                 ),
             ),

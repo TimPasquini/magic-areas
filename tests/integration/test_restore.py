@@ -1,8 +1,8 @@
 """Test entity state restoration."""
 
 
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant, State
 from pytest_homeassistant_custom_component.common import (
@@ -10,7 +10,7 @@ from pytest_homeassistant_custom_component.common import (
     mock_restore_cache,
 )
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.const import (

@@ -4,77 +4,44 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.binary_sensor import (
-    AreaAggregateBinarySensor,
     create_aggregate_sensors_from_definitions as create_binary_aggregates,
-)
-from custom_components.magic_areas.binary_sensor.threshold import (
     create_illuminance_threshold,
 )
-from custom_components.magic_areas.core.aggregate_policy import (
+from custom_components.magic_areas.core.aggregates import (
     AggregatePolicyContext,
     build_default_aggregate_selection_policy,
-)
-from custom_components.magic_areas.core.aggregate_runtime import (
     register_aggregate_definitions,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
-    FeatureConfigStep,
+    schema_from_default_options,
 )
-from custom_components.magic_areas.config_keys.aggregates import (
-    CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-    CONF_AGGREGATES_MIN_ENTITIES,
-    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-)
-from custom_components.magic_areas.core.aggregate_defaults import (
-    DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
-    DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-    DEFAULT_AGGREGATES_MIN_ENTITIES,
-    DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-)
-from custom_components.magic_areas.sensor.aggregate_factory import (
+from custom_components.magic_areas.features.config.readers import AGGREGATES_OPTION_KEYS
+from custom_components.magic_areas.sensor import (
     AreaAggregateSensor,
     create_aggregate_sensors_from_definitions as create_sensor_aggregates,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
-    from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasData
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 
-AGGREGATE_FEATURE_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONF_AGGREGATES_MIN_ENTITIES, default=DEFAULT_AGGREGATES_MIN_ENTITIES
-        ): cv.positive_int,
-        vol.Optional(
-            CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
-            default=DEFAULT_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
-        ): cv.ensure_list,
-        vol.Optional(
-            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
-            default=DEFAULT_AGGREGATES_SENSOR_DEVICE_CLASSES,
-        ): cv.ensure_list,
-        vol.Optional(
-            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-            default=DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD,
-        ): cv.positive_int,
-        vol.Optional(
-            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-            default=DEFAULT_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-        ): cv.positive_int,
-    },
-    extra=vol.REMOVE_EXTRA,
+AGGREGATE_FEATURE_SCHEMA = schema_from_default_options(
+    feature=MagicAreasFeatures.AGGREGATES,
+    keys_and_validators=(
+        (AGGREGATES_OPTION_KEYS[0], cv.positive_int),
+        (AGGREGATES_OPTION_KEYS[1], cv.positive_int),
+        (AGGREGATES_OPTION_KEYS[2], cv.positive_int),
+        (AGGREGATES_OPTION_KEYS[3], cv.ensure_list),
+        (AGGREGATES_OPTION_KEYS[4], cv.ensure_list),
+    ),
 )
 
 
@@ -83,14 +50,7 @@ class AggregatesFeatureModule(BaseFeatureModule):
 
     id = MagicAreasFeatures.AGGREGATES
     domains = {"sensor", "binary_sensor"}
-
-    def config_schema(self) -> vol.Schema | None:
-        """Return the config schema for this feature."""
-        return AGGREGATE_FEATURE_SCHEMA
-
-    def is_enabled(self, data: MagicAreasData) -> bool:
-        """Return whether this feature is enabled for the area."""
-        return MagicAreasFeatures.AGGREGATES in data.enabled_features
+    feature_schema = AGGREGATE_FEATURE_SCHEMA
 
     def build_entities(
         self,
@@ -107,7 +67,11 @@ class AggregatesFeatureModule(BaseFeatureModule):
                 enabled_features=data.enabled_features,
             )
         )
-        register_aggregate_definitions(area_id=area_config.id, definitions=definitions)
+        register_aggregate_definitions(
+            group_registry=data.group_registry,
+            area_id=area_config.id,
+            definitions=definitions,
+        )
         entities: list[Entity] = []
 
         entities.extend(
@@ -134,19 +98,7 @@ class AggregatesFeatureModule(BaseFeatureModule):
 
         return entities
 
-    def config_flow_steps(self) -> list[FeatureConfigStep]:
-        """Return config flow steps for this feature."""
-        return [
-            FeatureConfigStep(
-                feature=MagicAreasFeatures.AGGREGATES,
-                step_id="feature_conf_aggregates",
-                schema=AGGREGATE_FEATURE_SCHEMA,
-            )
-        ]
-
-
 __all__ = [
     "AggregatesFeatureModule",
-    "AreaAggregateBinarySensor",
     "AreaAggregateSensor",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,8 +14,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.features.registry import FeatureRegistry
 from custom_components.magic_areas.features.base import FeatureConfigStep
+from custom_components.magic_areas.features.registry import FeatureRegistry
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import get_basic_config_entry_data
 
@@ -28,6 +29,11 @@ class FeatureModuleDouble:
     entities: list[Entity]
     enabled: bool = True
     deps: set[MagicAreasFeatures] = field(default_factory=set)
+    supports_regular_area: bool = True
+    supports_meta_area: bool = True
+    supports_global_meta_area: bool = True
+    configurable_on_meta: bool = True
+    configurable_on_global_meta: bool = True
     build_entities: MagicMock = field(init=False)
     attach_listeners: MagicMock = field(init=False)
 
@@ -44,9 +50,11 @@ class FeatureModuleDouble:
         """Return option step identifiers for this feature."""
         return []
 
-    def validate_config(self, config: dict) -> dict:  # pragma: no cover - not used
+    def validate_config(
+        self, config: Mapping[str, object]
+    ) -> dict[str, object]:  # pragma: no cover - not used
         """Validate and normalize config for this feature."""
-        return config
+        return dict(config)
 
     def is_enabled(self, data: object) -> bool:
         """Return whether this feature is enabled for the area."""
@@ -91,7 +99,7 @@ async def test_sensor_setup_dispatches_feature_modules(hass: HomeAssistant) -> N
     async_add_entities = MagicMock()
 
     with patch(
-        "custom_components.magic_areas.sensor.FEATURE_REGISTRY",
+        "custom_components.magic_areas.features.registry.FEATURE_REGISTRY",
         registry,
         create=True,
     ):
@@ -139,7 +147,7 @@ async def test_binary_sensor_setup_dispatches_feature_modules(hass: HomeAssistan
 
     with (
         patch(
-            "custom_components.magic_areas.binary_sensor.FEATURE_REGISTRY",
+            "custom_components.magic_areas.features.registry.FEATURE_REGISTRY",
             registry,
             create=True,
         ),
@@ -194,7 +202,7 @@ async def test_dependency_missing_skips_module_entities(hass: HomeAssistant, cap
 
     with (
         patch(
-            "custom_components.magic_areas.sensor.FEATURE_REGISTRY",
+            "custom_components.magic_areas.features.registry.FEATURE_REGISTRY",
             registry,
             create=True,
         ),

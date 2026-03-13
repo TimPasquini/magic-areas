@@ -1,10 +1,10 @@
-"""Contract tests for core.control_group abstractions."""
+"""Contract tests for core.controls.control_group abstractions."""
 
 from dataclasses import FrozenInstanceError
 
 import pytest
 
-from custom_components.magic_areas.core.control_group import (
+from custom_components.magic_areas.core.controls import (
     ControlAction,
     ControlActionType,
     ControlGroupContext,
@@ -36,16 +36,17 @@ def test_control_group_definition_is_immutable() -> None:
     )
 
     with pytest.raises(FrozenInstanceError):
-        definition.group_id = "light.task"  # type: ignore[misc]
+        setattr(definition, "group_id", "light.task")
 
 
 def test_policy_input_and_action_contract() -> None:
     """Context and action objects should preserve literal values."""
+    signals = {"priority": "dark"}
     context = ControlGroupContext(
         group_id="light.overhead",
         current_states=("occupied",),
         new_states=("occupied",),
-        signals={"priority": "dark"},
+        signals=signals,
     )
     action = ControlAction(
         domain="light",
@@ -55,7 +56,7 @@ def test_policy_input_and_action_contract() -> None:
     )
 
     assert context.group_id == "light.overhead"
-    assert context.signals["priority"] == "dark"
+    assert signals["priority"] == "dark"
     assert action.target_entity_ids[0] == "light.kitchen_main"
     assert action.service_data["brightness_pct"] == 60
 

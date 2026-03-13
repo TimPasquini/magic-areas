@@ -1,0 +1,191 @@
+"""Contract tests for light groups feature module."""
+
+from __future__ import annotations
+
+from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.enums import MagicAreasFeatures
+
+from .feature_module_contracts_testkit import (
+    get_module,
+    make_area_config,
+    make_coordinator,
+    make_snapshot,
+)
+
+
+def test_light_groups_module_builds_expected_entities() -> None:
+    """Light groups module should build overhead + all groups."""
+    area_config = make_area_config()
+    entities_by_domain = {"light": [{"entity_id": "light.overhead_1"}]}
+    feature_configs = {
+        MagicAreasFeatures.LIGHT_GROUPS: {
+            "overhead_lights": ["light.overhead_1"],
+            "overhead_lights_states": ["occupied", "bright"],
+            "overhead_lights_act_on": ["occupancy", "state"],
+        }
+    }
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    coordinator = make_coordinator(snapshot)
+
+    module = get_module("light_groups")
+    entities = module.build_entities(area_config, coordinator, snapshot)
+
+    entity_ids = sorted(entity.entity_id for entity in entities)
+    assert entity_ids == [
+        "light.magic_areas_light_groups_kitchen_all_lights",
+        "light.magic_areas_light_groups_kitchen_overhead_lights",
+        "switch.magic_areas_light_groups_kitchen_light_control",
+    ]
+
+
+def test_light_groups_module_registers_default_control_groups() -> None:
+    """Light module should register area-scoped default control-group definitions."""
+    area_config = make_area_config()
+    entities_by_domain = {
+        "light": [
+            {"entity_id": "light.overhead_1"},
+            {"entity_id": "light.task_1"},
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.LIGHT_GROUPS: {
+            "overhead_lights": ["light.overhead_1"],
+            "overhead_lights_states": ["occupied", "bright"],
+            "overhead_lights_act_on": ["occupancy", "state"],
+            "task_lights": ["light.task_1"],
+            "task_lights_states": ["occupied"],
+            "task_lights_act_on": ["occupancy"],
+        }
+    }
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    registry = GroupRegistry()
+    snapshot.group_registry = registry
+    coordinator = make_coordinator(snapshot)
+    module = get_module("light_groups")
+    module.build_entities(area_config, coordinator, snapshot)
+
+    registered = registry.get_for_area(area_config.id)
+    registered_ids = sorted(group.definition.group_id for group in registered)
+    assert registered_ids == [
+        "light_groups_area-1_all_lights",
+        "light_groups_area-1_overhead_lights",
+        "light_groups_area-1_task_lights",
+    ]
+
+
+def test_light_groups_all_definition_includes_unassigned_lights() -> None:
+    """ALL light-group definition should include every area light."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={
+            "light": [
+                {"entity_id": "light.overhead_1"},
+                {"entity_id": "light.unassigned_1"},
+            ]
+        },
+    )
+    module = get_module("light_groups")
+    registry = GroupRegistry()
+    snapshot.group_registry = registry
+    module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+
+    groups_by_id = {
+        group.definition.group_id: group.definition
+        for group in registry.get_for_area(area_config.id)
+    }
+    assert set(groups_by_id["light_groups_area-1_all_lights"].members) == {
+        "light.overhead_1",
+        "light.unassigned_1",
+    }
+    assert set(groups_by_id["light_groups_area-1_overhead_lights"].members) == {
+        "light.overhead_1"
+    }
+
+
+def test_light_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
+    """Light module should replace prior light_groups policy entries on rebuild."""
+    area_config = make_area_config()
+    module = get_module("light_groups")
+    registry = GroupRegistry()
+
+    initial_snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+                "task_lights": ["light.task_1"],
+                "task_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}, {"entity_id": "light.task_1"}]},
+    )
+    updated_snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    initial_snapshot.group_registry = registry
+    updated_snapshot.group_registry = registry
+    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
+    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "light_groups_area-1_overhead_lights" in group_ids
+    assert "light_groups_area-1_task_lights" not in group_ids
+
+
+def test_light_groups_module_clears_stale_groups_when_no_lights_remain() -> None:
+    """Light module should clear stale light_groups entries when no lights remain."""
+    area_config = make_area_config()
+    module = get_module("light_groups")
+    registry = GroupRegistry()
+
+    initial_snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    updated_snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={},
+    )
+    initial_snapshot.group_registry = registry
+    updated_snapshot.group_registry = registry
+    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
+    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+
+    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    assert "light_groups_area-1_all_lights" not in group_ids
+    assert "light_groups_area-1_overhead_lights" not in group_ids

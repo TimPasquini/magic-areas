@@ -20,13 +20,15 @@ from homeassistant.util import slugify
 
 from custom_components.magic_areas.area_state import MetaAreaType
 from custom_components.magic_areas.config_keys.area import CONF_TYPE
-from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.icons import MetaAreaIcons
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.components import MetaAreaIcons
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.models import MagicAreasConfigEntry
+    from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+ConfigEntryData = dict[str, object]
 
 
 class BasicArea:
@@ -43,8 +45,7 @@ def basic_area_from_meta(area_id: str, name: str | None = None) -> BasicArea:
     """Create a BasicArea from a name."""
 
     basic_area = BasicArea()
-    if not name:
-        basic_area.name = area_id.capitalize()
+    basic_area.name = name if name else area_id.capitalize()
     basic_area.id = area_id
     basic_area.is_meta = True
 
@@ -103,7 +104,7 @@ def build_area_config_for_config_entry(
     area_id: str = config_entry.data[ATTR_ID]
     area_name: str = config_entry.data[ATTR_NAME]
 
-    area_config_data: dict = dict(config_entry.data)
+    area_config_data: ConfigEntryData = dict(config_entry.data)
     if config_entry.options:
         area_config_data.update(config_entry.options)
 

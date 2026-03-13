@@ -4,7 +4,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA

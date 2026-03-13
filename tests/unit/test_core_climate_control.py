@@ -2,7 +2,7 @@
 
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.climate_control import (
+from custom_components.magic_areas.core.controls.policies.climate import (
     ClimatePresetPolicy,
     build_preset_policy,
 )

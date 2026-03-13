@@ -1,29 +1,33 @@
 """Unit tests for AreaConfig dataclass."""
 
-from typing import Any
+from typing import cast
 from unittest.mock import MagicMock
 import pytest
+from homeassistant.config_entries import ConfigEntry
 
 from custom_components.magic_areas.area_state import (
     AreaType,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.components import (
     MAGIC_AREAS_COMPONENTS,
     MAGIC_AREAS_COMPONENTS_GLOBAL,
     MAGIC_AREAS_COMPONENTS_META,
+    MagicAreasRuntimeData,
 )
 
 
 @pytest.fixture
-def mock_config_entry() -> Any:
+def mock_config_entry() -> ConfigEntry[MagicAreasRuntimeData]:
     """Create a mock config entry."""
-    return MagicMock()
+    return cast(ConfigEntry[MagicAreasRuntimeData], MagicMock())
 
 
 @pytest.fixture
-def regular_area_config(mock_config_entry: Any) -> AreaConfig:
+def regular_area_config(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> AreaConfig:
     """Create a regular area config."""
     return AreaConfig(
         id="kitchen",
@@ -36,7 +40,9 @@ def regular_area_config(mock_config_entry: Any) -> AreaConfig:
 
 
 @pytest.fixture
-def exterior_area_config(mock_config_entry: Any) -> AreaConfig:
+def exterior_area_config(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> AreaConfig:
     """Create an exterior area config."""
     return AreaConfig(
         id="patio",
@@ -49,7 +55,9 @@ def exterior_area_config(mock_config_entry: Any) -> AreaConfig:
 
 
 @pytest.fixture
-def meta_area_config(mock_config_entry: Any) -> AreaConfig:
+def meta_area_config(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> AreaConfig:
     """Create a meta area config."""
     return AreaConfig(
         id="interior",
@@ -62,7 +70,9 @@ def meta_area_config(mock_config_entry: Any) -> AreaConfig:
 
 
 @pytest.fixture
-def global_meta_area_config(mock_config_entry: Any) -> AreaConfig:
+def global_meta_area_config(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> AreaConfig:
     """Create a global meta area config."""
     return AreaConfig(
         id=META_AREA_GLOBAL.lower(),
@@ -154,7 +164,9 @@ def test_area_config_hash_stability(regular_area_config: AreaConfig) -> None:
     assert hash1 == hash2
 
 
-def test_area_config_hash_different_for_different_ids(mock_config_entry: Any) -> None:
+def test_area_config_hash_different_for_different_ids(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> None:
     """Test that different area IDs produce different hashes."""
     config1 = AreaConfig(
         id="kitchen",
@@ -175,7 +187,9 @@ def test_area_config_hash_different_for_different_ids(mock_config_entry: Any) ->
     assert hash(config1) != hash(config2)
 
 
-def test_area_config_hash_different_for_different_types(mock_config_entry: Any) -> None:
+def test_area_config_hash_different_for_different_types(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> None:
     """Test that different area types produce different hashes."""
     config1 = AreaConfig(
         id="kitchen",
@@ -203,7 +217,9 @@ def test_area_config_hash_as_dict_key(regular_area_config: AreaConfig, exterior_
     assert mapping[exterior_area_config] == "exterior"
 
 
-def test_area_config_with_optional_fields(mock_config_entry: Any) -> None:
+def test_area_config_with_optional_fields(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> None:
     """Test AreaConfig with optional fields set."""
     config = AreaConfig(
         id="kitchen",
@@ -219,7 +235,9 @@ def test_area_config_with_optional_fields(mock_config_entry: Any) -> None:
     assert config.floor_id == "floor_1"
 
 
-def test_area_config_without_optional_fields(mock_config_entry: Any) -> None:
+def test_area_config_without_optional_fields(
+    mock_config_entry: ConfigEntry[MagicAreasRuntimeData],
+) -> None:
     """Test AreaConfig with optional fields at defaults."""
     config = AreaConfig(
         id="kitchen",

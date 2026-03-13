@@ -1,13 +1,12 @@
-"""Unit tests for core/light_control.py."""
+"""Unit tests for light-group policy behavior."""
 
+import pytest
 
-from custom_components.magic_areas.core.command_echo import CommandEchoState
-from custom_components.magic_areas.light_groups.policy import (
+from custom_components.magic_areas.light_groups import CommandEchoState
+from custom_components.magic_areas.light_groups import (
     ActOnMode,
     LightAction,
     LightGroupPolicy,
-    LightGroupPolicyInput,
-    build_light_group_policy,
 )
 from custom_components.magic_areas.area_state import AreaStates
 
@@ -21,20 +20,18 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.CLEAR],
-                lost_states=[AreaStates.OCCUPIED],
-                current_states=[AreaStates.CLEAR],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.CLEAR],
+            lost_states=[AreaStates.OCCUPIED],
+            current_states=[AreaStates.CLEAR],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "clear" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is False
+        assert decision.next_control_state.awaiting_echo is False
 
     def test_turn_off_when_bright_not_assigned(self) -> None:
         """Should turn off when BRIGHT appears and not assigned to it."""
@@ -42,20 +39,18 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],  # Not BRIGHT
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.BRIGHT],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_OFF
         assert "bright" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is True
+        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_bright_and_occupied_added_together(self) -> None:
         """Should noop when BRIGHT and OCCUPIED added together (occupancy prevents bright turn-off)."""
@@ -63,14 +58,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.BRIGHT, AreaStates.OCCUPIED],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT, AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         # When OCCUPIED is in new_states along with BRIGHT, bright logic doesn't trigger turn-off
         assert decision.action == LightAction.NOOP
@@ -83,22 +76,20 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         # BRIGHT is in current but not new, so it's stable (not newly added)
         # This triggers bright_active_but_stable and returns NOOP
         assert decision.action == LightAction.NOOP
         assert "bright" in decision.reason
 
-    def test_legacy_control_state_input_is_normalized(self) -> None:
-        """Legacy state objects should be converted to command-echo state."""
+    def test_legacy_control_state_input_raises_type_error(self) -> None:
+        """Legacy state objects should not be accepted by light policy."""
 
         class LegacyState:
             def __init__(self, controlling: bool, controlled: bool) -> None:
@@ -124,21 +115,14 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
+        with pytest.raises(TypeError):
+            policy.evaluate_control_context(
                 new_states=[AreaStates.DARK],
                 lost_states=[],
                 current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
                 control_state=LegacyState(controlling=True, controlled=False),
                 is_primary=False,
             )
-        )
-
-        assert decision.action == LightAction.TURN_ON
-        assert decision.next_control_state is not None
-        assert isinstance(decision.next_control_state, CommandEchoState)
-        assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_not_occupied(self) -> None:
         """Should noop when area not occupied."""
@@ -146,14 +130,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.DARK],  # Not occupied
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.DARK],  # Not occupied
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "not_occupied" in decision.reason
@@ -164,20 +146,18 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_ON
         assert "valid_states" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is True
+        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_occupancy_change_not_configured(self) -> None:
         """Should noop when occupancy changes but not configured to act on it."""
@@ -185,14 +165,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],  # Not OCCUPANCY_CHANGE
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.OCCUPIED],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "not_configured" in decision.reason
@@ -203,14 +181,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE],  # Not STATE_CHANGE
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "not_configured" in decision.reason
@@ -223,14 +199,12 @@ class TestLightGroupPolicy:
             use_priority_filtering=True,
         )
         # SLEEP is priority, DARK is not
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.SLEEP],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK, AreaStates.SLEEP],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.SLEEP],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK, AreaStates.SLEEP],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_ON
         assert "sleep" in decision.reason.lower()
@@ -242,20 +216,18 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
         # SLEEP (priority) is entering, DARK was lost — overhead/dark group should turn off
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.SLEEP],
-                lost_states=[AreaStates.DARK],
-                current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.SLEEP],
+            lost_states=[AreaStates.DARK],
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_OFF
         assert "no_valid_states" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is True
+        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_no_valid_states_no_priority_transition(self) -> None:
         """Should noop when no valid states remain but no priority transition."""
@@ -264,14 +236,12 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
         # DARK was lost, nothing priority is entering — stable state, noop
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[],
-                lost_states=[AreaStates.DARK],
-                current_states=[AreaStates.OCCUPIED],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[],
+            lost_states=[AreaStates.DARK],
+            current_states=[AreaStates.OCCUPIED],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "no_new_priority" in decision.reason
@@ -283,14 +253,12 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
         # DARK just entered, EXTENDED lost — don't turn off, dark mode takes over
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[AreaStates.EXTENDED],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[AreaStates.EXTENDED],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "entering_dark" in decision.reason
@@ -302,20 +270,18 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
         # SLEEP mode ended, group was assigned to SLEEP — turn off
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[],
-                lost_states=[AreaStates.SLEEP],
-                current_states=[AreaStates.OCCUPIED],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[],
+            lost_states=[AreaStates.SLEEP],
+            current_states=[AreaStates.OCCUPIED],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_OFF
         assert "leaving_priority" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is True
+        assert decision.next_control_state.awaiting_echo is True
 
     def test_noop_when_no_changes(self) -> None:
         """Should noop when no state changes."""
@@ -323,14 +289,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "no_state_changes" in decision.reason
@@ -341,14 +305,12 @@ class TestLightGroupPolicy:
             assigned_states=[],  # No assigned states
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.NOOP
         assert "no_assigned_states" in decision.reason
@@ -360,14 +322,12 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.STATE_CHANGE],
             use_priority_filtering=False,  # Disable priority filtering for this test
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_ON
 
@@ -377,14 +337,12 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.OCCUPIED],
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.OCCUPIED],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision.action == LightAction.TURN_ON
 
@@ -395,26 +353,22 @@ class TestLightGroupPolicy:
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
         )
         # Test occupancy change
-        decision1 = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.OCCUPIED],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision1 = policy.evaluate_control_context(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision1.action == LightAction.TURN_ON
 
         # Test state change
-        decision2 = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.DARK],
-                lost_states=[],
-                current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
-                control_state=CommandEchoState(controlling=True, awaiting_echo=False),
-                is_primary=False,
-            )
+        decision2 = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
         )
         assert decision2.action == LightAction.TURN_ON
 
@@ -424,47 +378,48 @@ class TestLightGroupPolicy:
             assigned_states=[AreaStates.DARK],
             act_on_modes=[ActOnMode.STATE_CHANGE],
         )
-        decision = policy.evaluate_area_state_change(
-            LightGroupPolicyInput(
-                new_states=[AreaStates.CLEAR],
-                lost_states=[AreaStates.OCCUPIED],
-                current_states=[AreaStates.CLEAR],
-                control_state=CommandEchoState(controlling=False, awaiting_echo=False),
-                is_primary=True,
-            )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.CLEAR],
+            lost_states=[AreaStates.OCCUPIED],
+            current_states=[AreaStates.CLEAR],
+            control_state=CommandEchoState(controlling=False, awaiting_echo=False),
+            is_primary=True,
         )
         assert decision.action == LightAction.TURN_OFF
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
-        assert decision.next_control_state.controlled is False
+        assert decision.next_control_state.awaiting_echo is False
 
 
-class TestBuildLightGroupPolicy:
-    """Tests for build_light_group_policy()."""
+class TestLightGroupPolicyConstruction:
+    """Tests for direct LightGroupPolicy construction."""
 
-    def test_builds_policy_from_params(self) -> None:
-        """Should build policy with given parameters."""
-        policy = build_light_group_policy(
+    def test_constructs_policy_from_params(self) -> None:
+        """Should construct policy with given parameters."""
+        policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK, AreaStates.SLEEP],
             act_on_modes=["occupancy", "state"],
+            use_priority_filtering=True,
         )
         assert set(policy.assigned_states) == {AreaStates.DARK, AreaStates.SLEEP}
         assert set(policy.act_on_modes) == {"occupancy", "state"}
         assert policy.use_priority_filtering is True
 
     def test_empty_assigned_states(self) -> None:
-        """Should handle empty assigned states."""
-        policy = build_light_group_policy(
+        """Should construct policy with empty assigned states."""
+        policy = LightGroupPolicy(
             assigned_states=[],
             act_on_modes=["state"],
+            use_priority_filtering=True,
         )
         assert policy.assigned_states == []
 
     def test_single_act_on_mode(self) -> None:
-        """Should handle single act on mode."""
-        policy = build_light_group_policy(
+        """Should construct policy with single act-on mode."""
+        policy = LightGroupPolicy(
             assigned_states=[AreaStates.DARK],
             act_on_modes=["occupancy"],
+            use_priority_filtering=True,
         )
         assert "occupancy" in policy.act_on_modes
 
@@ -474,9 +429,7 @@ class TestLightActionEnum:
 
     def test_action_values(self) -> None:
         """Should have correct action values."""
-        assert LightAction.TURN_ON != LightAction.TURN_OFF
-        assert LightAction.TURN_OFF != LightAction.NOOP
-        assert LightAction.NOOP != LightAction.TURN_ON
+        assert {action.value for action in LightAction} == {"turn_on", "turn_off", "noop"}
 
     def test_all_actions_present(self) -> None:
         """Should have all three actions."""

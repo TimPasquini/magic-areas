@@ -1,12 +1,12 @@
 """Integration parity contracts for light-group entity setup."""
 
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
@@ -70,6 +70,13 @@ async def test_light_group_entity_ids_and_count_match_contract(
     }
 
     assert magic_light_ids == expected_light_ids
+    all_group_id = f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_all_lights"
+    all_group_state = hass.states.get(all_group_id)
+    assert all_group_state is not None
+    assert all_group_state.attributes.get("child_ids") == [
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights",
+        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_task_lights",
+    ]
 
     light_control_switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"

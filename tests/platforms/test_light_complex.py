@@ -2,15 +2,15 @@
 
 
 import pytest
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.enums import MagicAreasFeatures

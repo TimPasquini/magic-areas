@@ -1,6 +1,6 @@
 """Tests for registry filter factory functions."""
 
-from typing import Any, cast
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from homeassistant.core import HomeAssistant
@@ -13,9 +13,14 @@ from homeassistant.helpers.device_registry import EventDeviceRegistryUpdatedData
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.core.registry_filters import (
+from custom_components.magic_areas.coordinator.pipeline import (
     make_device_registry_filter,
     make_entity_registry_filter,
+)
+from custom_components.magic_areas.coordinator.pipeline.lifecycle import (
+    _extract_changed_area_id,
+    _merged_area_config_data,
+    _runtime_snapshot,
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
@@ -25,18 +30,18 @@ from tests.helpers import (
 
 
 @pytest.fixture
-def mock_hass() -> Any:
+def mock_hass() -> HomeAssistant:
     """Create a mock Home Assistant instance."""
     hass = MagicMock(spec=HomeAssistant)
-    return hass
+    return cast(HomeAssistant, hass)
 
 
 class TestMakeEntityRegistryFilter:
     """Tests for make_entity_registry_filter factory."""
 
-    def test_filter_ignores_magic_areas_entities(self, mock_hass: Any) -> None:
+    def test_filter_ignores_magic_areas_entities(self, mock_hass: HomeAssistant) -> None:
         """Test that Magic Areas' own entities are ignored."""
-        filter_func = make_entity_registry_filter(mock_hass, "test_area", "config_id")
+        filter_func = make_entity_registry_filter(mock_hass, "test_area")
 
         event_data = cast(
             EventEntityRegistryUpdatedData,
@@ -48,9 +53,9 @@ class TestMakeEntityRegistryFilter:
 
         assert filter_func(event_data) is False
 
-    def test_filter_accepts_entity_added_to_area(self, mock_hass: Any) -> None:
+    def test_filter_accepts_entity_added_to_area(self, mock_hass: HomeAssistant) -> None:
         """Test that entities added to the area are accepted."""
-        with patch("custom_components.magic_areas.core.registry_filters.entityreg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
 
@@ -58,7 +63,7 @@ class TestMakeEntityRegistryFilter:
             mock_entry.area_id = "test_area"
             mock_registry.async_get.return_value = mock_entry
 
-            filter_func = make_entity_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_entity_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventEntityRegistryUpdatedData,
@@ -70,9 +75,9 @@ class TestMakeEntityRegistryFilter:
 
             assert filter_func(event_data) is True
 
-    def test_filter_ignores_entity_in_different_area(self, mock_hass: Any) -> None:
+    def test_filter_ignores_entity_in_different_area(self, mock_hass: HomeAssistant) -> None:
         """Test that entities in different areas are ignored."""
-        with patch("custom_components.magic_areas.core.registry_filters.entityreg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
 
@@ -80,7 +85,7 @@ class TestMakeEntityRegistryFilter:
             mock_entry.area_id = "other_area"
             mock_registry.async_get.return_value = mock_entry
 
-            filter_func = make_entity_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_entity_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventEntityRegistryUpdatedData,
@@ -92,14 +97,14 @@ class TestMakeEntityRegistryFilter:
 
             assert filter_func(event_data) is False
 
-    def test_filter_detects_entity_removed_from_area(self, mock_hass: Any) -> None:
+    def test_filter_detects_entity_removed_from_area(self, mock_hass: HomeAssistant) -> None:
         """Test detection when entity is removed from area."""
-        with patch("custom_components.magic_areas.core.registry_filters.entityreg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
             mock_registry.async_get.return_value = None
 
-            filter_func = make_entity_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_entity_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventEntityRegistryUpdatedData,
@@ -112,9 +117,9 @@ class TestMakeEntityRegistryFilter:
 
             assert filter_func(event_data) is True
 
-    def test_filter_detects_entity_area_changed_to_this_area(self, mock_hass: Any) -> None:
+    def test_filter_detects_entity_area_changed_to_this_area(self, mock_hass: HomeAssistant) -> None:
         """Test detection when entity area changes to this area."""
-        with patch("custom_components.magic_areas.core.registry_filters.entityreg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
 
@@ -122,7 +127,7 @@ class TestMakeEntityRegistryFilter:
             mock_entry.area_id = "test_area"
             mock_registry.async_get.return_value = mock_entry
 
-            filter_func = make_entity_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_entity_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventEntityRegistryUpdatedData,
@@ -139,10 +144,10 @@ class TestMakeEntityRegistryFilter:
 class TestMakeDeviceRegistryFilter:
     """Tests for make_device_registry_filter factory."""
 
-    def test_filter_ignores_magic_area_devices(self, mock_hass: Any) -> None:
+    def test_filter_ignores_magic_area_devices(self, mock_hass: HomeAssistant) -> None:
         """Test that Magic Areas' own devices are ignored."""
-        with patch("custom_components.magic_areas.core.registry_filters.devicereg_async_get"):
-            filter_func = make_device_registry_filter(mock_hass, "test_area", "config_id")
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get"):
+            filter_func = make_device_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventDeviceRegistryUpdatedData,
@@ -154,9 +159,9 @@ class TestMakeDeviceRegistryFilter:
 
             assert filter_func(event_data) is False
 
-    def test_filter_accepts_device_in_area(self, mock_hass: Any) -> None:
+    def test_filter_accepts_device_in_area(self, mock_hass: HomeAssistant) -> None:
         """Test that devices in the area are accepted."""
-        with patch("custom_components.magic_areas.core.registry_filters.devicereg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
 
@@ -164,7 +169,7 @@ class TestMakeDeviceRegistryFilter:
             mock_entry.area_id = "test_area"
             mock_registry.async_get.return_value = mock_entry
 
-            filter_func = make_device_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_device_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventDeviceRegistryUpdatedData,
@@ -176,9 +181,9 @@ class TestMakeDeviceRegistryFilter:
 
             assert filter_func(event_data) is True
 
-    def test_filter_ignores_device_in_different_area(self, mock_hass: Any) -> None:
+    def test_filter_ignores_device_in_different_area(self, mock_hass: HomeAssistant) -> None:
         """Test that devices in different areas are ignored."""
-        with patch("custom_components.magic_areas.core.registry_filters.devicereg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
 
@@ -186,7 +191,7 @@ class TestMakeDeviceRegistryFilter:
             mock_entry.area_id = "other_area"
             mock_registry.async_get.return_value = mock_entry
 
-            filter_func = make_device_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_device_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventDeviceRegistryUpdatedData,
@@ -198,14 +203,14 @@ class TestMakeDeviceRegistryFilter:
 
             assert filter_func(event_data) is False
 
-    def test_filter_detects_device_removed_from_area(self, mock_hass: Any) -> None:
+    def test_filter_detects_device_removed_from_area(self, mock_hass: HomeAssistant) -> None:
         """Test detection when device is removed from area."""
-        with patch("custom_components.magic_areas.core.registry_filters.devicereg_async_get") as mock_reg:
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get") as mock_reg:
             mock_registry = MagicMock()
             mock_reg.return_value = mock_registry
             mock_registry.async_get.return_value = None
 
-            filter_func = make_device_registry_filter(mock_hass, "test_area", "config_id")
+            filter_func = make_device_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventDeviceRegistryUpdatedData,
@@ -234,9 +239,7 @@ async def test_registry_filters_integration(
     assert entry is not None
     area_config = entry.runtime_data.coordinator._area_config
 
-    entity_filter = make_entity_registry_filter(
-        hass, area_config.id, mock_config_entry.entry_id
-    )
+    entity_filter = make_entity_registry_filter(hass, area_config.id)
 
     # Test entity update in area
     event_data: _EventEntityRegistryUpdatedData_Update = cast(
@@ -249,7 +252,7 @@ async def test_registry_filters_integration(
     )
     # Mock registry lookup to return None or different area to simulate removal
     with patch(
-        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
+        "custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get"
     ) as mock_er:
         mock_registry_instance = MagicMock()
         mock_er.return_value = mock_registry_instance
@@ -268,7 +271,7 @@ async def test_registry_filters_integration(
         },
     )
     with patch(
-        "custom_components.magic_areas.core.registry_filters.entityreg_async_get"
+        "custom_components.magic_areas.coordinator.pipeline.lifecycle.entityreg_async_get"
     ) as mock_er:
         mock_registry_instance = MagicMock()
         mock_er.return_value = mock_registry_instance
@@ -279,3 +282,31 @@ async def test_registry_filters_integration(
         assert entity_filter(event_data_create) is True
 
     await shutdown_integration(hass, [mock_config_entry])
+
+
+def test_extract_changed_area_id_helper() -> None:
+    """Changed-area extraction should normalize optional payloads."""
+    assert _extract_changed_area_id({"area_id": "kitchen"}) == "kitchen"
+    assert _extract_changed_area_id({"area_id": None}) is None
+    assert _extract_changed_area_id({"area_id": 123}) is None
+    assert _extract_changed_area_id(None) is None
+
+
+def test_merged_area_config_data_prefers_options() -> None:
+    """Merged area config should overlay options onto base data."""
+    config_entry = MagicMock()
+    config_entry.data = {"name": "Kitchen", "reload_on_registry_change": True}
+    config_entry.options = {"reload_on_registry_change": False}
+
+    merged = _merged_area_config_data(config_entry)
+
+    assert merged["name"] == "Kitchen"
+    assert merged["reload_on_registry_change"] is False
+
+
+def test_runtime_snapshot_helper_handles_missing_runtime_data() -> None:
+    """Runtime snapshot helper should return None when runtime_data absent."""
+    config_entry = MagicMock()
+    config_entry.runtime_data = None
+
+    assert _runtime_snapshot(config_entry) is None

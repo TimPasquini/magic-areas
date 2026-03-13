@@ -1,0 +1,51 @@
+"""Pure configuration helpers for Magic Areas."""
+
+from custom_components.magic_areas.core.config.area import (
+    area_type,
+    exclude_entities,
+    extended_time_minutes,
+    extended_timeout_minutes,
+    has_configured_state,
+    ignore_diagnostic_entities,
+    include_entities,
+    keep_only_entities,
+    normalize_custom_control_groups,
+    presence_device_platforms,
+    presence_sensor_device_classes,
+    reload_on_registry_change,
+    secondary_states_calculation_mode,
+    secondary_states_config,
+    sleep_timeout_minutes,
+)
+from custom_components.magic_areas.core.config.feature import (
+    coerce_float,
+    coerce_int,
+    enum_string_list,
+    feature_config_slice,
+    normalize_feature_config,
+    string_list,
+)
+
+__all__ = [
+    "area_type",
+    "exclude_entities",
+    "extended_time_minutes",
+    "extended_timeout_minutes",
+    "feature_config_slice",
+    "has_configured_state",
+    "ignore_diagnostic_entities",
+    "include_entities",
+    "keep_only_entities",
+    "normalize_custom_control_groups",
+    "normalize_feature_config",
+    "coerce_float",
+    "coerce_int",
+    "enum_string_list",
+    "presence_device_platforms",
+    "presence_sensor_device_classes",
+    "reload_on_registry_change",
+    "secondary_states_calculation_mode",
+    "secondary_states_config",
+    "sleep_timeout_minutes",
+    "string_list",
+]

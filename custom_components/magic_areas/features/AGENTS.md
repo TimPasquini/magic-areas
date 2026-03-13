@@ -8,10 +8,13 @@ Key rules:
 - Feature modules should be thin: build entities, declare domains, and expose
   config flow steps when needed.
 - The runtime source of truth is `features/registry.py`.
+- Feature option schemas should live with feature modules (and be consumed by
+  config flow via registry metadata), not in parallel schema-only trees.
 
 When adding a new feature:
 1) Add the `MagicAreasFeatures` enum value.
 2) Add metadata in `feature_info.py`.
 3) Implement the module in `features/modules/`.
 4) Register it in `features/registry.py`.
-5) Add schemas under `schemas/features/` if configurable.
+5) If configurable, add/update the module-local `FeatureOption` schema and
+   `FeatureConfigStep` metadata consumed by config flow helpers.

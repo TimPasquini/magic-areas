@@ -3,23 +3,23 @@
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ACCENT_ENTITY,
     CONF_DARK_ENTITY,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.coordinator.presence_ingestion import (
-    build_presence_sensors,
-)
-from custom_components.magic_areas.core.entity_ids import EntityReferences
-from custom_components.magic_areas.core.presence import compute_secondary_states
-from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.ha_domains import (
+from custom_components.magic_areas.components import (
     BINARY_SENSOR_DOMAIN,
     SWITCH_DOMAIN,
 )
+from custom_components.magic_areas.coordinator.pipeline import (
+    build_presence_sensors,
+)
+from custom_components.magic_areas.core.runtime_model import EntityReferences
+from custom_components.magic_areas.core.presence_tracker import compute_secondary_states
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
 def test_build_presence_sensors_filters_devices() -> None:

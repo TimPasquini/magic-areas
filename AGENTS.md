@@ -5,7 +5,7 @@
 This file exists for compatibility with GitHub Copilot and other AI coding assistants. All development guidance has been consolidated into `CLAUDE.md`, which includes:
 
 - Project setup standards (uv-based dependency management)
-- Architecture overview (fork context, coordinator pattern, refactoring phases)
+- Architecture overview (fork context, coordinator pattern, runtime boundaries)
 - Development commands (testing, linting, type checking)
 - Code organization (current and target structure)
 - Key architectural patterns (presence tracking, feature system, event flow)

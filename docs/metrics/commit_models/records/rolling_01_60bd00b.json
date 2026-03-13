@@ -1,0 +1,11 @@
+{
+  "commit": "60bd00bb06bdb994508e1ba2579e320c14bc1269",
+  "date": "2026-03-29",
+  "py_files": 105,
+  "role": "rolling",
+  "rolling_index": 1,
+  "short": "60bd00b",
+  "subject": "refactor: extract secondary-state read helper in presence tracker entity",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 119
+}

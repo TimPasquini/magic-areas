@@ -3,11 +3,13 @@
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
 )
-from custom_components.magic_areas.core.aggregates import build_sensor_aggregates
+from custom_components.magic_areas.core.aggregates.selection import (
+    build_sensor_aggregates,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
@@ -107,7 +109,9 @@ def test_build_aggregates_respects_sensor_domain_check() -> None:
 
 def test_build_binary_aggregates_with_multiple_device_classes() -> None:
     """Test binary sensor aggregates with multiple device classes."""
-    from custom_components.magic_areas.core.aggregates import build_binary_sensor_aggregates
+    from custom_components.magic_areas.core.aggregates.selection import (
+        build_binary_sensor_aggregates,
+    )
 
     entities_by_domain = {
         "binary_sensor": [

@@ -1,14 +1,16 @@
 """Tests for core aggregate selection helpers."""
 
-from custom_components.magic_areas.core.aggregates import (
-    BinarySensorAggregateSpec,
-    SensorAggregateSpec,
+from custom_components.magic_areas.core.aggregates.selection import (
     build_binary_sensor_aggregates,
     build_health_sensor_spec,
     build_sensor_aggregates,
 )
+from custom_components.magic_areas.core.aggregates.selection import (
+    BinarySensorAggregateSpec,
+    SensorAggregateSpec,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,

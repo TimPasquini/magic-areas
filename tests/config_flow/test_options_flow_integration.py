@@ -1,12 +1,18 @@
 """Integration tests for full options flow workflows."""
 
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_flows import OptionsFlowHandler
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.enums import MagicAreasFeatures
+
+
+def _enabled_features(flow: OptionsFlowHandler) -> dict[object, object]:
+    """Return enabled-features mapping with a concrete type for assertions."""
+    return cast(dict[object, object], flow.area_options[CONF_ENABLED_FEATURES])
 
 
 @pytest.mark.asyncio
@@ -49,7 +55,7 @@ async def test_options_flow_select_features_then_configure() -> None:
     flow._area_config = coordinator_data.area_config
     flow.area_options = {}
 
-    from custom_components.magic_areas.config_flows.steps.feature_selection import (
+    from custom_components.magic_areas.config_flows.steps import (
         handle_feature_selection,
     )
 
@@ -67,8 +73,9 @@ async def test_options_flow_select_features_then_configure() -> None:
     # Verify result and state
     assert result["type"] == FlowResultType.MENU
     assert CONF_ENABLED_FEATURES in flow.area_options
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options[CONF_ENABLED_FEATURES]
-    assert MagicAreasFeatures.CLIMATE_CONTROL not in flow.area_options[CONF_ENABLED_FEATURES]
+    enabled_features = _enabled_features(flow)
+    assert MagicAreasFeatures.LIGHT_GROUPS in enabled_features
+    assert MagicAreasFeatures.CLIMATE_CONTROL not in enabled_features
 
 
 @pytest.mark.asyncio
@@ -103,7 +110,7 @@ async def test_options_flow_persists_configuration_across_steps() -> None:
     # Verify options were preserved after simulating step
     assert flow.area_options == original_options
     assert CONF_ENABLED_FEATURES in flow.area_options
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options[CONF_ENABLED_FEATURES]
+    assert MagicAreasFeatures.LIGHT_GROUPS in _enabled_features(flow)
 
 
 @pytest.mark.asyncio
@@ -167,7 +174,7 @@ async def test_options_flow_deselecting_feature_removes_from_options() -> None:
         }
     }
 
-    from custom_components.magic_areas.config_flows.steps.feature_selection import (
+    from custom_components.magic_areas.config_flows.steps import (
         handle_feature_selection,
     )
 
@@ -185,8 +192,9 @@ async def test_options_flow_deselecting_feature_removes_from_options() -> None:
 
     # Verify climate_control was removed
     assert result["type"] == FlowResultType.MENU
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options[CONF_ENABLED_FEATURES]
-    assert MagicAreasFeatures.CLIMATE_CONTROL not in flow.area_options[CONF_ENABLED_FEATURES]
+    enabled_features = _enabled_features(flow)
+    assert MagicAreasFeatures.LIGHT_GROUPS in enabled_features
+    assert MagicAreasFeatures.CLIMATE_CONTROL not in enabled_features
 
 
 @pytest.mark.asyncio
@@ -215,7 +223,8 @@ async def test_options_flow_handles_multiple_feature_configurations() -> None:
     }
 
     # Verify all configurations are stored
-    assert len(flow.area_options[CONF_ENABLED_FEATURES]) == 3
-    assert flow.area_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] == {"some_config": "value1"}
-    assert flow.area_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES] == {"other_config": "value2"}
-    assert flow.area_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.CLIMATE_CONTROL] == {"preset": "occupied"}
+    enabled_features = _enabled_features(flow)
+    assert len(enabled_features) == 3
+    assert enabled_features[MagicAreasFeatures.LIGHT_GROUPS] == {"some_config": "value1"}
+    assert enabled_features[MagicAreasFeatures.AGGREGATES] == {"other_config": "value2"}
+    assert enabled_features[MagicAreasFeatures.CLIMATE_CONTROL] == {"preset": "occupied"}

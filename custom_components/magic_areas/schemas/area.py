@@ -7,28 +7,34 @@ from homeassistant.helpers import config_validation as cv
 
 from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.enums import CalculationMode
-from custom_components.magic_areas.area_maps import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_DARK_ENTITY,
     CONF_ACCENT_ENTITY,
     CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
-    CONF_SLEEP_TIMEOUT,
-    CONF_EXTENDED_TIME,
-    CONF_EXTENDED_TIMEOUT,
-    CONF_SECONDARY_STATES_CALCULATION_MODE,
-    CONF_TYPE,
-    CONF_INCLUDE_ENTITIES,
-    CONF_EXCLUDE_ENTITIES,
-    CONF_KEEP_ONLY_ENTITIES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_CLEAR_TIMEOUT,
     CONF_ENABLED_FEATURES,
     CONF_SECONDARY_STATES,
-    CONF_RELOAD_ON_REGISTRY_CHANGE,
+    CONF_TYPE,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_EXCLUDE_ENTITIES,
+    CONF_INCLUDE_ENTITIES,
+    CONF_KEEP_ONLY_ENTITIES,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_CLEAR_TIMEOUT,
+    CONF_EXTENDED_TIME,
+    CONF_EXTENDED_TIMEOUT,
+    CONF_PRESENCE_DEVICE_PLATFORMS,
+    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+    CONF_SECONDARY_STATES_CALCULATION_MODE,
+    CONF_SLEEP_TIMEOUT,
+)
+from custom_components.magic_areas.config_keys.area import (
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
+    CONF_RELOAD_ON_REGISTRY_CHANGE,
 )
 from custom_components.magic_areas.schemas.control_groups import (
     CUSTOM_CONTROL_GROUPS_SCHEMA,

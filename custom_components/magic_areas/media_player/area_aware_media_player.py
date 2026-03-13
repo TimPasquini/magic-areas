@@ -1,35 +1,44 @@
 """Area aware media player, media player component."""
 
+from collections.abc import Mapping
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
 
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerState
+from homeassistant.components.media_player import MediaPlayerEntity
 from homeassistant.components.media_player.const import (
     ATTR_MEDIA_CONTENT_ID,
     ATTR_MEDIA_CONTENT_TYPE,
+    DOMAIN as MEDIA_PLAYER_DOMAIN,
+    MediaPlayerState,
     SERVICE_PLAY_MEDIA,
     MediaPlayerEntityFeature,
-)
-from homeassistant.components.media_player.const import (
-    DOMAIN as MEDIA_PLAYER_DOMAIN,
 )
 from homeassistant.const import ATTR_ENTITY_ID, STATE_ON
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
-from custom_components.magic_areas.core.feature_defaults import (
-    DEFAULT_NOTIFY_STATES,
+from custom_components.magic_areas.core.runtime_model import build_presence_tracking_unique_id
+from custom_components.magic_areas.core.controls.policies.media import (
+    evaluate_area_routing,
 )
-from custom_components.magic_areas.core.media_routing import evaluate_area_routing
+from custom_components.magic_areas.defaults import DEFAULT_NOTIFY_STATES
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class AreaMediaData(TypedDict):
+    """Runtime data required to route media for one area."""
+
+    entities_by_domain: Mapping[str, list[Mapping[str, str]]]
+    notification_devices: list[str]
+    notification_states: list[str]
 
 
 class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
@@ -41,7 +50,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         self,
         area_config: "AreaConfig",
         coordinator: "MagicAreasCoordinator",
-        areas_data: dict[str, dict[str, Any]],
+        areas_data: dict[str, AreaMediaData],
     ) -> None:
         """Initialize area-aware media player."""
         MagicEntity.__init__(
@@ -49,7 +58,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         )
         MediaPlayerEntity.__init__(self)
 
-        self._attr_extra_state_attributes: dict[str, Any] = {}
+        self._attr_extra_state_attributes: dict[str, object] = {}
         self._state: MediaPlayerState | None = MediaPlayerState.IDLE
 
         self.areas_data = areas_data
@@ -68,7 +77,9 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
     def _resolve_area_state_sensor(self, area_id: str) -> str | None:
         """Resolve area state sensor from entity registry."""
         return er.async_get(self.hass).async_get_entity_id(
-            BS_DOMAIN, MA_DOMAIN, f"presence_tracking_{area_id}_area_state"
+            BS_DOMAIN,
+            MA_DOMAIN,
+            build_presence_tracking_unique_id(area_id=area_id),
         )
 
     def update_attributes(self) -> None:
@@ -83,7 +94,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
     @staticmethod
     def get_media_players_for_area(
-        entities_by_domain: dict[str, list[dict[str, Any]]],
+        entities_by_domain: Mapping[str, list[Mapping[str, str]]],
         notification_devices: list[str],
     ) -> set[str]:
         """Return media players for a given area."""
@@ -132,7 +143,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
 
     def get_active_areas(self) -> list[str]:
         """Return area IDs that are occupied and should receive media."""
-        from custom_components.magic_areas.attrs import ATTR_STATES
+        from custom_components.magic_areas.const import ATTR_STATES
 
         active_area_ids = []
 
@@ -178,7 +189,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
     def update_state(self) -> None:
         """Update entity state and attributes."""
         self.update_attributes()
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()
 
     def set_state(self, state: MediaPlayerState | None = None) -> None:
         """Set the entity state."""
@@ -187,7 +198,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         self.update_state()
 
     async def async_play_media(
-        self, media_type: str, media_id: str, **kwargs: Any
+        self, media_type: str, media_id: str, **kwargs: object
     ) -> None:
         """Forward a piece of media to media players in active areas."""
 
@@ -215,7 +226,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
             )
             return
 
-        data = {
+        data: dict[str, object] = {
             ATTR_MEDIA_CONTENT_ID: media_id,
             ATTR_MEDIA_CONTENT_TYPE: media_type,
             ATTR_ENTITY_ID: media_players,

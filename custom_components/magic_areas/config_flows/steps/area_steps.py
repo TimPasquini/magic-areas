@@ -3,35 +3,44 @@
 Handles basic area settings, presence tracking configuration, and secondary states.
 """
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant import config_entries
 
-from custom_components.magic_areas.area_maps import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ACCENT_ENTITY,
     CONF_DARK_ENTITY,
+    CONF_SLEEP_ENTITY,
 )
-from custom_components.magic_areas.config_flows.helpers import (
+from custom_components.magic_areas.config_flows.base import (
+    DynamicValidatorMap,
+    SelectorMap,
     handle_step_validation,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
+    CONF_SECONDARY_STATES,
+    CONF_TYPE,
+)
+from custom_components.magic_areas.config_keys.area import (
     CONF_EXCLUDE_ENTITIES,
-    CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
     CONF_KEEP_ONLY_ENTITIES,
-    CONF_PRESENCE_DEVICE_PLATFORMS,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_RELOAD_ON_REGISTRY_CHANGE,
-    CONF_SECONDARY_STATES,
-    CONF_SECONDARY_STATES_CALCULATION_MODE,
-    CONF_SLEEP_ENTITY,
-    CONF_SLEEP_TIMEOUT,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_CLEAR_TIMEOUT,
     CONF_EXTENDED_TIME,
     CONF_EXTENDED_TIMEOUT,
-    CONF_CLEAR_TIMEOUT,
-    CONF_TYPE,
+    CONF_PRESENCE_DEVICE_PLATFORMS,
+    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+    CONF_SECONDARY_STATES_CALCULATION_MODE,
+    CONF_SLEEP_TIMEOUT,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_IGNORE_DIAGNOSTIC_ENTITIES,
+    CONF_RELOAD_ON_REGISTRY_CHANGE,
 )
 from custom_components.magic_areas.defaults import (
     ALL_PRESENCE_DEVICE_PLATFORMS,
@@ -39,7 +48,7 @@ from custom_components.magic_areas.defaults import (
 from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.enums import CalculationMode, SelectorTranslationKeys
 from custom_components.magic_areas.policy import ALL_BINARY_SENSOR_DEVICE_CLASSES
-from custom_components.magic_areas.schemas.area import (
+from custom_components.magic_areas.schemas import (
     META_AREA_BASIC_OPTIONS_SCHEMA,
     META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA,
     META_AREA_SECONDARY_STATES_SCHEMA,
@@ -47,19 +56,17 @@ from custom_components.magic_areas.schemas.area import (
     REGULAR_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA,
     SECONDARY_STATES_SCHEMA,
 )
-from custom_components.magic_areas.schemas.selectors import (
+from custom_components.magic_areas.schemas import (
+    CUSTOM_CONTROL_GROUPS_SCHEMA,
+)
+from custom_components.magic_areas.config_flows.selector_builders import (
     build_selector_boolean,
     build_selector_entity_simple,
     build_selector_number,
     build_selector_object,
     build_selector_select,
 )
-from custom_components.magic_areas.schemas.control_groups import (
-    CUSTOM_CONTROL_GROUPS_SCHEMA,
-)
-from custom_components.magic_areas.core.control_group_templates import (
-    get_custom_control_group_templates,
-)
+from custom_components.magic_areas.core.controls import get_custom_control_group_templates
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
@@ -68,7 +75,7 @@ EMPTY_ENTRY = [""]
 
 
 async def handle_area_config(
-    flow: "OptionsFlowHandler", user_input: dict[str, Any] | None = None
+    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Handle area configuration step."""
     options_schema = (
@@ -89,7 +96,7 @@ async def handle_area_config(
     if validated:
         return await flow.async_step_show_menu()
 
-    all_selectors = {
+    all_selectors: SelectorMap = {
         CONF_TYPE: build_selector_select(
             sorted([AreaType.INTERIOR, AreaType.EXTERIOR]),
             translation_key=SelectorTranslationKeys.AREA_TYPE,
@@ -100,8 +107,8 @@ async def handle_area_config(
         CONF_EXCLUDE_ENTITIES: build_selector_entity_simple(
             flow.all_area_entities, multiple=True
         ),
-        CONF_RELOAD_ON_REGISTRY_CHANGE: build_selector_boolean(),  # type: ignore[no-untyped-call]
-        CONF_IGNORE_DIAGNOSTIC_ENTITIES: build_selector_boolean(),  # type: ignore[no-untyped-call]
+        CONF_RELOAD_ON_REGISTRY_CHANGE: build_selector_boolean(),
+        CONF_IGNORE_DIAGNOSTIC_ENTITIES: build_selector_boolean(),
     }
 
     data_schema = flow._build_schema_from_vol(
@@ -118,7 +125,7 @@ async def handle_area_config(
 
 
 async def handle_presence_tracking(
-    flow: "OptionsFlowHandler", user_input: dict[str, Any] | None = None
+    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Handle presence tracking configuration step."""
     options_schema = (
@@ -139,7 +146,7 @@ async def handle_presence_tracking(
     if validated:
         return await flow.async_step_show_menu()
 
-    all_selectors = {
+    all_selectors: SelectorMap = {
         CONF_PRESENCE_DEVICE_PLATFORMS: build_selector_select(
             sorted(ALL_PRESENCE_DEVICE_PLATFORMS), multiple=True
         ),
@@ -171,7 +178,7 @@ async def handle_presence_tracking(
 
 
 async def handle_secondary_states(
-    flow: "OptionsFlowHandler", user_input: dict[str, Any] | None = None
+    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Handle secondary states configuration step."""
     area_state_schema = (
@@ -193,50 +200,58 @@ async def handle_secondary_states(
     if validated:
         return await flow.async_step_show_menu()
 
+    dynamic_validators: DynamicValidatorMap = {
+        CONF_DARK_ENTITY: vol.In(
+            EMPTY_ENTRY + flow.all_light_tracking_entities
+        ),
+        CONF_SLEEP_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
+        CONF_ACCENT_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
+        CONF_SECONDARY_STATES_CALCULATION_MODE: vol.In(CalculationMode),
+    }
+    selectors: SelectorMap = {
+        CONF_DARK_ENTITY: build_selector_entity_simple(
+            flow.all_light_tracking_entities
+        ),
+        CONF_SLEEP_ENTITY: build_selector_entity_simple(
+            flow.all_binary_entities
+        ),
+        CONF_ACCENT_ENTITY: build_selector_entity_simple(
+            flow.all_binary_entities
+        ),
+        CONF_SLEEP_TIMEOUT: build_selector_number(
+            unit_of_measurement="minutes"
+        ),
+        CONF_EXTENDED_TIME: build_selector_number(
+            unit_of_measurement="minutes"
+        ),
+        CONF_EXTENDED_TIMEOUT: build_selector_number(
+            unit_of_measurement="minutes"
+        ),
+        CONF_SECONDARY_STATES_CALCULATION_MODE: build_selector_select(
+            options=list(CalculationMode),
+            translation_key=SelectorTranslationKeys.CALCULATION_MODE,
+        ),
+    }
+    saved_secondary_states = flow.area_options.get(CONF_SECONDARY_STATES)
+
     return flow.async_show_form(
         step_id="secondary_states",
         data_schema=flow._build_schema_from_vol(
             area_state_schema,
-            saved_options=flow.area_options.get(CONF_SECONDARY_STATES, {}),
-            dynamic_validators={
-                CONF_DARK_ENTITY: vol.In(
-                    EMPTY_ENTRY + flow.all_light_tracking_entities
-                ),
-                CONF_SLEEP_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
-                CONF_ACCENT_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
-                CONF_SECONDARY_STATES_CALCULATION_MODE: vol.In(CalculationMode),
-            },
-            selectors={
-                CONF_DARK_ENTITY: build_selector_entity_simple(
-                    flow.all_light_tracking_entities
-                ),
-                CONF_SLEEP_ENTITY: build_selector_entity_simple(
-                    flow.all_binary_entities
-                ),
-                CONF_ACCENT_ENTITY: build_selector_entity_simple(
-                    flow.all_binary_entities
-                ),
-                CONF_SLEEP_TIMEOUT: build_selector_number(
-                    unit_of_measurement="minutes"
-                ),
-                CONF_EXTENDED_TIME: build_selector_number(
-                    unit_of_measurement="minutes"
-                ),
-                CONF_EXTENDED_TIMEOUT: build_selector_number(
-                    unit_of_measurement="minutes"
-                ),
-                CONF_SECONDARY_STATES_CALCULATION_MODE: build_selector_select(
-                    options=list(CalculationMode),
-                    translation_key=SelectorTranslationKeys.CALCULATION_MODE,
-                ),
-            },
+            saved_options=(
+                saved_secondary_states
+                if isinstance(saved_secondary_states, dict)
+                else {}
+            ),
+            dynamic_validators=dynamic_validators,
+            selectors=selectors,
         ),
         errors=errors,
     )
 
 
 async def handle_custom_control_groups(
-    flow: "OptionsFlowHandler", user_input: dict[str, Any] | None = None
+    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Handle custom control-group configuration step."""
     default_groups = flow.area_options.get(CONF_CUSTOM_CONTROL_GROUPS, [])

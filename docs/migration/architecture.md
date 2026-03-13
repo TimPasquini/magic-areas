@@ -10,7 +10,7 @@ from the updated structure.
 - `custom_components/magic_areas/__init__.py`
   - config entry lifecycle (setup, unload, migrate)
   - coordinator creation and first refresh
-  - AREA_LOADED dispatch for non-meta areas
+  - AREA_SNAPSHOT_READY dispatch for non-meta snapshot updates
   - meta-area reload subscription (via coordinator)
   - config entry migrations (unique ID updates)
 
@@ -23,23 +23,25 @@ from the updated structure.
   - HA-free helpers: config normalization, presence selection, entity grouping,
     aggregate building, state priority, policy evaluation
   - Key modules:
-    - `area_config.py` — `AreaConfig` dataclass (immutable per-entry configuration)
-    - `area_runtime.py` — `AreaRuntime` dataclass (current runtime state)
+    - `runtime_model/area.py` — `AreaConfig` + `AreaRuntime` dataclasses
+    - `runtime_model/groups.py` — control-group IDs, metadata keys, group registry
+    - `runtime_model/identity.py` — pure unique-id builders
+    - `runtime_model/references.py` — entity reference resolution
+    - `runtime_model/migration.py` — unique-id migration helpers
     - `aggregate_selection.py` — aggregate spec selection, health spec building (pure)
-    - `presence.py` — `build_presence_sensors()`, `compute_secondary_states()` (pure)
-    - `light_control.py` — `LightGroupPolicy.evaluate()` with full turn-off conditions
+    - `presence.py` — `compute_secondary_states()` (pure)
     - `climate_control.py`, `fan_control.py`, `media_routing.py` — control policies
     - `meta_reload.py` — `evaluate_reload()` for meta-area reload throttling
-    - `config.py`, `entity_ids.py` — config and entity reference helpers
-    - `entity_loading/` — entity ingestion package:
+    - `core/config/` — config normalization and typed access helpers
+    - `controls/` — control-group contracts and runtime helper APIs
+    - coordinator-owned ingestion package:
+      - `coordinator/entity_ingestion/`
       - `loader.py` — area/meta-area entity load orchestration
       - `registry_queries.py` — entity/device registry queries
-      - `filters.py` — shared exclusion rules
-      - `snapshots.py` — normalized grouped snapshot output
 
-- `custom_components/magic_areas/coordinator.py`
+- `custom_components/magic_areas/coordinator/__init__.py`
   - `MagicAreasCoordinator`: owns a private `AreaConfig`, refreshes snapshots
-  - meta-area reload: subscribes to `AREA_LOADED`, throttles via `evaluate_reload()`
+  - meta-area reload: subscribes to `AREA_SNAPSHOT_READY`, throttles via `evaluate_reload()`
   - builds `MagicAreasData` snapshot on every refresh
 
 - `custom_components/magic_areas/{platform}.py` / `{platform}/__init__.py`
@@ -56,12 +58,13 @@ from the updated structure.
   - UI config flow entry point
   - `config_flows/options_flow.py` — options flow handler (dynamic feature routing)
   - `config_flows/steps/` — step handlers (area_steps, feature_selection, feature_config)
-  - `config_flows/feature_registry.py` — config-flow registry built from feature modules
+  - `config_flows/helpers.py` — config-flow helper layer (includes
+    `get_feature_config_steps` derived from feature modules)
 
 - Supporting modules:
-  - `config_keys.py`, `defaults.py`, `enums.py`, `policy.py`
-  - `area_state.py`, `area_maps.py`, `icons.py`
-  - `feature_info.py`, `ha_domains.py`, `models.py`, `const.py`
+  - `config_keys/`, `defaults.py`, `enums.py`, `policy.py`
+  - `area_state.py`, `icons.py`
+  - `feature_info.py`, `models.py`, `const.py`
 
 ## Runtime data flow (current)
 
@@ -70,13 +73,13 @@ Config entry setup
   └─ __init__.py
        ├─ build_area_config_for_config_entry() → AreaConfig (from area/floor registry)
        ├─ create MagicAreasCoordinator(hass, area_config, config_entry)
-       │    └─ meta areas: subscribe to AREA_LOADED dispatcher
+       │    └─ meta areas: subscribe to AREA_SNAPSHOT_READY dispatcher
        ├─ coordinator.async_config_entry_first_refresh()
-       ├─ dispatch AREA_LOADED (non-meta areas, after HA start)
+       ├─ non-meta refresh emits AREA_SNAPSHOT_READY for snapshot changes
        └─ runtime_data = MagicAreasRuntimeData { coordinator, listeners }
 
 Coordinator refresh
-  └─ coordinator.py
+  └─ coordinator/__init__.py
        ├─ _async_update_data() using self._area_config
        └─ MagicAreasData snapshot:
             - area_config    (AreaConfig — immutable configuration)
@@ -137,7 +140,7 @@ Presence tracking updates
        └─ dispatcher sends AREA_STATE_CHANGED(area_id, (new, lost, current))
 
 Platform handlers
-  ├─ light groups      (LightGroupPolicy.evaluate() in core/light_control.py)
+  ├─ light groups      (`light_groups/policy.py`)
   ├─ climate control   (core/climate_control.py policy)
   ├─ fan control       (core/fan_control.py policy)
   └─ media player      (core/media_routing.py)
@@ -145,8 +148,8 @@ Platform handlers
           └─ NO stale reads from coordinator or area state
 
 Meta-area reload
-  └─ AREA_LOADED dispatcher (sent by __init__.py after child areas start)
-       └─ coordinator._handle_loaded_area()
+  └─ AREA_SNAPSHOT_READY dispatcher (sent by coordinator refresh path)
+       └─ coordinator/pipeline/lifecycle.MetaAreaReloadManager.handle_snapshot_ready()
             └─ evaluate_reload() from core/meta_reload.py (pure)
                → schedule config entry reload if throttle window passed
 ```
@@ -230,12 +233,22 @@ FeatureRegistry (features/registry.py)
   ├─ ClimateControlFeatureModule (switch)
   ├─ HealthFeatureModule (problem binary sensor)
   ├─ BLETrackersFeatureModule (monitor sensor)
-  └─ AreaAwareMediaPlayerFeatureModule (config-only)
+  └─ AreaAwareMediaPlayerFeatureModule (feature-owned runtime setup)
 
 Platforms call FeatureRegistry.modules_for_domain(domain) and attach entities
 per module. Config flows build their per-feature menu from the same registry,
 ensuring feature metadata is defined once.
 ```
+
+## Delta summary (vs fork baseline)
+
+- Coordinator snapshot (`MagicAreasData`) replaces platform-local data assembly.
+- Platforms/entities consume snapshot fields, not a public `MagicArea` object.
+- Light behavior moved into a dedicated `light_groups/` vertical slice.
+- Built-in light categories are declaration-driven presets, consumed by the
+  light feature module and shared categorized-group builders.
+- Control decisions map through shared control-group runtime/execution contracts.
+- Event handlers consume explicit `(new, lost, current)` state payloads.
 
 This unidirectional flow ensures:
 - Consistent data reads (all use snapshot)

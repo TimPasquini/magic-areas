@@ -36,6 +36,7 @@ class TestReloadDecision:
         assert decision.should_reload is True
         assert decision.delay_seconds == 5.5
         assert decision.reason == "Test reason"
+        assert decision.retry_after_seconds == 0
 
 
 class TestShouldReloadOnAreaChange:
@@ -111,6 +112,7 @@ class TestEvaluateReload:
         assert decision.should_reload is False
         assert decision.delay_seconds == 0
         assert "not matched" in decision.reason.lower()
+        assert decision.retry_after_seconds == 0
 
     def test_throttle_prevents_reload(self) -> None:
         """Should reject reload if throttled."""
@@ -131,6 +133,7 @@ class TestEvaluateReload:
         assert decision.should_reload is False
         assert decision.delay_seconds == 0
         assert "throttled" in decision.reason.lower()
+        assert 0 < decision.retry_after_seconds <= 3
 
     def test_throttle_boundary(self) -> None:
         """Should allow reload exactly at throttle boundary."""
@@ -148,6 +151,7 @@ class TestEvaluateReload:
         )
 
         assert decision.should_reload is True
+        assert decision.retry_after_seconds == 0
 
     def test_delay_within_range(self) -> None:
         """Should calculate delay within expected range."""
@@ -241,9 +245,9 @@ class TestMetaAreaAutoReloadSettings:
 
     def test_settings_values(self) -> None:
         """Settings should have expected values."""
-        assert MetaAreaAutoReloadSettings.DELAY == 3
-        assert MetaAreaAutoReloadSettings.DELAY_MULTIPLIER == 4
-        assert MetaAreaAutoReloadSettings.THROTTLE == 5
+        assert MetaAreaAutoReloadSettings.DELAY.value == 3
+        assert MetaAreaAutoReloadSettings.DELAY_MULTIPLIER.value == 4
+        assert MetaAreaAutoReloadSettings.THROTTLE.value == 5
 
     def test_settings_are_integers(self) -> None:
         """Settings should be IntEnum values."""

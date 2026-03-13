@@ -1,40 +1,54 @@
 # Magic Areas Refactoring Guide
 
-**Status**: Recomposition and consolidation in progress  
-**Last Updated**: 2026-03-12
+**Status**: Recomposition streams complete; repository reduction and
+de-duplication stream active.
+**Last Updated**: 2026-04-11
 
 ## Overview
 
 This guide describes how to contribute safely while the integration continues to
 refactor from the fork baseline (`d7b5779`) into a cleaner architecture.
 
-The project is no longer in early decomposition. Most core boundaries exist.
-Current work is about finishing composition and reducing remaining duplication.
+The project is no longer in early decomposition. Core boundaries and ownership
+guardrails are in place. Current work is compactness and maintainability:
+reduce churn, reduce fanout, and collapse low-value indirection.
 
 ## Current Architecture Status
 
 Authoritative status lives in:
-- `docs/notes/theoretical_architecture_map.md`
+- `docs/contributing/architecture.md`
 
 High-level status:
-- **Layer 1 (Snapshot/Ingestion): Implemented**
+- **High-severity hardening stream: Implemented**
+  - Runtime-critical broad exception handling was narrowed to expected error
+    classes in coordinator ingestion/update and binary-sensor runtime paths.
+  - Control-group runtime resolver contracts now use typed registry protocols
+    instead of broad `Any`.
+  - Light-group entity responsibilities were decomposed into dedicated lifecycle
+    and runtime collaborators under `light_groups/`.
+  - Feature config accessor internals were consolidated behind shared generic
+    helper pathways while preserving the runtime API contract.
+- **Snapshot/Ingestion: Implemented**
   - Coordinator-owned ingestion and snapshot assembly now live under
     `custom_components/magic_areas/coordinator/`.
-- **Layer 2 (Feature Modules): Implemented**
+- **Feature Modules: Implemented**
   - Feature entry points live in `custom_components/magic_areas/features/modules/`.
-- **Layer 3 (Policy Layer): Implemented**
-  - Canonical policy contract (`core/control_group.py`) is in use across
-    light/fan/climate/media.
+- **Policy Layer: Implemented**
+  - Canonical policy contracts are in use across light/fan/climate/media and are
+    exported through the `core` package API.
   - Typed policy signal payloads are passed at runtime boundaries.
   - Policy runtime transitions are represented as canonical runtime effects.
-- **Layer 4 (Execution Layer): Implemented**
-  - Shared execution in `core/control_group_executor.py`.
-- **Layer 5 (Groups): Implemented**
-  - Group contracts, typed metadata, deterministic selectors, and custom-group
-    guardrails are in place.
-- **Layer 9: Partial**
-  - Constants cleanup remains.
-- **Layer 6 (Entities): Implemented**
+- **Execution Layer: Implemented**
+  - Shared execution is implemented in `core/controls/` and consumed via `core`
+    package exports.
+- **Group contracts/registry: Implemented**
+  - Group contracts/metadata/registry live in
+    `core/runtime_model/groups.py` and are consumed via
+    `core.runtime_model`.
+- **Constants/Enums cleanup: Implemented**
+  - Source imports now use scoped key/default modules with reduced central
+    constant fan-out.
+- **Entity adapters: Implemented**
   - Entity adapters are now thin and delegate decision/execution concerns to
     helper/policy/runtime boundaries.
 
@@ -52,11 +66,6 @@ A change is not good if it:
 - adds shims that remain indefinitely,
 - increases cross-module side-door access,
 - mixes policy and execution concerns.
-
-## Current Priorities
-
-From the architecture roadmap, current order is:
-1. **Layer 9**: Continue constants cleanup to keep only true shared values central.
 
 ## Contributor Rules
 
@@ -82,19 +91,15 @@ Refactoring is complete only when all three pass:
 ```bash
 uv run ruff check custom_components/magic_areas tests
 uv run mypy custom_components/magic_areas tests
-uv run pytest ./tests --numprocesses=auto -q
+uv run pytest tests -q
 ```
 
-As of this update, latest full run baseline is **843 passing tests**.
+As of this update, latest full run baseline is **966 passing tests**.
 
-## Recommended Workflow
-
-1. Read the relevant plan/roadmap note in `docs/notes/`.
-2. Make one focused structural change.
-3. Add or update contract tests first when changing boundaries.
-4. Run ruff, mypy, and full pytest.
-5. Remove shims/fallbacks that are no longer required.
-6. Update roadmap/plan docs when status changes.
+Completed refactor streams (runtime-model packaging, snapshot/control packaging,
+and broad test hardening) are now reflected directly in:
+- `docs/contributing/architecture.md`
+- `docs/contributing/runtime-boundaries.md`
 
 ## File Responsibility Model (Current)
 
@@ -111,8 +116,8 @@ If a file crosses categories, refactor toward a single primary ownership.
 ## FAQ
 
 ### Should we still split files aggressively?
-Not by default. The main boundaries already exist. Prefer consolidation and
-boundary hardening over further fragmentation.
+No. The main boundaries already exist. Prefer consolidation, deletion, and
+deduplication over further fragmentation.
 
 ### Are temporary shims acceptable?
 Only for short migrations. If parity is proven, remove them in the same stream
@@ -124,6 +129,6 @@ or immediately after.
 - HA entity wiring: platform/entity adapters.
 
 ### Which docs are source-of-truth for active work?
-- `docs/notes/theoretical_architecture_map.md`
-- `docs/notes/*_plan.md` files for active streams
+- `docs/contributing/architecture.md`
+- `docs/contributing/runtime-boundaries.md`
 - `CLAUDE.md` for repo workflow and standards

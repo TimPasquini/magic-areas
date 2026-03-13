@@ -22,10 +22,10 @@ from custom_components.magic_areas.area_state import (
     AreaType,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.config_flows.feature_registry import (
-    FEATURE_REGISTRY,
+from custom_components.magic_areas.config_flows import (
+    get_feature_config_steps,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_CLEAR_TIMEOUT,
@@ -128,16 +128,20 @@ async def test_feature_registry_snapshot(snapshot: SnapshotAssertion) -> None:
     their schemas, and configuration options.
     """
     # Convert feature registry to serializable format
-    registry_list = sorted([
-        {
-            "key": feature_name,
-            "name": feature_config.name,
-            "has_schema": feature_config.schema is not None,
-            "merge_options": feature_config.merge_options,
-            "has_next_step": feature_config.next_step is not None,
-        }
-        for feature_name, feature_config in FEATURE_REGISTRY.items()
-    ], key=lambda x: cast(str, x["key"]))
+    feature_registry = get_feature_config_steps()
+    registry_list = sorted(
+        [
+            {
+                "key": feature_name,
+                "name": feature_config.feature,
+                "has_schema": feature_config.schema is not None,
+                "merge_options": feature_config.merge_options,
+                "has_next_step": feature_config.next_step is not None,
+            }
+            for feature_name, feature_config in feature_registry.items()
+        ],
+        key=lambda x: cast(str, x["key"]),
+    )
 
     # Snapshot the registry structure
     assert registry_list == snapshot
@@ -284,7 +288,7 @@ async def test_feature_list_snapshot(snapshot: SnapshotAssertion) -> None:
     Captures all available features and their registry entries
     for validation and reference.
     """
-    feature_keys = sorted(FEATURE_REGISTRY.keys())
+    feature_keys = sorted(get_feature_config_steps().keys())
 
     # Snapshot feature list
     assert feature_keys == snapshot

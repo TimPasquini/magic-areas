@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from custom_components.magic_areas.components import MagicAreasConfigEntry
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
-    from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
-    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.features.registry import FeatureRegistry
+
+
+type BaseEntitiesBuilder = Callable[
+    [AreaConfig, MagicAreasCoordinator, MagicAreasData],
+    list[Entity] | Awaitable[list[Entity]],
+]
+
+
+ExtraEntitiesBuilder = Callable[
+    [AreaConfig, MagicAreasCoordinator, MagicAreasData],
+    list[Entity] | Awaitable[list[Entity]],
+]
 
 
 def collect_feature_entities(
@@ -52,4 +70,61 @@ def collect_feature_entities(
     return entities
 
 
-__all__ = ["collect_feature_entities"]
+async def async_setup_feature_platform(
+    *,
+    hass: HomeAssistant,
+    config_entry: MagicAreasConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+    domain: str,
+    logger: logging.Logger,
+    base_entities_builder: BaseEntitiesBuilder | None = None,
+) -> None:
+    """Set up a feature-backed platform with canonical dispatch/cleanup flow."""
+    from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
+    from custom_components.magic_areas.helpers import cleanup_removed_entries
+
+    runtime_data = config_entry.runtime_data
+    if runtime_data.coordinator.data is None:
+        await runtime_data.coordinator.async_refresh()
+    data = runtime_data.coordinator.data
+    if data is None:
+        logger.debug("Skipping %s setup; coordinator data unavailable", domain)
+        return
+
+    area_config = data.area_config
+    coordinator = runtime_data.coordinator
+    entities_to_add: list[Entity] = []
+
+    if base_entities_builder is not None:
+        base_entities = base_entities_builder(area_config, coordinator, data)
+        if inspect.isawaitable(base_entities):
+            entities_to_add.extend(await base_entities)
+        else:
+            entities_to_add.extend(base_entities)
+
+    entities_to_add.extend(
+        collect_feature_entities(
+            domain=domain,
+            registry=FEATURE_REGISTRY,
+            data=data,
+            area_config=area_config,
+            coordinator=coordinator,
+            logger=logger,
+        )
+    )
+
+    if entities_to_add:
+        async_add_entities(entities_to_add)
+
+    if domain in data.magic_entities:
+        cleanup_removed_entries(
+            hass,
+            entities_to_add,
+            data.magic_entities[domain],
+        )
+
+
+__all__ = [
+    "async_setup_feature_platform",
+    "collect_feature_entities",
+]

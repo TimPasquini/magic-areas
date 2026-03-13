@@ -2,23 +2,43 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.climate.const import DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
+from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sun.const import DOMAIN as SUN_DOMAIN
+from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.config_flow_filters import (
-    CONFIG_FLOW_ENTITY_FILTER_BOOL,
-    CONFIG_FLOW_ENTITY_FILTER_EXT,
-)
-from custom_components.magic_areas.config_keys.entities import CONF_EXCLUDE_ENTITIES
+from custom_components.magic_areas.core.config import exclude_entities
+
+CONFIG_FLOW_ENTITY_FILTER = [
+    BINARY_SENSOR_DOMAIN,
+    SENSOR_DOMAIN,
+    SWITCH_DOMAIN,
+    INPUT_BOOLEAN_DOMAIN,
+]
+CONFIG_FLOW_ENTITY_FILTER_BOOL = [
+    BINARY_SENSOR_DOMAIN,
+    SWITCH_DOMAIN,
+    INPUT_BOOLEAN_DOMAIN,
+]
+CONFIG_FLOW_ENTITY_FILTER_EXT = CONFIG_FLOW_ENTITY_FILTER + [
+    LIGHT_DOMAIN,
+    MEDIA_PLAYER_DOMAIN,
+    CLIMATE_DOMAIN,
+    SUN_DOMAIN,
+    FAN_DOMAIN,
+]
 
 # Additional light tracking entities (e.g., non-device-class based)
 ADDITIONAL_LIGHT_TRACKING_ENTITIES = [
@@ -27,6 +47,8 @@ ADDITIONAL_LIGHT_TRACKING_ENTITIES = [
     "sun.sun",
 ]
 
+EntityDomainCollection = Mapping[str, Sequence[Mapping[str, str]]]
+
 
 class ConfigFlowEntityGatherer:
     """Helper class for gathering entities in config flow."""
@@ -34,8 +56,8 @@ class ConfigFlowEntityGatherer:
     def __init__(
         self,
         hass: HomeAssistant,
-        entities_by_domain: dict[str, list[dict[str, Any]]],
-        config_entry_options: Mapping[str, Any],
+        entities_by_domain: EntityDomainCollection,
+        config_entry_options: Mapping[str, object],
     ) -> None:
         """Initialize entity gatherer."""
         self.hass = hass
@@ -43,7 +65,7 @@ class ConfigFlowEntityGatherer:
         self.config_entry_options = config_entry_options
 
     @staticmethod
-    def resolve_groups(raw_list: list) -> list:
+    def resolve_groups(raw_list: Sequence[str | list[str]]) -> list[str]:
         """Resolve entities from groups."""
         resolved_list = []
         for item in raw_list:
@@ -98,7 +120,7 @@ class ConfigFlowEntityGatherer:
     ) -> list[str]:
         """Gather combined area entities (area entities + excluded)."""
         return sorted(
-            area_entities + self.config_entry_options.get(CONF_EXCLUDE_ENTITIES, [])
+            area_entities + exclude_entities(self.config_entry_options)
         )
 
     def gather_lights(self, all_entities: list[str]) -> list[str]:

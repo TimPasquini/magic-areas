@@ -1,9 +1,9 @@
 """Tests for typed policy signal payload parsing."""
 
-from custom_components.magic_areas.core.climate_control import ClimatePolicySignals
-from custom_components.magic_areas.core.fan_control import FanPolicySignals
-from custom_components.magic_areas.core.media_control import MediaPolicySignals
-from custom_components.magic_areas.light_groups.policy import LightPolicySignals
+from custom_components.magic_areas.core.controls.policies.climate import ClimatePolicySignals
+from custom_components.magic_areas.core.controls.policies.fan import FanPolicySignals
+from custom_components.magic_areas.core.controls.policies.media import MediaPolicySignals
+from custom_components.magic_areas.light_groups import LightPolicySignals
 
 
 def test_fan_policy_signal_payload_fields() -> None:
@@ -41,9 +41,10 @@ def test_light_policy_signals_defaults_when_missing() -> None:
     """Light signal parser should default for unsupported signal payloads."""
     parsed = LightPolicySignals.from_signals(None)
 
-    assert parsed.is_primary is False
+    assert parsed.is_primary is None
     assert parsed.control_state.controlling is True
     assert parsed.control_state.awaiting_echo is False
+    assert parsed.fallback_used is True
 
 
 def test_policy_signal_parsers_accept_payload_instances() -> None:
@@ -64,3 +65,7 @@ def test_non_payload_signal_inputs_default_deterministically() -> None:
     assert FanPolicySignals.from_signals({}).sensor_value is None
     assert ClimatePolicySignals.from_signals({}).climate_entity_id is None
     assert MediaPolicySignals.from_signals({}).media_player_group_id is None
+
+    light_parsed = LightPolicySignals.from_signals({})
+    assert light_parsed.is_primary is None
+    assert light_parsed.fallback_used is True

@@ -2,18 +2,17 @@
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
@@ -63,7 +62,7 @@ def mock_config_entry_light_groups() -> MockConfigEntry:
 async def setup_integration_light_groups(
     hass: HomeAssistant,
     light_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[None]:
     """Set up integration with BLE tracker config."""
 
     await init_integration_helper(hass, [light_groups_config_entry])
@@ -80,7 +79,7 @@ async def test_light_group_basic(
     hass: HomeAssistant,
     entities_light_one: list[MockLight],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_light_groups: Any,
+    _setup_integration_light_groups: None,
 ) -> None:
     """Test light group."""
 
@@ -153,7 +152,7 @@ async def test_light_group_canonical_policy_transition_parity(
     hass: HomeAssistant,
     entities_light_one: list[MockLight],
     entities_binary_sensor_motion_one: list[MockBinarySensor],
-    _setup_integration_light_groups: Any,
+    _setup_integration_light_groups: None,
 ) -> None:
     """Canonical light context path preserves key transition behavior."""
     light_group_entity_id = (
@@ -183,7 +182,7 @@ async def test_light_group_canonical_policy_transition_parity(
         )
     )
     assert changed is False
-    assert target_group._echo_state.controlled is False
+    assert target_group._echo_state.awaiting_echo is False
 
     # Primary CLEAR transition should issue turn-off when group is on.
     target_group._attr_is_on = True

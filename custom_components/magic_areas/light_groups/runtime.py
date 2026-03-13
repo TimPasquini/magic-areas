@@ -1,92 +1,356 @@
-"""Runtime helpers for light-group entity adapters."""
+"""Runtime and lifecycle helpers for light-group entities."""
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+import logging
+from typing import Protocol, TYPE_CHECKING
 
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import STATE_ON
-from homeassistant.helpers import entity_registry as er
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.core import Event, State
+from homeassistant.helpers.event import EventStateChangedData
 
-from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.command_echo import CommandEchoState
-from custom_components.magic_areas.core.group_contracts import (
+from custom_components.magic_areas.core.controls import (
+    ControlActionType,
+    ControlGroupContext,
+    ControlGroupDecision,
+    ControlRuntimeEffect,
+    ControlRuntimeEffectType,
+    evaluate_and_execute_control_group_policy_sync,
+    execute_control_group_runtime_effects,
+    read_area_presence_states,
+    register_area_and_group_state_listeners,
+    resolve_area_presence_states,
+    resolve_group_entity_ids_for_metadata_values,
+)
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
-    build_light_group_id,
+    GroupMetadataKey,
 )
-from custom_components.magic_areas.core.group_metadata import GroupMetadataKey
-from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_entity_ids_by_metadata,
+from custom_components.magic_areas.enums import LightGroupCategory
+from custom_components.magic_areas.light_groups.policy import CommandEchoState
+from custom_components.magic_areas.light_groups.policy import (
+    LightAction,
+    LightPolicySignals,
 )
 
-
-def resolve_child_group_ids(
-    hass: Any,
-    area_id: str,
-    child_categories: list[str],
-) -> list[str] | None:
-    """Resolve child light group entity ids for the ALL category group."""
-    resolved_ids: list[str] = []
-    category_entity_ids = resolve_group_entity_ids_by_metadata(
-        hass,
-        area_id=area_id,
-        policy_id=str(ControlGroupPolicyId.LIGHT_GROUPS),
-        domain=LIGHT_DOMAIN,
-        metadata_key=str(GroupMetadataKey.CATEGORY),
-    )
-    for category in child_categories:
-        entity_id = category_entity_ids.get(category)
-        if entity_id:
-            resolved_ids.append(entity_id)
-
-    if resolved_ids:
-        return resolved_ids
-
-    registry = er.async_get(hass)
-    for category in child_categories:
-        child_uid = build_light_group_id(area_id=area_id, category=category)
-        child_entity_id = registry.async_get_entity_id(
-            LIGHT_DOMAIN, DOMAIN, child_uid
-        )
-        if child_entity_id:
-            resolved_ids.append(child_entity_id)
-
-    return resolved_ids or None
+if TYPE_CHECKING:  # pragma: no cover
+    from homeassistant.core import HomeAssistant
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+    from custom_components.magic_areas.light_groups.policy import LightControlGroupPolicy
 
 
-def restore_group_state(group: Any, last_state: Any | None) -> None:
+class _LightGroupHost(Protocol):
+    """Runtime contract required by light-group helpers."""
+
+    _attr_extra_state_attributes: dict[str, object]
+    _attr_is_on: bool | None
+    _listeners_initialized: bool
+    _last_known_area_states: list[str]
+    _child_categories: list[str]
+    _child_ids: list[str] | None
+    _entity_ids: list[str]
+    _area_id: str
+    _coordinator: MagicAreasCoordinator
+    category: str | None
+    entity_id: str
+    hass: HomeAssistant
+    logger: logging.Logger
+    policy: LightControlGroupPolicy
+
+    @property
+    def _echo_state(self) -> CommandEchoState: ...
+
+    @property
+    def controlling(self) -> bool: ...
+
+    @property
+    def is_on(self) -> bool | None: ...
+
+    @property
+    def unique_id(self) -> str | None: ...
+
+    @property
+    def name(self) -> object: ...
+
+    async def async_get_last_state(self) -> State | None: ...
+    async def _setup_listeners(self) -> None: ...
+    def _dispatch_light_action(self, action: LightAction) -> None: ...
+    def _reset_control_state(self) -> None: ...
+    def _set_echo_state(self, state: CommandEchoState) -> None: ...
+    def async_write_ha_state(self) -> None: ...
+    def is_control_enabled(self) -> bool: ...
+    def track_group_listener(self, remove_listener: Callable[[], None], name: str) -> None: ...
+    def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> bool: ...
+    def group_state_changed(self, event: Event[EventStateChangedData]) -> bool: ...
+
+
+class AreaStateHandler(Protocol):
+    """Callable contract for area-state dispatcher callbacks."""
+
+    def __call__(
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> object:
+        """Handle one area-state event payload."""
+        ...
+
+
+def restore_group_state(host: _LightGroupHost, last_state: State | None) -> None:
     """Restore basic on/off + control state from last HA state object."""
     if not last_state:
-        group._attr_is_on = False
+        host._attr_is_on = False
         return
 
-    group.logger.debug(
-        "%s: State restored [state=%s]", group.name, last_state.state
-    )
-    group._attr_is_on = last_state.state == STATE_ON
+    host.logger.debug("%s: State restored [state=%s]", host.name, last_state.state)
+    host._attr_is_on = last_state.state == STATE_ON
 
     if "controlling" in last_state.attributes:
-        controlling = last_state.attributes["controlling"]
-        group._set_echo_state(
+        host._set_echo_state(
             CommandEchoState(
-                owner_id=group.unique_id,
-                controlling=controlling,
+                owner_id=host.unique_id,
+                controlling=last_state.attributes["controlling"],
                 awaiting_echo=False,
             )
         )
 
 
-def is_group_control_enabled(group: Any) -> bool:
-    """Check if light-control switch enables automatic group control."""
-    if not group._coordinator.data:
+async def setup_group(host: _LightGroupHost) -> None:
+    """Set up light-group runtime state, restoration, and listeners."""
+    attrs = dict(host._attr_extra_state_attributes or {})
+    host._attr_extra_state_attributes = attrs
+
+    if host.category == LightGroupCategory.ALL and host._child_categories:
+        group_registry = host._coordinator.data.group_registry if host._coordinator.data else None
+        if group_registry is None:
+            host._child_ids = []
+        else:
+            host._child_ids = resolve_group_entity_ids_for_metadata_values(
+                host.hass,
+                group_registry=group_registry,
+                area_id=host._area_id,
+                policy_id=str(ControlGroupPolicyId.LIGHT_GROUPS),
+                domain=LIGHT_DOMAIN,
+                metadata_key=str(GroupMetadataKey.CATEGORY),
+                metadata_values=host._child_categories,
+            )
+        attrs["child_ids"] = host._child_ids
+
+    last_state = await host.async_get_last_state()
+    restore_group_state(host, last_state)
+
+    attrs["lights"] = host._entity_ids
+    attrs["controlling"] = host.controlling
+    await host._setup_listeners()
+
+
+def setup_listeners(host: _LightGroupHost) -> None:
+    """Set up area and group listeners once for this light group."""
+    if host._listeners_initialized:
+        return
+
+    host._last_known_area_states = read_area_presence_states(
+        host.hass,
+        host._area_id,
+    )
+    register_area_and_group_state_listeners(
+        hass=host.hass,
+        track_listener=host.track_group_listener,
+        area_state_handler=host.area_state_changed,
+        group_entity_id=host.entity_id,
+        group_state_handler=host.group_state_changed,
+    )
+    host._listeners_initialized = True
+
+
+ON_OFF_STATES = (STATE_ON, STATE_OFF)
+
+def evaluate_state_change(
+    host: _LightGroupHost,
+    states_tuple: tuple[list[str], list[str], list[str]],
+    *,
+    is_primary: bool,
+) -> bool:
+    """Evaluate and apply light-group policy decision for a state transition."""
+    new_states, lost_states, current_states = states_tuple
+    context = ControlGroupContext(
+        group_id=host.entity_id,
+        new_states=tuple(new_states),
+        lost_states=tuple(lost_states),
+        current_states=tuple(current_states),
+        signals=LightPolicySignals(
+            is_primary=is_primary,
+            control_state=host._echo_state,
+        ),
+    )
+    _decision, executed = evaluate_and_execute_control_group_policy_sync(
+        policy=host.policy,
+        context=context,
+        execute_decision=lambda decision: apply_decision(host, decision),
+        logger=host.logger,
+        actor_name=str(host.name),
+    )
+    return bool(executed)
+
+
+def handle_area_state_change(
+    host: _LightGroupHost,
+    area_id: str,
+    states_tuple: tuple[list[str], list[str], list[str]],
+) -> bool:
+    """Handle one AREA_STATE_CHANGED event for a light group."""
+    if area_id != host._area_id:
+        host.logger.debug(
+            "%s: Area state change event not for us. Skipping. (req: %s/self: %s)",
+            host.name,
+            area_id,
+            host._area_id,
+        )
+        return False
+
+    if not host.is_control_enabled():
+        host.logger.debug(
+            "%s: Automatic control for light group is disabled, skipping...",
+            host.name,
+        )
+        return False
+
+    host.logger.debug("%s: Light group detected area state change", host.name)
+    _new_states, _lost_states, current_states = states_tuple
+    host._last_known_area_states = list(current_states)
+
+    return evaluate_state_change(
+        host,
+        states_tuple,
+        is_primary=host.category == LightGroupCategory.ALL,
+    )
+
+
+def apply_decision(host: _LightGroupHost, decision: ControlGroupDecision) -> bool:
+    """Apply one policy decision and any runtime effects."""
+    execute_control_group_runtime_effects(
+        decision,
+        on_runtime_effect=lambda effect: apply_runtime_effect(host, effect),
+    )
+
+    if decision.action_type == ControlActionType.ACTIVATE:
+        return turn_on(host)
+    if decision.action_type == ControlActionType.DEACTIVATE:
+        return turn_off(host)
+    return False
+
+
+def apply_runtime_effect(
+    host: _LightGroupHost,
+    effect: ControlRuntimeEffect,
+) -> None:
+    """Apply a single runtime effect attached to a policy decision."""
+    if (
+        effect.effect_type == ControlRuntimeEffectType.SET_STATE
+        and effect.namespace == "command_echo"
+        and effect.key == "state"
+        and isinstance(effect.value, CommandEchoState)
+    ):
+        host._set_echo_state(effect.value)
+
+
+def is_valid_origin_state_toggle(origin_event: object | None) -> bool:
+    """Return True when origin event is a real on/off state toggle."""
+    if not origin_event:
+        return True
+    event_type = getattr(origin_event, "event_type", None)
+    if event_type != "state_changed":
         return True
 
-    entity_id = group._coordinator.data.entity_references.light_control_switch
-    if not entity_id:
+    event_data = getattr(origin_event, "data", None)
+    if not isinstance(event_data, dict):
         return True
+    old_state = event_data.get("old_state")
+    new_state = event_data.get("new_state")
+    if not old_state or not old_state.state or old_state.state not in ON_OFF_STATES:
+        return False
+    if not new_state or not new_state.state or new_state.state not in ON_OFF_STATES:
+        return False
+    if old_state.attributes.get("restored"):
+        return False
+    return True
 
-    switch_entity = group.hass.states.get(entity_id)
-    if not switch_entity:
-        return True
 
-    return switch_entity.state.lower() == STATE_ON
+def handle_group_state_change(
+    host: _LightGroupHost, event: Event[EventStateChangedData]
+) -> bool:
+    """Handle one state_changed event for a light group entity itself."""
+    if not event.context:
+        return False
+
+    current_area_states = resolve_area_presence_states(
+        hass=host.hass,
+        area_id=host._area_id,
+        cached_states=host._last_known_area_states,
+        require_occupied=True,
+    )
+
+    if AreaStates.OCCUPIED.value not in current_area_states:
+        host._reset_control_state()
+        host.logger.debug("%s: Control Reset.", host.name)
+    elif host.category == LightGroupCategory.ALL:
+        if host._child_ids:
+            controlling = any(
+                bool(entity_state.attributes.get("controlling"))
+                for entity_id in host._child_ids
+                if (entity_state := host.hass.states.get(entity_id))
+            )
+            host._set_echo_state(host._echo_state.set_controlling(controlling))
+    else:
+        origin_event = event.context.origin_event
+        if not process_secondary_group_state_change(host, origin_event):
+            return False
+
+    host._attr_extra_state_attributes["controlling"] = host.controlling
+    host.async_write_ha_state()
+    return True
+
+
+def process_secondary_group_state_change(
+    host: _LightGroupHost, origin_event: object | None
+) -> bool:
+    """Validate and apply secondary group-state change handling."""
+    if not is_valid_origin_state_toggle(origin_event):
+        return False
+    if host._echo_state.awaiting_echo:
+        host.logger.debug("%s: Group controlled by us.", host.name)
+        host._set_echo_state(host._echo_state.command_completed())
+    else:
+        host.logger.debug("%s: Group controlled by something else.", host.name)
+        host._set_echo_state(host._echo_state.external_change())
+    return True
+
+
+def turn_on(host: _LightGroupHost) -> bool:
+    """Turn on light if it's not already on and if we're controlling it."""
+    return _dispatch_controlled_action(host, LightAction.TURN_ON, when_is_on=False)
+
+
+def turn_off(host: _LightGroupHost) -> bool:
+    """Turn off light if it's not already off, and we're controlling it."""
+    return _dispatch_controlled_action(host, LightAction.TURN_OFF, when_is_on=True)
+
+
+def _dispatch_controlled_action(
+    host: _LightGroupHost,
+    action: LightAction,
+    *,
+    when_is_on: bool,
+) -> bool:
+    """Dispatch one light action when control is enabled and on/off state matches."""
+    if not host._echo_state.controlling:
+        return False
+    if host.is_on != when_is_on:
+        return False
+
+    host._set_echo_state(host._echo_state.command_issued(host.unique_id))
+    host._dispatch_light_action(action)
+    return True

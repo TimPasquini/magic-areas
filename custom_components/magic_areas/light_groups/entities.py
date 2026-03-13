@@ -2,45 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from homeassistant.components.group.light import LightGroup
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.core import Event, callback
+from homeassistant.components.group.light import FORWARDED_ATTRIBUTES, LightGroup
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_ON
+from homeassistant.core import Context, Event, State, callback
 from homeassistant.helpers.event import EventStateChangedData
-
-from custom_components.magic_areas.core.command_echo import (
+from custom_components.magic_areas.light_groups.policy import (
     CommandEchoState,
-    CommandEchoTracker,
+)
+from custom_components.magic_areas.core.controls import (
+    execute_control_group_decision,
 )
 from custom_components.magic_areas.light_groups.policy import (
+    LightAction,
     build_light_control_group_policy,
-    reset_control_state,
+    light_action_to_control_group,
+)
+from custom_components.magic_areas.light_groups.runtime import (
+    evaluate_state_change,
+    handle_area_state_change,
+    handle_group_state_change,
+    restore_group_state,
+    setup_group,
+    setup_listeners,
 )
 from custom_components.magic_areas.entity import MagicGroupEntity
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.light_groups.actions import (
-    execute_group_turn_off,
-    execute_group_turn_on,
-    forward_turn_on,
-)
-from custom_components.magic_areas.light_groups import events as group_events
-from custom_components.magic_areas.light_groups.runtime import (
-    is_group_control_enabled,
-    resolve_child_group_ids,
-    restore_group_state,
-)
 from custom_components.magic_areas.light_groups.config import (
-    DEFAULT_LIGHT_GROUP_ACT_ON,
-    LIGHT_GROUP_ACT_ON,
     LIGHT_GROUP_DEFAULT_ICON,
-    LIGHT_GROUP_ICONS,
-    LIGHT_GROUP_STATES,
+    get_light_group_preset,
+    preset_act_on_modes,
+    preset_states,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 
@@ -74,9 +73,32 @@ class MagicLightGroup(MagicGroupEntity, LightGroup):
         )
         delattr(self, "_attr_name")
 
-    async def async_turn_on(self, **kwargs: Any) -> None:
+    async def async_turn_on(self, **kwargs: object) -> None:
         """Forward the turn_on command to all lights in the light group."""
-        await forward_turn_on(self.hass, self._area_name, self._entity_ids, **kwargs)
+        active_lights = self._get_active_lights()
+        data = {
+            key: value
+            for key, value in kwargs.items()
+            if key in FORWARDED_ATTRIBUTES
+        }
+        data[ATTR_ENTITY_ID] = active_lights or self._entity_ids
+        context = kwargs.get("context")
+        await self.hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            data,
+            blocking=True,
+            context=context if isinstance(context, Context) else None,
+        )
+
+    def _get_active_lights(self) -> list[str]:
+        """Return lights in this group that are currently on."""
+        active_lights: list[str] = []
+        for entity_id in self._entity_ids:
+            light_state = self.hass.states.get(entity_id)
+            if light_state and light_state.state == STATE_ON:
+                active_lights.append(entity_id)
+        return active_lights
 
 
 class AreaLightGroup(MagicLightGroup):
@@ -89,7 +111,7 @@ class AreaLightGroup(MagicLightGroup):
         entities: list[str],
         category: str | None = None,
         child_categories: list[str] | None = None,
-        feature_config: dict[str, Any] | None = None,
+        feature_config: dict[str, object] | None = None,
     ) -> None:
         """Initialize light group."""
         MagicLightGroup.__init__(
@@ -104,13 +126,10 @@ class AreaLightGroup(MagicLightGroup):
         self.assigned_states: list[str] = []
         self.act_on: list[str] = []
 
-        self._echo_tracker = CommandEchoTracker()
-        self._echo_tracker.set_state(
-            CommandEchoState(
-                owner_id=self.unique_id,
-                controlling=True,
-                awaiting_echo=False,
-            )
+        self.__echo_state = CommandEchoState(
+            owner_id=self.unique_id,
+            controlling=True,
+            awaiting_echo=False,
         )
 
         # Initialize area states cache (will be updated by _setup_listeners)
@@ -119,17 +138,18 @@ class AreaLightGroup(MagicLightGroup):
 
         self._icon = LIGHT_GROUP_DEFAULT_ICON
 
-        if self.category and self.category != LightGroupCategory.ALL:
-            self._icon = LIGHT_GROUP_ICONS.get(self.category, LIGHT_GROUP_DEFAULT_ICON)
+        preset = (
+            get_light_group_preset(self.category)
+            if self.category and self.category != LightGroupCategory.ALL
+            else None
+        )
+        if preset is not None:
+            self._icon = preset.icon
 
         # Get assigned states
-        if self.category and self.category != LightGroupCategory.ALL:
-            self.assigned_states = self._feature_config.get(
-                LIGHT_GROUP_STATES[self.category], []
-            )
-            self.act_on = self._feature_config.get(
-                LIGHT_GROUP_ACT_ON[self.category], DEFAULT_LIGHT_GROUP_ACT_ON
-            )
+        if preset is not None:
+            self.assigned_states = preset_states(self._feature_config, preset)
+            self.act_on = preset_act_on_modes(self._feature_config, preset)
 
         # Build canonical control-group policy adapter.
         self.policy = build_light_control_group_policy(
@@ -161,20 +181,20 @@ class AreaLightGroup(MagicLightGroup):
     @property
     def controlling(self) -> bool:
         """Return whether this group is currently controlling."""
-        return self._echo_tracker.state.controlling
+        return self.__echo_state.controlling
 
     @property
     def _echo_state(self) -> CommandEchoState:
         """Internal echo state used by light group runtime."""
-        return self._echo_tracker.state
+        return self.__echo_state
 
     def _set_echo_state(self, state: CommandEchoState) -> None:
         """Update echo state and sync attributes."""
-        self._echo_tracker.set_state(state)
+        self.__echo_state = state
         self._attr_extra_state_attributes["controlling"] = state.controlling
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def extra_state_attributes(self) -> dict[str, object]:
         """Return extra state attributes."""
         attrs = dict(self._attr_extra_state_attributes or {})
         attrs["lights"] = self._entity_ids
@@ -183,38 +203,17 @@ class AreaLightGroup(MagicLightGroup):
             attrs["child_ids"] = self._child_ids
         return attrs
 
-    async def _async_setup_group(self) -> None:
-        """Set up light group - called by MagicGroupEntity lifecycle."""
-        self._attr_extra_state_attributes = dict(
-            self._attr_extra_state_attributes or {}
-        )
-
-        # Resolve child_ids from entity registry (category groups are registered before ALL group)
-        if self.category == LightGroupCategory.ALL and self._child_categories:
-            self._child_ids = resolve_child_group_ids(
-                self.hass,
-                area_id=self._area_id,
-                child_categories=self._child_categories,
-            )
-            self._attr_extra_state_attributes["child_ids"] = self._child_ids
-
-        # Get last state
-        last_state = await self.async_get_last_state()
+    def _restore_group_state(self, last_state: State | None) -> None:
+        """Restore basic on/off + control state from last HA state object."""
         restore_group_state(self, last_state)
 
-        self._attr_extra_state_attributes["lights"] = self._entity_ids
-        self._attr_extra_state_attributes["controlling"] = self.controlling
+    async def _async_setup_group(self) -> None:
+        """Set up light group - called by MagicGroupEntity lifecycle."""
+        await setup_group(self)
 
-        # Setup state change listeners
-        await self._setup_listeners()
-
-    async def _setup_listeners(self, _: Any = None) -> None:
+    async def _setup_listeners(self) -> None:
         """Set up listeners for area state change."""
-        if self._listeners_initialized:
-            return
-
-        group_events.initialize_last_known_states(self)
-        group_events.register_group_listeners(self)
+        setup_listeners(self)
 
     # State Change Handling
 
@@ -223,58 +222,72 @@ class AreaLightGroup(MagicLightGroup):
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool:
         """Handle area state change event."""
-        return group_events.area_state_changed(self, area_id, states_tuple)
+        return handle_area_state_change(
+            self,
+            area_id,
+            states_tuple,
+        )
 
     def state_change_primary(
         self, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool:
         """Handle primary state change."""
-        return group_events.state_change_primary(self, states_tuple)
+        return evaluate_state_change(self, states_tuple, is_primary=True)
 
     def state_change_secondary(
         self, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool:
         """Handle secondary state change."""
-        return group_events.state_change_secondary(self, states_tuple)
+        return evaluate_state_change(self, states_tuple, is_primary=False)
 
     # Light Handling
 
-    def _turn_on(self) -> bool:
-        """Turn on light if it's not already on and if we're controlling it."""
-        return execute_group_turn_on(self)
-
-    def _turn_off(self) -> bool:
-        """Turn off light if it's not already off, and we're controlling it."""
-        return execute_group_turn_off(self)
+    def _dispatch_light_action(self, action: LightAction) -> None:
+        """Dispatch canonical light action through shared control execution."""
+        self.hass.async_create_task(
+            execute_control_group_decision(
+                self.hass,
+                light_action_to_control_group(action, self.entity_id),
+            )
+        )
 
     # Control Release
 
     def is_control_enabled(self) -> bool:
         """Check if light control is enabled by checking light control switch state."""
-        return is_group_control_enabled(self)
+        if not self._coordinator.data:
+            return True
+
+        entity_id = self._coordinator.data.entity_references.light_control_switch
+        if not entity_id:
+            return True
+
+        switch_entity = self.hass.states.get(entity_id)
+        if not switch_entity:
+            return True
+
+        return switch_entity.state.lower() == STATE_ON
 
     def reset_control(self) -> None:
         """Reset control status."""
-        self._set_echo_state(reset_control_state())
-        self.schedule_update_ha_state()
+        self._reset_control_state()
+        self.async_write_ha_state()
         self.logger.debug("%s: Control Reset.", self.name)
 
-    def is_child_controllable(self, entity_id: str) -> bool:
-        """Check if child entity is controllable."""
-        return group_events.is_child_controllable(self.hass, entity_id)
-
-    def handle_group_state_change_primary(self) -> None:
-        """Handle group state change for primary area state events."""
-        group_events.handle_group_state_change_primary(self)
-
-    def handle_group_state_change_secondary(self) -> None:
-        """Handle group state change for secondary area state events."""
-        group_events.handle_group_state_change_secondary(self)
+    def _reset_control_state(self) -> None:
+        """Reset command-echo control state."""
+        self._set_echo_state(
+            CommandEchoState(
+                owner_id=self.unique_id,
+                controlling=True,
+                awaiting_echo=False,
+            )
+        )
 
     @callback
     def group_state_changed(self, event: Event[EventStateChangedData]) -> bool:
         """Handle group state change events."""
-        return group_events.group_state_changed(self, event)
+        return handle_group_state_change(self, event)
 
 
 __all__ = ["MagicLightGroup", "AreaLightGroup"]

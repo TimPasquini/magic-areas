@@ -30,13 +30,18 @@ Compared to the fork baseline, the suite now covers:
 
 ### Core integration setup and lifecycle
 
-- `tests/test_component_init.py`: entry setup, reload behavior, and coordinator
+- `tests/integration/test_component_init.py`: entry setup, reload behavior, and coordinator
   setup/teardown paths.
-- `tests/test_init.py`: migration and entry setup expectations.
-- `tests/test_cleanup.py`: unload paths and teardown stability.
-- `tests/test_area_reload.py`: reload behavior when registry changes occur.
-- `tests/test_helpers_area.py`: area helper behavior and runtime data access.
-- `tests/test_availability.py`: coordinator-driven availability behavior.
+- `tests/integration/test_init.py`: migration and entry setup expectations.
+- `tests/integration/test_cleanup.py`: unload paths and teardown stability.
+- `tests/integration/test_area_reload.py`: reload behavior when registry changes occur.
+- `tests/integration/test_helpers_area.py`: area helper behavior and runtime data access.
+- `tests/integration/test_availability.py`: coordinator-driven availability behavior.
+- `tests/integration/test_platform_initialization.py`: platform startup parity and
+  setup sequencing.
+- `tests/integration/test_cache_synchronization.py`: coordinator/cache lifecycle
+  synchronization.
+- `tests/integration/test_error_recovery_paths.py`: setup/runtime recovery behavior.
 
 ### Config flow and options flow
 
@@ -44,10 +49,12 @@ Compared to the fork baseline, the suite now covers:
 - `tests/config_flow/test_config_flow_options.py`: options flow behavior.
 - `tests/config_flow/test_config_flow_features.py`: feature-specific options.
 - `tests/config_flow/test_config_flow_errors.py`: error and validation paths.
+- `tests/config_flow/test_options_flow_integration.py`,
+  `tests/config_flow/test_options_flow_routing.py`: dynamic routing and step wiring.
 - `tests/config_flow/test_feature_config.py`,
   `tests/config_flow/test_feature_config_climate.py`,
   `tests/config_flow/test_feature_helpers.py`: feature-step routing and schemas.
-- `tests/test_exceptions.py`: config flow and setup exceptions.
+- `tests/integration/test_exceptions.py`: config flow and setup exceptions.
 - `tests/AGENTS.md`: testing guidelines reinforced to avoid HA API drift.
 
 ### Coordinator and snapshot behavior
@@ -96,8 +103,10 @@ Compared to the fork baseline, the suite now covers:
 - `tests/platforms/test_switch.py`: switch behavior for control features.
 - `tests/platforms/test_setup_failures.py`: platform setup error handling and cleanup.
 - `tests/platforms/test_switch_media_player_control.py`: media player control switch logic.
-- `tests/platforms/test_fan_setup.py`, `tests/platforms/test_cover.py`: platform setup coverage.
+- `tests/platforms/test_fan_setup.py`, `tests/platforms/test_fan_control_setup.py`,
+  `tests/platforms/test_media_player_setup.py`: setup coverage.
 - `tests/platforms/test_climate_control.py`: climate control behaviors.
+- `tests/platforms/test_climate_control_behaviors.py`: expanded climate state behavior.
 - `tests/platforms/test_cover.py`, `tests/platforms/test_fan.py`: platform feature behavior.
 
 ### Supporting fixtures and utilities
@@ -111,6 +120,7 @@ Compared to the fork baseline, the suite now covers:
 - `tests/integration/test_restore.py`: restore behaviors.
 - `tests/unit/test_timer.py`: timer behavior.
 - `tests/integration/test_area_lifecycle.py`: core integration lifecycle behaviors.
+- `tests/snapshots/*.py`: snapshot contract coverage for config flow/coordinator/entities.
 
 ## Delta map (tests to changes)
 

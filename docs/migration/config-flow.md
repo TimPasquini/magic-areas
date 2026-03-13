@@ -14,8 +14,9 @@ were duplicated across multiple files.
 
 The options flow is schema-driven and registry-backed:
 
-- `config_flows/feature_registry.py` builds a registry from the runtime feature
-  modules (`features/registry.py`) and their `FeatureConfigStep` definitions.
+- `config_flows/helpers.py:get_feature_config_steps` derives configurable steps
+  directly from runtime feature modules (`features/registry.py`) and their
+  `FeatureConfigStep` definitions.
 - `config_flows/steps/feature_config.py` provides a generic handler for feature
   configuration, using the feature schema directly.
 - `config_flows/options_flow.py` routes any `feature_conf_*` step dynamically via
@@ -33,21 +34,20 @@ Custom feature steps still exist only when necessary:
 
 Configuration data and constants are split into focused modules:
 
-- `config_keys.py`: config keys and default values
+- `config_keys/`: scoped config key modules (area/entities/presence/features/system)
 - `defaults.py`: default policy values and feature defaults
 - `enums.py`: typed enums for feature IDs, area states, and policy options
 - `schemas/area.py`: area-level schemas and defaults
-- `schemas/features/*.py`: per-feature schema definitions
-- `schemas/features/__init__.py`: `CONFIGURABLE_FEATURES` map
+- `features/modules/*.py`: per-feature schema ownership and config-step definitions
 - `feature_info.py`: feature metadata registry (translation keys, icons)
 - `policy.py`: internal policy tables for filtering and behavior
 
 ## Feature registry structure
 
-`config_flows/feature_registry.py` provides a single registry entry per feature,
-derived from `FeatureConfigStep`:
+`config_flows/helpers.py:get_feature_config_steps` provides a single registry
+entry per feature, derived from `FeatureConfigStep`:
 
-- `name`: feature key (`MagicAreasFeatures`)
+- `feature`: feature key (`MagicAreasFeatures`)
 - `schema`: the `vol.Schema` used to validate and build the UI
 - `merge_options`: whether to merge or replace feature config
 - `next_step`: optional follow-up step ID (e.g. climate presets)

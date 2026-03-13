@@ -3,8 +3,8 @@
 from homeassistant.const import STATE_OFF, STATE_ON
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.control_group import ControlActionType
-from custom_components.magic_areas.core.fan_control import (
+from custom_components.magic_areas.core.controls import ControlActionType
+from custom_components.magic_areas.core.controls.policies.fan import (
     FanControlPolicy,
     fan_decision_to_control_group,
 )

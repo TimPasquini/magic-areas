@@ -1,23 +1,23 @@
 """Tests for canonical control-group policy adapters."""
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.climate_control import (
+from custom_components.magic_areas.core.controls.policies.climate import (
     ClimatePolicySignals,
     build_climate_control_group_policy,
 )
-from custom_components.magic_areas.core.control_group import (
+from custom_components.magic_areas.core.controls import (
     ControlActionType,
     ControlGroupContext,
 )
-from custom_components.magic_areas.core.fan_control import (
+from custom_components.magic_areas.core.controls.policies.fan import (
     FanPolicySignals,
     build_fan_control_group_policy,
 )
-from custom_components.magic_areas.core.media_control import (
+from custom_components.magic_areas.core.controls.policies.media import (
     MediaPolicySignals,
     build_media_control_group_policy,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,

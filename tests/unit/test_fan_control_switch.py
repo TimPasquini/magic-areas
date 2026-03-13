@@ -1,21 +1,22 @@
 """Unit tests for FanControlSwitch with mocked dependencies."""
 
-from typing import Any
+from typing import cast
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from homeassistant.core import State, Event
+from homeassistant.core import Event, State
 from homeassistant.const import STATE_OFF, STATE_ON
 
-from custom_components.magic_areas.switch.fan_control import FanControlSwitch
-from custom_components.magic_areas.core.area_config import AreaConfig
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.switch import FanControlSwitch
+from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.control_group import ControlGroupContext
-from custom_components.magic_areas.core.fan_control import FanPolicySignals
+from custom_components.magic_areas.core.controls import ControlGroupContext
+from custom_components.magic_areas.core.controls.policies.fan import FanPolicySignals
 
 
 @pytest.fixture
-def mock_area_config() -> Any:
+def mock_area_config() -> AreaConfig:
     """Create a mock AreaConfig."""
     config = MagicMock(spec=AreaConfig)
     config.id = "test_area"
@@ -25,34 +26,38 @@ def mock_area_config() -> Any:
     config.icon = None
     config.floor_id = None
     config.area_type = "interior"
-    return config
+    return cast(AreaConfig, config)
 
 
 @pytest.fixture
-def mock_coordinator() -> Any:
+def mock_coordinator() -> MagicAreasCoordinator:
     """Create a mock coordinator."""
     coordinator = AsyncMock()
     coordinator.data = MagicMock()
     coordinator.data.entity_references = MagicMock()
     coordinator.data.entity_references.area_state_sensor = None
-    coordinator.data.entity_references.aggregates_by_device_class = {}
     coordinator.data.entity_references.fan_group = None
-    return coordinator
+    return cast(MagicAreasCoordinator, coordinator)
 
 
 @pytest.fixture
-def mock_hass() -> Any:
+def mock_hass() -> MagicMock:
     """Create a mock hass object."""
-    hass = AsyncMock()
+    hass = MagicMock()
     hass.states = MagicMock()
-    hass.services = AsyncMock()
+    hass.services = MagicMock()
+    hass.services.async_call = AsyncMock()
+    hass.bus = MagicMock()
+    hass.bus.async_listen = MagicMock(return_value=lambda: None)
     hass.async_create_task = MagicMock(
         side_effect=lambda coro: coro.close() if hasattr(coro, "close") else None
     )
     return hass
 
 
-def test_fan_control_switch_initialization(mock_area_config: Any, mock_coordinator: Any) -> None:
+def test_fan_control_switch_initialization(
+    mock_area_config: AreaConfig, mock_coordinator: MagicAreasCoordinator
+) -> None:
     """Test FanControlSwitch initialization."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
 
@@ -63,7 +68,9 @@ def test_fan_control_switch_initialization(mock_area_config: Any, mock_coordinat
 
 
 def test_fan_control_area_sensor_state_changed_no_new_state(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test _area_sensor_state_changed when event has no new_state.
 
@@ -87,7 +94,9 @@ def test_fan_control_area_sensor_state_changed_no_new_state(
 
 
 def test_fan_control_area_sensor_state_changed_not_on(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test _area_sensor_state_changed when switch is off."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
@@ -109,7 +118,9 @@ def test_fan_control_area_sensor_state_changed_not_on(
 
 
 def test_fan_control_area_sensor_state_changed_state_not_off(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test _area_sensor_state_changed when state is not OFF."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
@@ -130,7 +141,9 @@ def test_fan_control_area_sensor_state_changed_state_not_off(
 
 
 def test_fan_control_area_sensor_state_changed_no_fan_group(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test _area_sensor_state_changed schedules control reevaluation on CLEAR."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
@@ -156,7 +169,9 @@ def test_fan_control_area_sensor_state_changed_no_fan_group(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_value_error(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test run_logic handles ValueError when parsing sensor.
 
@@ -195,7 +210,9 @@ async def test_fan_control_run_logic_sensor_value_error(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_type_error(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test run_logic handles TypeError when parsing sensor."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
@@ -231,7 +248,9 @@ async def test_fan_control_run_logic_sensor_type_error(
 
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_not_found(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """Test run_logic when tracked sensor entity doesn't exist."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)
@@ -265,9 +284,9 @@ async def test_fan_control_run_logic_sensor_not_found(
 
 @pytest.mark.asyncio
 async def test_aggregate_sensor_state_uses_area_sensor_fallback(
-    mock_area_config: Any,
-    mock_coordinator: Any,
-    mock_hass: Any,
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """aggregate_sensor_state_changed should read area-sensor states when cache is empty."""
@@ -293,7 +312,9 @@ async def test_aggregate_sensor_state_uses_area_sensor_fallback(
 
 @pytest.mark.asyncio
 async def test_run_logic_returns_early_without_resolved_fan_group(
-    mock_area_config: Any, mock_coordinator: Any, mock_hass: Any
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
 ) -> None:
     """run_logic should still evaluate policy and emit a NOOP decision."""
     switch = FanControlSwitch(mock_area_config, mock_coordinator)

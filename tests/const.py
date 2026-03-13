@@ -4,7 +4,7 @@ from enum import StrEnum, auto
 
 from homeassistant.const import ATTR_FLOOR_ID
 
-from custom_components.magic_areas.config_keys import CONF_TYPE
+from custom_components.magic_areas.config_keys.area import CONF_TYPE
 from custom_components.magic_areas.area_state import AreaType
 
 

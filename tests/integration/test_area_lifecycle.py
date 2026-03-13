@@ -2,11 +2,12 @@
 
 from unittest.mock import ANY, patch
 
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import CoreState, EventBus, HomeAssistant
+from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import CONF_ID
+from custom_components.magic_areas.config_keys.area import CONF_ID
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicConfigEntryVersion
 from tests.const import DEFAULT_MOCK_AREA
@@ -38,14 +39,16 @@ async def test_magic_area_initialization_wait_for_start(
         # Mock hass not running
         hass.set_state(CoreState.not_running)
 
-        with patch.object(EventBus, "async_listen_once", autospec=True) as mock_listen:
+        with patch.object(EventBus, "async_listen", autospec=True) as mock_listen:
             await init_integration_helper(hass, [mock_config_entry])
 
-            # Verify listener was added
-            mock_listen.assert_any_call(hass.bus, EVENT_HOMEASSISTANT_STARTED, ANY)
+            # Verify readiness listener was added
+            mock_listen.assert_any_call(hass.bus, EVENT_STATE_CHANGED, ANY)
+            assert mock_config_entry.runtime_data is not None
 
         await hass.async_start()
         await hass.async_block_till_done()
+        assert mock_config_entry.state is ConfigEntryState.LOADED
 
         await shutdown_integration(hass, [mock_config_entry])
 
@@ -65,7 +68,9 @@ async def test_magic_area_finalize_init_running(
     await hass.async_block_till_done()
 
     await init_integration_helper(hass, [mock_config_entry])
-    # If we are here, it worked.
+    assert mock_config_entry.state is ConfigEntryState.LOADED
+    assert mock_config_entry.runtime_data is not None
+    assert mock_config_entry.runtime_data.coordinator.data is not None
 
     await shutdown_integration(hass, [mock_config_entry])
 

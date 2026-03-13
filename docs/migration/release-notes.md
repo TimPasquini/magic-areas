@@ -1,40 +1,49 @@
 # Release notes summary (fork delta)
 
-This is a concise summary of the major changes since the fork baseline
-(`d7b5779`) intended for upstream review.
+This is the concise release-delta summary versus fork baseline `d7b5779`.
 
-## Runtime architecture
+## Runtime and coordinator model
 
-- Coordinator-driven snapshots are the single source of truth for platforms.
-- Platforms are thin, registry-driven routers that only read snapshots.
-- Event payloads include full current state snapshots to avoid stale reads.
+- Replaced platform-local runtime assembly with coordinator-owned typed snapshots.
+- `MagicAreasData` is now the runtime read contract for all platforms/entities.
+- Entity ingestion moved under coordinator ownership
+  (`coordinator/entity_ingestion/*`), including filtering and normalization.
 
-## Feature modules
+## Feature composition model
 
-- Feature modules are the single source of truth for:
-  - entity construction per feature
-  - feature dependencies
-  - config flow steps and schemas
-- Added modules for light/fan/media/cover groups, presence hold, climate control,
-  BLE trackers, health, aggregates, wasp-in-a-box, and area-aware media player
-  (config-only).
+- Introduced registry-backed feature modules as the canonical runtime composition
+  path for platform entities.
+- Feature modules now own feature enablement, dependencies, and config-flow step
+  declarations.
 
-## Config flow
+## Policy and execution boundaries
 
-- Config flow registry builds from the runtime FeatureRegistry.
-- Options flow is schema-driven; feature steps are routed dynamically.
-- OPTIONS_* lists were removed and `schemas/validation.py` deleted.
+- Standardized control decisions around canonical control-group contracts
+  (`ControlGroupContext`, `ControlGroupDecision`, runtime effects).
+- Centralized execution/runtime resolution in shared control-group runtime helpers.
+- Light/fan/climate/media control paths now share the same evaluation/execution
+  shape, with feature-specific adapters layered on top.
 
-## Entity model
+## Config-flow architecture
 
-- Group entities extracted into dedicated modules to avoid circular imports.
-- Light control switch moved to a dedicated module and used via the registry.
+- Converted options flow to schema/registry-driven routing.
+- Removed legacy OPTIONS_* validation-list duplication and dynamicized
+  `feature_conf_*` handling.
+- Config-flow package surfaces now expose stable entry points for flow helpers
+  and step handlers.
 
-## Consolidation
+## Boundary hardening
 
-- Shared platform dispatch helper reduces duplicated registry wiring logic.
-- Feature module boilerplate consolidated via `BaseFeatureModule`.
+- Established import-boundary contract tests that prevent new side-door imports
+  into protected slices.
+- Hardened package entrypoint usage for high-churn slices:
+  - `light_groups`
+  - `features.modules`
+  - `coordinator.entity_ingestion`
+  - `config_flows` and `config_flows.steps`
+  - `switch`
+  - `media_player`
 
-## Validation
+## Validation status
 
-- Full test, mypy, and ruff runs confirm parity after refactors.
+- Current code passes full quality gates (`ruff`, `mypy`, full `pytest`).

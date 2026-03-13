@@ -12,15 +12,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
-from custom_components.magic_areas.core.thresholds import (
-    get_illuminance_threshold_spec,
+from custom_components.magic_areas.binary_sensor.aggregate_factory import (
+    EXPECTED_ENTITY_BUILD_ERRORS,
+    log_creation_error,
 )
+from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.core.aggregates import get_illuminance_threshold_spec
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,11 +66,11 @@ def create_illuminance_threshold(
             upper=illuminance_threshold,
             hysteresis=illuminance_threshold_hysteresis,
         )
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.error(
-            "%s: Error creating calculated light sensor: %s",
-            area_config.slug,
-            str(e),
+    except EXPECTED_ENTITY_BUILD_ERRORS as exc:
+        log_creation_error(
+            area_slug=area_config.slug,
+            label="calculated light sensor",
+            exc=exc,
         )
         return None
 

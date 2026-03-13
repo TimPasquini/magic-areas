@@ -6,16 +6,16 @@ Tests verify the media player correctly handles:
 """
 
 import pytest
-from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
+from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant
 from unittest.mock import MagicMock
 
-from custom_components.magic_areas.media_player.area_aware_media_player import (
+from custom_components.magic_areas.media_player import (
     AreaAwareMediaPlayer,
 )
-from custom_components.magic_areas.attrs import ATTR_STATES
+from custom_components.magic_areas.const import ATTR_STATES
 
 
 @pytest.mark.asyncio
@@ -100,3 +100,18 @@ async def test_no_media_players_skips_service_call(
     # Call async_play_media - it should return without calling the service
     # This test verifies that the early return at line 214-218 works correctly
     await real_async_play_media(media_player, "music", "test_media_id")
+
+
+def test_update_state_uses_single_write_path() -> None:
+    """Verify update_state writes immediately without scheduler queuing."""
+    media_player = MagicMock(spec=AreaAwareMediaPlayer)
+    media_player.update_attributes = MagicMock()
+    media_player.async_write_ha_state = MagicMock()
+    media_player.schedule_update_ha_state = MagicMock()
+
+    real_update_state = AreaAwareMediaPlayer.update_state
+    real_update_state(media_player)
+
+    media_player.update_attributes.assert_called_once()
+    media_player.async_write_ha_state.assert_called_once()
+    media_player.schedule_update_ha_state.assert_not_called()

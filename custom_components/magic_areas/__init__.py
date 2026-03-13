@@ -2,24 +2,18 @@
 
 from collections.abc import Callable
 import logging
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_NAME, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import dispatcher_send
-from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.core.identity_migration import (
-    async_migrate_unique_ids,
-)
-from custom_components.magic_areas.core.registry_reload import (
+from homeassistant.const import ATTR_NAME
+from homeassistant.core import HomeAssistant
+from custom_components.magic_areas.coordinator import (
+    MagicAreasCoordinator,
     attach_registry_listeners,
 )
-from custom_components.magic_areas.enums import MagicAreasEvents, MagicConfigEntryVersion
-from custom_components.magic_areas.helpers.area import (
-    build_area_config_for_config_entry,
-)
-from custom_components.magic_areas.models import (
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.helpers import build_area_config_for_config_entry
+from custom_components.magic_areas.migrations import apply_applicable_migrations
+from custom_components.magic_areas.components import (
     MagicAreasConfigEntry,
     MagicAreasRuntimeData,
 )
@@ -32,13 +26,18 @@ async def async_setup_entry(
 ) -> bool:
     """Set up the component."""
 
-    async def _async_setup_integration(*args: Any, **kwargs: Any) -> None:
+    async def _async_setup_integration() -> bool:
         """Load integration when Hass has finished starting."""
         _LOGGER.debug("Setting up entry for %s", config_entry.data[ATTR_NAME])
 
         # Build AreaConfig directly from registry (coordinator's primary config source)
         area_config = build_area_config_for_config_entry(hass, config_entry)
-        assert area_config is not None
+        if area_config is None:
+            _LOGGER.error(
+                "Failed to build area config for entry %s",
+                config_entry.entry_id,
+            )
+            return False
 
         _LOGGER.debug(
             "%s: Magic Area (%s) created: %s",
@@ -47,32 +46,8 @@ async def async_setup_entry(
             str(area_config.config),
         )
 
-        # For regular areas, dispatch AREA_LOADED so meta-area coordinators
-        # know to refresh. Meta areas handle their own reload subscription.
-        if not area_config.is_meta():
-            _area_type = area_config.area_type
-            _floor_id = area_config.floor_id
-            _area_id = area_config.id
-
-            @callback
-            async def _async_notify_loaded(*args: Any, **kwargs: Any) -> None:
-                dispatcher_send(
-                    hass,
-                    MagicAreasEvents.AREA_LOADED,
-                    _area_type,
-                    _floor_id,
-                    _area_id,
-                )
-
-            if hass.is_running:
-                hass.create_task(_async_notify_loaded())
-            else:
-                hass.bus.async_listen_once(
-                    EVENT_HOMEASSISTANT_STARTED, _async_notify_loaded
-                )
-
         # Setup config update listener
-        tracked_listeners: list[Callable] = [
+        tracked_listeners: list[Callable[[], None]] = [
             config_entry.add_update_listener(async_update_options)
         ]
 
@@ -98,10 +73,9 @@ async def async_setup_entry(
             else []
         )
         await hass.config_entries.async_forward_entry_setups(config_entry, platforms)
+        return True
 
-    await _async_setup_integration()
-
-    return True
+    return await _async_setup_integration()
 
 
 async def async_update_options(
@@ -160,8 +134,25 @@ async def async_migrate_entry(
 
         return False
 
-    if config_entry.minor_version < MagicConfigEntryVersion.MINOR:
-        await async_migrate_unique_ids(hass, config_entry)
+    from_version = (config_entry.version, config_entry.minor_version)
+    to_version = (
+        int(MagicConfigEntryVersion.MAJOR),
+        int(MagicConfigEntryVersion.MINOR),
+    )
+
+    migrated_count = await apply_applicable_migrations(
+        hass,
+        config_entry,
+        from_version=from_version,
+        to_version=to_version,
+    )
+    _LOGGER.debug(
+        "%s: Applied %s migration(s) from %s to %s",
+        config_entry.data[ATTR_NAME],
+        migrated_count,
+        from_version,
+        to_version,
+    )
 
     hass.config_entries.async_update_entry(
         config_entry,

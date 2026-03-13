@@ -2,30 +2,41 @@
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.coordinator.snapshot_builder import build_snapshot
-from custom_components.magic_areas.coordinator.snapshot_models import MagicAreasData
-from custom_components.magic_areas.core.meta_reload import (
-    evaluate_reload,
-    should_reload_on_area_change,
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.coordinator.pipeline import (
+    MetaAreaReloadManager,
+    MagicAreasData,
+    attach_registry_listeners as attach_registry_listeners,
+    build_snapshot,
 )
 from custom_components.magic_areas.enums import MagicAreasEvents
-from custom_components.magic_areas.models import MagicAreasConfigEntry
+from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+_EXPECTED_UPDATE_ERRORS = (
+    KeyError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    RuntimeError,
+)
+
+__all__ = [
+    "MagicAreasCoordinator",
+    "MagicAreasData",
+    "attach_registry_listeners",
+]
 
 
 class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
@@ -46,91 +57,60 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
             config_entry=config_entry,
         )
         self._area_config = area_config
-        self._last_reload: datetime = datetime.min.replace(tzinfo=dt_util.UTC)
-        self._reloading: bool = False
-        self._unsubscribe_loaded: Callable[[], None] | None = None
+        self._lifecycle: MetaAreaReloadManager | None = None
+        self._group_registry = GroupRegistry()
+        self._last_snapshot_ready_key: tuple[str, str | None, str, str | None] | None = None
 
         if area_config.is_meta():
-            self._unsubscribe_loaded = async_dispatcher_connect(
-                hass, MagicAreasEvents.AREA_LOADED, self._handle_loaded_area
+            self._lifecycle = MetaAreaReloadManager(
+                hass=hass,
+                area_config=area_config,
+                get_snapshot=lambda: self.data,
+                get_entry_id=lambda: self.config_entry.entry_id if self.config_entry else None,
+                schedule_reload=hass.config_entries.async_schedule_reload,
             )
+            self._lifecycle.start()
+
+    @property
+    def lifecycle(self) -> MetaAreaReloadManager | None:
+        """Return lifecycle manager for meta areas, if configured."""
+        return self._lifecycle
 
     async def async_shutdown(self) -> None:
         """Shut down the coordinator and clean up subscriptions."""
-        if self._unsubscribe_loaded is not None:
-            self._unsubscribe_loaded()
-            self._unsubscribe_loaded = None
+        if self._lifecycle is not None:
+            await self._lifecycle.shutdown()
+            self._lifecycle = None
         await super().async_shutdown()
-
-    @callback
-    async def _handle_loaded_area(
-        self, area_type: str, floor_id: int | None, area_id: str
-    ) -> None:
-        """Handle area loaded signals for meta-area reload."""
-        _LOGGER.debug(
-            "%s: Received area loaded signal (type=%s, floor_id=%s, area_id=%s)",
-            self._area_config.name,
-            area_type,
-            floor_id,
-            area_id,
-        )
-
-        if not self.hass.is_running:
-            return
-
-        if self._reloading:
-            return
-
-        child_areas = self.data.child_areas if self.data else []
-
-        if not should_reload_on_area_change(
-            meta_slug=self._area_config.slug,
-            trigger_area_type=area_type,
-            trigger_area_id=area_id,
-            child_areas=child_areas,
-        ):
-            return
-
-        await self._do_reload(trigger_area_type=area_type, trigger_area_id=area_id)
-
-    async def _do_reload(
-        self, trigger_area_type: str = "", trigger_area_id: str = ""
-    ) -> None:
-        """Reload the config entry after evaluating throttle and delay."""
-        child_areas = self.data.child_areas if self.data else []
-        decision = evaluate_reload(
-            meta_slug=self._area_config.slug,
-            trigger_area_type=trigger_area_type,
-            trigger_area_id=trigger_area_id,
-            child_areas=child_areas,
-            last_reload=self._last_reload,
-            now=dt_util.utcnow(),
-        )
-
-        if not decision.should_reload:
-            _LOGGER.debug(
-                "%s: Reload skipped - %s", self._area_config.name, decision.reason
-            )
-            return
-
-        _LOGGER.info(
-            "%s: Reloading entry - %s", self._area_config.name, decision.reason
-        )
-        self._last_reload = dt_util.utcnow()
-        self._reloading = True
-        await asyncio.sleep(decision.delay_seconds)
-        assert self.config_entry is not None
-        self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
     async def _async_update_data(self) -> MagicAreasData:
         """Fetch area data for the coordinator."""
         assert self.config_entry is not None
 
         try:
-            return await build_snapshot(
+            snapshot = await build_snapshot(
                 hass=self.hass,
                 area_config=self._area_config,
                 config_entry_id=self.config_entry.entry_id,
+                group_registry=self._group_registry,
             )
-        except Exception as err:  # pylint: disable=broad-exception-caught
+            if not self._area_config.is_meta():
+                ready_key = (
+                    self._area_config.area_type,
+                    self._area_config.floor_id,
+                    self._area_config.id,
+                    snapshot.entity_references.area_state_sensor,
+                )
+                if ready_key != self._last_snapshot_ready_key:
+                    dispatcher_send(
+                        self.hass,
+                        MagicAreasEvents.AREA_SNAPSHOT_READY,
+                        self._area_config.area_type,
+                        self._area_config.floor_id,
+                        self._area_config.id,
+                        snapshot.updated_at.isoformat(),
+                    )
+                    self._last_snapshot_ready_key = ready_key
+            return snapshot
+        except _EXPECTED_UPDATE_ERRORS as err:
             raise UpdateFailed(f"Unable to update area data: {err}") from err

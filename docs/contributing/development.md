@@ -13,7 +13,7 @@ This guide covers local setup and the repo-standard commands for development.
 ```bash
 git clone <your-fork-or-origin>
 cd magic-areas
-uv sync
+uv sync --extra dev --extra test
 ```
 
 ## Required quality gates
@@ -23,7 +23,7 @@ Run these before committing:
 ```bash
 uv run ruff check custom_components/magic_areas tests
 uv run mypy custom_components/magic_areas tests
-uv run pytest ./tests --numprocesses=auto -q
+uv run pytest tests -q
 ```
 
 Optional formatting check:
@@ -35,17 +35,17 @@ uv run ruff format --check custom_components/magic_areas tests
 ## Common test commands
 
 ```bash
-# Full suite (parallel)
-uv run pytest ./tests --numprocesses=auto -q
+# Full suite
+uv run pytest tests -q
 
 # Single test file
 uv run pytest tests/unit/test_control_group_executor.py -q
 
 # Snapshot updates (when intentionally changing snapshots)
-uv run pytest ./tests --snapshot-update
+uv run pytest tests/snapshots --snapshot-update
 
 # Slowest tests
-uv run pytest ./tests --durations=10
+uv run pytest tests --durations=10
 ```
 
 ## Working in Home Assistant locally
@@ -130,9 +130,15 @@ find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 uv run mypy --clear-cache custom_components/magic_areas tests
 ```
 
+### Diagram artifacts
+
+`docs/diagrams/` artifacts are intentionally untracked locally. Generate and
+inspect them as needed, but do not commit generated diagram files.
+
 ## References
 
 - `CLAUDE.md` (repo workflow + standards)
+- `docs/contributing/architecture.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/refactoring-guide.md`
-- `docs/notes/theoretical_architecture_map.md`
+- `docs/contributing/repository-control-contract.md`

@@ -1,6 +1,6 @@
-"""Pure helper functions for area discovery in config flow.
+"""Area-discovery helpers for config flow.
 
-These functions are designed to be testable without HA dependencies.
+This module includes HA-registry access and deterministic transformation helpers.
 """
 
 from __future__ import annotations
@@ -16,22 +16,22 @@ from homeassistant.util import slugify
 
 from custom_components.magic_areas.area_state import AreaType, MetaAreaType
 from custom_components.magic_areas.config_keys.area import CONF_ID, CONF_TYPE
-from custom_components.magic_areas.helpers.area import (
+from custom_components.magic_areas.helpers import (
     BasicArea,
     basic_area_from_floor,
     basic_area_from_meta,
     basic_area_from_object,
 )
-from custom_components.magic_areas.schemas.area import DOMAIN_SCHEMA
+from custom_components.magic_areas.schemas import DOMAIN_SCHEMA
 
 if TYPE_CHECKING:
-    pass
+    from homeassistant.helpers.floor_registry import FloorEntry
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def build_floor_meta_areas(
-    floors: Iterable,
+    floors: Iterable[FloorEntry],
     area_ids: list[str],
 ) -> tuple[list[BasicArea], list[str]]:
     """Build meta areas from floor registry.
@@ -158,14 +158,18 @@ def build_area_selector_options(
 def create_area_config_entry(
     area_object: BasicArea,
     reserved_ids: list[str],
-) -> dict:
+) -> dict[str, object]:
     """Create default config dict for an area.
 
     Returns:
         Default config entry dict with type set for meta areas
 
     """
-    config_entry = DOMAIN_SCHEMA({f"{area_object.id}": {}})[area_object.id]
+    validated = DOMAIN_SCHEMA({f"{area_object.id}": {}})
+    config_entry = validated.get(area_object.id)
+    if not isinstance(config_entry, dict):
+        msg = f"Invalid schema output for area {area_object.id}"
+        raise TypeError(msg)
     extra_opts = {
         "name": area_object.name,
         CONF_ID: area_object.id,

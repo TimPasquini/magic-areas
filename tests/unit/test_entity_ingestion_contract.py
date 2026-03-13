@@ -8,28 +8,33 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaType
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
 )
-from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.coordinator import entity_ingestion
-from custom_components.magic_areas.coordinator.entity_ingestion.filters import (
-    should_exclude_entity,
-)
-from custom_components.magic_areas.core.group_registry import GroupRegistry
-from custom_components.magic_areas.coordinator.snapshot_builder import build_snapshot
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.coordinator.pipeline import entity_ingestion
+from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.coordinator.pipeline import build_snapshot
+
+type _EntityMap = dict[str, list[dict[str, str]]]
 
 
 def test_entity_loading_public_api_exports() -> None:
     """Public API exports expected loader entry points."""
     assert callable(entity_ingestion.load_area_entities)
     assert callable(entity_ingestion.load_meta_area_entities)
+    assert callable(entity_ingestion.filter_entity_list)
+    assert callable(entity_ingestion.is_magic_area_entity)
+    assert callable(entity_ingestion.should_exclude_entity)
+    assert callable(entity_ingestion.build_entity_dict)
+    assert callable(entity_ingestion.group_entities)
     assert "load_area_entities" in entity_ingestion.__all__
     assert "load_meta_area_entities" in entity_ingestion.__all__
-    assert not hasattr(entity_ingestion, "filter_entity_list")
+    assert "filter_entity_list" in entity_ingestion.__all__
+    assert "should_exclude_entity" in entity_ingestion.__all__
 
 
 def test_should_exclude_entity_parity_config_and_diagnostic() -> None:
@@ -46,8 +51,11 @@ def test_should_exclude_entity_parity_config_and_diagnostic() -> None:
     diagnostic_entity.entity_id = "sensor.test"
     diagnostic_entity.entity_category = EntityCategory.DIAGNOSTIC
 
-    assert should_exclude_entity(config_entity, "our_config") is True
-    assert should_exclude_entity(diagnostic_entity, "our_config") is True
+    assert entity_ingestion.should_exclude_entity(config_entity, "our_config") is True
+    assert (
+        entity_ingestion.should_exclude_entity(diagnostic_entity, "our_config")
+        is True
+    )
 
 
 @pytest.mark.asyncio
@@ -72,10 +80,10 @@ async def test_load_area_entities_parity_include_shape(
     mock_entity_registry.async_get.return_value = included_entity
 
     with patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, magic_entities = await entity_ingestion.load_area_entities(
@@ -112,7 +120,7 @@ async def test_load_meta_area_entities_parity_shape(
     mock_child_entry.runtime_data.coordinator.data.area_config.slug = "bedroom"
 
     with patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch.object(hass.config_entries, "async_entries", return_value=[mock_child_entry]):
         entities, magic_entities = await entity_ingestion.load_meta_area_entities(
@@ -149,10 +157,10 @@ async def test_load_area_entities_include_exclude_precedence(
     mock_entity_registry.async_get.return_value = included_and_excluded
 
     with patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities, _magic_entities = await entity_ingestion.load_area_entities(
@@ -201,10 +209,10 @@ async def test_load_area_entities_diagnostic_toggle_parity(
     mock_device_registry.devices.get_devices_for_area_id.return_value = []
 
     with patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_entity_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_entity_registry",
         return_value=mock_entity_registry,
     ), patch(
-        "custom_components.magic_areas.coordinator.entity_ingestion.loader.get_device_registry",
+        "custom_components.magic_areas.coordinator.pipeline.entity_ingestion.loader.get_device_registry",
         return_value=mock_device_registry,
     ):
         entities_ignore_true, _ = await entity_ingestion.load_area_entities(
@@ -242,7 +250,7 @@ async def test_snapshot_builder_entity_ingestion_integration_parity(
         hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
     )
 
-    async def _load_entities(*args: object, **kwargs: object) -> tuple[dict, dict]:
+    async def _load_entities(*args: object, **kwargs: object) -> tuple[_EntityMap, _EntityMap]:
         return (
             {"sensor": [{"entity_id": "sensor.room_temp", "device_class": "temperature"}]},
             {"sensor": [{"entity_id": "sensor.magic_area_temp"}]},
@@ -253,16 +261,17 @@ async def test_snapshot_builder_entity_ingestion_integration_parity(
     mock_registry.entities.values.return_value = []
 
     with patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
         side_effect=_load_entities,
     ), patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.er.async_get",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.er.async_get",
         return_value=mock_registry,
     ):
         snapshot = await build_snapshot(
             hass=hass,
             area_config=area_config,
             config_entry_id="entry_id",
+            group_registry=GroupRegistry(),
         )
 
     assert "sensor" in snapshot.entities
@@ -294,7 +303,7 @@ async def test_snapshot_builder_registers_custom_control_groups(
         hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
     )
 
-    async def _load_entities(*args: object, **kwargs: object) -> tuple[dict, dict]:
+    async def _load_entities(*args: object, **kwargs: object) -> tuple[_EntityMap, _EntityMap]:
         return ({}, {})
 
     mock_registry = MagicMock()
@@ -303,19 +312,17 @@ async def test_snapshot_builder_registers_custom_control_groups(
     mock_group_registry = MagicMock()
 
     with patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
         side_effect=_load_entities,
     ), patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.er.async_get",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.er.async_get",
         return_value=mock_registry,
-    ), patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.GROUP_REGISTRY",
-        mock_group_registry,
     ):
         await build_snapshot(
             hass=hass,
             area_config=area_config,
             config_entry_id="entry_id",
+            group_registry=mock_group_registry,
         )
 
     mock_group_registry.register_area_customs.assert_called_once()
@@ -364,7 +371,7 @@ async def test_snapshot_builder_replaces_stale_custom_control_groups_on_refresh(
         hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
     )
 
-    async def _load_entities(*args: object, **kwargs: object) -> tuple[dict, dict]:
+    async def _load_entities(*args: object, **kwargs: object) -> tuple[_EntityMap, _EntityMap]:
         return ({}, {})
 
     mock_registry = MagicMock()
@@ -373,24 +380,23 @@ async def test_snapshot_builder_replaces_stale_custom_control_groups_on_refresh(
     group_registry = GroupRegistry()
 
     with patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.load_area_entities",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
         side_effect=_load_entities,
     ), patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.er.async_get",
+        "custom_components.magic_areas.coordinator.pipeline.snapshot.er.async_get",
         return_value=mock_registry,
-    ), patch(
-        "custom_components.magic_areas.coordinator.snapshot_builder.GROUP_REGISTRY",
-        group_registry,
     ):
         await build_snapshot(
             hass=hass,
             area_config=initial_area_config,
             config_entry_id="entry_id",
+            group_registry=group_registry,
         )
         await build_snapshot(
             hass=hass,
             area_config=updated_area_config,
             config_entry_id="entry_id",
+            group_registry=group_registry,
         )
 
     registered = group_registry.get_for_area_policy("test_area", "custom_control_group")

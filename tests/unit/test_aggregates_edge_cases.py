@@ -2,10 +2,12 @@
 
 from enum import Enum
 
-from custom_components.magic_areas.core.aggregates import (
+from custom_components.magic_areas.core.aggregates.selection import (
     _normalize_allowed_device_classes,
     _is_valid_value,
-    _min_entities,
+)
+from custom_components.magic_areas.features.config.readers import (
+    aggregates_config,
 )
 
 
@@ -105,15 +107,15 @@ def test_is_valid_value_with_unavailable() -> None:
 
 
 def test_min_entities_from_empty_config() -> None:
-    """Test _min_entities with empty config."""
-    result = _min_entities({})
+    """Test aggregate_min_entities with empty config."""
+    result = aggregates_config({}).min_entities
     assert isinstance(result, int)
     assert result >= 0
 
 
 def test_min_entities_from_config_with_explicit_value() -> None:
-    """Test _min_entities with explicit min_entities value."""
-    from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
+    """Test aggregate_min_entities with explicit min_entities value."""
+    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -121,13 +123,13 @@ def test_min_entities_from_config_with_explicit_value() -> None:
             CONF_AGGREGATES_MIN_ENTITIES: 5,
         }
     }
-    result = _min_entities(config)
+    result = aggregates_config(config).min_entities
     assert result == 5
 
 
 def test_min_entities_from_config_with_int() -> None:
-    """Test _min_entities handles int value correctly."""
-    from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
+    """Test aggregate_min_entities handles int value correctly."""
+    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -135,13 +137,13 @@ def test_min_entities_from_config_with_int() -> None:
             CONF_AGGREGATES_MIN_ENTITIES: 3,
         }
     }
-    result = _min_entities(config)
+    result = aggregates_config(config).min_entities
     assert result == 3
 
 
 def test_min_entities_from_config_with_string_int() -> None:
-    """Test _min_entities handles string int value correctly."""
-    from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
+    """Test aggregate_min_entities handles string int value correctly."""
+    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -149,13 +151,13 @@ def test_min_entities_from_config_with_string_int() -> None:
             CONF_AGGREGATES_MIN_ENTITIES: "2",
         }
     }
-    result = _min_entities(config)
+    result = aggregates_config(config).min_entities
     assert result == 2
 
 
 def test_min_entities_from_config_with_invalid_string() -> None:
-    """Test _min_entities handles invalid string gracefully."""
-    from custom_components.magic_areas.config_keys import CONF_AGGREGATES_MIN_ENTITIES
+    """Test aggregate_min_entities handles invalid string gracefully."""
+    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -163,5 +165,5 @@ def test_min_entities_from_config_with_invalid_string() -> None:
             CONF_AGGREGATES_MIN_ENTITIES: "invalid",
         }
     }
-    result = _min_entities(config)
+    result = aggregates_config(config).min_entities
     assert isinstance(result, int)

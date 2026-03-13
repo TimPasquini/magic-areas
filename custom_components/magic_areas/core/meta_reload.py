@@ -33,6 +33,9 @@ class ReloadDecision:
     reason: str
     """Human-readable reason for the decision."""
 
+    retry_after_seconds: float = 0
+    """Suggested bounded retry delay when reload was skipped (0 = no retry)."""
+
 
 def should_reload_on_area_change(
     *,
@@ -124,54 +127,119 @@ def evaluate_reload(
         >>> assert 3 <= decision.delay_seconds <= 12
 
     """
-    # Load defaults at call time to support mocking in tests
-    if throttle_seconds is None:
-        throttle_seconds = MetaAreaAutoReloadSettings.THROTTLE
-    if base_delay is None:
-        base_delay = MetaAreaAutoReloadSettings.DELAY
-    if max_delay_multiplier is None:
-        max_delay_multiplier = MetaAreaAutoReloadSettings.DELAY_MULTIPLIER
+    resolved_throttle, resolved_base_delay, resolved_delay_multiplier = (
+        _resolve_reload_settings(
+            throttle_seconds=throttle_seconds,
+            base_delay=base_delay,
+            max_delay_multiplier=max_delay_multiplier,
+        )
+    )
 
-    # Check if reload should happen at all (area type/ID match)
     if not should_reload_on_area_change(
         meta_slug=meta_slug,
         trigger_area_type=trigger_area_type,
         trigger_area_id=trigger_area_id,
         child_areas=child_areas,
     ):
-        return ReloadDecision(
-            should_reload=False,
-            delay_seconds=0,
-            reason=f"Area {trigger_area_id} (type={trigger_area_type}) "
-            f"not matched for {meta_slug}",
+        return _build_not_matched_decision(
+            meta_slug=meta_slug,
+            trigger_area_type=trigger_area_type,
+            trigger_area_id=trigger_area_id,
         )
 
-    # Check throttle constraint
-    time_since_reload = now - last_reload
-    throttle_delta = timedelta(seconds=throttle_seconds)
+    throttled_decision = _evaluate_throttle(
+        last_reload=last_reload,
+        now=now,
+        throttle_seconds=resolved_throttle,
+    )
+    if throttled_decision is not None:
+        return throttled_decision
 
-    if time_since_reload < throttle_delta:
-        seconds_remaining = (throttle_delta - time_since_reload).total_seconds()
-        return ReloadDecision(
-            should_reload=False,
-            delay_seconds=0,
-            reason=f"Throttled: {seconds_remaining:.1f}s remaining "
-            f"({throttle_seconds}s minimum)",
-        )
-
-    # Calculate delay with randomization
-    max_delay = max_delay_multiplier * base_delay
-    delay = random.uniform(base_delay, max_delay)
-
-    # Global meta-area loads last
-    if meta_slug == "global":
-        delay = max_delay
-        reason = f"Global reload scheduled with max delay ({delay:.1f}s)"
-    else:
-        reason = f"Reload scheduled with randomized delay ({delay:.1f}s)"
+    delay, reason = _compute_reload_delay_and_reason(
+        meta_slug=meta_slug,
+        base_delay=resolved_base_delay,
+        max_delay_multiplier=resolved_delay_multiplier,
+    )
 
     return ReloadDecision(
         should_reload=True,
         delay_seconds=delay,
         reason=reason,
+        retry_after_seconds=0,
     )
+
+
+def _resolve_reload_settings(
+    *,
+    throttle_seconds: int | None,
+    base_delay: float | None,
+    max_delay_multiplier: int | None,
+) -> tuple[int, float, int]:
+    """Resolve optional settings to concrete values."""
+    resolved_throttle = (
+        throttle_seconds
+        if throttle_seconds is not None
+        else MetaAreaAutoReloadSettings.THROTTLE
+    )
+    resolved_base_delay = (
+        base_delay if base_delay is not None else MetaAreaAutoReloadSettings.DELAY
+    )
+    resolved_delay_multiplier = (
+        max_delay_multiplier
+        if max_delay_multiplier is not None
+        else MetaAreaAutoReloadSettings.DELAY_MULTIPLIER
+    )
+    return resolved_throttle, resolved_base_delay, resolved_delay_multiplier
+
+
+def _build_not_matched_decision(
+    *,
+    meta_slug: str,
+    trigger_area_type: str,
+    trigger_area_id: str,
+) -> ReloadDecision:
+    """Build the decision returned when an area change does not match."""
+    return ReloadDecision(
+        should_reload=False,
+        delay_seconds=0,
+        reason=f"Area {trigger_area_id} (type={trigger_area_type}) not matched for {meta_slug}",
+        retry_after_seconds=0,
+    )
+
+
+def _evaluate_throttle(
+    *,
+    last_reload: datetime,
+    now: datetime,
+    throttle_seconds: int,
+) -> ReloadDecision | None:
+    """Return a throttle decision when the reload window has not elapsed."""
+    time_since_reload = now - last_reload
+    throttle_delta = timedelta(seconds=throttle_seconds)
+
+    if time_since_reload >= throttle_delta:
+        return None
+
+    seconds_remaining = (throttle_delta - time_since_reload).total_seconds()
+    return ReloadDecision(
+        should_reload=False,
+        delay_seconds=0,
+        reason=f"Throttled: {seconds_remaining:.1f}s remaining ({throttle_seconds}s minimum)",
+        retry_after_seconds=seconds_remaining,
+    )
+
+
+def _compute_reload_delay_and_reason(
+    *,
+    meta_slug: str,
+    base_delay: float,
+    max_delay_multiplier: int,
+) -> tuple[float, str]:
+    """Compute delay and reason for a matched non-throttled reload."""
+    max_delay = max_delay_multiplier * base_delay
+
+    if meta_slug == "global":
+        return max_delay, f"Global reload scheduled with max delay ({max_delay:.1f}s)"
+
+    delay = random.uniform(base_delay, max_delay)
+    return delay, f"Reload scheduled with randomized delay ({delay:.1f}s)"

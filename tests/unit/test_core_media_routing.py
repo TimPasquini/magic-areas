@@ -1,7 +1,7 @@
 """Tests for media routing policy functions."""
 
 
-from custom_components.magic_areas.core.media_routing import (
+from custom_components.magic_areas.core.controls.policies.media import (
     evaluate_area_routing,
     has_valid_notification_states,
     should_skip_sleep_state,

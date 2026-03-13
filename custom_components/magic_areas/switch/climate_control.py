@@ -1,49 +1,42 @@
 """Climate control feature switch."""
 
 import logging
-from typing import TYPE_CHECKING, Any
-
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from typing import TYPE_CHECKING
 
 from homeassistant.const import EntityCategory, STATE_OFF, STATE_ON
-from homeassistant.core import callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.core import Event, callback
+from homeassistant.helpers.event import EventStateChangedData
 
 if TYPE_CHECKING:
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
-from custom_components.magic_areas.config_keys.features import (
-    CONF_CLIMATE_CONTROL_ENTITY_ID,
-)
-from custom_components.magic_areas.core.climate_control import (
+from custom_components.magic_areas.core.controls.policies.climate import (
     build_climate_control_group_policy,
     build_preset_policy,
     ClimatePolicySignals,
     ClimateControlGroupPolicy,
     ClimatePresetPolicy,
 )
-from custom_components.magic_areas.core.control_group import ControlGroupContext
-from custom_components.magic_areas.core.control_group_runtime import (
-    resolve_group_member_entity_id_by_metadata,
+from custom_components.magic_areas.core.config.feature_readers import (
+    climate_control_config,
 )
-from custom_components.magic_areas.core.group_contracts import ControlGroupPolicyId
-from custom_components.magic_areas.core.group_metadata import GroupMetadataKey, GroupRole
-from custom_components.magic_areas.core.control_group_executor import (
-    execute_control_group_decision,
-)
+from custom_components.magic_areas.core.controls import ControlGroupContext
+from custom_components.magic_areas.core.runtime_model import ControlGroupPolicyId
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.enums import MagicAreasEvents
-from custom_components.magic_areas.core.listener_registry import (
-    ListenerRegistry,
-)
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.switch.base import SwitchBase
+from custom_components.magic_areas.switch.base import ControlSwitchBase
 
 _LOGGER = logging.getLogger(__name__)
+_EXPECTED_CONTROL_ERRORS = (
+    KeyError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    RuntimeError,
+)
 
 
-class ClimateControlSwitch(SwitchBase):
+class ClimateControlSwitch(ControlSwitchBase):
     """Switch to enable/disable climate control."""
 
     feature_id = MagicAreasFeatures.CLIMATE_CONTROL
@@ -53,96 +46,57 @@ class ClimateControlSwitch(SwitchBase):
     _preset_policy: ClimatePresetPolicy
     climate_entity_id: str | None
     _area_sensor_entity_id: str | None
-    _listener_registry: ListenerRegistry
-
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
     ) -> None:
         """Initialize the Climate control switch."""
 
-        SwitchBase.__init__(self, area_config, coordinator)
+        super().__init__(area_config, coordinator)
 
         feature_config = self.get_feature_config()
-        self.climate_entity_id = feature_config.get(CONF_CLIMATE_CONTROL_ENTITY_ID, None)
+        self.climate_entity_id = climate_control_config(feature_config).entity_id
 
         # Build canonical policy and retain preset map for direct state hooks.
         self._preset_policy = build_preset_policy(feature_config)
         self.policy = build_climate_control_group_policy(feature_config)
         # Entity ID resolved in async_added_to_hass from coordinator snapshot
         self._area_sensor_entity_id = None
-        self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
 
         if not self.climate_entity_id:
-            self.climate_entity_id = resolve_group_member_entity_id_by_metadata(
-                area_id=self._area_id,
+            self.climate_entity_id = self._resolve_primary_group_member_entity_id(
                 policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
-                metadata_key=str(GroupMetadataKey.ROLE),
-                metadata_value=str(GroupRole.PRIMARY),
             )
         # Resolve area sensor entity ID from coordinator snapshot or entity registry
-        if self._coordinator.data:
-            self._area_sensor_entity_id = (
-                self._coordinator.data.entity_references.area_state_sensor
-            )
-        if not self._area_sensor_entity_id:
-            from homeassistant.helpers import entity_registry as er
-            from custom_components.magic_areas.const import DOMAIN
-            from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
+        self._area_sensor_entity_id = self._resolve_area_state_sensor_entity_id()
 
-            self._area_sensor_entity_id = er.async_get(self.hass).async_get_entity_id(
-                BS_DOMAIN, DOMAIN, f"presence_tracking_{self._area_id}_area_state"
-            )
-        if not self._area_sensor_entity_id:
-            # Fallback to the default entity_id pattern if registry lookup is unavailable.
-            self._area_sensor_entity_id = (
-                f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{self._area_slug}_area_state"
-            )
-
-        self._listener_registry.track(
-            "area_state_dispatcher",
-            async_dispatcher_connect(
-                self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
-            ),
+        self._track_area_state_dispatcher(self.area_state_changed)
+        self._track_state_change(
+            "area_sensor_state_change",
+            self._area_sensor_entity_id,
+            self._area_sensor_state_changed,
         )
-        if self._area_sensor_entity_id:
-            self._listener_registry.track(
-                "area_sensor_state_change",
-                async_track_state_change_event(
-                    self.hass,
-                    [self._area_sensor_entity_id],
-                    self._area_sensor_state_changed,
-                ),
-            )
 
     async def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> None:
         """Handle area state change event."""
 
-        if not self.is_on:
-            self.logger.debug("%s: Control disabled. Skipping.", self.name)
+        states = self._extract_relevant_area_states(
+            area_id,
+            states_tuple,
+            require_enabled=True,
+        )
+        if not states:
             return
 
-        if area_id != self._area_id:
-            _LOGGER.debug(
-                "%s: Area state change event not for us. Skipping. (event: %s/self: %s)",
-                self.name,
-                area_id,
-                self._area_id,
-            )
-            return
-
-        new_states, lost_states, current_states = states_tuple
-
-        if not new_states and not lost_states:
-            return
-
-        decision = self.policy.evaluate(
-            ControlGroupContext(
+        new_states, lost_states, current_states = states
+        await self._evaluate_policy(
+            policy=self.policy,
+            context=ControlGroupContext(
                 group_id=f"climate_control_{self._area_id}",
                 new_states=tuple(new_states),
                 lost_states=tuple(lost_states),
@@ -151,17 +105,14 @@ class ClimateControlSwitch(SwitchBase):
                     climate_entity_id=self.climate_entity_id,
                     preset_name=None,
                 ),
-                is_enabled=self.is_on,
-            )
-        )
-        await execute_control_group_decision(
-            self.hass,
-            decision,
+                is_enabled=bool(self.is_on),
+            ),
+            logger=_LOGGER,
             blocking=True,
         )
 
     @callback
-    def _area_sensor_state_changed(self, event: Any) -> None:
+    def _area_sensor_state_changed(self, event: Event[EventStateChangedData]) -> None:
         """Handle area sensor state change to keep presets in sync."""
         if not self.is_on:
             return
@@ -197,8 +148,9 @@ class ClimateControlSwitch(SwitchBase):
             )
             return
         try:
-            decision = self.policy.evaluate(
-                ControlGroupContext(
+            await self._evaluate_policy(
+                policy=self.policy,
+                context=ControlGroupContext(
                     group_id=f"climate_control_{self._area_id}",
                     current_states=(),
                     signals=ClimatePolicySignals(
@@ -206,18 +158,9 @@ class ClimateControlSwitch(SwitchBase):
                         preset_name=preset_name,
                     ),
                     is_enabled=bool(self.is_on),
-                )
-            )
-            await execute_control_group_decision(
-                self.hass,
-                decision,
+                ),
+                logger=_LOGGER,
                 blocking=True,
             )
-        # pylint: disable-next=broad-exception-caught
-        except Exception as e:
-            self.logger.error("%s: Error applying preset: %s", self.name, str(e))
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Clean up listeners on removal."""
-        self._listener_registry.cleanup()
-        await super().async_will_remove_from_hass()
+        except _EXPECTED_CONTROL_ERRORS as exc:
+            self.logger.exception("%s: Error applying preset: %s", self.name, str(exc))

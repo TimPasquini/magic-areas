@@ -2,12 +2,12 @@
 
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.cover import DOMAIN as COVER_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.const import DOMAIN
@@ -112,7 +112,7 @@ async def test_media_player_groups_skipped_when_feature_disabled(
     hass: HomeAssistant,
 ) -> None:
     """Test media player groups not created when feature disabled."""
-    from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
+    from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     # Explicitly disable media player features

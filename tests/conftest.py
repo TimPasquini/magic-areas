@@ -10,7 +10,6 @@ Fixtures are organized into sections:
 
 from collections.abc import AsyncGenerator, Generator
 import logging
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -20,13 +19,13 @@ from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import ATTR_FLOOR_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_ENABLED_FEATURES,
@@ -98,12 +97,19 @@ def patch_reload_settings() -> Generator[None]:
     - MetaAreaAutoReloadSettings.DELAY = 0
     - MetaAreaAutoReloadSettings.DELAY_MULTIPLIER = 1
     - MetaAreaAutoReloadSettings.THROTTLE = 0
+    - MetaAreaReloadManager._META_DATA_RETRY_DELAY_SECONDS = 0.0
 
     Status: SHOULD REVIEW - Needed only by tests that reload meta-areas
     """
-    with patch(
-        "custom_components.magic_areas.core.meta_reload.MetaAreaAutoReloadSettings"
-    ) as mock_settings:
+    with (
+        patch(
+            "custom_components.magic_areas.core.meta_reload.MetaAreaAutoReloadSettings"
+        ) as mock_settings,
+        patch(
+            "custom_components.magic_areas.coordinator.pipeline.lifecycle.MetaAreaReloadManager._META_DATA_RETRY_DELAY_SECONDS",
+            0.0,
+        ),
+    ):
         mock_settings.DELAY = 0
         mock_settings.DELAY_MULTIPLIER = 1
         mock_settings.THROTTLE = 0
@@ -137,7 +143,7 @@ def patch_async_call_later(hass: HomeAssistant) -> Generator[None]:
     """
     with (
         patch(
-            "custom_components.magic_areas.helpers.timer.async_call_later",
+            "custom_components.magic_areas.helpers.async_call_later",
             side_effect=immediate_call_factory(hass),
         ),
         patch(
@@ -359,7 +365,7 @@ async def init_integration_fixture(
 async def setup_integration(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[None]:
     """Set up integration with basic config."""
     # This fixture is kept for backward compatibility with other tests,
     # but it now uses the new mock_config_entry fixture

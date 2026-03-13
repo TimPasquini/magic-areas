@@ -1,14 +1,13 @@
 """Test cache synchronization in presence tracking and area state."""
 
 import logging
-from typing import Any
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.attrs import ATTR_STATES
+from custom_components.magic_areas.const import ATTR_STATES
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import DOMAIN
 
@@ -107,7 +106,9 @@ async def test_event_payload_prevents_stale_reads(
 
     received_states = []
 
-    def capture_event(area_id: str, states_tuple: Any) -> None:
+    def capture_event(
+        area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> None:
         """Capture the event payload states."""
         new_states, lost_states, current_states = states_tuple
         received_states.append({

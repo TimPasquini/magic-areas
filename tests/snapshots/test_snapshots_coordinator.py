@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
@@ -19,6 +19,14 @@ from custom_components.magic_areas.config_keys import (
 from custom_components.magic_areas.coordinator import (
     MagicAreasData,
 )
+
+
+def _string_config_list(data: MagicAreasData, key: str) -> list[str]:
+    """Return one config entry as a normalized list[str] for snapshot assertions."""
+    value = data.config.get(key)
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
 
 
 @pytest.mark.asyncio
@@ -50,7 +58,7 @@ async def test_coordinator_basic_kitchen_area(
         "presence_sensor_count": len(data.presence_sensors),
         "presence_sensors": sorted(data.presence_sensors),
         "presence_device_classes": sorted(
-            str(dc) for dc in data.config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS, [])
+            _string_config_list(data, CONF_PRESENCE_SENSOR_DEVICE_CLASS)
         ),
         "entity_domains": sorted(data.entities.keys()),
         "entity_domain_counts": {
@@ -160,7 +168,7 @@ async def test_coordinator_presence_configuration(
         "presence_sensor_count": len(data.presence_sensors),
         "presence_sensors": sorted(data.presence_sensors),
         "device_classes": sorted(
-            str(dc) for dc in data.config.get(CONF_PRESENCE_SENSOR_DEVICE_CLASS, [])
+            _string_config_list(data, CONF_PRESENCE_SENSOR_DEVICE_CLASS)
         ),
         "device_platforms": data.config.get(CONF_PRESENCE_DEVICE_PLATFORMS),
         "has_presence_sensors_in_snapshot": len(data.presence_sensors) > 0,

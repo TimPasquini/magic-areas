@@ -21,6 +21,18 @@ Magic Areas knows when a room is occupied (and when it’s not) and reacts autom
 
 Smart areas that just works, everytime, out of the box. Fully customizable if you want it.
 
+## 🧭 How It Works (Synopsis)
+
+Magic Areas runs in a continuous loop:
+
+1. **Read home state**: It collects room and device data (motion, doors, sensors, media, etc.).
+2. **Build a live snapshot**: It creates one current picture of the home's state.
+3. **Decide room states**: It evaluates rules like occupied, clear, dark, sleep, or extended occupancy.
+4. **Apply feature rules**: Light, fan, climate, and media features decide what action to take for each room state.
+5. **Execute actions**: Home Assistant entities are updated and commands are sent.
+
+In short: **Read state -> Build snapshot -> Decide -> Act**, then repeat as conditions change.
+
 #### Download and install through [HACS (Home Assistant Community Store)](https://hacs.xyz/):
 
 [![Open your Home Assistant instance and open the Adaptive Lighting integration inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jseidl&repository=magic-areas&category=integration)

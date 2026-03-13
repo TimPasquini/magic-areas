@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -17,8 +17,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.attrs import ATTR_STATES
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.const import ATTR_STATES
+from custom_components.magic_areas.config_keys.area import (
     CONF_ACCENT_ENTITY,
     CONF_CLEAR_TIMEOUT,
     CONF_DARK_ENTITY,
@@ -34,6 +34,7 @@ from tests.helpers import (
     init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
+    wait_for_state,
 )
 from tests.mocks import MockBinarySensor
 
@@ -84,7 +85,7 @@ async def setup_secondary_state_sensors(hass: HomeAssistant) -> list[MockBinaryS
 
 async def test_clear_timeout_expiration(
     hass: HomeAssistant,
-    freezer: Any,
+    freezer: FrozenDateTimeFactory,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     timeout_config_entry: MockConfigEntry,
 ) -> None:
@@ -107,6 +108,7 @@ async def test_clear_timeout_expiration(
     # Occupy area.
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
     assert_in_attribute(
         hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
@@ -123,7 +125,7 @@ async def test_clear_timeout_expiration(
     freezer.move_to(start + timedelta(seconds=30))
     async_fire_time_changed(hass, start + timedelta(seconds=30))
     await hass.async_block_till_done()
-    assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
     assert_in_attribute(
         hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
     )
@@ -132,6 +134,7 @@ async def test_clear_timeout_expiration(
     freezer.move_to(start + timedelta(minutes=1, seconds=1))
     async_fire_time_changed(hass, start + timedelta(minutes=1, seconds=1))
     await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_OFF)
 
     area_state = hass.states.get(area_sensor_entity_id)
     assert_state(area_state, STATE_OFF)
@@ -143,7 +146,7 @@ async def test_clear_timeout_expiration(
 
 async def test_clear_timeout_is_canceled_if_sensor_returns(
     hass: HomeAssistant,
-    freezer: Any,
+    freezer: FrozenDateTimeFactory,
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     timeout_config_entry: MockConfigEntry,
 ) -> None:
@@ -165,6 +168,7 @@ async def test_clear_timeout_is_canceled_if_sensor_returns(
     # Occupy area
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
 
     # Start timeout window by turning sensor OFF
@@ -180,6 +184,7 @@ async def test_clear_timeout_is_canceled_if_sensor_returns(
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     async_fire_time_changed(hass, start + timedelta(seconds=30))
     await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
 
     # Go past the original timeout deadline (1 min + 1 sec); area should still be occupied.
     # The timeout that was scheduled when sensor went OFF should have been cancelled
@@ -187,6 +192,7 @@ async def test_clear_timeout_is_canceled_if_sensor_returns(
     freezer.move_to(start + timedelta(minutes=1, seconds=1))
     async_fire_time_changed(hass, start + timedelta(minutes=1, seconds=1))
     await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
 
     # Verify area is still occupied (timeout was cancelled)
     area_state = hass.states.get(area_sensor_entity_id)

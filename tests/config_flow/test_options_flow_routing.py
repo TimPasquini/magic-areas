@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
+from custom_components.magic_areas.config_flows import OptionsFlowHandler
 
 
 @pytest.mark.asyncio

@@ -16,17 +16,15 @@ from custom_components.magic_areas.components import (
     MAGIC_DEVICE_ID_PREFIX,
     MAGICAREAS_UNIQUEID_PREFIX,
 )
-from custom_components.magic_areas.core.feature_access import (
-    get_feature_config,
-)
-from custom_components.magic_areas.core.listener_registry import (
-    ListenerRegistry,
-)
+from custom_components.magic_areas.core.config import feature_config_slice
+from custom_components.magic_areas.core.runtime_model import build_feature_unique_id
+from custom_components.magic_areas.core.listener_registry import ListenerRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import FeatureInfo, get_feature_info
+from custom_components.magic_areas.feature_info import FeatureInfo
+from custom_components.magic_areas.feature_registry import get_feature_info
 
 if TYPE_CHECKING:
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -122,26 +120,20 @@ class MagicEntity(RestoreEntity):
 
         return f"{domain}.{entity_id}"
 
-    def _generate_unique_id(self, domain: str, extra_parts: list | None = None) -> str:
+    def _generate_unique_id(
+        self, domain: str, extra_parts: list[str] | None = None
+    ) -> str:
+        del domain, extra_parts
         # Format: feature_area_id_[translation]_[extra...]
         if not self.feature_id:
             raise NotImplementedError(f"{self.name}: Feature id not set.")
 
-        unique_id_parts = [
-            self.feature_info.id,
-            self._area_id,
-        ]
-
-        if (
-            self._attr_translation_key
-            and self._attr_translation_key != self.feature_info.id
-        ):
-            unique_id_parts.append(self._attr_translation_key)
-
-        if self._extra_identifiers:
-            unique_id_parts.extend(self._extra_identifiers)
-
-        return "_".join(unique_id_parts)
+        return build_feature_unique_id(
+            feature_id=self.feature_info.id,
+            area_id=self._area_id,
+            translation_key=self._attr_translation_key,
+            extra_identifiers=self._extra_identifiers,
+        )
 
     @property
     def should_poll(self) -> bool:
@@ -172,14 +164,16 @@ class MagicEntity(RestoreEntity):
             ),
         )
 
-    def get_feature_config(self) -> dict:
+    def get_feature_config(self) -> dict[str, object]:
         """Get feature config from coordinator snapshot.
 
         Returns:
             Feature configuration dict (empty if feature not enabled)
 
         """
-        return get_feature_config(self._coordinator, self.feature_id)
+        if not self.feature_id or self._coordinator.data is None:
+            return {}
+        return feature_config_slice(self._coordinator.data.feature_configs, self.feature_id)
 
     @property
     def feature_info(self) -> FeatureInfo:
@@ -202,7 +196,7 @@ class MagicEntity(RestoreEntity):
             self._attr_state = last_state.state
             self._attr_extra_state_attributes = dict(last_state.attributes)
 
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()
 
 
 class MagicGroupEntity(MagicEntity):
@@ -342,4 +336,4 @@ class BinaryMagicEntity(MagicEntity):
             self._attr_is_on = last_state.state == STATE_ON
             self._attr_extra_state_attributes = dict(last_state.attributes)
 
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()

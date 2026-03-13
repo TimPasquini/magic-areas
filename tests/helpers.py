@@ -45,9 +45,12 @@ import asyncio
 import functools
 import logging
 import pathlib
+from datetime import datetime
+from time import monotonic
 from asyncio import get_running_loop
-from collections.abc import Sequence
-from typing import Any, NoReturn, cast
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from typing import NoReturn, cast
 from unittest.mock import Mock, patch
 
 import voluptuous as vol
@@ -55,6 +58,8 @@ from homeassistant import loader
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_FLOOR_ID, ATTR_NAME, CONF_PLATFORM
 from homeassistant.core import (
+    Event,
+    EventStateChangedData,
     HomeAssistant,
     ServiceCall,
     ServiceResponse,
@@ -66,13 +71,14 @@ from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity_registry import async_get as async_get_er
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.setup import async_setup_component
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_CLEAR_TIMEOUT,
     CONF_ENABLED_FEATURES,
     CONF_EXCLUDE_ENTITIES,
@@ -88,6 +94,7 @@ from custom_components.magic_areas.const import (
 from custom_components.magic_areas.defaults import (
     DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
 )
+from custom_components.magic_areas.area_state import AreaStates
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
 from tests.mocks import MockModule, MockPlatform
 
@@ -155,7 +162,7 @@ def setup_test_component_platform(
 
         async def _async_setup_entry(
             hass: HomeAssistant,
-            entry: ConfigEntry,
+            entry: ConfigEntry[object],
             async_add_entities: AddEntitiesCallback,
         ) -> None:
             """Set up a test component platform."""
@@ -206,7 +213,7 @@ def mock_integration(
             else f"{loader.PACKAGE_CUSTOM_COMPONENTS}.{module.DOMAIN}"
         ),
         pathlib.Path(""),
-        module.mock_manifest(),  # type: ignore[no-untyped-call, arg-type]
+        module.mock_manifest(),
         set(),
     )
 
@@ -223,9 +230,8 @@ def mock_integration(
     integration_cache = hass.data[loader.DATA_INTEGRATIONS]
     integration_cache[module.DOMAIN] = integration
 
-    module_cache = hass.data[loader.DATA_COMPONENTS]
-    # Cast is intentional: we're storing mock modules in HA's cache for testing
-    module_cache[module.DOMAIN] = cast(Any, module)
+    module_cache = cast(dict[str, object], hass.data[loader.DATA_COMPONENTS])
+    module_cache[module.DOMAIN] = module
 
     return integration
 
@@ -265,7 +271,7 @@ def mock_platform(
     """
     domain, _, platform_name = platform_path.partition(".")
     integration_cache = hass.data[loader.DATA_INTEGRATIONS]
-    module_cache = hass.data[loader.DATA_COMPONENTS]
+    module_cache = cast(dict[str, object], hass.data[loader.DATA_COMPONENTS])
 
     if domain not in integration_cache:
         mock_integration(hass, module=MockModule(domain), built_in=built_in)
@@ -277,7 +283,7 @@ def mock_platform(
         integration._top_level_files.add(f"{platform_name}.py")
     _LOGGER.info("Adding mock integration platform: %s", platform_path)
     # Cast is intentional: we're storing mock platforms in HA's cache for testing
-    module_cache[platform_path] = cast(Any, module or Mock())
+    module_cache[platform_path] = module or Mock()
 
 
 def async_mock_service(
@@ -492,7 +498,9 @@ async def shutdown_integration(
 
 
 async def setup_mock_entities(
-    hass: HomeAssistant, domain: str, area_entity_map: dict[MockAreaIds, list[Any]]
+    hass: HomeAssistant,
+    domain: str,
+    area_entity_map: Mapping[MockAreaIds, Sequence[Entity]],
 ) -> None:
     """Set up multiple mock entities and assign them to areas.
 
@@ -534,12 +542,13 @@ async def setup_mock_entities(
 
     """
 
-    all_entities: list[Any] = []
-    entity_area_map: dict[Any, MockAreaIds] = {}
+    all_entities: list[Entity] = []
+    entity_area_map: dict[str, MockAreaIds] = {}
 
     for area_id, entity_list in area_entity_map.items():
         for entity in entity_list:
             all_entities.append(entity)
+            assert entity.unique_id is not None
             entity_area_map[entity.unique_id] = area_id
 
     # Setup entities
@@ -558,12 +567,12 @@ async def setup_mock_entities(
                 if entity.entity_id is not None:
                     break
                 await hass.async_block_till_done()
-                await asyncio.sleep(0.1)
 
         if entity.entity_id is None:
             raise AssertionError(
                 f"Entity {entity.unique_id} did not get an entity_id assigned"
             )
+        assert entity.unique_id is not None
 
         entity_entry = entity_registry.async_get(entity.entity_id)
         if entity_entry:
@@ -624,7 +633,11 @@ class VirtualClock:
         """
         return self.vtime
 
-    def _virtual_select(self, orig_select: Any, timeout: float | None) -> Any:
+    def _virtual_select(
+        self,
+        orig_select: Callable[[float | None], object],
+        timeout: float | None,
+    ) -> object:
         """Override select() to advance virtual time without blocking.
 
         When asyncio's event loop calls select() with a timeout, we advance
@@ -643,7 +656,8 @@ class VirtualClock:
             self.vtime += timeout
         return orig_select(0)  # override the timeout to zero
 
-    def patch_loop(self) -> Any:
+    @contextmanager
+    def patch_loop(self) -> Iterator[None]:
         """Override methods of the current event loop for virtual time.
 
         This is a context manager that patches the running event loop so that:
@@ -690,7 +704,7 @@ class VirtualClock:
 # Helpers to create and manage test configuration.
 
 
-def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, Any]:
+def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, object]:
     """Create basic config entry data for a test area.
 
     Generates a minimal but valid configuration dictionary for an area that
@@ -865,9 +879,8 @@ async def wait_for_state(
 
     Asynchronously waits for an entity to transition to an expected state.
     This is useful for testing state changes that happen asynchronously (e.g.,
-    after a service call or automation trigger). The function will poll the
-    entity state up to 20 times with 0.1 second intervals, providing up to 2
-    seconds of waiting time.
+    after a service call or automation trigger). The function subscribes to
+    state-change events and waits up to 2 seconds.
 
     Args:
         hass: The Home Assistant instance.
@@ -880,8 +893,8 @@ async def wait_for_state(
             the timeout (2 seconds).
 
     Note:
-        The timeout is 2 seconds (20 iterations * 0.1 seconds). If you need
-        longer waits, use VirtualClock for deterministic timing tests.
+        The timeout is 2 seconds. If you need longer waits, use VirtualClock
+        for deterministic timing tests.
 
     Example:
         Wait for a light to turn on after calling a service:
@@ -892,16 +905,98 @@ async def wait_for_state(
         >>> await wait_for_state(hass, "light.kitchen", "on")
 
     """
-    for _ in range(20):
-        state = hass.states.get(entity_id)
-        if state and state.state == expected_state:
+    state = hass.states.get(entity_id)
+    if state and state.state == expected_state:
+        return
+
+    state_reached = asyncio.get_running_loop().create_future()
+
+    @callback
+    def _on_state_change(event: Event[EventStateChangedData]) -> None:
+        new_state = event.data.get("new_state")
+        if not new_state or new_state.state != expected_state:
             return
-        await asyncio.sleep(0.1)
-        await hass.async_block_till_done()
+        if not state_reached.done():
+            state_reached.set_result(None)
+
+    unsub = async_track_state_change_event(hass, [entity_id], _on_state_change)
+    state = hass.states.get(entity_id)
+    if state and state.state == expected_state and not state_reached.done():
+        state_reached.set_result(None)
+    try:
+        await asyncio.wait_for(state_reached, timeout=2.0)
+    finally:
+        unsub()
+    await hass.async_block_till_done()
 
     # Final check to raise assertion error if still not matching
     state = hass.states.get(entity_id)
     assert_state(state, expected_state)
+
+
+async def drain_hass(hass: HomeAssistant, *, cycles: int = 2) -> None:
+    """Flush pending loop work without real-time sleeps."""
+    for _ in range(cycles):
+        await hass.async_block_till_done()
+
+
+async def wait_until(
+    hass: HomeAssistant,
+    predicate: Callable[[], bool],
+    *,
+    timeout: float = 2.0,
+) -> None:
+    """Wait until predicate returns True while draining the HA loop."""
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        if predicate():
+            return
+        await hass.async_block_till_done()
+    raise AssertionError("Timed out waiting for expected condition")
+
+
+async def wait_for_attribute(
+    hass: HomeAssistant,
+    entity_id: str,
+    attribute_key: str,
+    expected_value: object,
+    *,
+    timeout: float = 2.0,
+) -> None:
+    """Wait for an entity attribute to reach an expected value."""
+    state = hass.states.get(entity_id)
+    if state and state.attributes.get(attribute_key) == expected_value:
+        return
+
+    attribute_reached = asyncio.get_running_loop().create_future()
+
+    @callback
+    def _on_state_change(event: Event[EventStateChangedData]) -> None:
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+        if new_state.attributes.get(attribute_key) != expected_value:
+            return
+        if not attribute_reached.done():
+            attribute_reached.set_result(None)
+
+    unsub = async_track_state_change_event(hass, [entity_id], _on_state_change)
+    state = hass.states.get(entity_id)
+    if (
+        state
+        and state.attributes.get(attribute_key) == expected_value
+        and not attribute_reached.done()
+    ):
+        attribute_reached.set_result(None)
+    try:
+        await asyncio.wait_for(attribute_reached, timeout=timeout)
+    finally:
+        unsub()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes.get(attribute_key) == expected_value
 
 
 # ============================================================================
@@ -912,7 +1007,10 @@ async def wait_for_state(
 
 def immediate_call_factory(
     hass: HomeAssistant, callback_key: str = "callback"
-) -> Any:
+) -> Callable[
+    [HomeAssistant, float, Callable[[datetime], Awaitable[object] | None]],
+    Callable[[], None],
+]:
     """Create a callback factory for testing delayed callbacks without real delays.
 
     Creates a side_effect function suitable for patching hass.helpers.
@@ -958,8 +1056,10 @@ def immediate_call_factory(
     """
 
     def immediate_call(
-        hass_arg: HomeAssistant, delay_arg: float, callback_arg: Any
-    ) -> Any:
+        hass_arg: HomeAssistant,
+        delay_arg: float,
+        callback_arg: Callable[[datetime], Awaitable[object] | None],
+    ) -> Callable[[], None]:
         """Execute a callback immediately, with optional cancellation.
 
         Args:
@@ -980,7 +1080,9 @@ def immediate_call_factory(
 
         async def run_callback() -> None:
             if not canceled:
-                await callback_arg(utcnow())
+                result = callback_arg(utcnow())
+                if result is not None:
+                    await result
 
         hass.loop.create_task(run_callback())
         return cancel
@@ -992,10 +1094,10 @@ def immediate_call_factory(
 
 
 def create_area_state_change_event(
-    new_states: list[Any] | None = None,
-    lost_states: list[Any] | None = None,
-    current_states: list[Any] | None = None,
-) -> tuple[list[Any], list[Any], list[Any]]:
+    new_states: list[AreaStates] | None = None,
+    lost_states: list[AreaStates] | None = None,
+    current_states: list[AreaStates] | None = None,
+) -> tuple[list[AreaStates], list[AreaStates], list[AreaStates]]:
     """Create an AREA_STATE_CHANGED event payload tuple.
 
     The event dispatcher sends area state changes as a tuple:

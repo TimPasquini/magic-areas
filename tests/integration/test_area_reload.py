@@ -1,6 +1,4 @@
 """Test for the logic on automatically reloading areas."""
-
-import asyncio
 import logging
 from datetime import datetime
 
@@ -16,8 +14,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.const import (
     DOMAIN,
 )
+from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.coordinator import MagicAreasData
 from tests.const import MockAreaIds
+from tests.helpers import wait_until
 from tests.mocks import MockBinarySensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,7 +51,10 @@ def get_config_entry_by_area_name(hass: HomeAssistant, area_name: str) -> str | 
         if entry.state != ConfigEntryState.LOADED:
             continue
         # After Phase 8, access area config from coordinator snapshot
-        coordinator_data = entry.runtime_data.coordinator.data
+        runtime_data = entry.runtime_data
+        if not isinstance(runtime_data, MagicAreasRuntimeData):
+            continue
+        coordinator_data = runtime_data.coordinator.data
         if coordinator_data and coordinator_data.area_config.id == area_name.lower():
             return entry.entry_id
 
@@ -69,7 +72,10 @@ def get_entry_by_area_name(hass: HomeAssistant, area_name: str) -> MagicAreasDat
     if not entry or entry.state != ConfigEntryState.LOADED:
         return None
 
-    return entry.runtime_data.coordinator.data
+    runtime_data = entry.runtime_data
+    if not isinstance(runtime_data, MagicAreasRuntimeData):
+        return None
+    return runtime_data.coordinator.data
 
 
 # Tests
@@ -100,9 +106,14 @@ async def test_reload_on_entity_area_change(
 
     hass.bus.async_fire(EVENT_ENTITY_REGISTRY_UPDATED, event_data)
     await hass.async_block_till_done()
-    # Allow the reload task (which sleeps 0) to run
-    await asyncio.sleep(0.1)
-    await hass.async_block_till_done()
+    await wait_until(
+        hass,
+        lambda: (
+            (area_object := get_entry_by_area_name(hass, MockAreaIds.KITCHEN.value))
+            is not None
+            and area_snapshot_map[MockAreaIds.KITCHEN.value] != area_object.updated_at
+        ),
+    )
 
     # Check all areas' snapshot timestamp against the previous map
     for area in NORMAL_AREAS:
@@ -152,9 +163,19 @@ async def test_meta_reload_from_single_reload(
 
     hass.bus.async_fire(EVENT_ENTITY_REGISTRY_UPDATED, event_data)
     await hass.async_block_till_done()
-    # Allow the reload task (which sleeps 0) to run
-    await asyncio.sleep(0.1)
-    await hass.async_block_till_done()
+    await wait_until(
+        hass,
+        lambda: all(
+            (area_object := get_entry_by_area_name(hass, area_name)) is not None
+            and area_object.updated_at != area_snapshot_map[area_name]
+            for area_name in (
+                MockAreaIds.KITCHEN.value,
+                MockAreaIds.INTERIOR.value,
+                MockAreaIds.GLOBAL.value,
+                MockAreaIds.FIRST_FLOOR.value,
+            )
+        ),
+    )
 
     # Check corresponding area reloaded
     _assert_has_reloaded(MockAreaIds.KITCHEN.value)

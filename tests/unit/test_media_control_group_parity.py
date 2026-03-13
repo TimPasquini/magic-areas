@@ -1,8 +1,8 @@
 """Parity tests for media state changes -> control-group conversion."""
 
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.control_group import ControlActionType
-from custom_components.magic_areas.core.media_control import (
+from custom_components.magic_areas.core.controls import ControlActionType
+from custom_components.magic_areas.core.controls.policies.media import (
     media_state_change_to_control_group,
 )
 

@@ -2227,15 +2227,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/96/e3/42c87871920602a3c
 name = "magic-areas"
 version = "4.4.1"
 source = { editable = "." }
-dependencies = [
-    { name = "black" },
-    { name = "ruff" },
-]
 
 [package.optional-dependencies]
 charts = [
     { name = "code2flow" },
     { name = "pydeps" },
+]
+dev = [
+    { name = "black" },
+    { name = "ruff" },
 ]
 test = [
     { name = "mypy" },
@@ -2251,7 +2251,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "black", specifier = ">=26.1.0" },
+    { name = "black", marker = "extra == 'dev'", specifier = ">=26.1.0" },
     { name = "code2flow", marker = "extra == 'charts'", specifier = ">=2.5.1" },
     { name = "mypy", marker = "extra == 'test'" },
     { name = "pydeps", marker = "extra == 'charts'", specifier = ">=3.0.2" },
@@ -2259,9 +2259,9 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "pytest-homeassistant-custom-component", marker = "extra == 'test'", specifier = ">=0.13.179" },
-    { name = "ruff", specifier = ">=0.14.13" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.13" },
 ]
-provides-extras = ["test", "charts"]
+provides-extras = ["dev", "test", "charts"]
 
 [[package]]
 name = "markupsafe"

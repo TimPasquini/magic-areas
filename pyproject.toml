@@ -8,12 +8,12 @@ version = "4.4.1"
 description = "Magic Areas component for Home Assistant"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
+
+[project.optional-dependencies]
+dev = [
     "black>=26.1.0",
     "ruff>=0.14.13",
 ]
-
-[project.optional-dependencies]
 test = [
     "pytest>=8.3.3",
     "pytest-homeassistant-custom-component>=0.13.179",
@@ -235,32 +235,34 @@ keep-runtime-typing = true
 
 [tool.ruff.lint.per-file-ignores]
 
-# TODO: these files have functions that are too complex, but flake8's and ruff's
-#       complexity (and/or nested-function) handling differs; trying to add a noqa doesn't work
-#       because the flake8-noqa plugin then disagrees on whether there should be a C901 noqa
-#       on that line.  So, for now, we just ignore C901s on these files as far as ruff is concerned.
-
-"homeassistant/components/light/__init__.py" = ["C901"]
-"homeassistant/components/mqtt/discovery.py" = ["C901"]
-"homeassistant/components/websocket_api/http.py" = ["C901"]
-
-# Allow for main entry & scripts to write to stdout
-"homeassistant/__main__.py" = ["T201"]
-"homeassistant/scripts/*" = ["T201"]
-"script/*" = ["T20"]
-
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
 [tool.mypy]
 python_version = "3.13"
+mypy_path = "stubs"
 check_untyped_defs = true
 disallow_incomplete_defs = true
+disallow_any_decorated = true
+disallow_any_explicit = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
+extra_checks = true
 follow_imports = "silent"
-ignore_missing_imports = true
+implicit_reexport = false
+no_implicit_optional = true
 warn_incomplete_stub = true
+warn_return_any = true
 warn_redundant_casts = true
+warn_unused_ignores = true
 warn_unused_configs = true
+strict_equality = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["tests.mocks"]
+disallow_any_explicit = false
+warn_return_any = false

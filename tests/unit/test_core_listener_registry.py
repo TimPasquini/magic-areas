@@ -1,13 +1,12 @@
 """Unit tests for core.listener_registry module."""
 
 import logging
-from typing import Any
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
+from _pytest.logging import LogCaptureFixture
 
-from custom_components.magic_areas.core.listener_registry import (
-    ListenerRegistry,
-)
+from custom_components.magic_areas.core.listener_registry import ListenerRegistry
 
 
 class TestListenerRegistryInitialization:
@@ -60,7 +59,7 @@ class TestTrack:
         for _, remove_fn in enumerate(remove_fns):
             assert remove_fn.call_count == 1
 
-    def test_track_logging(self, caplog: Any) -> None:
+    def test_track_logging(self, caplog: LogCaptureFixture) -> None:
         """Test that tracking logs debug messages."""
         registry = ListenerRegistry()
 
@@ -97,7 +96,7 @@ class TestCleanup:
         registry.cleanup()
         assert registry.count == 0
 
-    def test_cleanup_empty_registry(self, caplog: Any) -> None:
+    def test_cleanup_empty_registry(self, caplog: LogCaptureFixture) -> None:
         """Test cleanup on empty registry is safe."""
         registry = ListenerRegistry()
 
@@ -107,7 +106,7 @@ class TestCleanup:
         assert registry.count == 0
         assert "No listeners to clean up" in caplog.text
 
-    def test_cleanup_logging(self, caplog: Any) -> None:
+    def test_cleanup_logging(self, caplog: LogCaptureFixture) -> None:
         """Test that cleanup logs debug messages."""
         registry = ListenerRegistry()
         registry.track("listener_1", MagicMock())
@@ -143,7 +142,7 @@ class TestCleanupErrorHandling:
         remove_fn_2.assert_called_once()
         remove_fn_3.assert_called_once()
 
-    def test_cleanup_error_logging(self, caplog: Any) -> None:
+    def test_cleanup_error_logging(self, caplog: LogCaptureFixture) -> None:
         """Test that errors are logged without raising."""
         registry = ListenerRegistry()
         remove_fn = MagicMock(side_effect=RuntimeError("test error"))
@@ -213,7 +212,7 @@ class TestLogging:
             ListenerRegistry(logger_name="custom.logger")
             mock_logging.getLogger.assert_called_once_with("custom.logger")
 
-    def test_debug_logging_on_track(self, caplog: Any) -> None:
+    def test_debug_logging_on_track(self, caplog: LogCaptureFixture) -> None:
         """Test debug logging when tracking listener."""
         registry = ListenerRegistry()
 
@@ -227,7 +226,7 @@ class TestLogging:
         assert "total: 1" in messages
         assert "total: 2" in messages
 
-    def test_debug_logging_on_cleanup(self, caplog: Any) -> None:
+    def test_debug_logging_on_cleanup(self, caplog: LogCaptureFixture) -> None:
         """Test debug logging when cleaning up listeners."""
         registry = ListenerRegistry()
         registry.track("listener_1", MagicMock())
@@ -293,7 +292,7 @@ class TestEdgeCases:
         registry = ListenerRegistry()
         call_order = []
 
-        def make_callback(name: str) -> Any:
+        def make_callback(name: str) -> Callable[[], None]:
             def callback() -> None:
                 call_order.append(name)
             return callback

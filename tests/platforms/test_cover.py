@@ -3,7 +3,6 @@
 from collections import defaultdict
 from collections.abc import AsyncGenerator
 import logging
-from typing import Any
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -18,7 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
 )
 from custom_components.magic_areas.const import (
@@ -55,7 +54,7 @@ def mock_config_entry_cover_groups() -> MockConfigEntry:
 async def setup_integration_cover_group(
     hass: HomeAssistant,
     cover_groups_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[None]:
     """Set up integration with secondary state's config."""
 
     await init_integration_helper(hass, [cover_groups_config_entry])
@@ -96,7 +95,7 @@ async def setup_entities_sensor_cover_all_classes_multiple(
 async def test_cover_group_basic(
     hass: HomeAssistant,
     entities_sensor_cover_all_classes_multiple: list[MockCover],
-    _setup_integration_cover_group: Any,
+    _setup_integration_cover_group: None,
 ) -> None:
     """Test cover group."""
 
@@ -152,7 +151,7 @@ async def test_cover_snapshot_fields(
 async def test_cover_group_update(
     hass: HomeAssistant,
     entities_sensor_cover_all_classes_multiple: list[MockCover],
-    _setup_integration_cover_group: Any,
+    _setup_integration_cover_group: None,
 ) -> None:
     """Test cover group state update."""
 

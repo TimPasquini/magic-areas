@@ -1,7 +1,6 @@
 """Tests for the Health feature."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import pytest
 from homeassistant.components.binary_sensor import (
@@ -12,7 +11,7 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
@@ -57,7 +56,7 @@ def mock_config_entry_health() -> MockConfigEntry:
 async def setup_integration_health(
     hass: HomeAssistant,
     health_config_entry: MockConfigEntry,
-) -> AsyncGenerator[Any]:
+) -> AsyncGenerator[None]:
     """Set up integration with Health config."""
 
     await init_integration_helper(hass, [health_config_entry])
@@ -101,7 +100,7 @@ async def setup_entities_health_sensors(
 async def test_health_sensor(
     hass: HomeAssistant,
     entities_health_sensors: list[MockBinarySensor],
-    _setup_integration_health: Any,
+    _setup_integration_health: None,
 ) -> None:
     """Test health sensor logic."""
 

@@ -1,13 +1,18 @@
 """Unit tests for base/entities.py."""
 
-from typing import Any
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock, patch
 
 
-from custom_components.magic_areas.entity import MagicGroupEntity
+from custom_components.magic_areas.entity import BinaryMagicEntity, MagicEntity, MagicGroupEntity
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.core import HomeAssistant
+
+if TYPE_CHECKING:
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
 
 
 class MockGroupEntity(MagicGroupEntity):
@@ -15,13 +20,46 @@ class MockGroupEntity(MagicGroupEntity):
 
     feature_id = MagicAreasFeatures.LIGHT_GROUPS
 
-    def __init__(self, area_config: Any, coordinator: Any, member_entity_ids: Any) -> None:
+    def __init__(
+        self,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
+        member_entity_ids: list[str],
+    ) -> None:
         """Initialize mock group entity."""
         super().__init__(
             area_config=area_config,
             coordinator=coordinator,
             domain=LIGHT_DOMAIN,
             member_entity_ids=member_entity_ids,
+        )
+
+
+class MockMagicEntity(MagicEntity):
+    """Mock entity for base restore-state contract tests."""
+
+    feature_id = MagicAreasFeatures.LIGHT_GROUPS
+
+    def __init__(self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator") -> None:
+        """Initialize mock entity."""
+        super().__init__(
+            area_config=area_config,
+            coordinator=coordinator,
+            domain=LIGHT_DOMAIN,
+        )
+
+
+class MockBinaryMagicEntity(BinaryMagicEntity):
+    """Mock binary entity for base restore-state contract tests."""
+
+    feature_id = MagicAreasFeatures.PRESENCE_TRACKING
+
+    def __init__(self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator") -> None:
+        """Initialize mock binary entity."""
+        super().__init__(
+            area_config=area_config,
+            coordinator=coordinator,
+            domain=BINARY_SENSOR_DOMAIN,
         )
 
 
@@ -163,7 +201,7 @@ class TestMagicGroupEntity:
         group.name = "Test Group"
 
         # Track a listener that will raise an exception
-        failing_callback = Mock(side_effect=Exception("Cleanup failed"))
+        failing_callback = Mock(side_effect=RuntimeError("Cleanup failed"))
         working_callback = Mock()
 
         group.track_group_listener(failing_callback, "failing_listener")
@@ -283,6 +321,60 @@ class TestMagicEntityFeatureConfig:
         # Should return empty dict
         config = entity.get_feature_config()
         assert config == {}
+
+
+class TestBaseRestoreWriteContracts:
+    """Contract tests for base restore helpers."""
+
+    async def test_magic_entity_restore_state_uses_immediate_write(self) -> None:
+        """MagicEntity restore_state writes immediately and does not schedule."""
+        area_config = Mock()
+        area_config.id = "test_area"
+        area_config.slug = "test_area"
+        area_config.name = "Test Area"
+        area_config.icon = None
+        area_config.hass_config = None
+        area_config.is_meta.return_value = False
+        coordinator = Mock()
+        coordinator.last_update_success = True
+        coordinator.data = None
+        entity = MockMagicEntity(area_config, coordinator)
+        entity._attr_name = "Test Entity"
+
+        with (
+            patch.object(entity, "async_get_last_state", new=AsyncMock(return_value=None)),
+            patch.object(entity, "async_write_ha_state") as mock_write,
+            patch.object(entity, "schedule_update_ha_state") as mock_schedule,
+        ):
+            await entity.restore_state()
+
+        mock_write.assert_called_once()
+        mock_schedule.assert_not_called()
+
+    async def test_binary_magic_entity_restore_state_uses_immediate_write(self) -> None:
+        """BinaryMagicEntity restore_state writes immediately and does not schedule."""
+        area_config = Mock()
+        area_config.id = "test_area"
+        area_config.slug = "test_area"
+        area_config.name = "Test Area"
+        area_config.icon = None
+        area_config.hass_config = None
+        area_config.is_meta.return_value = False
+        coordinator = Mock()
+        coordinator.last_update_success = True
+        coordinator.data = None
+        entity = MockBinaryMagicEntity(area_config, coordinator)
+        entity._attr_name = "Test Binary Entity"
+
+        with (
+            patch.object(entity, "async_get_last_state", new=AsyncMock(return_value=None)),
+            patch.object(entity, "async_write_ha_state") as mock_write,
+            patch.object(entity, "schedule_update_ha_state") as mock_schedule,
+        ):
+            await entity.restore_state()
+
+        mock_write.assert_called_once()
+        mock_schedule.assert_not_called()
 
     def test_returns_empty_dict_when_feature_not_in_snapshot(self) -> None:
         """Should return empty dict when feature not in coordinator snapshot."""

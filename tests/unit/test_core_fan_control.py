@@ -1,7 +1,7 @@
 """Unit tests for core/fan_control.py."""
 
 
-from custom_components.magic_areas.core.fan_control import (
+from custom_components.magic_areas.core.controls.policies.fan import (
     FanControlPolicy,
     build_fan_policy,
 )
@@ -169,7 +169,7 @@ class TestFanControlDecision:
 
     def test_decision_has_required_fields(self) -> None:
         """FanControlDecision should have all required fields."""
-        from custom_components.magic_areas.core.fan_control import FanControlDecision
+        from custom_components.magic_areas.core.controls.policies.fan import FanControlDecision
 
         decision = FanControlDecision(
             should_turn_on=True, should_turn_off=False, reason="test"

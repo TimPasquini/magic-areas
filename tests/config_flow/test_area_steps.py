@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.magic_areas.config_flows.steps.area_steps import (
+from custom_components.magic_areas.config_flows.steps import (
     handle_area_config,
     handle_presence_tracking,
     handle_secondary_states,

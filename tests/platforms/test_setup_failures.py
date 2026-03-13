@@ -10,14 +10,15 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.coordinator import MagicAreasData
-from custom_components.magic_areas.core.area_config import AreaConfig
-from custom_components.magic_areas.core.area_runtime import AreaRuntime
-from custom_components.magic_areas.core.entity_ids import EntityReferences
+from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.core.runtime_model import AreaRuntime
+from custom_components.magic_areas.core.runtime_model import EntityReferences
+from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.cover import async_setup_entry as cover_async_setup_entry
 from custom_components.magic_areas.switch import async_setup_entry as switch_async_setup_entry
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.models import MagicAreasRuntimeData
+from custom_components.magic_areas.components import MagicAreasRuntimeData
 
 
 # Switch setup tests
@@ -53,6 +54,7 @@ async def test_switch_setup_presence_hold_error(
         config={},
         enabled_features={MagicAreasFeatures.PRESENCE_HOLD},
         feature_configs={MagicAreasFeatures.PRESENCE_HOLD: {}},
+        group_registry=GroupRegistry(),
         entity_references=EntityReferences(),
         area_config=area_config,
         area_runtime=area_runtime,
@@ -69,7 +71,7 @@ async def test_switch_setup_presence_hold_error(
     with (
         patch(
             "custom_components.magic_areas.switch.PresenceHoldSwitch",
-            side_effect=Exception("boom"),
+            side_effect=ValueError("boom"),
         ),
     ):
         await switch_async_setup_entry(hass, config_entry, MagicMock())
@@ -106,6 +108,7 @@ async def test_cover_setup_no_entities(hass: HomeAssistant) -> None:
         config={},
         enabled_features={MagicAreasFeatures.COVER_GROUPS},
         feature_configs={MagicAreasFeatures.COVER_GROUPS: {}},
+        group_registry=GroupRegistry(),
         entity_references=EntityReferences(),
         area_config=area_config,
         area_runtime=area_runtime,
@@ -118,7 +121,10 @@ async def test_cover_setup_no_entities(hass: HomeAssistant) -> None:
         coordinator=coordinator, listeners=[]
     )
 
-    await cover_async_setup_entry(hass, config_entry, MagicMock())
+    async_add_entities = MagicMock()
+    await cover_async_setup_entry(hass, config_entry, async_add_entities)
+    async_add_entities.assert_not_called()
+    assert async_add_entities.call_count == 0
 
 
 async def test_cover_setup_cleanup_removed_entries(
@@ -154,6 +160,7 @@ async def test_cover_setup_cleanup_removed_entries(
         config={},
         enabled_features={MagicAreasFeatures.COVER_GROUPS},
         feature_configs={MagicAreasFeatures.COVER_GROUPS: {}},
+        group_registry=GroupRegistry(),
         entity_references=EntityReferences(),
         area_config=area_config,
         area_runtime=area_runtime,
@@ -169,13 +176,15 @@ async def test_cover_setup_cleanup_removed_entries(
 
     with (
         patch(
-            "custom_components.magic_areas.cover.AreaCoverGroup",
+            "custom_components.magic_areas.features.modules.cover_groups.AreaCoverGroup",
             return_value=MagicMock(),
         ),
         patch(
-            "custom_components.magic_areas.cover.cleanup_removed_entries"
+            "custom_components.magic_areas.helpers.cleanup_removed_entries"
         ) as cleanup_removed_entries,
     ):
         await cover_async_setup_entry(hass, config_entry, async_add_entities)
 
+    async_add_entities.assert_called_once()
+    assert async_add_entities.call_count == 1
     cleanup_removed_entries.assert_called_once()

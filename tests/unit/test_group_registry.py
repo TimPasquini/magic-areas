@@ -1,7 +1,7 @@
 """Unit tests for core.group_registry."""
 
-from custom_components.magic_areas.core.control_group import ControlGroupDefinition
-from custom_components.magic_areas.core.group_registry import GroupRegistry
+from custom_components.magic_areas.core.controls import ControlGroupDefinition
+from custom_components.magic_areas.core.controls import GroupRegistry
 
 
 def test_returns_defaults_for_area() -> None:

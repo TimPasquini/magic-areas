@@ -29,8 +29,10 @@ from homeassistant.components.cover import (
     CoverEntityFeature,
 )
 from homeassistant.components.fan import FanEntity, FanEntityFeature
-from homeassistant.components.light import ColorMode, LightEntity
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerState
+from homeassistant.components.light import LightEntity
+from homeassistant.components.light.const import ColorMode
+from homeassistant.components.media_player import MediaPlayerEntity
+from homeassistant.components.media_player.const import MediaPlayerState
 from homeassistant.components.media_player.const import MediaPlayerEntityFeature
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -230,12 +232,13 @@ class MockModule:
         if async_remove_config_entry_device is not None:
             self.async_remove_config_entry_device = async_remove_config_entry_device
 
-    def mock_manifest(self) -> dict[str, Any]:
+    def mock_manifest(self) -> loader.Manifest:
         """Generate a mock manifest to represent this module."""
-        return {
-            **loader.manifest_from_legacy_module(self.DOMAIN, self),  # type: ignore[arg-type]
-            **(self._partial_manifest or {}),
-        }
+        manifest = loader.Manifest(
+            **loader.manifest_from_legacy_module(self.DOMAIN, self)  # type: ignore[arg-type]
+        )
+        manifest.update(self._partial_manifest or {})  # type: ignore[typeddict-item]
+        return manifest
 
 
 class MockPlatform:

@@ -37,7 +37,8 @@ migration documents.
 
 - New core helpers under `custom_components/magic_areas/core/` for config
   normalization, presence selection, and entity grouping.
-- `base/magic.py` reduced toward orchestration over shared helpers.
+- Legacy `base/magic.py` monolith removed; logic now owned by coordinator,
+  core, and feature-module boundaries.
 
 ### Platform adapters
 
@@ -55,10 +56,11 @@ migration documents.
 
 ### Config flow and schemas
 
-- Feature metadata moved to `config_flows/feature_registry.py`.
+- Feature config-step metadata is derived from runtime feature modules via
+  `config_flows/helpers.py::get_feature_config_steps`.
 - New schema and validation modules consolidate config and options flow logic.
-- Constants split into `config_keys.py`, `defaults.py`, `enums.py`, and
-  `area_constants.py`.
+- Constants/config keys are split into scoped modules:
+  `config_keys/`, `defaults.py`, and `enums.py`.
 
 ### Tests and verification
 

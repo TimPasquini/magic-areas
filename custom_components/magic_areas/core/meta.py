@@ -16,10 +16,10 @@ from custom_components.magic_areas.area_state import (
     MetaAreaType,
 )
 from custom_components.magic_areas.config_keys.area import CONF_TYPE
-from custom_components.magic_areas.core.area_model import AreaDescriptor
+from custom_components.magic_areas.core.runtime_model import AreaDescriptor
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.models import MagicAreasRuntimeData
+    from custom_components.magic_areas.components import MagicAreasRuntimeData
 
 
 def collect_child_areas(
@@ -28,7 +28,7 @@ def collect_child_areas(
     slug: str,
     floor_id: str | None,
 ) -> list[str]:
-    """Return child area slugs for a meta area by inspecting loaded config entries.
+    """Return child area ids for a meta area by inspecting loaded config entries.
 
     Iterates all loaded magic_areas config entries, reads their coordinator snapshots,
     and delegates to resolve_child_areas() to apply meta-area matching rules.
@@ -40,7 +40,7 @@ def collect_child_areas(
         floor_id: Floor ID if this is a floor meta area, otherwise None.
 
     Returns:
-        List of child area slugs that belong to this meta area.
+        List of child area ids that belong to this meta area.
 
     """
     entries = hass.config_entries.async_entries("magic_areas")
@@ -78,7 +78,7 @@ def collect_child_areas(
 def resolve_child_areas(
     meta_area: AreaDescriptor, areas: Iterable[AreaDescriptor]
 ) -> list[str]:
-    """Return child area slugs for a meta area."""
+    """Return child area ids for a meta area."""
     child_areas: list[str] = []
 
     for area in areas:
@@ -87,27 +87,27 @@ def resolve_child_areas(
 
         if meta_area.floor_id:
             if meta_area.floor_id == area.floor_id:
-                child_areas.append(area.slug)
+                child_areas.append(area.id)
             continue
 
         if (
             meta_area.area_type == MetaAreaType.GLOBAL
             or area.area_type == meta_area.area_type
         ):
-            child_areas.append(area.slug)
+            child_areas.append(area.id)
 
     return child_areas
 
 
 def resolve_active_areas(
-    child_slugs: Iterable[str], area_state_map: dict[str, str]
+    child_area_ids: Iterable[str], area_state_map: dict[str, str]
 ) -> list[str]:
-    """Return slugs that are currently active based on a state map."""
+    """Return child area ids that are currently active based on a state map."""
     active_areas: list[str] = []
 
-    for slug in child_slugs:
-        if area_state_map.get(slug) == STATE_ON:
-            active_areas.append(slug)
+    for area_id in child_area_ids:
+        if area_state_map.get(area_id) == STATE_ON:
+            active_areas.append(area_id)
 
     return active_areas
 

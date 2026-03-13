@@ -10,11 +10,11 @@ rules:
   
   # Silver
   entity-unavailable: done
-  parallel-updates: todo
+  parallel-updates: done
   reauthentication-flow: todo
   
   # Gold
-  diagnostics: todo
+  diagnostics: done
   exception-translations: todo
   icon-translations: todo
   

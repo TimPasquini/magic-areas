@@ -2,16 +2,30 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import datetime
 import logging
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import voluptuous as vol
 from homeassistant.helpers.entity import Entity
 
+from custom_components.magic_areas.area_state import AreaType, META_AREA_GLOBAL
+from custom_components.magic_areas.components import MagicAreasConfigEntry
+from custom_components.magic_areas.config_keys.area import CONF_TYPE
+from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.core.runtime_model import (
+    AreaConfig,
+    AreaRuntime,
+    EntityReferences,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.features.registry import FeatureRegistry
 from custom_components.magic_areas.features.base import FeatureConfigStep
+from custom_components.magic_areas.features.registry import FeatureRegistry
 
 
 @dataclass(slots=True)
@@ -21,24 +35,27 @@ class DummyModule:
     id: MagicAreasFeatures
     domains: set[str]
     enabled: bool = True
-    deps: set[MagicAreasFeatures] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        """Normalize optional defaults after init."""
-        if self.deps is None:
-            self.deps = set()
+    deps: set[MagicAreasFeatures] = field(default_factory=set)
+    supports_regular_area: bool = True
+    supports_meta_area: bool = True
+    supports_global_meta_area: bool = True
+    configurable_on_meta: bool = True
+    configurable_on_global_meta: bool = True
+    schema: vol.Schema | None = None
 
     def config_schema(self) -> vol.Schema | None:  # pragma: no cover - not used
         """Return the config schema for this feature."""
-        return None
+        return self.schema
 
     def option_steps(self) -> list[str]:  # pragma: no cover - not used
         """Return option step identifiers for this feature."""
         return []
 
-    def validate_config(self, config: dict) -> dict:  # pragma: no cover - not used
+    def validate_config(
+        self, config: Mapping[str, object]
+    ) -> dict[str, object]:  # pragma: no cover - not used
         """Validate and normalize config for this feature."""
-        return config
+        return dict(config)
 
     def is_enabled(self, data: object) -> bool:
         """Return whether this feature is enabled for the area."""
@@ -63,6 +80,33 @@ class DummyModule:
     def config_flow_steps(self) -> list[FeatureConfigStep]:  # pragma: no cover - not used
         """Return config flow steps for this feature."""
         return []
+
+
+def _build_magic_areas_data() -> MagicAreasData:
+    """Create a minimal typed snapshot for registry tests."""
+    area_config = AreaConfig(
+        id="kitchen",
+        name="Kitchen",
+        slug="kitchen",
+        area_type=AreaType.INTERIOR,
+        config={},
+        hass_config=MagicMock(spec=MagicAreasConfigEntry),
+    )
+    return MagicAreasData(
+        entities={},
+        magic_entities={},
+        presence_sensors=[],
+        active_areas=[],
+        child_areas=[],
+        config={},
+        enabled_features=set(),
+        feature_configs={},
+        group_registry=GroupRegistry(),
+        entity_references=EntityReferences(),
+        area_config=area_config,
+        area_runtime=AreaRuntime(),
+        updated_at=datetime.now(),
+    )
 
 
 def test_modules_for_domain_filters() -> None:
@@ -108,7 +152,7 @@ def test_enabled_modules_uses_module_gate() -> None:
     )
     registry = FeatureRegistry([enabled_module, disabled_module])
 
-    assert registry.enabled_modules(object()) == [enabled_module]
+    assert registry.enabled_modules(_build_magic_areas_data()) == [enabled_module]
 
 
 def test_validate_dependencies_logs_missing(caplog: pytest.LogCaptureFixture) -> None:
@@ -127,7 +171,80 @@ def test_validate_dependencies_logs_missing(caplog: pytest.LogCaptureFixture) ->
     registry = FeatureRegistry([aggregates, wasp])
 
     with caplog.at_level(logging.WARNING):
-        registry.validate_dependencies(object())
+        registry.validate_dependencies(_build_magic_areas_data())
 
     assert "missing dependencies" in caplog.text
     assert MagicAreasFeatures.AGGREGATES.value in caplog.text
+
+
+def test_available_features_for_area_respects_support_flags() -> None:
+    """Available feature list should respect regular/meta/global support flags."""
+    regular_only = DummyModule(
+        id=MagicAreasFeatures.PRESENCE_HOLD,
+        domains={"switch"},
+        supports_meta_area=False,
+        supports_global_meta_area=False,
+    )
+    meta_only = DummyModule(
+        id=MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+        domains={"media_player"},
+        supports_regular_area=False,
+    )
+    all_areas = DummyModule(
+        id=MagicAreasFeatures.AGGREGATES,
+        domains={"sensor"},
+    )
+    registry = FeatureRegistry([regular_only, meta_only, all_areas])
+
+    regular_area = SimpleNamespace(config={CONF_TYPE: AreaType.INTERIOR}, id="kitchen")
+    meta_area = SimpleNamespace(config={CONF_TYPE: AreaType.META}, id="interior")
+    global_meta = SimpleNamespace(
+        config={CONF_TYPE: AreaType.META}, id=META_AREA_GLOBAL.lower()
+    )
+
+    assert registry.available_features_for_area(regular_area) == [
+        MagicAreasFeatures.PRESENCE_HOLD,
+        MagicAreasFeatures.AGGREGATES,
+    ]
+    assert registry.available_features_for_area(meta_area) == [
+        MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+        MagicAreasFeatures.AGGREGATES,
+    ]
+    assert registry.available_features_for_area(global_meta) == [
+        MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+        MagicAreasFeatures.AGGREGATES,
+    ]
+
+
+def test_configurable_features_for_area_respects_meta_configurability() -> None:
+    """Configurable features should drop non-configurable meta features."""
+    regular_and_meta = DummyModule(
+        id=MagicAreasFeatures.CLIMATE_CONTROL,
+        domains={"switch"},
+        supports_meta_area=True,
+        configurable_on_meta=True,
+        schema=vol.Schema({}),
+    )
+    meta_not_configurable = DummyModule(
+        id=MagicAreasFeatures.LIGHT_GROUPS,
+        domains={"light"},
+        supports_meta_area=True,
+        configurable_on_meta=False,
+        schema=vol.Schema({}),
+    )
+    no_schema = DummyModule(
+        id=MagicAreasFeatures.HEALTH,
+        domains={"binary_sensor"},
+    )
+    registry = FeatureRegistry([regular_and_meta, meta_not_configurable, no_schema])
+
+    regular_area = SimpleNamespace(config={CONF_TYPE: AreaType.INTERIOR}, id="kitchen")
+    meta_area = SimpleNamespace(config={CONF_TYPE: AreaType.META}, id="interior")
+
+    assert registry.configurable_features_for_area(regular_area) == [
+        MagicAreasFeatures.CLIMATE_CONTROL,
+        MagicAreasFeatures.LIGHT_GROUPS,
+    ]
+    assert registry.configurable_features_for_area(meta_area) == [
+        MagicAreasFeatures.CLIMATE_CONTROL,
+    ]

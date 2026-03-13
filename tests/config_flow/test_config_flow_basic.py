@@ -20,7 +20,7 @@ from custom_components.magic_areas.area_state import (
     AreaType,
     META_AREA_GLOBAL,
 )
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ID,
     CONF_TYPE,
 )
@@ -236,7 +236,7 @@ async def test_user_flow_conflicting_meta_area(hass: HomeAssistant) -> None:
 
 def test_resolve_groups() -> None:
     """Test resolve_groups static method."""
-    from custom_components.magic_areas.config_flows.entity_gatherer import (
+    from custom_components.magic_areas.config_flows import (
         ConfigFlowEntityGatherer,
     )
 

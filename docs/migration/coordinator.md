@@ -17,14 +17,15 @@ properties directly. This resulted in:
 
 A coordinator now owns a single, typed snapshot per config entry:
 
-- `custom_components/magic_areas/coordinator.py` defines `MagicAreasCoordinator`
+- `custom_components/magic_areas/coordinator/__init__.py` defines `MagicAreasCoordinator`
   and the `MagicAreasData` snapshot.
-- Coordinator manages `MagicArea` instance internally (private `_area`).
-- Runtime data includes only the coordinator (not the MagicArea instance).
+- Coordinator owns runtime area config/state assembly internally.
+- Runtime data exposes only the coordinator for platform usage.
 - Setup performs a refresh before platforms read data.
 - Platforms read `coordinator.data` and skip setup when the snapshot is unavailable.
 - Coordinator refresh status drives entity availability.
-- Snapshot contains only pure data structures (AreaConfig, AreaRuntime); the god object is internal.
+- Snapshot contains data structures (`AreaConfig`, `AreaRuntime`) plus resolved
+  entity/config fields used by platforms.
 
 ## Snapshot data model
 
@@ -44,7 +45,7 @@ A coordinator now owns a single, typed snapshot per config entry:
 ### Snapshot field sources
 
 - `entities` and `magic_entities`: collected from registry + state via
-  `core/snapshot_builder.py` via `core/entity_loading/` package helpers:
+  `coordinator/snapshot_builder.py` via `coordinator/entity_ingestion/` helpers:
   `loader.py`, `registry_queries.py`, `filters.py`, and `snapshots.py`.
 - `presence_sensors`: computed by core presence helpers and passed into
   `binary_sensor` setup.
@@ -92,17 +93,10 @@ The coordinator exposes snapshot data as the authoritative runtime model for
 platforms. `runtime_data` is coordinator-centric and platform setup paths should
 not depend on `entry.runtime_data.area`.
 
-## Phase 8: Future Removal of MagicArea from Public API
+## Delta summary (vs fork baseline)
 
-Phase 8 has been completed in the current architecture direction: MagicArea is
-treated as coordinator-internal and snapshot fields are the public read model.
-This section remains only as historical context for migration sequencing.
-
-Current expectations:
-- `runtime_data.area` is not part of normal platform usage.
-- `MagicAreasData.area` is not part of the snapshot contract.
-- Entity constructors use snapshot-oriented inputs (`AreaConfig`, coordinator).
-- Platforms read **only** snapshot fields (`AreaConfig`, `AreaRuntime`,
-  `entities`, `feature_configs`, etc.).
-
-See `phase-8-god-object-removal.md` for the complete post-Phase-8 architecture.
+- Snapshot becomes the single platform read contract.
+- Platform setup is guarded by snapshot availability.
+- Availability is coordinator-refresh driven.
+- Public runtime usage is coordinator-centric (`runtime_data.coordinator`), not
+  area-object centric.

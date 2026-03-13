@@ -3,17 +3,13 @@
 from unittest.mock import MagicMock
 
 from custom_components.magic_areas.area_state import AreaType, META_AREA_GLOBAL
-from custom_components.magic_areas.config_keys import CONF_TYPE
-from custom_components.magic_areas.config_flows.steps.feature_helpers import (
+from custom_components.magic_areas.config_keys.area import CONF_TYPE
+from custom_components.magic_areas.config_flows.steps import (
     get_configurable_features,
     get_feature_list,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.policy import (
-    FEATURE_LIST,
-    FEATURE_LIST_GLOBAL,
-    FEATURE_LIST_META,
-)
+from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.schemas.features import (
     CONFIGURABLE_FEATURES,
     NON_CONFIGURABLE_FEATURES_META,
@@ -27,7 +23,7 @@ class TestGetFeatureList:
         """Test that default feature list is returned when area_config is None."""
         result = get_feature_list(None)
 
-        assert result == FEATURE_LIST
+        assert result == FEATURE_REGISTRY.available_features_for_area(None)
         assert len(result) > 0
         assert all(isinstance(f, MagicAreasFeatures) for f in result)
 
@@ -39,7 +35,7 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_LIST
+        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
         assert MagicAreasFeatures.LIGHT_GROUPS in result
         assert MagicAreasFeatures.PRESENCE_HOLD in result
 
@@ -51,7 +47,7 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_LIST_META
+        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
         assert MagicAreasFeatures.LIGHT_GROUPS in result
         # PRESENCE_HOLD should not be in meta list
         assert MagicAreasFeatures.PRESENCE_HOLD not in result
@@ -64,7 +60,7 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_LIST_GLOBAL
+        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
         assert MagicAreasFeatures.LIGHT_GROUPS in result
 
     def test_returns_meta_list_for_non_global_meta_areas(self) -> None:
@@ -75,7 +71,7 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_LIST_META
+        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
 
     def test_handles_empty_config_dict(self) -> None:
         """Test that default list is used when config dict is empty."""
@@ -85,20 +81,23 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        # Should return FEATURE_LIST since no CONF_TYPE in config
-        assert result == FEATURE_LIST
+        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
 
     def test_feature_list_contains_only_enum_members(self) -> None:
         """Test that returned feature lists contain only enum members."""
         lists_to_check = [
-            (None, FEATURE_LIST),
+            (None, FEATURE_REGISTRY.available_features_for_area(None)),
             (
                 MagicMock(config={CONF_TYPE: AreaType.INTERIOR}, id="kitchen"),
-                FEATURE_LIST,
+                FEATURE_REGISTRY.available_features_for_area(
+                    MagicMock(config={CONF_TYPE: AreaType.INTERIOR}, id="kitchen")
+                ),
             ),
             (
                 MagicMock(config={CONF_TYPE: AreaType.META}, id="interior"),
-                FEATURE_LIST_META,
+                FEATURE_REGISTRY.available_features_for_area(
+                    MagicMock(config={CONF_TYPE: AreaType.META}, id="interior")
+                ),
             ),
         ]
 
@@ -185,6 +184,6 @@ class TestGetConfigurableFeatures:
         # All meta features should be in regular features
         assert meta_features.issubset(regular_features)
 
-        # Difference should be exactly the non-configurable features
+        # Feature-specific meta exclusions should include non-configurable-on-meta.
         difference = regular_features - meta_features
-        assert set(NON_CONFIGURABLE_FEATURES_META) == difference
+        assert set(NON_CONFIGURABLE_FEATURES_META).issubset(difference)

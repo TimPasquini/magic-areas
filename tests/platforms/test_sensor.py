@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_ENABLED_FEATURES,
 )
@@ -125,7 +125,7 @@ async def test_sensor_setup_exception(
 
     # Patch AreaAggregateSensor to raise exception
     with patch(
-        "custom_components.magic_areas.sensor.aggregate_factory.AreaAggregateSensor",
+        "custom_components.magic_areas.sensor.AreaAggregateSensor",
         side_effect=Exception("Boom"),
     ):
         await init_integration_helper(hass, [sensor_config_entry])

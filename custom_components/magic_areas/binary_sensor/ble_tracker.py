@@ -15,19 +15,17 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.config_keys.features import (
-    CONF_BLE_TRACKER_ENTITIES,
-)
-from custom_components.magic_areas.attrs import (
+from custom_components.magic_areas.const import (
     ATTR_ACTIVE_SENSORS,
 )
-from custom_components.magic_areas.core.listener_registry import (
-    ListenerRegistry,
+from custom_components.magic_areas.core.config.feature_readers import (
+    ble_tracker_config,
 )
+from custom_components.magic_areas.core.listener_registry import ListenerRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
-    from custom_components.magic_areas.core.area_config import AreaConfig
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +50,7 @@ class AreaBLETrackerBinarySensor(MagicEntity, BinarySensorEntity):
         BinarySensorEntity.__init__(self)
 
         feature_config = self.get_feature_config()
-        self._sensors = feature_config.get(CONF_BLE_TRACKER_ENTITIES, [])
+        self._sensors = ble_tracker_config(feature_config).entities
 
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
         self._attr_extra_state_attributes = {
@@ -120,6 +118,7 @@ class AreaBLETrackerBinarySensor(MagicEntity, BinarySensorEntity):
 
         self._attr_is_on = calculated_state
         self._attr_extra_state_attributes[ATTR_ACTIVE_SENSORS] = active_sensors
+        # BLE callbacks may arrive off the event loop; keep scheduler writes.
         self.schedule_update_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:

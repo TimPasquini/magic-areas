@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.magic_areas.config_keys import (
+from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_BLE_TRACKER_ENTITIES,
 )
@@ -54,20 +54,20 @@ async def test_binary_sensor_setup_exceptions(
     # Patch the classes to raise exceptions
     with (
         patch(
-            "custom_components.magic_areas.binary_sensor.AreaAggregateBinarySensor",
-            side_effect=Exception("Aggregate Error"),
+            "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaAggregateBinarySensor",
+            side_effect=RuntimeError("Aggregate Error"),
         ),
         patch(
-            "custom_components.magic_areas.binary_sensor.AreaHealthBinarySensor",
-            side_effect=Exception("Health Error"),
+            "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaHealthBinarySensor",
+            side_effect=RuntimeError("Health Error"),
         ),
         patch(
-            "custom_components.magic_areas.binary_sensor.AreaWaspInABoxBinarySensor",
-            side_effect=Exception("Wasp Error"),
+            "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaWaspInABoxBinarySensor",
+            side_effect=RuntimeError("Wasp Error"),
         ),
         patch(
-            "custom_components.magic_areas.binary_sensor.AreaBLETrackerBinarySensor",
-            side_effect=Exception("BLE Error"),
+            "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaBLETrackerBinarySensor",
+            side_effect=RuntimeError("BLE Error"),
         ),
     ):
         await init_integration_helper(hass, [exception_config_entry])
