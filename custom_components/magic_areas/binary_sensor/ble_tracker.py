@@ -18,7 +18,7 @@ from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import (
     ATTR_ACTIVE_SENSORS,
 )
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     ble_tracker_config,
 )
 from custom_components.magic_areas.core.listener_registry import ListenerRegistry

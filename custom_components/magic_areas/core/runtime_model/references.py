@@ -53,6 +53,15 @@ class EntityReferences:
     health_sensor: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _ReferenceSpec:
+    """Registry lookup spec for one EntityReferences field."""
+
+    field_name: str
+    domain: str
+    unique_id: str
+
+
 def _lookup(
     entity_registry: EntityRegistry,
     ha_domain: str,
@@ -62,80 +71,104 @@ def _lookup(
     return entity_registry.async_get_entity_id(ha_domain, DOMAIN, unique_id)
 
 
-def build_entity_references(
-    area_id: str,
-    entity_registry: EntityRegistry,
-) -> EntityReferences:
-    """Build entity references using HA entity registry lookups."""
-    refs = EntityReferences()
-    specs: tuple[tuple[str, str, str], ...] = (
-        (
+def _build_reference_specs(area_id: str) -> tuple[_ReferenceSpec, ...]:
+    """Return deterministic registry lookup specs for an area."""
+    return (
+        _ReferenceSpec(
             "area_state_sensor",
             BINARY_SENSOR_DOMAIN,
             build_presence_tracking_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "presence_hold_switch",
             SWITCH_DOMAIN,
             build_presence_hold_switch_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "light_control_switch",
             SWITCH_DOMAIN,
             build_light_control_switch_unique_id(area_id=area_id),
         ),
-        ("fan_group", FAN_DOMAIN, build_fan_group_id(area_id=area_id)),
-        (
+        _ReferenceSpec("fan_group", FAN_DOMAIN, build_fan_group_id(area_id=area_id)),
+        _ReferenceSpec(
             "fan_control_switch",
             SWITCH_DOMAIN,
             build_fan_control_switch_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "media_player_group",
             MEDIA_PLAYER_DOMAIN,
             build_media_player_group_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "media_player_control_switch",
             SWITCH_DOMAIN,
             build_media_player_control_switch_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "climate_control_switch",
             SWITCH_DOMAIN,
             build_climate_control_switch_unique_id(area_id=area_id),
         ),
-        ("cover_group", COVER_DOMAIN, build_cover_group_unique_id(area_id=area_id)),
-        (
+        _ReferenceSpec(
+            "cover_group",
+            COVER_DOMAIN,
+            build_cover_group_unique_id(area_id=area_id),
+        ),
+        _ReferenceSpec(
             "wasp_in_a_box_sensor",
             BINARY_SENSOR_DOMAIN,
             build_wasp_sensor_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "ble_tracker_monitor",
             BINARY_SENSOR_DOMAIN,
             build_ble_tracker_monitor_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "health_sensor",
             BINARY_SENSOR_DOMAIN,
             build_health_sensor_unique_id(area_id=area_id),
         ),
-        (
+        _ReferenceSpec(
             "threshold_sensor",
             BINARY_SENSOR_DOMAIN,
             build_threshold_light_sensor_unique_id(area_id=area_id),
         ),
     )
 
-    for field_name, domain, unique_id in specs:
-        setattr(
-            refs,
-            field_name,
-            _lookup(entity_registry, domain, unique_id),
-        )
 
-    return refs
+def _shape_entity_references(
+    resolved_by_field: dict[str, str | None],
+) -> EntityReferences:
+    """Shape resolved lookup values into the canonical runtime object."""
+    return EntityReferences(
+        area_state_sensor=resolved_by_field.get("area_state_sensor"),
+        presence_hold_switch=resolved_by_field.get("presence_hold_switch"),
+        light_control_switch=resolved_by_field.get("light_control_switch"),
+        fan_group=resolved_by_field.get("fan_group"),
+        fan_control_switch=resolved_by_field.get("fan_control_switch"),
+        media_player_group=resolved_by_field.get("media_player_group"),
+        media_player_control_switch=resolved_by_field.get("media_player_control_switch"),
+        climate_control_switch=resolved_by_field.get("climate_control_switch"),
+        cover_group=resolved_by_field.get("cover_group"),
+        wasp_in_a_box_sensor=resolved_by_field.get("wasp_in_a_box_sensor"),
+        ble_tracker_monitor=resolved_by_field.get("ble_tracker_monitor"),
+        threshold_sensor=resolved_by_field.get("threshold_sensor"),
+        health_sensor=resolved_by_field.get("health_sensor"),
+    )
+
+
+def build_entity_references(
+    area_id: str,
+    entity_registry: EntityRegistry,
+) -> EntityReferences:
+    """Build entity references using HA entity registry lookups."""
+    resolved_by_field = {
+        spec.field_name: _lookup(entity_registry, spec.domain, spec.unique_id)
+        for spec in _build_reference_specs(area_id)
+    }
+    return _shape_entity_references(resolved_by_field)
 
 
 __all__ = [

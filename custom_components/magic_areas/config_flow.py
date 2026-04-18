@@ -21,8 +21,6 @@ from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
-EMPTY_ENTRY = [""]
-
 __all__ = [
     "ConfigBase",
     "ConfigFlow",

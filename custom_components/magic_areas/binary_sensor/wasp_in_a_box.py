@@ -15,7 +15,7 @@ from homeassistant.core import Event, EventStateChangedData, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.entity import MagicEntity
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     wasp_in_a_box_config,
 )
 from custom_components.magic_areas.const import (

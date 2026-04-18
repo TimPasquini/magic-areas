@@ -10,15 +10,16 @@ import voluptuous as vol
 from custom_components.magic_areas.config_keys.area import (
     CLIMATE_CONTROL_PRESET_KEYS,
 )
-from custom_components.magic_areas.feature_contracts import (
+from custom_components.magic_areas.features.base import (
     schema_from_default_options,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_registry import RUNTIME_FEATURE_REGISTRY
-ALL_FEATURES = set(RUNTIME_FEATURE_REGISTRY.all_features())
+from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
+
+ALL_FEATURES = set(FEATURE_REGISTRY.all_features())
 
 CONFIGURABLE_FEATURES: dict[MagicAreasFeatures, vol.Schema] = {}
-for _module in RUNTIME_FEATURE_REGISTRY.modules():
+for _module in FEATURE_REGISTRY.modules():
     _schema = _module.config_schema()
     if _schema is not None:
         CONFIGURABLE_FEATURES[_module.id] = _schema
@@ -31,7 +32,7 @@ CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT = schema_from_default_options(
 
 NON_CONFIGURABLE_FEATURES_META = [
     module.id
-    for module in RUNTIME_FEATURE_REGISTRY.modules()
+    for module in FEATURE_REGISTRY.modules()
     if module.supports_meta_area and not module.configurable_on_meta
 ]
 

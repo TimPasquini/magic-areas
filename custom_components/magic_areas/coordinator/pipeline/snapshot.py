@@ -73,31 +73,88 @@ async def build_snapshot(
         config_entry_id=config_entry_id,
     )
 
-    enabled_features, feature_configs = normalize_feature_config(area_config.config)
+    enabled_features, feature_configs = _resolve_feature_config(area_config=area_config)
     _register_custom_control_groups(area_config=area_config, group_registry=group_registry)
     entity_registry = er.async_get(hass)
     entity_references = _build_area_references(
         area_config=area_config, entity_registry=entity_registry
     )
 
-    presence_sensors = build_presence_sensors(
+    presence_sensors, active_areas = _resolve_presence_projection(
+        hass=hass,
+        area_config=area_config,
+        entities=entities,
+        enabled_features=enabled_features,
+        entity_references=entity_references,
+        child_areas=child_areas_list,
+        entity_registry=entity_registry,
+    )
+
+    return _build_magic_areas_data(
+        area_config=area_config,
+        entities=entities,
+        magic_entities=magic_entities,
+        presence_sensors=presence_sensors,
+        active_areas=active_areas,
+        child_areas=child_areas_list,
+        enabled_features=enabled_features,
+        feature_configs=feature_configs,
+        group_registry=group_registry,
+        entity_references=entity_references,
+    )
+
+
+def _resolve_feature_config(
+    *,
+    area_config: AreaConfig,
+) -> tuple[set[str], FeatureConfigsMap]:
+    """Normalize enabled feature keys and per-feature config mapping."""
+    enabled_features, feature_configs = normalize_feature_config(area_config.config)
+    return enabled_features, feature_configs
+
+
+def _resolve_presence_projection(
+    *,
+    hass: HomeAssistant,
+    area_config: AreaConfig,
+    entities: EntitiesByDomain,
+    enabled_features: set[str],
+    entity_references: EntityReferences,
+    child_areas: list[str],
+    entity_registry: er.EntityRegistry,
+) -> tuple[list[str], list[str]]:
+    """Resolve effective presence sensors and active child areas."""
+    default_presence_sensors = build_presence_sensors(
         entities_by_domain=entities,
         config=area_config.config,
         slug=area_config.slug,
         enabled_features=enabled_features,
         entity_references=entity_references,
     )
-
-    presence_sensors, active_areas = _resolve_meta_presence_state(
+    return _resolve_meta_presence_state(
         hass=hass,
         area_config=area_config,
-        child_areas=child_areas_list,
+        child_areas=child_areas,
         entity_registry=entity_registry,
-        default_presence_sensors=presence_sensors,
+        default_presence_sensors=default_presence_sensors,
     )
 
-    area_runtime = AreaRuntime(last_update_success=True)
 
+def _build_magic_areas_data(
+    *,
+    area_config: AreaConfig,
+    entities: EntitiesByDomain,
+    magic_entities: EntitiesByDomain,
+    presence_sensors: list[str],
+    active_areas: list[str],
+    child_areas: list[str],
+    enabled_features: set[str],
+    feature_configs: FeatureConfigsMap,
+    group_registry: GroupRegistry,
+    entity_references: EntityReferences,
+) -> MagicAreasData:
+    """Shape normalized snapshot inputs into the coordinator data model."""
+    area_runtime = AreaRuntime(last_update_success=True)
     return MagicAreasData(
         area_config=area_config,
         area_runtime=area_runtime,
@@ -105,7 +162,7 @@ async def build_snapshot(
         magic_entities=magic_entities,
         presence_sensors=presence_sensors,
         active_areas=active_areas,
-        child_areas=child_areas_list,
+        child_areas=child_areas,
         config=area_config.config,
         enabled_features=enabled_features,
         feature_configs=feature_configs,

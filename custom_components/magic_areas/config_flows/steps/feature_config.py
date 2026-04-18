@@ -23,7 +23,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_registry import RUNTIME_FEATURE_REGISTRY
+from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.policy import (
     WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
@@ -64,12 +64,12 @@ WASP_IN_A_BOX_OPTION_KEYS: tuple[str, ...] = (
 
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
-    return RUNTIME_FEATURE_REGISTRY.available_features_for_area(area_config)
+    return FEATURE_REGISTRY.available_features_for_area(area_config)
 
 
 def get_configurable_features(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return configurable features for area type."""
-    return RUNTIME_FEATURE_REGISTRY.configurable_features_for_area(area_config)
+    return FEATURE_REGISTRY.configurable_features_for_area(area_config)
 
 
 async def handle_feature_selection(

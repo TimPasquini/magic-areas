@@ -135,6 +135,36 @@ def evaluate_reload(
         )
     )
 
+    precondition_decision = _evaluate_reload_preconditions(
+        meta_slug=meta_slug,
+        trigger_area_type=trigger_area_type,
+        trigger_area_id=trigger_area_id,
+        child_areas=child_areas,
+        last_reload=last_reload,
+        now=now,
+        throttle_seconds=resolved_throttle,
+    )
+    if precondition_decision is not None:
+        return precondition_decision
+
+    return _build_scheduled_reload_decision(
+        meta_slug=meta_slug,
+        base_delay=resolved_base_delay,
+        max_delay_multiplier=resolved_delay_multiplier,
+    )
+
+
+def _evaluate_reload_preconditions(
+    *,
+    meta_slug: str,
+    trigger_area_type: str,
+    trigger_area_id: str,
+    child_areas: list[str],
+    last_reload: datetime,
+    now: datetime,
+    throttle_seconds: int,
+) -> ReloadDecision | None:
+    """Return a skip decision when match/throttle preconditions fail."""
     if not should_reload_on_area_change(
         meta_slug=meta_slug,
         trigger_area_type=trigger_area_type,
@@ -147,18 +177,24 @@ def evaluate_reload(
             trigger_area_id=trigger_area_id,
         )
 
-    throttled_decision = _evaluate_throttle(
+    return _evaluate_throttle(
         last_reload=last_reload,
         now=now,
-        throttle_seconds=resolved_throttle,
+        throttle_seconds=throttle_seconds,
     )
-    if throttled_decision is not None:
-        return throttled_decision
 
+
+def _build_scheduled_reload_decision(
+    *,
+    meta_slug: str,
+    base_delay: float,
+    max_delay_multiplier: int,
+) -> ReloadDecision:
+    """Build the positive reload decision after preconditions pass."""
     delay, reason = _compute_reload_delay_and_reason(
         meta_slug=meta_slug,
-        base_delay=resolved_base_delay,
-        max_delay_multiplier=resolved_delay_multiplier,
+        base_delay=base_delay,
+        max_delay_multiplier=max_delay_multiplier,
     )
 
     return ReloadDecision(

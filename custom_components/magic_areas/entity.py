@@ -20,8 +20,7 @@ from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.core.runtime_model import build_feature_unique_id
 from custom_components.magic_areas.core.listener_registry import ListenerRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_info import FeatureInfo
-from custom_components.magic_areas.feature_registry import get_feature_info
+from custom_components.magic_areas.feature_info import FeatureInfo, get_feature_info
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.runtime_model import AreaConfig

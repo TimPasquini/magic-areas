@@ -34,38 +34,16 @@ class OwnershipImportRule:
 
 
 ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
-    "runtime_core": {
-        (
-            "custom_components.magic_areas.binary_sensor.aggregate_factory",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-        (
-            "custom_components.magic_areas.binary_sensor.ble_tracker",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-        (
-            "custom_components.magic_areas.binary_sensor.wasp_in_a_box",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-        (
-            "custom_components.magic_areas.switch",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-        (
-            "custom_components.magic_areas.switch.climate_control",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-        (
-            "custom_components.magic_areas.switch.fan_control",
-            "custom_components.magic_areas.core.config.feature_readers",
-        ),
-    },
+    # Intentional adapter seam: config-flow step modules must not import schema
+    # selector internals directly. selector_builders is the single owned bridge.
     "runtime_schemas": {
         (
             "custom_components.magic_areas.config_flows.selector_builders",
             "custom_components.magic_areas.schemas.selectors",
         ),
     },
+    # Intentional test-only implementation seams: these tests assert write-path
+    # and parity behavior at light_groups implementation boundaries.
     "test_light_groups": {
         (
             "tests/unit/test_listener_entity_write_contracts",
@@ -80,6 +58,8 @@ ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
             "custom_components.magic_areas.light_groups.runtime",
         ),
     },
+    # Intentional test-only implementation seam: switch base lifecycle/write
+    # contracts are validated at the base class implementation layer.
     "test_switch": {
         (
             "tests/unit/test_listener_entity_lifecycle_contracts",

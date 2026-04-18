@@ -30,8 +30,6 @@ from custom_components.magic_areas.config_flows.base import MutableConfigMap
 
 _LOGGER = logging.getLogger(__name__)
 
-EMPTY_ENTRY = [""]
-
 
 class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
     """Handle an option flow for Magic Areas."""
@@ -66,7 +64,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
 
             return _dynamic_step
         raise AttributeError(name)
-
 
     async def async_step_feature_conf(
         self, user_input: Mapping[str, object] | None = None

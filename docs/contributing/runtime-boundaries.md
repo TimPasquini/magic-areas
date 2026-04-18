@@ -157,6 +157,12 @@ Not allowed:
 - Feature-specific semantics must live in the owning feature slice.
 - Import-boundary tests must block side-door imports that bypass slice entry
   points (`tests/unit/test_import_boundaries.py`).
+- A small set of explicit allowlist seams is intentional and documented:
+  - config-flow selector adapter seam
+    (`config_flows.selector_builders -> schemas.selectors`)
+  - test-only implementation contract seams (`light_groups.*`, `switch.base`)
+- Graph-backed architecture/risk reviews must follow
+  `docs/contributing/mcp-graph-hygiene.md` before interpreting MCP warnings.
 - Ownership guardrails also enforce:
   - `core.config.feature` remains generic-only (normalization/access primitives).
   - central facades do not re-export feature semantics unintentionally.

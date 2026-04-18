@@ -18,7 +18,7 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     FanControlGroupPolicy,
     FanPolicySignals,
 )
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     fan_groups_config,
 )
 from custom_components.magic_areas.area_state import AreaStates

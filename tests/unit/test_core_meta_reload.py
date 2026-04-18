@@ -6,6 +6,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.magic_areas.core.meta_reload import (
     MetaAreaAutoReloadSettings,
     ReloadDecision,
+    _evaluate_reload_preconditions,
     should_reload_on_area_change,
     evaluate_reload,
 )
@@ -238,6 +239,46 @@ class TestEvaluateReload:
         assert decision.should_reload is True
         # Global should use max (2 * 5 = 10)
         assert decision.delay_seconds == 10.0
+
+
+class TestEvaluateReloadPreconditions:
+    """Focused tests for extracted precondition helper."""
+
+    def test_non_matching_area_returns_not_matched_decision(self) -> None:
+        """Returns a skip decision when trigger area does not match meta-area."""
+        now = dt_util.utcnow()
+        last = now - timedelta(seconds=10)
+
+        decision = _evaluate_reload_preconditions(
+            meta_slug="interior",
+            trigger_area_type="exterior",
+            trigger_area_id="backyard",
+            child_areas=["kitchen"],
+            last_reload=last,
+            now=now,
+            throttle_seconds=5,
+        )
+
+        assert decision is not None
+        assert decision.should_reload is False
+        assert "not matched" in decision.reason.lower()
+
+    def test_matching_area_with_no_throttle_returns_none(self) -> None:
+        """Returns None when matching area passes throttle preconditions."""
+        now = dt_util.utcnow()
+        last = now - timedelta(seconds=10)
+
+        decision = _evaluate_reload_preconditions(
+            meta_slug="interior",
+            trigger_area_type="interior",
+            trigger_area_id="kitchen",
+            child_areas=["kitchen"],
+            last_reload=last,
+            now=now,
+            throttle_seconds=5,
+        )
+
+        assert decision is None
 
 
 class TestMetaAreaAutoReloadSettings:

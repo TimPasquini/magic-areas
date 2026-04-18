@@ -27,7 +27,7 @@ from custom_components.magic_areas.core.aggregates import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.entity import MagicGroupEntity
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     ble_tracker_config,
 )
 from custom_components.magic_areas.policy import AGGREGATE_MODE_ALL

@@ -6,7 +6,7 @@ from custom_components.magic_areas.core.aggregates.selection import (
     _normalize_allowed_device_classes,
     _is_valid_value,
 )
-from custom_components.magic_areas.features.config.readers import (
+from custom_components.magic_areas.core.config.feature_readers import (
     aggregates_config,
 )
 

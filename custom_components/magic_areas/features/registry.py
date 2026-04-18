@@ -10,9 +10,9 @@ from custom_components.magic_areas.core.config import area_type
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.feature_info import FeatureInfo
+from custom_components.magic_areas.feature_info import FEATURE_INFO_BY_FEATURE
 from custom_components.magic_areas.features.base import FeatureModule
 from custom_components.magic_areas.features.catalog import DEFAULT_FEATURE_MODULES
-from custom_components.magic_areas.features.catalog import FEATURE_INFO_BY_FEATURE
 
 _LOGGER = logging.getLogger(__name__)
 _EXPECTED_META_DETECTION_ERRORS = (

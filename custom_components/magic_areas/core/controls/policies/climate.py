@@ -10,13 +10,15 @@ from homeassistant.components.climate.const import (
     DOMAIN as CLIMATE_DOMAIN,
     SERVICE_SET_PRESET_MODE,
 )
+from custom_components.magic_areas.config_keys.area import (
+    CLIMATE_CONTROL_PRESET_KEY_BY_STATE,
+)
+from custom_components.magic_areas.option_defaults import feature_option_default
 
 from custom_components.magic_areas.core.state_priority import (
     get_highest_priority_state,
 )
-from custom_components.magic_areas.core.config.feature_readers import (
-    climate_control_config,
-)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls.control_group import (
     ControlAction,
@@ -68,7 +70,16 @@ class ClimatePresetPolicy:
 
 def build_preset_policy(feature_config: Mapping[str, object]) -> ClimatePresetPolicy:
     """Build climate preset policy from feature configuration."""
-    return ClimatePresetPolicy(preset_map=climate_control_config(feature_config).preset_map)
+    preset_map = {
+        state: str(
+            feature_config.get(
+                key,
+                feature_option_default(MagicAreasFeatures.CLIMATE_CONTROL, key),
+            )
+        )
+        for state, key in CLIMATE_CONTROL_PRESET_KEY_BY_STATE.items()
+    }
+    return ClimatePresetPolicy(preset_map=preset_map)
 
 
 @dataclass(slots=True)

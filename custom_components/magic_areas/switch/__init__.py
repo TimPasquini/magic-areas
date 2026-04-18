@@ -14,7 +14,7 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.platform_dispatch import (
     async_setup_platform_via_features,
 )
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     presence_hold_config,
 )
 from custom_components.magic_areas.switch.base import SwitchBase

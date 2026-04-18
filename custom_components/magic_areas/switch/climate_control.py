@@ -17,7 +17,7 @@ from custom_components.magic_areas.core.controls.policies.climate import (
     ClimateControlGroupPolicy,
     ClimatePresetPolicy,
 )
-from custom_components.magic_areas.core.config.feature_readers import (
+from custom_components.magic_areas.features.config.readers import (
     climate_control_config,
 )
 from custom_components.magic_areas.core.controls import ControlGroupContext

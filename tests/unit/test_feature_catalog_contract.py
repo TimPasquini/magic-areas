@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from custom_components.magic_areas.features.catalog import FEATURE_INFO_BY_FEATURE
+from custom_components.magic_areas.feature_info import FEATURE_INFO_BY_FEATURE
 from custom_components.magic_areas.features.catalog import FEATURE_REGISTRATIONS
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 

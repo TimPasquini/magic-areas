@@ -8,9 +8,9 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 import voluptuous as vol
 
 from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
-from custom_components.magic_areas.feature_contracts import FeatureConfigStep
+from custom_components.magic_areas.features.base import FeatureConfigStep
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.feature_registry import RUNTIME_FEATURE_REGISTRY
+from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ def invalid_input_error() -> dict[str, str]:
 def get_feature_config_steps() -> dict[MagicAreasFeatures, FeatureConfigStep]:
     """Return configurable feature steps keyed by feature enum."""
     registry: dict[MagicAreasFeatures, FeatureConfigStep] = {}
-    for module in RUNTIME_FEATURE_REGISTRY.modules():
+    for module in FEATURE_REGISTRY.modules():
         for step in module.config_flow_steps():
             if step.step_id != f"feature_conf_{step.feature}":
                 continue

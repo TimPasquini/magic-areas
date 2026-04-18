@@ -2,8 +2,36 @@
 # ruff: noqa: D103
 
 from custom_components.magic_areas.core.runtime_model import build_entity_references
+from custom_components.magic_areas.core.runtime_model.references import (
+    _build_reference_specs,
+)
 
 from tests.unit.core_entity_ids_testkit import make_registry
+
+
+def test_build_reference_specs_contains_all_reference_fields() -> None:
+    specs = _build_reference_specs("kitchen")
+    assert len(specs) == 13
+    assert {spec.field_name for spec in specs} == {
+        "area_state_sensor",
+        "presence_hold_switch",
+        "light_control_switch",
+        "fan_group",
+        "fan_control_switch",
+        "media_player_group",
+        "media_player_control_switch",
+        "climate_control_switch",
+        "cover_group",
+        "wasp_in_a_box_sensor",
+        "ble_tracker_monitor",
+        "threshold_sensor",
+        "health_sensor",
+    }
+
+
+def test_build_reference_specs_encode_requested_area() -> None:
+    specs = _build_reference_specs("kitchen")
+    assert all("kitchen" in spec.unique_id for spec in specs)
 
 
 def test_build_entity_references_presence_tracking() -> None:

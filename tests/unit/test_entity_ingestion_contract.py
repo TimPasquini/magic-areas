@@ -10,6 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
+    CONF_ENABLED_FEATURES,
     CONF_EXCLUDE_ENTITIES,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
@@ -18,8 +19,36 @@ from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.coordinator.pipeline import entity_ingestion
 from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.coordinator.pipeline import build_snapshot
+from custom_components.magic_areas.coordinator.pipeline.snapshot import (
+    _resolve_feature_config,
+)
 
 type _EntityMap = dict[str, list[dict[str, str]]]
+
+
+def test_resolve_feature_config_normalizes_feature_dict() -> None:
+    """Feature config helper should normalize enabled keys and config map."""
+    area_config = AreaConfig(
+        id="test_area",
+        name="Test Area",
+        slug="test_area",
+        area_type=AreaType.INTERIOR,
+        config={
+            CONF_ENABLED_FEATURES: {
+                "aggregates": {"enabled": True},
+                "presence_hold": {"enabled": False},
+            }
+        },
+        hass_config=MockConfigEntry(domain="magic_areas", title="Test Area"),
+    )
+
+    enabled_features, feature_configs = _resolve_feature_config(area_config=area_config)
+
+    assert enabled_features == {"aggregates", "presence_hold"}
+    assert feature_configs == {
+        "aggregates": {"enabled": True},
+        "presence_hold": {"enabled": False},
+    }
 
 
 def test_entity_loading_public_api_exports() -> None:

@@ -8,6 +8,11 @@ from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, STATE_ON
 
 from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.config_keys.area import (
+    CONF_FAN_GROUPS_REQUIRED_STATE,
+    CONF_FAN_GROUPS_SETPOINT,
+)
+from custom_components.magic_areas.core.config.feature import coerce_float
 from custom_components.magic_areas.core.controls.control_group import (
     ControlAction,
     ControlActionType,
@@ -15,7 +20,8 @@ from custom_components.magic_areas.core.controls.control_group import (
     ControlGroupDecision,
     ControlGroupPolicy,
 )
-from custom_components.magic_areas.core.config.feature_readers import fan_groups_config
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.option_defaults import feature_option_default
 
 __all__ = [
     "FanControlDecision",
@@ -124,8 +130,26 @@ class FanControlPolicy:
 
 def build_fan_policy(feature_config: Mapping[str, object]) -> FanControlPolicy:
     """Build fan control policy from feature configuration."""
-    config = fan_groups_config(feature_config)
-    return FanControlPolicy(setpoint=config.setpoint, required_state=config.required_state)
+    default_setpoint = coerce_float(
+        feature_option_default(MagicAreasFeatures.FAN_GROUPS, CONF_FAN_GROUPS_SETPOINT),
+        default=0.0,
+    )
+    setpoint = coerce_float(
+        feature_config.get(
+            CONF_FAN_GROUPS_SETPOINT,
+            default_setpoint,
+        ),
+        default=default_setpoint,
+    )
+    required_state = str(
+        feature_config.get(
+            CONF_FAN_GROUPS_REQUIRED_STATE,
+            feature_option_default(
+                MagicAreasFeatures.FAN_GROUPS, CONF_FAN_GROUPS_REQUIRED_STATE
+            ),
+        )
+    )
+    return FanControlPolicy(setpoint=setpoint, required_state=required_state)
 
 
 def build_fan_control_group_policy(
