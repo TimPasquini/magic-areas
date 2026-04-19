@@ -1,0 +1,12 @@
+{
+  "commit": "f9f9b46bbe9c37c0f4bbb5dab60bfb9284ccdac3",
+  "date": "2026-02-26",
+  "label": "Decomposition marker",
+  "py_files": 95,
+  "reference_id": "decomposition_marker",
+  "role": "reference",
+  "short": "f9f9b46",
+  "subject": "refactor: Decomposition phase 4 - Extract discovery, control, split schemas",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 106
+}

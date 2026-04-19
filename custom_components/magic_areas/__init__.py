@@ -1,138 +1,86 @@
 """Magic Areas component for Home Assistant."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime
 import logging
-from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_NAME, EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.device_registry import (
-    EVENT_DEVICE_REGISTRY_UPDATED,
-    EventDeviceRegistryUpdatedData,
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_NAME
+from homeassistant.core import HomeAssistant
+from custom_components.magic_areas.coordinator import (
+    MagicAreasCoordinator,
+    attach_registry_listeners,
 )
-from homeassistant.helpers.entity_registry import (
-    EVENT_ENTITY_REGISTRY_UPDATED,
-    EventEntityRegistryUpdatedData,
+from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.helpers import build_area_config_for_config_entry
+from custom_components.magic_areas.migrations import apply_applicable_migrations
+from custom_components.magic_areas.components import (
+    MagicAreasConfigEntry,
+    MagicAreasRuntimeData,
 )
-
-from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    CONF_RELOAD_ON_REGISTRY_CHANGE,
-    DATA_AREA_OBJECT,
-    DATA_TRACKED_LISTENERS,
-    DEFAULT_RELOAD_ON_REGISTRY_CHANGE,
-    MODULE_DATA,
-    MagicConfigEntryVersion,
-)
-from custom_components.magic_areas.helpers.area import get_magic_area_for_config_entry
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+async def async_setup_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Set up the component."""
 
-    @callback
-    async def _async_reload_entry(*args, **kwargs) -> None:
-        # Prevent reloads if we're not fully loaded yet
-        if not hass.is_running:
-            return
-
-        hass.config_entries.async_update_entry(
-            config_entry,
-            data={**config_entry.data, "entity_ts": datetime.now(UTC)},
-        )
-
-    @callback
-    async def _async_registry_updated(
-        event: (
-            Event[EventEntityRegistryUpdatedData]
-            | Event[EventDeviceRegistryUpdatedData]
-        ),
-    ) -> None:
-        """Reload integration when entity registry is updated."""
-
-        area_data: dict[str, Any] = dict(config_entry.data)
-        if config_entry.options:
-            area_data.update(config_entry.options)
-
-        # Check if disabled
-        if not area_data.get(
-            CONF_RELOAD_ON_REGISTRY_CHANGE, DEFAULT_RELOAD_ON_REGISTRY_CHANGE
-        ):
-            _LOGGER.debug(
-                "%s: Auto-Reloading disabled for this area skipping...",
-                config_entry.data[ATTR_NAME],
-            )
-            return
-
-        _LOGGER.debug(
-            "%s: Reloading entry due entity registry change",
-            config_entry.data[ATTR_NAME],
-        )
-
-        await _async_reload_entry()
-
-    async def _async_setup_integration(*args, **kwargs) -> None:
+    async def _async_setup_integration() -> bool:
         """Load integration when Hass has finished starting."""
         _LOGGER.debug("Setting up entry for %s", config_entry.data[ATTR_NAME])
 
-        magic_area: MagicArea | None = get_magic_area_for_config_entry(
-            hass, config_entry
-        )
-        assert magic_area is not None
-        await magic_area.initialize()
+        # Build AreaConfig directly from registry (coordinator's primary config source)
+        area_config = build_area_config_for_config_entry(hass, config_entry)
+        if area_config is None:
+            _LOGGER.error(
+                "Failed to build area config for entry %s",
+                config_entry.entry_id,
+            )
+            return False
 
         _LOGGER.debug(
             "%s: Magic Area (%s) created: %s",
-            magic_area.name,
-            magic_area.id,
-            str(magic_area.config),
+            area_config.name,
+            area_config.id,
+            str(area_config.config),
         )
 
-        # Setup config uptate listener
-        tracked_listeners: list[Callable] = []
-        tracked_listeners.append(config_entry.add_update_listener(async_update_options))
+        # Setup config update listener
+        tracked_listeners: list[Callable[[], None]] = [
+            config_entry.add_update_listener(async_update_options)
+        ]
 
         # Watch for area changes.
-        if not magic_area.is_meta():
-            tracked_listeners.append(
-                hass.bus.async_listen(
-                    EVENT_ENTITY_REGISTRY_UPDATED,
-                    _async_registry_updated,
-                    magic_area.make_entity_registry_filter(),
-                )
-            )
-            tracked_listeners.append(
-                hass.bus.async_listen(
-                    EVENT_DEVICE_REGISTRY_UPDATED,
-                    _async_registry_updated,
-                    magic_area.make_device_registry_filter(),
-                )
-            )
-            # Reload once Home Assistant has finished starting to make sure we have all entities.
-            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _async_reload_entry)
+        if not area_config.is_meta():
+            attach_registry_listeners(hass, config_entry, area_config, tracked_listeners)
 
-        hass.data[MODULE_DATA][config_entry.entry_id] = {
-            DATA_AREA_OBJECT: magic_area,
-            DATA_TRACKED_LISTENERS: tracked_listeners,
-        }
+        coordinator = MagicAreasCoordinator(hass, area_config, config_entry)
+        if config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
+            await coordinator.async_config_entry_first_refresh()
+        else:
+            await coordinator.async_refresh()
 
-        # Setup platforms
-        await hass.config_entries.async_forward_entry_setups(
-            config_entry, magic_area.available_platforms()
+        config_entry.runtime_data = MagicAreasRuntimeData(
+            coordinator=coordinator,
+            listeners=tracked_listeners,
         )
 
-    hass.data.setdefault(MODULE_DATA, {})
+        # Setup platforms (get from coordinator data after refresh)
+        platforms = (
+            coordinator.data.area_config.available_platforms()
+            if coordinator.data
+            else []
+        )
+        await hass.config_entries.async_forward_entry_setups(config_entry, platforms)
+        return True
 
-    await _async_setup_integration()
-
-    return True
+    return await _async_setup_integration()
 
 
-async def async_update_options(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+async def async_update_options(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> None:
     """Update options."""
     _LOGGER.debug(
         "Detected options change for entry %s, reloading", config_entry.entry_id
@@ -140,45 +88,34 @@ async def async_update_options(hass: HomeAssistant, config_entry: ConfigEntry) -
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Unload a config entry."""
 
-    if MODULE_DATA not in hass.data:
-        _LOGGER.warning(
-            "Module data object for Magic Areas not found, possibly already removed."
-        )
-        return False
+    area_data = config_entry.runtime_data
 
-    data = hass.data[MODULE_DATA]
-
-    if config_entry.entry_id not in data:
-        _LOGGER.debug(
-            "Config entry '%s' not on data dictionary, probably already unloaded. Skipping.",
-            config_entry.entry_id,
-        )
-        return True
-
-    area_data = data[config_entry.entry_id]
-    area = area_data[DATA_AREA_OBJECT]
+    # Get platforms from coordinator data if available, otherwise build from config
+    platforms = []
+    if area_data.coordinator.data:
+        platforms = area_data.coordinator.data.area_config.available_platforms()
 
     all_unloaded = await hass.config_entries.async_unload_platforms(
-        config_entry, area.available_platforms()
+        config_entry, platforms
     )
 
-    for tracked_listener in area_data[DATA_TRACKED_LISTENERS]:
+    await area_data.coordinator.async_shutdown()
+
+    for tracked_listener in area_data.listeners:
         tracked_listener()
 
-    if all_unloaded:
-        data.pop(config_entry.entry_id)
-
-    if not data:
-        hass.data.pop(MODULE_DATA)
-
-    return True
+    return all_unloaded
 
 
 # Update config version
-async def async_migrate_entry(hass, config_entry: ConfigEntry):
+async def async_migrate_entry(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> bool:
     """Migrate old entry."""
     _LOGGER.info(
         "%s: Migrating configuration from version %s.%s, current config: %s",
@@ -196,6 +133,26 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
         )
 
         return False
+
+    from_version = (config_entry.version, config_entry.minor_version)
+    to_version = (
+        int(MagicConfigEntryVersion.MAJOR),
+        int(MagicConfigEntryVersion.MINOR),
+    )
+
+    migrated_count = await apply_applicable_migrations(
+        hass,
+        config_entry,
+        from_version=from_version,
+        to_version=to_version,
+    )
+    _LOGGER.debug(
+        "%s: Applied %s migration(s) from %s to %s",
+        config_entry.data[ATTR_NAME],
+        migrated_count,
+        from_version,
+        to_version,
+    )
 
     hass.config_entries.async_update_entry(
         config_entry,

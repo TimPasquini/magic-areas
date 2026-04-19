@@ -1,0 +1,31 @@
+{
+  "target_path": "custom_components/magic_areas",
+  "rolling_limit": 3,
+  "references": [
+    {
+      "id": "fork_point",
+      "label": "Fork point",
+      "commit": "d7b5779"
+    },
+    {
+      "id": "decomposition_marker",
+      "label": "Decomposition marker",
+      "commit": "f9f9b46"
+    },
+    {
+      "id": "decomposition_endpoint",
+      "label": "Decomposition endpoint",
+      "commit": "5affd2b"
+    },
+    {
+      "id": "recomposition_start",
+      "label": "Recomposition start",
+      "commit": "0a1ce60"
+    },
+    {
+      "id": "peak_file_count",
+      "label": "Peak file-count point",
+      "commit": "c2dd9dc"
+    }
+  ]
+}

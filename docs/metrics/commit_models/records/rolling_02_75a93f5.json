@@ -1,0 +1,11 @@
+{
+  "commit": "75a93f5314b9bd17d6cfaf252718a7d43f30f8bf",
+  "date": "2026-03-29",
+  "py_files": 105,
+  "role": "rolling",
+  "rolling_index": 2,
+  "short": "75a93f5",
+  "subject": "refactor: move light-group event orchestration into runtime helpers",
+  "target_path": "custom_components/magic_areas",
+  "total_files": 119
+}

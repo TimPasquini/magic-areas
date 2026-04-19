@@ -6,7 +6,7 @@ After some research, I found that even when my HVAC setpoint was consistent, the
 This tutorial walks through my approach to measuring a more realistic **“Indoor Feels Like” temperature** using Home Assistant, Magic Areas aggregates, and template sensors — and how this lets us tune HVAC presets for better comfort and energy efficiency.
 
 !!! info
-    If all your areas are conditioned and you don’t have upstairs exterior spaces or unconditioned rooms, most of this can be skipped. You can jump straight to the **Indoor Feels Like** section.
+    If all your areas are conditioned, and you don’t have upstairs exterior spaces or unconditioned rooms, most of this can be skipped. You can jump straight to the **Indoor Feels Like** section.
 
     Using Magic Areas aggregates makes this easier, but you can do it with manually created sensors as well. The goal is to have more meaningful humidity and temperature readings for interior and each floor.
 
@@ -113,4 +113,4 @@ By combining:
 - A “feels like” calculation factoring humidity and exterior temperature
 
 …it’s possible to get an **Indoor Feels Like** sensor that closely matches actual comfort.
-This provides actionable insights to **tune HVAC schedules**, improve night-time comfort, and achieve **better energy efficiency** in your home.
+This provides actionable insights to **tune HVAC schedules**, improve nighttime comfort, and achieve **better energy efficiency** in your home.

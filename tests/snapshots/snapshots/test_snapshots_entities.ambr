@@ -1,0 +1,112 @@
+# serializer version: 1
+# name: test_binary_sensor_structure_snapshot
+  dict({
+    'binary_sensor_count': 1,
+    'has_binary_sensors': True,
+    'magic_binary_sensor_count': 2,
+  })
+# ---
+# name: test_coordinator_data_snapshot
+  dict({
+    'area_id': 'kitchen',
+    'enabled_features_count': 2,
+    'entity_domain_count': 3,
+    'magic_entity_domain_count': 4,
+    'presence_sensor_count': 1,
+    'total_config_keys': 9,
+  })
+# ---
+# name: test_entity_domain_structure_snapshot
+  dict({
+    'domain_counts': dict({
+      'binary_sensor': 1,
+      'light': 1,
+      'sensor': 1,
+    }),
+    'entity_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+    ]),
+    'entity_ids': dict({
+      'binary_sensor': list([
+        'binary_sensor.motion_sensor',
+      ]),
+      'light': list([
+        'light.mock_light',
+      ]),
+      'sensor': list([
+        'sensor.illuminance_sensor',
+      ]),
+    }),
+    'magic_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+      'switch',
+    ]),
+    'total_entities': 3,
+  })
+# ---
+# name: test_light_group_structure_snapshot
+  dict({
+    'has_light_entities': True,
+    'light_entity_count': 1,
+    'magic_light_count': 1,
+  })
+# ---
+# name: test_magic_entity_structure_snapshot
+  dict({
+    'domain_entity_counts': dict({
+      'binary_sensor': 2,
+      'light': 1,
+      'sensor': 1,
+      'switch': 1,
+    }),
+    'magic_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+      'switch',
+    ]),
+    'magic_entity_ids': dict({
+      'binary_sensor': list([
+        'binary_sensor.magic_areas_aggregates_kitchen_aggregate_motion',
+        'binary_sensor.magic_areas_presence_tracking_kitchen_area_state',
+      ]),
+      'light': list([
+        'light.magic_areas_light_groups_kitchen_all_lights',
+      ]),
+      'sensor': list([
+        'sensor.magic_areas_aggregates_kitchen_aggregate_illuminance',
+      ]),
+      'switch': list([
+        'switch.magic_areas_light_groups_kitchen_light_control',
+      ]),
+    }),
+    'total_magic_entities': 5,
+  })
+# ---
+# name: test_magic_sensor_structure_snapshot
+  dict({
+    'has_magic_sensors': True,
+    'magic_sensor_count': 1,
+    'sensor_count': 1,
+  })
+# ---
+# name: test_presence_sensor_structure_snapshot
+  dict({
+    'has_presence_sensors': True,
+    'presence_sensor_count': 1,
+    'presence_sensors': list([
+      'binary_sensor.motion_sensor',
+    ]),
+  })
+# ---
+# name: test_sensor_entity_structure_snapshot
+  dict({
+    'has_sensors': True,
+    'magic_sensor_count': 1,
+    'sensor_count': 1,
+  })
+# ---

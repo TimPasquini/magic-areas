@@ -1,0 +1,164 @@
+# serializer version: 1
+# name: test_coordinator_availability
+  dict({
+    'area_available': True,
+    'coordinator_last_update_success': True,
+    'has_updated_at_timestamp': True,
+  })
+# ---
+# name: test_coordinator_basic_kitchen_area
+  dict({
+    'area_id': 'kitchen',
+    'area_name': 'kitchen',
+    'area_type': 'interior',
+    'available': True,
+    'config_keys': list([
+      'clear_timeout',
+      'exclude_entities',
+      'extended_timeout',
+      'features',
+      'id',
+      'include_entities',
+      'name',
+      'presence_sensor_device_class',
+      'type',
+    ]),
+    'enabled_features': list([
+      'aggregates',
+      'light_groups',
+    ]),
+    'entity_domain_counts': dict({
+      'binary_sensor': 1,
+      'light': 1,
+      'sensor': 1,
+    }),
+    'entity_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+    ]),
+    'feature_config_keys': list([
+      'aggregates',
+      'light_groups',
+    ]),
+    'is_meta': False,
+    'magic_entity_counts': dict({
+      'binary_sensor': 2,
+      'light': 1,
+      'sensor': 1,
+      'switch': 1,
+    }),
+    'magic_entity_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+      'switch',
+    ]),
+    'presence_device_classes': list([
+      'motion',
+      'occupancy',
+      'presence',
+    ]),
+    'presence_sensor_count': 1,
+    'presence_sensors': list([
+      'binary_sensor.motion_sensor',
+    ]),
+  })
+# ---
+# name: test_coordinator_data_structure_fields
+  dict({
+    'has_active_areas_list': True,
+    'has_area_config': True,
+    'has_area_runtime': True,
+    'has_config_dict': True,
+    'has_enabled_features_set': True,
+    'has_entities_dict': True,
+    'has_feature_configs_dict': True,
+    'has_magic_entities_dict': True,
+    'has_presence_sensors_list': True,
+    'has_updated_at': True,
+  })
+# ---
+# name: test_coordinator_entity_grouping
+  dict({
+    'magic_entity_count_by_domain': dict({
+      'binary_sensor': 2,
+      'light': 1,
+      'sensor': 1,
+      'switch': 1,
+    }),
+    'magic_entity_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+      'switch',
+    ]),
+    'regular_entity_counts': dict({
+      'binary_sensor': 1,
+      'light': 1,
+      'sensor': 1,
+    }),
+    'regular_entity_domains': list([
+      'binary_sensor',
+      'light',
+      'sensor',
+    ]),
+  })
+# ---
+# name: test_coordinator_feature_configuration
+  dict({
+    'config_has_features_entry': True,
+    'enabled_features': list([
+      'aggregates',
+      'light_groups',
+    ]),
+    'feature_config_keys': list([
+      'aggregates',
+      'light_groups',
+    ]),
+    'feature_configs': dict({
+      'aggregates': dict({
+        'aggregates_illuminance_threshold': 100,
+        'aggregates_min_entities': 1,
+      }),
+      'light_groups': dict({
+      }),
+    }),
+    'feature_configs_count': 2,
+  })
+# ---
+# name: test_coordinator_presence_configuration
+  dict({
+    'device_classes': list([
+      'motion',
+      'occupancy',
+      'presence',
+    ]),
+    'device_platforms': None,
+    'has_presence_sensors_in_snapshot': True,
+    'presence_sensor_count': 1,
+    'presence_sensors': list([
+      'binary_sensor.motion_sensor',
+    ]),
+  })
+# ---
+# name: test_coordinator_with_all_areas
+  dict({
+    'area_id': 'interior',
+    'area_name': 'Interior',
+    'child_area_count': 6,
+    'child_areas': list([
+      'dining_room',
+      'garage',
+      'guest_bedroom',
+      'kitchen',
+      'living_room',
+      'master_bedroom',
+    ]),
+    'entity_domains': list([
+      'binary_sensor',
+    ]),
+    'is_meta': True,
+    'presence_sensor_count': 6,
+  })
+# ---

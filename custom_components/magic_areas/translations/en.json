@@ -13,7 +13,8 @@
     "abort": {
       "already_configured": "This device is already configured",
       "invalid_area": "The selected area does not exist",
-      "no_more_areas": "All your areas are already magic!"
+      "no_more_areas": "All your areas are already magic!",
+      "no_areas_available": "All areas are already configured"
     }
   },
   "options": {
@@ -43,6 +44,7 @@
           "secondary_states": "Advanced area state tracking",
           "presence_tracking": "Presence tracking options",
           "select_features": "Feature selection",
+          "custom_control_groups": "Configure custom control groups",
           "finish": "Save & Exit",
           "feature_conf_health": "Configure health sensor",
           "feature_conf_fan_groups": "Configure fan groups",

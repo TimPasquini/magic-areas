@@ -1,71 +1,88 @@
 """Media player control feature switch."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, EntityCategory
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.const import EntityCategory
 
-from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    AreaStates,
-    MagicAreasEvents,
-    MagicAreasFeatureInfoMediaPlayerGroups,
+if TYPE_CHECKING:
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+from custom_components.magic_areas.core.controls.policies.media import (
+    build_media_control_group_policy,
+    MediaControlPolicy,
+    MediaPolicySignals,
 )
-from custom_components.magic_areas.switch.base import SwitchBase
+from custom_components.magic_areas.core.controls import ControlGroupContext
+from custom_components.magic_areas.core.runtime_model import ControlGroupPolicyId
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.switch.base import ControlSwitchBase
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class MediaPlayerControlSwitch(SwitchBase):
+class MediaPlayerControlSwitch(ControlSwitchBase):
     """Switch to enable/disable climate control."""
 
-    feature_info = MagicAreasFeatureInfoMediaPlayerGroups()
+    feature_id = MagicAreasFeatures.MEDIA_PLAYER_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
 
-    media_player_group_id: str
-
-    def __init__(self, area: MagicArea) -> None:
+    policy: MediaControlPolicy
+    media_player_group_id: str | None
+    def __init__(
+        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
+    ) -> None:
         """Initialize the Climate control switch."""
 
-        SwitchBase.__init__(self, area)
+        super().__init__(area_config, coordinator)
 
-        self.media_player_group_id = f"{MEDIA_PLAYER_DOMAIN}.magic_areas_media_player_groups_{self.area.slug}_media_player_group"
+        self.policy = build_media_control_group_policy()
+        # Entity ID resolved in async_added_to_hass from coordinator snapshot
+        self.media_player_group_id = None
 
     async def async_added_to_hass(self) -> None:
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
 
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, MagicAreasEvents.AREA_STATE_CHANGED, self.area_state_changed
+        # Resolve media player group ID from coordinator snapshot or entity registry
+        entity_refs = self._entity_refs()
+        if entity_refs:
+            self.media_player_group_id = entity_refs.media_player_group
+        if not self.media_player_group_id:
+            self.media_player_group_id = self._resolve_primary_group_entity_id(
+                policy_id=str(ControlGroupPolicyId.MEDIA_PLAYER_GROUPS),
+                domain=MEDIA_PLAYER_DOMAIN,
             )
-        )
+        self._track_area_state_with_sensor(area_state_handler=self.area_state_changed)
 
-    async def area_state_changed(self, area_id, states_tuple):
+    async def area_state_changed(
+        self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
+    ) -> None:
         """Handle area state change event."""
 
-        if not self.is_on:
-            self.logger.debug("%s: Control disabled. Skipping.", self.name)
+        states = self._extract_relevant_area_states(
+            area_id,
+            states_tuple,
+            require_enabled=True,
+        )
+        if not states:
             return
 
-        if area_id != self.area.id:
-            _LOGGER.debug(
-                "%s: Area state change event not for us. Skipping. (event: %s/self: %s)",
-                self.name,
-                area_id,
-                self.area.id,
-            )
-            return
-
-        # pylint: disable-next=unused-variable
-        new_states, lost_states = states_tuple
-
-        if AreaStates.CLEAR in new_states:
+        new_states, lost_states, _current_states = states
+        decision = await self._evaluate_policy(
+            policy=self.policy,
+            context=ControlGroupContext(
+                group_id=f"media_player_groups_{self._area_id}",
+                new_states=tuple(new_states),
+                lost_states=tuple(lost_states),
+                current_states=(),
+                signals=MediaPolicySignals(
+                    media_player_group_id=self.media_player_group_id
+                ),
+                is_enabled=bool(self.is_on),
+            ),
+            logger=_LOGGER,
+        )
+        if decision.actions:
             _LOGGER.debug("%s: Area clear, turning off media players.", self.name)
-            await self.hass.services.async_call(
-                MEDIA_PLAYER_DOMAIN,
-                SERVICE_TURN_OFF,
-                {ATTR_ENTITY_ID: self.media_player_group_id},
-            )
-            return

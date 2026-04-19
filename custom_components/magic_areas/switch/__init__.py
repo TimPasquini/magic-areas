@@ -1,92 +1,81 @@
 """Platform file for Magic Area's switch entities."""
 
-import logging
+from __future__ import annotations
 
-from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.config_entries import ConfigEntry
+import logging
+from typing import TYPE_CHECKING
+
 from homeassistant.const import EntityCategory
+from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from custom_components.magic_areas.base.magic import MagicArea
-from custom_components.magic_areas.const import (
-    MagicAreasFeatureInfoLightGroups,
-    MagicAreasFeatures,
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.platform_dispatch import (
+    async_setup_platform_via_features,
 )
-from custom_components.magic_areas.helpers.area import get_area_from_config_entry
+from custom_components.magic_areas.features.config.readers import (
+    presence_hold_config,
+)
 from custom_components.magic_areas.switch.base import SwitchBase
-from custom_components.magic_areas.switch.climate_control import ClimateControlSwitch
-from custom_components.magic_areas.switch.fan_control import FanControlSwitch
-from custom_components.magic_areas.switch.media_player_control import (
+from custom_components.magic_areas.switch.base import ResettableSwitchBase
+from custom_components.magic_areas.switch.climate_control import (  # noqa: F401
+    ClimateControlSwitch,
+)
+from custom_components.magic_areas.switch.fan_control import FanControlSwitch  # noqa: F401
+from custom_components.magic_areas.switch.media_player_control import (  # noqa: F401
     MediaPlayerControlSwitch,
 )
-from custom_components.magic_areas.switch.presence_hold import PresenceHoldSwitch
-from custom_components.magic_areas.util import cleanup_removed_entries
+
+if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.runtime_model import AreaConfig
+    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+    from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+PARALLEL_UPDATES = 0
 
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-):
-    """Set up the area switch config entry."""
-
-    area: MagicArea | None = get_area_from_config_entry(hass, config_entry)
-    assert area is not None
-
-    switch_entities = []
-
-    if area.has_feature(MagicAreasFeatures.PRESENCE_HOLD) and not area.is_meta():
-        try:
-            switch_entities.append(PresenceHoldSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.error(
-                "%s: Error loading presence hold switch: %s", area.name, str(e)
-            )
-
-    if area.has_feature(MagicAreasFeatures.LIGHT_GROUPS) and not area.is_meta():
-        try:
-            switch_entities.append(LightControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.error(
-                "%s: Error loading light control switch: %s", area.name, str(e)
-            )
-
-    if area.has_feature(MagicAreasFeatures.MEDIA_PLAYER_GROUPS) and not area.is_meta():
-        try:
-            switch_entities.append(MediaPlayerControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.error(
-                "%s: Error loading media player control switch: %s", area.name, str(e)
-            )
-
-    if area.has_feature(MagicAreasFeatures.FAN_GROUPS) and not area.is_meta():
-        try:
-            switch_entities.append(FanControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.error("%s: Error loading fan control switch: %s", area.name, str(e))
-
-    if area.has_feature(MagicAreasFeatures.CLIMATE_CONTROL):
-        try:
-            switch_entities.append(ClimateControlSwitch(area))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.error(
-                "%s: Error loading climate control switch: %s", area.name, str(e)
-            )
-
-    if switch_entities:
-        async_add_entities(switch_entities)
-
-    if SWITCH_DOMAIN in area.magic_entities:
-        cleanup_removed_entries(
-            area.hass, switch_entities, area.magic_entities[SWITCH_DOMAIN]
-        )
+__all__ = [
+    "ClimateControlSwitch",
+    "FanControlSwitch",
+    "LightControlSwitch",
+    "MediaPlayerControlSwitch",
+    "PresenceHoldSwitch",
+]
 
 
 class LightControlSwitch(SwitchBase):
     """Switch to enable/disable light control."""
 
-    feature_info = MagicAreasFeatureInfoLightGroups()
+    feature_id = MagicAreasFeatures.LIGHT_GROUPS
     _attr_entity_category = EntityCategory.CONFIG
+
+
+class PresenceHoldSwitch(ResettableSwitchBase):
+    """Switch to enable/disable presence hold."""
+
+    feature_id = MagicAreasFeatures.PRESENCE_HOLD
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self, area_config: AreaConfig, coordinator: MagicAreasCoordinator
+    ) -> None:
+        """Initialize the switch."""
+        feature_configs = coordinator.data.feature_configs if coordinator.data else {}
+        timeout = presence_hold_config(feature_configs).timeout
+        ResettableSwitchBase.__init__(self, area_config, coordinator, timeout=timeout)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: MagicAreasConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the area switch config entry."""
+    await async_setup_platform_via_features(
+        hass=hass,
+        config_entry=config_entry,
+        async_add_entities=async_add_entities,
+        domain=SWITCH_DOMAIN,
+        logger=_LOGGER,
+    )

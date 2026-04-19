@@ -1,0 +1,208 @@
+# serializer version: 1
+# name: test_config_flow_basic_area_data
+  dict({
+    'clear_timeout': 0,
+    'extended_timeout': 5,
+    'id': 'kitchen',
+    'name': 'Kitchen',
+    'presence_device_platforms': None,
+    'presence_sensor_device_class': list([
+      <BinarySensorDeviceClass.MOTION: 'motion'>,
+      <BinarySensorDeviceClass.OCCUPANCY: 'occupancy'>,
+      <BinarySensorDeviceClass.PRESENCE: 'presence'>,
+    ]),
+    'type': <AreaType.INTERIOR: 'interior'>,
+  })
+# ---
+# name: test_config_flow_error_responses_snapshot
+  dict({
+    'duplicate_area': dict({
+      'code': 'duplicate_area_config',
+      'message': 'Area already configured',
+    }),
+    'missing_entity': dict({
+      'code': 'entity_not_found',
+      'message': 'Required entity not found',
+    }),
+    'validation_error': dict({
+      'code': 'invalid_config',
+      'message': 'Configuration validation failed',
+    }),
+  })
+# ---
+# name: test_config_flow_exterior_area_data
+  dict({
+    'clear_timeout': 300,
+    'features': dict({
+    }),
+    'id': 'patio',
+    'name': 'Patio',
+    'type': <AreaType.EXTERIOR: 'exterior'>,
+  })
+# ---
+# name: test_config_flow_meta_area_data
+  dict({
+    'features': dict({
+    }),
+    'id': 'Global',
+    'name': 'Global Meta Area',
+    'type': <AreaType.META: 'meta'>,
+  })
+# ---
+# name: test_config_flow_user_flow_snapshot
+  dict({
+    'clear_timeout': 0,
+    'exclude_entities': list([
+    ]),
+    'extended_timeout': 5,
+    'features': dict({
+    }),
+    'id': 'kitchen',
+    'include_entities': list([
+    ]),
+    'name': 'Kitchen',
+    'presence_sensor_device_class': list([
+      <BinarySensorDeviceClass.MOTION: 'motion'>,
+      <BinarySensorDeviceClass.OCCUPANCY: 'occupancy'>,
+      <BinarySensorDeviceClass.PRESENCE: 'presence'>,
+    ]),
+    'type': <AreaType.INTERIOR: 'interior'>,
+  })
+# ---
+# name: test_config_keys_snapshot
+  dict({
+    'area_basic': list([
+      'id',
+      'name',
+      'type',
+    ]),
+    'features': list([
+      'features',
+    ]),
+    'presence': list([
+      'presence_device_platforms',
+      'presence_sensor_device_class',
+    ]),
+    'timeouts': list([
+      'clear_timeout',
+      'extended_timeout',
+    ]),
+  })
+# ---
+# name: test_enabled_features_snapshot
+  dict({
+    <MagicAreasFeatures.AGGREGATES: 'aggregates'>: dict({
+      'aggregates_illuminance_threshold': 20,
+      'aggregates_min_entities': 2,
+    }),
+    <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>: dict({
+      'aggregates_min_entities': 1,
+    }),
+  })
+# ---
+# name: test_feature_config_aggregation_snapshot
+  dict({
+    'aggregates_illuminance_threshold': 50,
+    'aggregates_min_entities': 2,
+  })
+# ---
+# name: test_feature_list_snapshot
+  list([
+    <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
+    <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
+    <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
+    <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
+    <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
+    <MagicAreasFeatures.HEALTH: 'health'>,
+    <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
+    <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
+    <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
+  ])
+# ---
+# name: test_feature_registry_snapshot
+  list([
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.AGGREGATES: 'aggregates'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
+    }),
+    dict({
+      'has_next_step': True,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
+      'merge_options': True,
+      'name': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.HEALTH: 'health'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.HEALTH: 'health'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.PRESENCE_HOLD: 'presence_hold'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.WASP_IN_A_BOX: 'wasp_in_a_box'>,
+    }),
+  ])
+# ---
+# name: test_options_flow_snapshot
+  dict({
+    'clear_timeout': 0,
+    'exclude_entities': list([
+    ]),
+    'extended_timeout': 5,
+    'features': dict({
+    }),
+    'id': 'kitchen',
+    'include_entities': list([
+    ]),
+    'name': 'Kitchen',
+    'presence_sensor_device_class': list([
+      <BinarySensorDeviceClass.MOTION: 'motion'>,
+      <BinarySensorDeviceClass.OCCUPANCY: 'occupancy'>,
+      <BinarySensorDeviceClass.PRESENCE: 'presence'>,
+    ]),
+    'type': <AreaType.INTERIOR: 'interior'>,
+  })
+# ---
