@@ -28,7 +28,7 @@ WASP_IN_A_BOX_FEATURE_SCHEMA = schema_from_default_options(
     keys_and_validators=(
         (WASP_IN_A_BOX_OPTION_KEYS[0], cv.positive_int),
         (WASP_IN_A_BOX_OPTION_KEYS[1], cv.positive_int),
-        (WASP_IN_A_BOX_OPTION_KEYS[2], cv.ensure_list),
+        (WASP_IN_A_BOX_OPTION_KEYS[2], [str]),
     ),
 )
 

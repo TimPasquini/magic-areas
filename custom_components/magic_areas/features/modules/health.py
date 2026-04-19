@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.binary_sensor import (
@@ -26,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 HEALTH_FEATURE_SCHEMA = schema_from_default_options(
     feature=MagicAreasFeatures.HEALTH,
-    keys_and_validators=((HEALTH_OPTION_KEYS[0], cv.ensure_list),),
+    keys_and_validators=((HEALTH_OPTION_KEYS[0], [str]),),
 )
 
 

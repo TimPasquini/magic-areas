@@ -37,7 +37,7 @@ AREA_AWARE_MEDIA_PLAYER_FEATURE_SCHEMA = schema_from_default_options(
     feature=MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
     keys_and_validators=(
         (AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0], cv.entity_ids),
-        (AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[1], cv.ensure_list),
+        (AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[1], [str]),
     ),
 )
 

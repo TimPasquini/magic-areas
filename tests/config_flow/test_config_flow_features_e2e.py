@@ -166,6 +166,38 @@ async def test_options_flow_fan_groups(
     }
 
 
+async def test_options_flow_fan_groups_accepts_integer_setpoint(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Fan groups flow accepts integer setpoint input and persists float."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups",
+    )
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.EXTENDED,
+            CONF_FAN_GROUPS_SETPOINT: 50,
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert (
+        config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.FAN_GROUPS][
+            "setpoint"
+        ]
+        == 50.0
+    )
+
+
 async def test_options_flow_area_aware_media_player(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:

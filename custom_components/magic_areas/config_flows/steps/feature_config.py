@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING
 import voluptuous as vol
 from homeassistant import config_entries
 
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.config_keys.area import (
+    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
+    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
+    CONF_AGGREGATES_MIN_ENTITIES,
+)
 from custom_components.magic_areas.config_flows.base import (
     ConfigSubMap,
     SelectorMap,
@@ -17,12 +23,23 @@ from custom_components.magic_areas.config_flows.base import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.config.readers import (
+    AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS,
+    BLE_TRACKER_OPTION_KEYS,
     CLIMATE_CONTROL_ENTITY_KEY,
     CLIMATE_CONTROL_PRESET_OPTION_KEYS,
+    AGGREGATES_OPTION_KEYS,
+    HEALTH_OPTION_KEYS,
     WASP_IN_A_BOX_OPTION_KEYS,
 )
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
+from custom_components.magic_areas.light_groups import (
+    LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
+    LIGHT_GROUP_ACT_ON_STATE_CHANGE,
+    LIGHT_GROUP_PRESETS,
+)
 from custom_components.magic_areas.policy import (
+    ALL_BINARY_SENSOR_DEVICE_CLASSES,
+    ALL_SENSOR_DEVICE_CLASSES,
     WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.config_flows.selector_builders import (
@@ -30,6 +47,8 @@ from custom_components.magic_areas.config_flows.selector_builders import (
     NoEntitySelectedError,
     NoPresetSupportError,
     build_climate_preset_selectors_and_validators,
+    build_selector_entity_simple,
+    build_selector_number,
     build_selector_select,
 )
 from custom_components.magic_areas.schemas import CONFIGURABLE_FEATURES
@@ -179,6 +198,73 @@ async def handle_feature_conf(
         return flow.async_abort(reason="unknown_feature")
 
     selectors: SelectorMap = {}
+
+    if feature_enum == MagicAreasFeatures.AGGREGATES:
+        selectors.update(
+            {
+                CONF_AGGREGATES_MIN_ENTITIES: build_selector_number(
+                    min_value=1, unit_of_measurement=""
+                ),
+                CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: build_selector_number(
+                    min_value=0, unit_of_measurement="lx"
+                ),
+                CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS: (
+                    build_selector_number(min_value=0, unit_of_measurement="%")
+                ),
+                AGGREGATES_OPTION_KEYS[3]: build_selector_select(
+                    sorted(ALL_BINARY_SENSOR_DEVICE_CLASSES), multiple=True
+                ),
+                AGGREGATES_OPTION_KEYS[4]: build_selector_select(
+                    sorted(ALL_SENSOR_DEVICE_CLASSES), multiple=True
+                ),
+            }
+        )
+
+    if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
+        for preset in LIGHT_GROUP_PRESETS:
+            selectors[preset.category] = build_selector_entity_simple(
+                flow.all_lights, multiple=True
+            )
+            selectors[preset.states_key] = build_selector_select(
+                options=[
+                    AreaStates.OCCUPIED.value,
+                    AreaStates.EXTENDED.value,
+                    AreaStates.SLEEP.value,
+                    AreaStates.ACCENT.value,
+                ],
+                multiple=True,
+            )
+            selectors[preset.act_on_key] = build_selector_select(
+                options=[
+                    LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
+                    LIGHT_GROUP_ACT_ON_STATE_CHANGE,
+                ],
+                multiple=True,
+            )
+
+    if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
+        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = build_selector_entity_simple(
+            flow.all_media_players, multiple=True
+        )
+        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[1]] = build_selector_select(
+            options=[
+                AreaStates.OCCUPIED.value,
+                AreaStates.EXTENDED.value,
+                AreaStates.SLEEP.value,
+            ],
+            multiple=True,
+        )
+
+    if feature_enum == MagicAreasFeatures.BLE_TRACKER:
+        selectors[BLE_TRACKER_OPTION_KEYS[0]] = build_selector_entity_simple(
+            flow.all_entities, multiple=True
+        )
+
+    if feature_enum == MagicAreasFeatures.HEALTH:
+        selectors[HEALTH_OPTION_KEYS[0]] = build_selector_select(
+            options=sorted(ALL_BINARY_SENSOR_DEVICE_CLASSES),
+            multiple=True,
+        )
 
     # Wasp in a Box: UI submits a list for wasp_device_classes; override with selector.
     if feature_enum == MagicAreasFeatures.WASP_IN_A_BOX:

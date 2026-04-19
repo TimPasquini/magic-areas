@@ -39,8 +39,8 @@ AGGREGATE_FEATURE_SCHEMA = schema_from_default_options(
         (AGGREGATES_OPTION_KEYS[0], cv.positive_int),
         (AGGREGATES_OPTION_KEYS[1], cv.positive_int),
         (AGGREGATES_OPTION_KEYS[2], cv.positive_int),
-        (AGGREGATES_OPTION_KEYS[3], cv.ensure_list),
-        (AGGREGATES_OPTION_KEYS[4], cv.ensure_list),
+        (AGGREGATES_OPTION_KEYS[3], [str]),
+        (AGGREGATES_OPTION_KEYS[4], [str]),
     ),
 )
 

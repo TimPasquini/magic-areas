@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.helpers.entity import Entity
@@ -43,7 +44,7 @@ FAN_GROUP_FEATURE_SCHEMA = schema_from_default_options(
     keys_and_validators=(
         (FAN_GROUPS_OPTION_KEYS[0], str),
         (FAN_GROUPS_OPTION_KEYS[1], str),
-        (FAN_GROUPS_OPTION_KEYS[2], float),
+        (FAN_GROUPS_OPTION_KEYS[2], vol.Coerce(float)),
     ),
 )
 

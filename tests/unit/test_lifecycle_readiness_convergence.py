@@ -230,6 +230,14 @@ def test_should_trigger_readiness_reload_requires_tracked_entity() -> None:
         old_value="unknown",
         new_value="20",
     )
+    assert not should_trigger_readiness_reload(
+        entity_id="switch.magic_areas_presence_hold_kitchen",
+        tracked_entity_ids={
+            "switch.magic_areas_presence_hold_kitchen",
+        },
+        old_value="unknown",
+        new_value="on",
+    )
 
 
 def test_should_trigger_readiness_reload_rejects_non_recovery_transitions() -> None:

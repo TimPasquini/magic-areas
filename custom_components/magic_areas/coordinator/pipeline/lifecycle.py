@@ -367,6 +367,10 @@ def should_trigger_readiness_reload(
     """Return whether a state transition should trigger readiness convergence."""
     if entity_id is None:
         return False
+    if _is_magicareas_entity(entity_id):
+        # Ignore state recovery of Magic Areas entities themselves; those
+        # transitions are a normal side effect of reloading and can form loops.
+        return False
     if entity_id not in tracked_entity_ids:
         return False
     if new_value is None:

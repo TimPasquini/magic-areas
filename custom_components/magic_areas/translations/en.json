@@ -44,6 +44,7 @@
           "secondary_states": "Advanced area state tracking",
           "presence_tracking": "Presence tracking options",
           "select_features": "Feature selection",
+          "custom_control_groups": "Configure custom control groups",
           "finish": "Save & Exit",
           "feature_conf_health": "Configure health sensor",
           "feature_conf_fan_groups": "Configure fan groups",
