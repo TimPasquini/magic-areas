@@ -80,7 +80,6 @@ class FanControlSwitch(ControlSwitchBase):
 
         from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 
-        self._area_sensor_entity_id = self._resolve_area_state_sensor_entity_id()
         if not self.tracked_entity_id:
             self.tracked_entity_id = self._resolve_entity_id_by_unique_id(
                 SENSOR_DOMAIN,
@@ -94,16 +93,14 @@ class FanControlSwitch(ControlSwitchBase):
                 policy_id=str(ControlGroupPolicyId.FAN_GROUPS),
                 domain=FAN_DOMAIN,
             )
-        self._track_area_state_dispatcher(self.area_state_changed)
+        self._area_sensor_entity_id = self._track_area_state_with_sensor(
+            area_state_handler=self.area_state_changed,
+            area_sensor_handler=self._area_sensor_state_changed,
+        )
         self._track_state_change(
             "aggregate_sensor_state_change",
             self.tracked_entity_id,
             self.aggregate_sensor_state_changed,
-        )
-        self._track_state_change(
-            "area_sensor_state_change",
-            self._area_sensor_entity_id,
-            self._area_sensor_state_changed,
         )
 
     async def aggregate_sensor_state_changed(
@@ -159,26 +156,13 @@ class FanControlSwitch(ControlSwitchBase):
             _LOGGER.debug("%s: Control disabled, skipping.", self.name)
             return
 
-        # Read sensor value
-        sensor_value = None
-        if self.tracked_entity_id:
-            sensor_state = self.hass.states.get(self.tracked_entity_id)
-            if sensor_state:
-                try:
-                    sensor_value = float(sensor_state.state)
-                except (ValueError, TypeError):
-                    _LOGGER.warning(
-                        "%s: Could not parse sensor value from '%s'",
-                        self.name,
-                        sensor_state.state,
-                    )
-                    sensor_value = None
-            else:
-                _LOGGER.warning(
-                    "%s: Tracked sensor entity '%s' is not found. Please ensure aggregates are enabled and the selected device class is configured.",
-                    self.name,
-                    self.tracked_entity_id,
-                )
+        sensor_value = self._read_float_state(
+            self.tracked_entity_id,
+            missing_log=(
+                "%s: Tracked sensor entity '%s' is not found. Please ensure "
+                "aggregates are enabled and the selected device class is configured."
+            ),
+        )
 
         fan_state = (
             self.hass.states.get(self._fan_group_entity_id)

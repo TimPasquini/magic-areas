@@ -25,14 +25,14 @@ Use `mcp__code_review_graph__list_graph_stats_tool` and verify:
 - Test nodes are present in substantial volume.
 - `TESTED_BY` edges are present in substantial volume.
 
-Current baseline snapshot (2026-04-18):
+Current baseline snapshot:
 
 - files: `302`
 - nodes: `2479`
 - edges: `18321`
 - test nodes: `966`
 - `TESTED_BY` edges: `5202`
-- `last_updated`: `2026-04-18T18:09:48`
+- `last_updated`: session-dependent; verify current value before analysis
 
 If your numbers are drastically lower (especially tests/`TESTED_BY`), do not
 trust architecture or impact analysis until graph build/postprocess is rerun.
@@ -57,7 +57,7 @@ When stale:
 - High warning counts involving `tests-*` communities are commonly
   `test-coupling` signals, not production architecture violations.
 - Prioritize production-to-production coupling warnings first.
-- Record warning disposition in the hardening plan as one of:
+- Record warning disposition in your active architecture notes as one of:
   - `resolved`
   - `intentional`
   - `deferred`

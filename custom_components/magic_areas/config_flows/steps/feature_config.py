@@ -15,14 +15,12 @@ from custom_components.magic_areas.config_flows.base import (
     get_feature_config_steps,
     invalid_input_error,
 )
-from custom_components.magic_areas.config_keys.area import (
-    CLIMATE_CONTROL_PRESET_KEY_BY_STATE,
-    CONF_CLIMATE_CONTROL_ENTITY_ID,
-    CONF_WASP_IN_A_BOX_DELAY,
-    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
-    CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
-)
 from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.features.config.readers import (
+    CLIMATE_CONTROL_ENTITY_KEY,
+    CLIMATE_CONTROL_PRESET_OPTION_KEYS,
+    WASP_IN_A_BOX_OPTION_KEYS,
+)
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.policy import (
     WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
@@ -51,16 +49,6 @@ _EXPECTED_FEATURE_FLOW_ERRORS = (
     AttributeError,
     RuntimeError,
 )
-
-CLIMATE_CONTROL_PRESET_OPTION_KEYS: tuple[str, ...] = tuple(
-    CLIMATE_CONTROL_PRESET_KEY_BY_STATE.values()
-)
-WASP_IN_A_BOX_OPTION_KEYS: tuple[str, ...] = (
-    CONF_WASP_IN_A_BOX_DELAY,
-    CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
-    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
-)
-
 
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
@@ -218,7 +206,7 @@ async def handle_climate_preset_selection(
     climate_cfg: ConfigSubMap = enabled_feature_map(flow.area_options).get(
         MagicAreasFeatures.CLIMATE_CONTROL.value, {}
     )
-    climate_entity_value = climate_cfg.get(CONF_CLIMATE_CONTROL_ENTITY_ID)
+    climate_entity_value = climate_cfg.get(CLIMATE_CONTROL_ENTITY_KEY)
     climate_entity_id = (
         climate_entity_value if isinstance(climate_entity_value, str) else None
     )

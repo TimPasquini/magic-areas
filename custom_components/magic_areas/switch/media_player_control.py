@@ -54,7 +54,7 @@ class MediaPlayerControlSwitch(ControlSwitchBase):
                 policy_id=str(ControlGroupPolicyId.MEDIA_PLAYER_GROUPS),
                 domain=MEDIA_PLAYER_DOMAIN,
             )
-        self._track_area_state_dispatcher(self.area_state_changed)
+        self._track_area_state_with_sensor(area_state_handler=self.area_state_changed)
 
     async def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]

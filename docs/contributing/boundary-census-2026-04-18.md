@@ -12,7 +12,7 @@ This census is read-only analysis input for follow-up cleanup PRs.
 - Source of truth for boundary enforcement:
   - `tests/unit/test_import_boundaries.py`
   - `docs/contributing/runtime-boundaries.md`
-  - `docs/contributing/mcp-production-risk-hardening-plan.md`
+  - `docs/contributing/architecture.md`
 - Current boundary test status:
   - `uv run pytest tests/unit/test_import_boundaries.py -q` passes (`51 passed`)
 

@@ -42,16 +42,12 @@ INTEGRATION FLOW:
 """
 
 import asyncio
-import functools
 import logging
 import pathlib
-from datetime import datetime
 from time import monotonic
-from asyncio import get_running_loop
-from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping, Sequence
 from typing import NoReturn, cast
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import voluptuous as vol
 from homeassistant import loader
@@ -75,7 +71,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.setup import async_setup_component
-from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys.area import (
@@ -94,11 +89,15 @@ from custom_components.magic_areas.const import (
 from custom_components.magic_areas.defaults import (
     DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
 )
-from custom_components.magic_areas.area_state import AreaStates
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
+from tests import helpers_timing as _helpers_timing
 from tests.mocks import MockModule, MockPlatform
 
 _LOGGER = logging.getLogger(__name__)
+
+VirtualClock = _helpers_timing.VirtualClock
+create_area_state_change_event = _helpers_timing.create_area_state_change_event
+immediate_call_factory = _helpers_timing.immediate_call_factory
 
 # ============================================================================
 # INTEGRATION SETUP HELPERS
@@ -584,121 +583,6 @@ async def setup_mock_entities(
 
 
 # ============================================================================
-# ASYNC/TIMING HELPERS
-# ============================================================================
-# Virtual clock for deterministic time-based testing.
-
-
-class VirtualClock:
-    """Provide a virtual clock for an asyncio event loop.
-
-    This class enables deterministic testing of time-dependent code by replacing
-    real time with a virtual time that advances instantly. Tests using this clock
-    complete immediately instead of waiting for real-world delays.
-
-    The clock works by:
-    1. Patching the event loop's time() method to return virtual time
-    2. Making asyncio.sleep() return instantly while advancing virtual time
-    3. Setting clock resolution to 0.1 for predictable timing
-
-    Attributes:
-        vtime (float): The current virtual time in seconds.
-
-    Example:
-        Use virtual clock in a timing test:
-
-        >>> virtual_clock = VirtualClock()
-        >>> @pytest.mark.asyncio
-        ... async def test_delayed_action():
-        ...     with virtual_clock.patch_loop():
-        ...         # This completes instantly instead of waiting 60 seconds
-        ...         await asyncio.sleep(60)
-        ...         assert virtual_clock.vtime == 60.0
-
-    """
-
-    def __init__(self) -> None:
-        """Initialize the clock with a simple time.
-
-        Sets vtime to 0.0, representing the start of virtual time.
-        """
-        self.vtime = 0.0
-
-    def virtual_time(self) -> float:
-        """Return the current virtual time.
-
-        Returns:
-            float: The current virtual time in seconds.
-
-        """
-        return self.vtime
-
-    def _virtual_select(
-        self,
-        orig_select: Callable[[float | None], object],
-        timeout: float | None,
-    ) -> object:
-        """Override select() to advance virtual time without blocking.
-
-        When asyncio's event loop calls select() with a timeout, we advance
-        the virtual time by that timeout and then call the original select()
-        with a 0 timeout, making it return immediately.
-
-        Args:
-            orig_select: The original event loop select method.
-            timeout: The timeout requested by the event loop.
-
-        Returns:
-            The result of calling orig_select with 0 timeout.
-
-        """
-        if timeout is not None:
-            self.vtime += timeout
-        return orig_select(0)  # override the timeout to zero
-
-    @contextmanager
-    def patch_loop(self) -> Iterator[None]:
-        """Override methods of the current event loop for virtual time.
-
-        This is a context manager that patches the running event loop so that:
-        - asyncio.sleep() returns instantly
-        - loop.time() returns virtual time
-        - The clock resolution is set to 0.1 seconds
-
-        Yields:
-            None: Use in a 'with' statement context.
-
-        Example:
-            with virtual_clock.patch_loop():
-                # All asyncio code here uses virtual time
-                await some_async_function()
-
-        """
-        loop = get_running_loop()
-        with (
-            patch.object(
-                loop._selector,  # type: ignore[attr-defined]  # pylint: disable=protected-access
-                "select",
-                new=functools.partial(
-                    self._virtual_select,
-                    loop._selector.select,  # type: ignore[attr-defined]  # pylint: disable=protected-access
-                ),
-            ),
-            patch.object(
-                loop,
-                "time",
-                new=self.virtual_time,
-            ),
-            patch.object(
-                loop,
-                "_clock_resolution",
-                new=0.1,
-            ),
-        ):
-            yield
-
-
-# ============================================================================
 # CONFIGURATION HELPERS
 # ============================================================================
 # Helpers to create and manage test configuration.
@@ -999,139 +883,5 @@ async def wait_for_attribute(
     assert state.attributes.get(attribute_key) == expected_value
 
 
-# ============================================================================
-# TIMER/CALLBACK HELPERS
-# ============================================================================
-# Helpers for managing scheduled callbacks and timers in tests.
-
-
-def immediate_call_factory(
-    hass: HomeAssistant, callback_key: str = "callback"
-) -> Callable[
-    [HomeAssistant, float, Callable[[datetime], Awaitable[object] | None]],
-    Callable[[], None],
-]:
-    """Create a callback factory for testing delayed callbacks without real delays.
-
-    Creates a side_effect function suitable for patching hass.helpers.
-    async_call_later(). This factory allows tests to trigger delayed callbacks
-    immediately while maintaining the ability to cancel them.
-
-    When used with unittest.mock.patch, this makes tests with hass.async_call_later()
-    execute instantly, enabling deterministic testing of timeout-based features
-    like presence timeout, extended timeout, and state transitions.
-
-    Args:
-        hass: The Home Assistant instance used to create tasks.
-        callback_key: Unused parameter, kept for compatibility. Default: "callback".
-
-    Returns:
-        callable: A function with signature (hass, delay, callback) that:
-            - Creates an asyncio task to run the callback immediately
-            - Returns a cancel function to prevent callback execution
-            - Respects the cancel function if called before callback runs
-
-    Note:
-        This factory is designed to replace:
-        >>> from homeassistant.helpers import async_call_later
-        >>> handle = async_call_later(hass, delay_seconds, my_callback)
-        >>> handle()  # cancels
-
-    Example:
-        Mock async_call_later to use immediate callbacks:
-
-        >>> with patch("homeassistant.helpers.async_call_later",
-        ...     side_effect=immediate_call_factory(hass)
-        ... ):
-        ...     # This callback fires immediately instead of after the delay
-        ...     await test_delayed_action()
-
-    Usage in Tests:
-        Tests using this factory often test:
-        - Presence timeout features
-        - Extended timeout behaviors
-        - State change debouncing
-        - Area state transitions
-
-    """
-
-    def immediate_call(
-        hass_arg: HomeAssistant,
-        delay_arg: float,
-        callback_arg: Callable[[datetime], Awaitable[object] | None],
-    ) -> Callable[[], None]:
-        """Execute a callback immediately, with optional cancellation.
-
-        Args:
-            hass_arg: Home Assistant instance (unused, for mock compatibility).
-            delay_arg: Delay in seconds (unused, callbacks fire immediately).
-            callback_arg: The async callback function to execute.
-
-        Returns:
-            callable: A cancel function that prevents callback execution
-                if called before the callback runs.
-
-        """
-        canceled = False
-
-        def cancel() -> None:
-            nonlocal canceled
-            canceled = True
-
-        async def run_callback() -> None:
-            if not canceled:
-                result = callback_arg(utcnow())
-                if result is not None:
-                    await result
-
-        hass.loop.create_task(run_callback())
-        return cancel
-
-    return immediate_call
-
-
-# Event Payload Helpers
-
-
-def create_area_state_change_event(
-    new_states: list[AreaStates] | None = None,
-    lost_states: list[AreaStates] | None = None,
-    current_states: list[AreaStates] | None = None,
-) -> tuple[list[AreaStates], list[AreaStates], list[AreaStates]]:
-    """Create an AREA_STATE_CHANGED event payload tuple.
-
-    The event dispatcher sends area state changes as a tuple:
-        (new_states, lost_states, current_states)
-
-    Where each element is a list of AreaStates enum members.
-
-    Args:
-        new_states: List of AreaStates that became active. Defaults to empty list.
-        lost_states: List of AreaStates that became inactive. Defaults to empty list.
-        current_states: List of AreaStates currently active. Defaults to empty list.
-
-    Returns:
-        tuple: (new_states, lost_states, current_states) event payload
-
-    Example:
-        # Area just became occupied:
-        from custom_components.magic_areas.area_state import AreaStates
-        payload = create_area_state_change_event(
-            new_states=[AreaStates.OCCUPIED],
-            current_states=[AreaStates.OCCUPIED]
-        )
-        # Dispatches: (new=[OCCUPIED], lost=[], current=[OCCUPIED])
-
-        # Area became clear (lost occupied):
-        payload = create_area_state_change_event(
-            lost_states=[AreaStates.OCCUPIED],
-            current_states=[]
-        )
-        # Dispatches: (new=[], lost=[OCCUPIED], current=[])
-
-    """
-    return (
-        new_states if new_states is not None else [],
-        lost_states if lost_states is not None else [],
-        current_states if current_states is not None else [],
-    )
+# Timing/callback/event payload helpers are re-exported from
+# `tests.helpers_timing` to keep this module's public API stable.

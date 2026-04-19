@@ -70,14 +70,9 @@ class ClimateControlSwitch(ControlSwitchBase):
             self.climate_entity_id = self._resolve_primary_group_member_entity_id(
                 policy_id=str(ControlGroupPolicyId.CLIMATE_CONTROL),
             )
-        # Resolve area sensor entity ID from coordinator snapshot or entity registry
-        self._area_sensor_entity_id = self._resolve_area_state_sensor_entity_id()
-
-        self._track_area_state_dispatcher(self.area_state_changed)
-        self._track_state_change(
-            "area_sensor_state_change",
-            self._area_sensor_entity_id,
-            self._area_sensor_state_changed,
+        self._area_sensor_entity_id = self._track_area_state_with_sensor(
+            area_state_handler=self.area_state_changed,
+            area_sensor_handler=self._area_sensor_state_changed,
         )
 
     async def area_state_changed(

@@ -57,6 +57,7 @@ Contract:
 
 ## 5) Feature module boundary (runtime composition)
 
+- `custom_components/magic_areas/feature_info.py`
 - `custom_components/magic_areas/features/registry.py`
 - `custom_components/magic_areas/features/dispatch.py`
 - `custom_components/magic_areas/features/modules/*.py`
@@ -64,6 +65,11 @@ Contract:
 - `custom_components/magic_areas/features/base.py`
 
 Contract:
+- Two-door ownership is enforced:
+  - metadata door: `feature_info.py` (pure feature metadata lookup only)
+  - runtime door: `features/registry.py` (module wiring, availability, dependency checks)
+- Base entities consume metadata door (`get_feature_info`) and do not depend on
+  runtime registry construction.
 - Feature modules are runtime entity-construction entry points.
 - `features.config` and explicit feature config slices
   (`features.config.<feature_slice>`) are the public feature-owned runtime config
@@ -150,6 +156,7 @@ Not allowed:
 - Feature modules importing platform setup modules
 - Policy modules calling HA service APIs or executor functions directly
 - Platform/entity code bypassing coordinator snapshot for runtime/config state
+- Reintroducing root-level lazy/proxy feature registry facades
 
 ## Boundary enforcement policy
 
@@ -165,5 +172,8 @@ Not allowed:
   `docs/contributing/mcp-graph-hygiene.md` before interpreting MCP warnings.
 - Ownership guardrails also enforce:
   - `core.config.feature` remains generic-only (normalization/access primitives).
+  - `core/` does not import `features.config.readers` (feature adapter surface).
+  - `ALLOWLIST_OVERRIDES` contains only intentional seams; no temporary
+    `runtime_core` inversion overrides.
   - central facades do not re-export feature semantics unintentionally.
   - runtime imports consume entry surfaces, not internal implementation modules.

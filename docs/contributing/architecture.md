@@ -33,6 +33,20 @@ For historical fork deltas (vs `d7b5779`), see:
   feature surfaces (`features.dispatch`, `features.registry`, `features.base`,
   `features.config`).
 
+## Feature Two-Door Ownership (Current)
+
+- Metadata door:
+  - `custom_components/magic_areas/feature_info.py`
+  - Owns canonical `FeatureInfo` metadata map + lookup (`get_feature_info`).
+  - Must remain free of runtime module wiring imports.
+- Runtime door:
+  - `custom_components/magic_areas/features/registry.py`
+  - Owns feature module registration, availability/configurability checks, and
+    dependency validation.
+- Entity/runtime usage:
+  - `entity.py` consumes metadata door directly.
+  - No root `feature_registry.py` lazy/proxy compatibility layer is present.
+
 ## Control and Decision Boundaries
 
 - Canonical decision contracts are exported from `core` (implemented in
@@ -100,6 +114,9 @@ For historical fork deltas (vs `d7b5779`), see:
   - `custom_components.magic_areas.config_flows.steps`
   - `custom_components.magic_areas.switch`
   - `custom_components.magic_areas.media_player`
+- Core boundary inversion is removed:
+  - production `core/` modules do not import `features.config.readers`.
+  - boundary tests enforce this contract.
 
 ## Invariants
 

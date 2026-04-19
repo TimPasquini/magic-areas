@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 type AreaStatesTuple = tuple[list[str], list[str], list[str]]
 type AreaStateEventHandler = Callable[[str, AreaStatesTuple], object]
 type StateChangeEventHandler = Callable[[Event[EventStateChangedData]], object]
+type AreaSensorMissingLogTemplate = str
 
 
 class SwitchBase(MagicEntity, SwitchEntity):
@@ -170,6 +171,25 @@ class ControlSwitchBase(SwitchBase):
             async_track_state_change_event(self.hass, [entity_id], handler),
         )
 
+    def _track_area_state_with_sensor(
+        self,
+        *,
+        area_state_handler: AreaStateEventHandler,
+        area_sensor_handler: StateChangeEventHandler | None = None,
+        area_sensor_listener_key: str = "area_sensor_state_change",
+    ) -> str | None:
+        """Track area dispatcher events and optional area-sensor state changes."""
+        self._track_area_state_dispatcher(area_state_handler)
+        if area_sensor_handler is None:
+            return None
+        area_sensor_entity_id = self._resolve_area_state_sensor_entity_id()
+        self._track_state_change(
+            area_sensor_listener_key,
+            area_sensor_entity_id,
+            area_sensor_handler,
+        )
+        return area_sensor_entity_id
+
     def _extract_relevant_area_states(
         self,
         area_id: str,
@@ -286,6 +306,32 @@ class ControlSwitchBase(SwitchBase):
             metadata_key=str(GroupMetadataKey.ROLE),
             metadata_value=str(GroupRole.PRIMARY),
         )
+
+    def _read_float_state(
+        self,
+        entity_id: str | None,
+        *,
+        missing_log: AreaSensorMissingLogTemplate | None = None,
+    ) -> float | None:
+        """Return entity state parsed as float, with standardized error logging."""
+        if not entity_id:
+            return None
+
+        sensor_state = self.hass.states.get(entity_id)
+        if sensor_state is None:
+            if missing_log:
+                self.logger.warning(missing_log, self.name, entity_id)
+            return None
+
+        try:
+            return float(sensor_state.state)
+        except (ValueError, TypeError):
+            self.logger.warning(
+                "%s: Could not parse sensor value from '%s'",
+                self.name,
+                sensor_state.state,
+            )
+            return None
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up listeners on removal."""
