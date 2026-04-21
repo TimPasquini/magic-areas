@@ -224,7 +224,7 @@ class TestLightGroupPolicy:
             is_primary=False,
         )
         assert decision.action == LightAction.TURN_OFF
-        assert "no_valid_states" in decision.reason
+        assert "sleep_not_assigned" in decision.reason
         assert decision.next_control_state is not None
         assert decision.next_control_state.controlling is True
         assert decision.next_control_state.awaiting_echo is True
@@ -283,6 +283,38 @@ class TestLightGroupPolicy:
         assert decision.next_control_state.controlling is True
         assert decision.next_control_state.awaiting_echo is True
 
+    def test_noop_when_sleep_active_and_group_not_sleep_assigned(self) -> None:
+        """Sleep should suppress groups that are not explicitly sleep-assigned."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED],
+            act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "sleep_active_not_assigned" in decision.reason
+
+    def test_turn_off_when_entering_sleep_and_group_not_sleep_assigned(self) -> None:
+        """Entering sleep should actively turn off groups not assigned to sleep."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.SLEEP],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "sleep_not_assigned" in decision.reason
+
     def test_noop_when_no_changes(self) -> None:
         """Should noop when no state changes."""
         policy = LightGroupPolicy(
@@ -298,6 +330,23 @@ class TestLightGroupPolicy:
         )
         assert decision.action == LightAction.NOOP
         assert "no_state_changes" in decision.reason
+
+    def test_manual_override_blocks_automatic_reacquire(self) -> None:
+        """Automatic policy should not reclaim control while in manual override."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.DARK],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+            control_state=CommandEchoState(controlling=False, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "manual_override_active" in decision.reason
+        assert decision.next_control_state is None
 
     def test_noop_when_no_assigned_states(self) -> None:
         """Should noop when light group has no assigned states."""
