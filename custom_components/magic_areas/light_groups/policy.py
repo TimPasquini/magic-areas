@@ -157,6 +157,20 @@ class LightGroupPolicy:
         if AreaStates.OCCUPIED not in current_state_set:
             return self._decision(LightAction.NOOP, "not_occupied")
 
+        # Sleep is globally suppressive for regular light behaviors.
+        # Only groups explicitly assigned to SLEEP should remain active.
+        if (
+            AreaStates.SLEEP in current_state_set
+            and AreaStates.SLEEP not in self.assigned_states
+        ):
+            if AreaStates.SLEEP in new_states:
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "sleep_not_assigned",
+                    should_track_control=True,
+                )
+            return self._decision(LightAction.NOOP, "sleep_active_not_assigned")
+
         valid_states = [
             state for state in self.assigned_states if state in current_state_set
         ]
@@ -232,6 +246,11 @@ class LightGroupPolicy:
             lost_states=lost_states,
             current_states=current_states,
         )
+
+        # Preserve manual override: if another actor owns the group, do not
+        # auto-reclaim control via policy actions.
+        if decision.should_track_control and not control_state.controlling:
+            return self._decision(LightAction.NOOP, "manual_override_active")
 
         next_control_state: CommandEchoState | None = None
         if decision.should_track_control:
