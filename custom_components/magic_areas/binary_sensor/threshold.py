@@ -109,7 +109,10 @@ class AreaThresholdSensor(MagicEntity, ThresholdSensor):
             hysteresis=float(hysteresis),
             device_class=device_class,
         )
-        self._attr_name = None
+        # Match the entity naming pattern used by other translated entities:
+        # remove explicit name so HA composes "<Area> <Translated Entity Name>".
+        if hasattr(self, "_attr_name"):
+            delattr(self, "_attr_name")
 
     async def async_added_to_hass(self) -> None:
         """Register listeners."""

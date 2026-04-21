@@ -339,7 +339,7 @@
         }
       },
       "threshold_light": {
-        "name": "Light (Calculated)"
+        "name": "Light State"
       },
       "wasp_in_a_box": {
         "name": "Wasp in a Box",
