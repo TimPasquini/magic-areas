@@ -216,6 +216,7 @@ def evaluate_state_change(
             and (now - host._last_turn_on_monotonic) >= min_on_required
         )
     )
+    inside_bright_met = _inside_bright_met(host)
     outside_context_ok = _outside_context_ok(host)
     ambient_rise_met = _ambient_rise_met(host, now)
     attribution_hold_required = int(
@@ -232,6 +233,7 @@ def evaluate_state_change(
     host._attr_extra_state_attributes["adaptive_guards"] = {
         "bright_dwell_met": bright_dwell_met,
         "min_on_met": min_on_met,
+        "inside_bright_met": inside_bright_met,
         "outside_context_ok": outside_context_ok,
         "attribution_hold_met": attribution_hold_met,
         "ambient_rise_met": ambient_rise_met,
@@ -247,6 +249,7 @@ def evaluate_state_change(
             control_state=host._echo_state,
             bright_dwell_met=bright_dwell_met,
             min_on_met=min_on_met,
+            inside_bright_met=inside_bright_met,
             outside_context_ok=outside_context_ok,
             attribution_hold_met=attribution_hold_met,
             ambient_rise_met=ambient_rise_met,
@@ -504,6 +507,11 @@ def _update_bright_tracking(
 
 def _outside_context_ok(host: _LightGroupHost) -> bool:
     """Return whether outside context allows adaptive bright-driven off."""
+    outside_bright_entity = getattr(host.policy.policy, "outside_bright_entity", None)
+    if isinstance(outside_bright_entity, str) and outside_bright_entity:
+        outside_bright_state = host.hass.states.get(outside_bright_entity)
+        return bool(outside_bright_state and outside_bright_state.state == STATE_ON)
+
     source = str(getattr(host.policy.policy, "outside_context_source", "sun")).lower()
     if source == "none":
         return False
@@ -550,6 +558,17 @@ def _outside_context_ok(host: _LightGroupHost) -> bool:
 
     sun_state = host.hass.states.get("sun.sun")
     return bool(sun_state and sun_state.state == STATE_ABOVE_HORIZON)
+
+
+def _inside_bright_met(host: _LightGroupHost) -> bool | None:
+    """Return explicit inside-bright signal state when configured."""
+    inside_bright_entity = getattr(host.policy.policy, "inside_bright_entity", None)
+    if not isinstance(inside_bright_entity, str) or not inside_bright_entity:
+        return None
+    inside_bright_state = host.hass.states.get(inside_bright_entity)
+    if inside_bright_state is None:
+        return False
+    return inside_bright_state.state == STATE_ON
 
 
 def _inside_lux_sample(host: _LightGroupHost) -> float | None:

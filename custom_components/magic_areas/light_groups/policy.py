@@ -112,7 +112,9 @@ class LightGroupPolicy:
     brightness_mode: str = BrightnessMode.INHIBIT.value
     bright_min_on_seconds: int = 0
     bright_dwell_seconds: int = 0
+    inside_bright_entity: str | None = None
     outside_context_source: str = "sun"
+    outside_bright_entity: str | None = None
     outside_lux_entity: str | None = None
     outside_lux_min: int = 0
     outside_lux_inside_entity: str | None = None
@@ -150,6 +152,7 @@ class LightGroupPolicy:
         *,
         bright_dwell_met: bool = True,
         min_on_met: bool = True,
+        inside_bright_met: bool | None = None,
         outside_context_ok: bool = True,
         attribution_hold_met: bool = True,
         ambient_rise_met: bool = True,
@@ -160,10 +163,12 @@ class LightGroupPolicy:
         if AreaStates.CLEAR in new_states:
             return self._decision(LightAction.NOOP, "area_clear", reset_control=True)
 
-        if (
-            AreaStates.BRIGHT in current_state_set
-            and AreaStates.BRIGHT not in self.assigned_states
-        ):
+        bright_active = (
+            inside_bright_met
+            if inside_bright_met is not None
+            else (AreaStates.BRIGHT in current_state_set)
+        )
+        if bright_active and AreaStates.BRIGHT not in self.assigned_states:
             if self.brightness_mode == BrightnessMode.ADVISORY.value:
                 return self._decision(LightAction.NOOP, "bright_advisory_ignore")
             if (
@@ -283,6 +288,7 @@ class LightGroupPolicy:
         is_primary: bool,
         bright_dwell_met: bool = True,
         min_on_met: bool = True,
+        inside_bright_met: bool | None = None,
         outside_context_ok: bool = True,
         attribution_hold_met: bool = True,
         ambient_rise_met: bool = True,
@@ -307,6 +313,7 @@ class LightGroupPolicy:
             current_states=current_states,
             bright_dwell_met=bright_dwell_met,
             min_on_met=min_on_met,
+            inside_bright_met=inside_bright_met,
             outside_context_ok=outside_context_ok,
             attribution_hold_met=attribution_hold_met,
             ambient_rise_met=ambient_rise_met,
@@ -382,6 +389,7 @@ class LightControlGroupPolicy(ControlGroupPolicy):
             is_primary=signals.is_primary,
             bright_dwell_met=signals.bright_dwell_met,
             min_on_met=signals.min_on_met,
+            inside_bright_met=signals.inside_bright_met,
             outside_context_ok=signals.outside_context_ok,
             attribution_hold_met=signals.attribution_hold_met,
             ambient_rise_met=signals.ambient_rise_met,
@@ -395,7 +403,9 @@ def build_light_control_group_policy(
     brightness_mode: str = BrightnessMode.INHIBIT.value,
     bright_min_on_seconds: int = 0,
     bright_dwell_seconds: int = 0,
+    inside_bright_entity: str | None = None,
     outside_context_source: str = "sun",
+    outside_bright_entity: str | None = None,
     outside_lux_entity: str | None = None,
     outside_lux_min: int = 0,
     outside_lux_inside_entity: str | None = None,
@@ -415,7 +425,9 @@ def build_light_control_group_policy(
             brightness_mode=brightness_mode,
             bright_min_on_seconds=max(0, int(bright_min_on_seconds)),
             bright_dwell_seconds=max(0, int(bright_dwell_seconds)),
+            inside_bright_entity=inside_bright_entity,
             outside_context_source=outside_context_source,
+            outside_bright_entity=outside_bright_entity,
             outside_lux_entity=outside_lux_entity,
             outside_lux_min=max(0, int(outside_lux_min)),
             outside_lux_inside_entity=outside_lux_inside_entity,
@@ -441,6 +453,7 @@ class LightPolicySignals:
     control_state: CommandEchoState
     bright_dwell_met: bool = True
     min_on_met: bool = True
+    inside_bright_met: bool | None = None
     outside_context_ok: bool = True
     attribution_hold_met: bool = True
     ambient_rise_met: bool = True
@@ -467,6 +480,7 @@ class LightPolicySignals:
             )
             bright_dwell_raw = signals.get("bright_dwell_met")
             min_on_raw = signals.get("min_on_met")
+            inside_bright_raw = signals.get("inside_bright_met")
             outside_context_raw = signals.get("outside_context_ok")
             attribution_hold_raw = signals.get("attribution_hold_met")
             ambient_rise_raw = signals.get("ambient_rise_met")
@@ -477,6 +491,11 @@ class LightPolicySignals:
                     bright_dwell_raw if isinstance(bright_dwell_raw, bool) else True
                 ),
                 min_on_met=min_on_raw if isinstance(min_on_raw, bool) else True,
+                inside_bright_met=(
+                    inside_bright_raw
+                    if isinstance(inside_bright_raw, bool)
+                    else None
+                ),
                 outside_context_ok=(
                     outside_context_raw
                     if isinstance(outside_context_raw, bool)

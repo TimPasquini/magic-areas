@@ -75,7 +75,9 @@
           "adaptive_require_ambient_rise": "Require ambient rise",
           "ambient_rise_window_seconds": "Ambient rise window",
           "ambient_rise_min_delta": "Ambient rise delta",
+          "inside_bright_entity": "Inside bright binary entity",
           "outside_context_source": "Outside context source",
+          "outside_bright_entity": "Outside bright binary entity",
           "outside_lux_entity": "Outside lux entity",
           "outside_lux_min": "Outside lux minimum",
           "outside_lux_inside_entity": "Inside lux entity for contrast",
@@ -95,14 +97,16 @@
           "task_lights_act_on": "When should task lights be controlled?"
         },
         "data_description": {
-          "brightness_mode": "Select how `bright` should affect lighting automation: `inhibit` keeps legacy behavior, `advisory` avoids bright-driven turn-off, `adaptive` allows bright-driven turn-off only after safeguards.",
+          "brightness_mode": "Select how `bright` affects automation for this group: `inhibit` keeps legacy behavior (bright can block turn-on and can trigger turn-off), `advisory` ignores bright for turn-off decisions, `adaptive` allows bright-driven turn-off only when safeguards pass.",
           "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action.",
           "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
           "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
           "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
+          "inside_bright_entity": "Optional binary entity that represents whether the room itself is bright (for example: an inside brightness threshold helper). In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
           "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
+          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
           "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
           "outside_lux_min": "Minimum outside lux required for adaptive bright-driven turn-off when source is `outside_lux`.",
           "outside_lux_inside_entity": "Optional in-room illuminance sensor used for outside/inside contrast checks when source is `outside_lux`.",
@@ -467,9 +471,9 @@
     },
     "light_brightness_mode": {
       "options": {
-        "inhibit": "Inhibit (legacy)",
-        "advisory": "Advisory",
-        "adaptive": "Adaptive"
+        "inhibit": "Inhibit: bright may block on and turn off",
+        "advisory": "Advisory: bright never turns off",
+        "adaptive": "Adaptive: bright turns off only with safeguards"
       }
     },
     "light_outside_context_source": {

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from custom_components.magic_areas.light_groups.runtime import (
     _ambient_rise_met,
+    _inside_bright_met,
     _outside_context_ok,
     _update_inside_lux_tracking,
 )
@@ -121,6 +122,50 @@ def test_outside_context_ok_with_outside_lux_ratio_gate() -> None:
         },
     )
     assert _outside_context_ok(host) is False
+
+
+def test_outside_context_uses_binary_override_when_configured() -> None:
+    """Outside bright binary should override source-based outside checks."""
+    host = _FakeHost(
+        policy_config={
+            "outside_context_source": "outside_lux",
+            "outside_bright_entity": "binary_sensor.outside_bright",
+            "outside_lux_entity": "sensor.outside",
+            "outside_lux_min": 9000,
+        },
+        states={
+            "binary_sensor.outside_bright": _state("on"),
+            "sensor.outside": _state("100"),
+        },
+    )
+    assert _outside_context_ok(host) is True
+
+    host = _FakeHost(
+        policy_config={
+            "outside_context_source": "sun",
+            "outside_bright_entity": "binary_sensor.outside_bright",
+        },
+        states={"binary_sensor.outside_bright": _state("off")},
+    )
+    assert _outside_context_ok(host) is False
+
+
+def test_inside_bright_met_reads_optional_binary_entity() -> None:
+    """Inside bright helper should return None when unset, else boolean."""
+    host = _FakeHost(policy_config={}, states={})
+    assert _inside_bright_met(host) is None
+
+    host = _FakeHost(
+        policy_config={"inside_bright_entity": "binary_sensor.room_bright"},
+        states={"binary_sensor.room_bright": _state("on")},
+    )
+    assert _inside_bright_met(host) is True
+
+    host = _FakeHost(
+        policy_config={"inside_bright_entity": "binary_sensor.room_bright"},
+        states={"binary_sensor.room_bright": _state("off")},
+    )
+    assert _inside_bright_met(host) is False
 
 
 def test_ambient_rise_met_respects_require_window_and_delta() -> None:

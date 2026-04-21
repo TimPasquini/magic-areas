@@ -14,7 +14,9 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
     CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
@@ -215,6 +217,22 @@ def outside_context_source(feature_config: FeatureConfigDict) -> str:
     return LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN
 
 
+def inside_bright_entity(feature_config: FeatureConfigDict) -> str | None:
+    """Return configured inside-bright binary entity (if any)."""
+    value = feature_config.get(CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def outside_bright_entity(feature_config: FeatureConfigDict) -> str | None:
+    """Return configured outside-bright binary entity (if any)."""
+    value = feature_config.get(CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
 def outside_lux_entity(feature_config: FeatureConfigDict) -> str | None:
     """Return configured outside lux entity (if any)."""
     value = feature_config.get(CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY)
@@ -298,6 +316,8 @@ def build_light_group_feature_schema() -> vol.Schema:
             default=LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
         )
     ] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY, default="")] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY, default="")] = cv.string
     schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY, default="")] = cv.string
     schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN, default=0)] = vol.All(
         vol.Coerce(int), vol.Range(min=0)

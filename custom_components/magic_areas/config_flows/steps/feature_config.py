@@ -36,11 +36,13 @@ from custom_components.magic_areas.light_groups import (
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
     CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
     CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
     CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
     CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
@@ -88,6 +90,69 @@ _EXPECTED_FEATURE_FLOW_ERRORS = (
     AttributeError,
     RuntimeError,
 )
+
+_LIGHT_GROUP_ALWAYS_KEYS = {
+    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+}
+_LIGHT_GROUP_ADVISORY_KEYS = {
+    CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
+}
+_LIGHT_GROUP_ADAPTIVE_ONLY_KEYS = {
+    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
+    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+}
+
+
+def _resolve_light_groups_mode(
+    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None
+) -> str:
+    """Resolve current light-groups mode from input or saved options."""
+    if user_input is not None:
+        raw = user_input.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE)
+        if isinstance(raw, str) and raw in {
+            LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        }:
+            return raw
+
+    saved = enabled_feature_map(flow.area_options).get(
+        MagicAreasFeatures.LIGHT_GROUPS.value, {}
+    )
+    if isinstance(saved, dict):
+        raw = saved.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE)
+        if isinstance(raw, str) and raw in {
+            LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        }:
+            return raw
+    return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+
+
+def _filter_schema_for_keys(schema: vol.Schema, include_keys: set[str]) -> vol.Schema:
+    """Return a copy of schema containing only desired option keys."""
+    raw_schema = schema.schema
+    if not isinstance(raw_schema, dict):
+        return schema
+
+    filtered: dict[object, object] = {}
+    for marker, validator in raw_schema.items():
+        key = getattr(marker, "schema", marker)
+        if isinstance(key, str) and key in include_keys:
+            filtered[marker] = validator
+    return vol.Schema(filtered, extra=vol.REMOVE_EXTRA)
 
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
@@ -241,6 +306,21 @@ async def handle_feature_conf(
         )
 
     if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
+        mode = _resolve_light_groups_mode(flow, user_input)
+        include_keys = set(_LIGHT_GROUP_ALWAYS_KEYS)
+        for preset in LIGHT_GROUP_PRESETS:
+            include_keys.add(preset.category)
+            include_keys.add(preset.states_key)
+            include_keys.add(preset.act_on_key)
+        if mode in {
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        }:
+            include_keys.update(_LIGHT_GROUP_ADVISORY_KEYS)
+        if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
+            include_keys.update(_LIGHT_GROUP_ADAPTIVE_ONLY_KEYS)
+        schema = _filter_schema_for_keys(schema, include_keys)
+
         selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
             options=[
                 LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
@@ -250,48 +330,59 @@ async def handle_feature_conf(
             multiple=False,
             translation_key="light_brightness_mode",
         )
-        selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
-            min_value=0, unit_of_measurement="s"
-        )
-        selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
-            min_value=0, unit_of_measurement="s"
-        )
-        selectors[
-            CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS
-        ] = build_selector_number(min_value=0, unit_of_measurement="s")
-        selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
-            build_selector_boolean()
-        )
-        selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
-            min_value=0, unit_of_measurement="s"
-        )
-        selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
-            min_value=0, unit_of_measurement="lx"
-        )
-        selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
-            options=[
-                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
-                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
-                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
-            ],
-            multiple=False,
-            translation_key="light_outside_context_source",
-        )
-        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = build_selector_entity_simple(
-            flow.all_light_tracking_entities, multiple=False
-        )
-        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
-            min_value=0, unit_of_measurement="lx"
-        )
-        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
-            build_selector_entity_simple(flow.all_light_tracking_entities, multiple=False)
-        )
-        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = build_selector_number(
-            min_value=0, unit_of_measurement="lx"
-        )
-        selectors[
-            CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT
-        ] = build_selector_number(min_value=0, unit_of_measurement="%")
+        if mode in {
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        }:
+            selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
+                flow.all_binary_entities, multiple=False
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = (
+                build_selector_entity_simple(flow.all_binary_entities, multiple=False)
+            )
+        if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
+            selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
+                min_value=0, unit_of_measurement="s"
+            )
+            selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
+                min_value=0, unit_of_measurement="s"
+            )
+            selectors[
+                CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS
+            ] = build_selector_number(min_value=0, unit_of_measurement="s")
+            selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
+                build_selector_boolean()
+            )
+            selectors[
+                CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS
+            ] = build_selector_number(min_value=0, unit_of_measurement="s")
+            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = (
+                build_selector_number(min_value=0, unit_of_measurement="lx")
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
+                options=[
+                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
+                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
+                ],
+                multiple=False,
+                translation_key="light_outside_context_source",
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = (
+                build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
+                min_value=0, unit_of_measurement="lx"
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
+                build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
+            )
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = (
+                build_selector_number(min_value=0, unit_of_measurement="lx")
+            )
+            selectors[
+                CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT
+            ] = build_selector_number(min_value=0, unit_of_measurement="%")
         for preset in LIGHT_GROUP_PRESETS:
             selectors[preset.category] = build_selector_entity_simple(
                 flow.all_lights, multiple=True
@@ -350,7 +441,9 @@ async def handle_feature_conf(
         step_id=step_id,
         schema=schema,
         user_input=user_input,
-        merge_options=feature.merge_options,
+        merge_options=(
+            True if feature_enum == MagicAreasFeatures.LIGHT_GROUPS else feature.merge_options
+        ),
         next_step=feature.next_step,
         selectors=selectors,
     )

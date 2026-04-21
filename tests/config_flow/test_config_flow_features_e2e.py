@@ -26,6 +26,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
     CONF_NOTIFICATION_DEVICES,
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_WASP_IN_A_BOX_DELAY,
@@ -384,6 +388,74 @@ async def test_options_flow_health(
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.HEALTH] == {
         "health_binary_sensor_device_classes": ["problem", "smoke"]
     }
+
+
+async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Advisory mode should expose inside/outside bright binaries but hide adaptive-only fields."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    schema = result["data_schema"]
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in keys
+    assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY not in keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY not in keys
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "advisory"},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    schema = result["data_schema"]
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in keys
+
+
+async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Adaptive mode should expose advisory and adaptive-only controls."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "adaptive"},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    schema = result["data_schema"]
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS in keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in keys
 
 
 async def test_options_flow_remove_feature(

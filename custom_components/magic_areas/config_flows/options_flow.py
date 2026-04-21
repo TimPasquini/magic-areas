@@ -48,6 +48,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self.all_media_players: list[str] = []
         self.all_binary_entities: list[str] = []
         self.all_light_tracking_entities: list[str] = []
+        self.all_illuminance_entities: list[str] = []
         self.area_options: MutableConfigMap = {}
         self._feature_step_id: str | None = None
         super().__init__()
@@ -115,6 +116,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self.all_light_tracking_entities = entity_collections[
             "all_light_tracking_entities"
         ]
+        self.all_illuminance_entities = entity_collections["all_illuminance_entities"]
 
         area_schema = META_AREA_SCHEMA if (self._area_config and self._area_config.is_meta()) else REGULAR_AREA_SCHEMA
         self.area_options = area_schema(dict(self.config_entry.options))

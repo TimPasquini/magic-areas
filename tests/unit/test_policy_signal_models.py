@@ -46,6 +46,7 @@ def test_light_policy_signals_defaults_when_missing() -> None:
     assert parsed.control_state.awaiting_echo is False
     assert parsed.bright_dwell_met is True
     assert parsed.min_on_met is True
+    assert parsed.inside_bright_met is None
     assert parsed.outside_context_ok is True
     assert parsed.attribution_hold_met is True
     assert parsed.ambient_rise_met is True
@@ -75,6 +76,7 @@ def test_non_payload_signal_inputs_default_deterministically() -> None:
     assert light_parsed.is_primary is None
     assert light_parsed.bright_dwell_met is True
     assert light_parsed.min_on_met is True
+    assert light_parsed.inside_bright_met is None
     assert light_parsed.outside_context_ok is True
     assert light_parsed.attribution_hold_met is True
     assert light_parsed.ambient_rise_met is True
@@ -88,6 +90,7 @@ def test_light_policy_signals_parse_adaptive_guard_flags() -> None:
             "is_primary": False,
             "bright_dwell_met": False,
             "min_on_met": False,
+            "inside_bright_met": True,
             "outside_context_ok": False,
             "attribution_hold_met": False,
             "ambient_rise_met": False,
@@ -96,6 +99,7 @@ def test_light_policy_signals_parse_adaptive_guard_flags() -> None:
     assert parsed.is_primary is False
     assert parsed.bright_dwell_met is False
     assert parsed.min_on_met is False
+    assert parsed.inside_bright_met is True
     assert parsed.outside_context_ok is False
     assert parsed.attribution_hold_met is False
     assert parsed.ambient_rise_met is False

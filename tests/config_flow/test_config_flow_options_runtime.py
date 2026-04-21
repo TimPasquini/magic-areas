@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from homeassistant import setup
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant, State, StateMachine
@@ -96,3 +97,31 @@ async def test_options_flow_light_tracking_entities(
 
     assert "sun.sun" in ADDITIONAL_LIGHT_TRACKING_ENTITIES
     assert "sun.sun" in flow.all_light_tracking_entities
+
+
+async def test_options_flow_illuminance_entities_exclude_sun_and_binary(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Outside/inside lux selectors should be illuminance sensors only."""
+    config_entry = cast(ConfigEntry[MagicAreasRuntimeData], init_integration)
+
+    await setup.async_setup_component(hass, "sun", {})
+    hass.states.async_set(
+        "sensor.outdoor_lux",
+        1200,
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.ILLUMINANCE},
+    )
+    hass.states.async_set(
+        "binary_sensor.daylight_flag",
+        "on",
+        {ATTR_DEVICE_CLASS: BinarySensorDeviceClass.LIGHT},
+    )
+    await hass.async_block_till_done()
+
+    flow = OptionsFlowHandler(config_entry)
+    flow.hass = hass
+    await flow.async_step_init()
+
+    assert "sensor.outdoor_lux" in flow.all_illuminance_entities
+    assert "sun.sun" not in flow.all_illuminance_entities
+    assert "binary_sensor.daylight_flag" not in flow.all_illuminance_entities

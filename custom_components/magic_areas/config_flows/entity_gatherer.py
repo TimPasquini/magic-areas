@@ -13,6 +13,7 @@ from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.input_boolean import DOMAIN as INPUT_BOOLEAN_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sun.const import DOMAIN as SUN_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -178,6 +179,33 @@ class ConfigFlowEntityGatherer:
 
         return sorted(self.resolve_groups(eligible_light_tracking_entities))
 
+    def gather_illuminance_entities(self, all_entities: list[str]) -> list[str]:
+        """Gather illuminance-capable sensor entities for lux comparisons."""
+        entity_registry = entityreg_async_get(self.hass)
+        eligible_illuminance_entities: list[str] = []
+
+        for entity_id in all_entities:
+            if entity_id.split(".")[0] != SENSOR_DOMAIN:
+                continue
+
+            state_obj = self.hass.states.get(entity_id)
+            if state_obj is not None:
+                device_class = state_obj.attributes.get(ATTR_DEVICE_CLASS)
+                if device_class == SensorDeviceClass.ILLUMINANCE:
+                    eligible_illuminance_entities.append(entity_id)
+                    continue
+
+            entry = entity_registry.async_get(entity_id)
+            if entry is None:
+                continue
+            if (
+                entry.device_class == SensorDeviceClass.ILLUMINANCE
+                or entry.original_device_class == SensorDeviceClass.ILLUMINANCE
+            ):
+                eligible_illuminance_entities.append(entity_id)
+
+        return sorted(self.resolve_groups(eligible_illuminance_entities))
+
     def gather_all(self) -> dict[str, list[str]]:
         """Gather all entity collections at once."""
         all_entities = self.gather_all_entities()
@@ -193,4 +221,5 @@ class ConfigFlowEntityGatherer:
             "all_light_tracking_entities": self.gather_light_tracking_entities(
                 all_entities
             ),
+            "all_illuminance_entities": self.gather_illuminance_entities(all_entities),
         }

@@ -97,6 +97,7 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
     assert guards == {
         "bright_dwell_met": True,
         "min_on_met": False,
+        "inside_bright_met": None,
         "outside_context_ok": True,
         "attribution_hold_met": False,
         "ambient_rise_met": True,
@@ -107,6 +108,7 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
     signals = context.signals
     assert signals.bright_dwell_met is True
     assert signals.min_on_met is False
+    assert signals.inside_bright_met is None
     assert signals.outside_context_ok is True
     assert signals.attribution_hold_met is False
     assert signals.ambient_rise_met is True

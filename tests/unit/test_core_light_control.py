@@ -242,6 +242,46 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "bright" in decision.reason
 
+    def test_bright_logic_uses_inside_bright_override_when_provided(self) -> None:
+        """Explicit inside-bright signal should control bright gating in advisory/adaptive."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            inside_bright_met=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+        )
+        assert decision.action == LightAction.NOOP
+        assert decision.reason == "no_new_priority_states"
+
+    def test_bright_logic_keeps_legacy_behavior_without_inside_override(self) -> None:
+        """When no inside-bright override exists, BRIGHT state still drives logic."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            inside_bright_met=None,
+            bright_dwell_met=True,
+            min_on_met=True,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "bright_not_assigned" in decision.reason
+
     def test_legacy_control_state_input_raises_type_error(self) -> None:
         """Legacy state objects should not be accepted by light policy."""
 
