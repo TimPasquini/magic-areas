@@ -57,6 +57,14 @@ ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
             "tests/unit/test_light_control_group_parity",
             "custom_components.magic_areas.light_groups.runtime",
         ),
+        (
+            "tests/unit/test_light_group_runtime_adaptive_guards",
+            "custom_components.magic_areas.light_groups.runtime",
+        ),
+        (
+            "tests/unit/test_light_group_runtime_state_change_observability",
+            "custom_components.magic_areas.light_groups.runtime",
+        ),
     },
     # Intentional test-only implementation seam: switch base lifecycle/write
     # contracts are validated at the base class implementation layer.

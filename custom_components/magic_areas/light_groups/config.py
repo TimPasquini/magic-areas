@@ -6,6 +6,21 @@ from collections.abc import Mapping
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
+from custom_components.magic_areas.config_keys.area import (
+    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 FeatureConfigValue = object
@@ -25,9 +40,14 @@ CONF_ACCENT_LIGHTS_ACT_ON = "accent_lights_act_on"
 CONF_TASK_LIGHTS = "task_lights"
 CONF_TASK_LIGHTS_STATES = "task_lights_states"
 CONF_TASK_LIGHTS_ACT_ON = "task_lights_act_on"
-
 LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE = "occupancy"
 LIGHT_GROUP_ACT_ON_STATE_CHANGE = "state"
+LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT = "inhibit"
+LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY = "advisory"
+LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE = "adaptive"
+LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN = "sun"
+LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX = "outside_lux"
+LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE = "none"
 
 LIGHT_GROUP_DEFAULT_ICON = "mdi:lightbulb-group"
 
@@ -139,6 +159,116 @@ def preset_act_on_modes(
     )
 
 
+def brightness_mode(feature_config: FeatureConfigDict) -> str:
+    """Return configured bright-behavior mode."""
+    value = feature_config.get(
+        CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+        LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+    )
+    if not isinstance(value, str):
+        return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+    normalized = value.lower()
+    if normalized in {
+        LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+        LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+        LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+    }:
+        return normalized
+    return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+
+
+def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -> int:
+    """Read integer option from feature config with safe fallback."""
+    value = feature_config.get(key, default)
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, parsed)
+
+
+def bright_min_on_seconds(feature_config: FeatureConfigDict) -> int:
+    """Return adaptive min-on-time threshold in seconds."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS, default=0)
+
+
+def bright_dwell_seconds(feature_config: FeatureConfigDict) -> int:
+    """Return adaptive bright dwell threshold in seconds."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS, default=0)
+
+
+def outside_context_source(feature_config: FeatureConfigDict) -> str:
+    """Return outside context source for adaptive bright-off gating."""
+    value = feature_config.get(
+        CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+        LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+    )
+    if not isinstance(value, str):
+        return LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN
+    normalized = value.lower()
+    if normalized in {
+        LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+        LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
+        LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
+    }:
+        return normalized
+    return LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN
+
+
+def outside_lux_entity(feature_config: FeatureConfigDict) -> str | None:
+    """Return configured outside lux entity (if any)."""
+    value = feature_config.get(CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def outside_lux_min(feature_config: FeatureConfigDict) -> int:
+    """Return minimum outside lux threshold for adaptive bright-off gating."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN, default=0)
+
+
+def outside_lux_inside_entity(feature_config: FeatureConfigDict) -> str | None:
+    """Return configured inside lux entity for outside/inside contrast checks."""
+    value = feature_config.get(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def outside_lux_inside_delta(feature_config: FeatureConfigDict) -> int:
+    """Return required outside-inside lux delta for adaptive bright-off gating."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0)
+
+
+def outside_lux_inside_ratio_min_percent(feature_config: FeatureConfigDict) -> int:
+    """Return required outside/inside lux ratio percentage (100 = 1.0x)."""
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT, default=0
+    )
+
+
+def bright_attribution_hold_seconds(feature_config: FeatureConfigDict) -> int:
+    """Return suppressive hold window after controlled light activity."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS, default=0)
+
+
+def adaptive_require_ambient_rise(feature_config: FeatureConfigDict) -> bool:
+    """Return whether adaptive bright-off requires inside ambient rise evidence."""
+    value = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE, False)
+    return bool(value)
+
+
+def ambient_rise_window_seconds(feature_config: FeatureConfigDict) -> int:
+    """Return lookback window used by ambient-rise detector."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120)
+
+
+def ambient_rise_min_delta(feature_config: FeatureConfigDict) -> int:
+    """Return minimum inside lux rise required within the ambient window."""
+    return _int_option(feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA, default=20)
+
+
 def build_light_group_feature_schema() -> vol.Schema:
     """Build light-group feature schema from preset declarations."""
     schema: dict[object, object] = {}
@@ -150,6 +280,47 @@ def build_light_group_feature_schema() -> vol.Schema:
         schema[vol.Optional(preset.act_on_key, default=list(preset.default_act_on))] = (
             cv.ensure_list
         )
+    schema[
+        vol.Optional(
+            CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+            default=LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+        )
+    ] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS, default=0)] = vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    )
+    schema[vol.Optional(CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS, default=0)] = vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    )
+    schema[
+        vol.Optional(
+            CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+            default=LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+        )
+    ] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY, default="")] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN, default=0)] = vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    )
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY, default="")] = cv.string
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0)] = vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    )
+    schema[
+        vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT, default=0)
+    ] = vol.All(vol.Coerce(int), vol.Range(min=0))
+    schema[
+        vol.Optional(CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS, default=0)
+    ] = vol.All(vol.Coerce(int), vol.Range(min=0))
+    schema[vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE, default=False)] = (
+        cv.boolean
+    )
+    schema[
+        vol.Optional(CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120)
+    ] = vol.All(vol.Coerce(int), vol.Range(min=0))
+    schema[vol.Optional(CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA, default=20)] = vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    )
     return vol.Schema(schema, extra=vol.REMOVE_EXTRA)
 
 

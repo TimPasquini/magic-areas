@@ -18,6 +18,7 @@ from homeassistant.components.sun.const import DOMAIN as SUN_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_registry import async_get as entityreg_async_get
 
 from custom_components.magic_areas.core.config import exclude_entities
 
@@ -79,6 +80,12 @@ class ConfigFlowEntityGatherer:
 
     def gather_all_entities(self) -> list[str]:
         """Gather all relevant entities from hass."""
+        entity_registry = entityreg_async_get(self.hass)
+        registry_entities = [
+            entry.entity_id
+            for entry in entity_registry.entities.values()
+            if entry.entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_EXT
+        ]
         return sorted(
             self.resolve_groups(
                 [
@@ -86,6 +93,7 @@ class ConfigFlowEntityGatherer:
                     for entity_id in self.hass.states.async_entity_ids()
                     if entity_id.split(".")[0] in CONFIG_FLOW_ENTITY_FILTER_EXT
                 ]
+                + registry_entities
             )
         )
 

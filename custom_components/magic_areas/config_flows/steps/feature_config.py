@@ -33,6 +33,25 @@ from custom_components.magic_areas.features.config.readers import (
 )
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.light_groups import (
+    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+    LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+    LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+    LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
+    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
+    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
     LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
     LIGHT_GROUP_PRESETS,
@@ -48,6 +67,7 @@ from custom_components.magic_areas.config_flows.selector_builders import (
     NoPresetSupportError,
     build_climate_preset_selectors_and_validators,
     build_selector_entity_simple,
+    build_selector_boolean,
     build_selector_number,
     build_selector_select,
 )
@@ -221,6 +241,57 @@ async def handle_feature_conf(
         )
 
     if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
+        selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
+            options=[
+                LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+                LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+                LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+            ],
+            multiple=False,
+            translation_key="light_brightness_mode",
+        )
+        selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
+            min_value=0, unit_of_measurement="s"
+        )
+        selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
+            min_value=0, unit_of_measurement="s"
+        )
+        selectors[
+            CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS
+        ] = build_selector_number(min_value=0, unit_of_measurement="s")
+        selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
+            build_selector_boolean()
+        )
+        selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
+            min_value=0, unit_of_measurement="s"
+        )
+        selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
+            min_value=0, unit_of_measurement="lx"
+        )
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
+            options=[
+                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
+                LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
+            ],
+            multiple=False,
+            translation_key="light_outside_context_source",
+        )
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = build_selector_entity_simple(
+            flow.all_light_tracking_entities, multiple=False
+        )
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
+            min_value=0, unit_of_measurement="lx"
+        )
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
+            build_selector_entity_simple(flow.all_light_tracking_entities, multiple=False)
+        )
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = build_selector_number(
+            min_value=0, unit_of_measurement="lx"
+        )
+        selectors[
+            CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT
+        ] = build_selector_number(min_value=0, unit_of_measurement="%")
         for preset in LIGHT_GROUP_PRESETS:
             selectors[preset.category] = build_selector_entity_simple(
                 flow.all_lights, multiple=True

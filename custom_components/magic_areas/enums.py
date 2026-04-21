@@ -25,7 +25,7 @@ class MagicConfigEntryVersion(IntEnum):
     """Config entry version numbers."""
 
     MAJOR = 2
-    MINOR = 2
+    MINOR = 3
 
 
 class MagicAreasFeatures(StrEnum):

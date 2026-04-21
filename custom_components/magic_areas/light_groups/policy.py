@@ -84,6 +84,14 @@ class ActOnMode(StrEnum):
     STATE_CHANGE = "state"  # Act when secondary states change
 
 
+class BrightnessMode(StrEnum):
+    """How BRIGHT state influences light-group automation."""
+
+    INHIBIT = "inhibit"
+    ADVISORY = "advisory"
+    ADAPTIVE = "adaptive"
+
+
 @dataclass(slots=True)
 class LightGroupDecision:
     """Light group control decision result."""
@@ -101,6 +109,19 @@ class LightGroupPolicy:
 
     assigned_states: Sequence[str]
     act_on_modes: Sequence[str]
+    brightness_mode: str = BrightnessMode.INHIBIT.value
+    bright_min_on_seconds: int = 0
+    bright_dwell_seconds: int = 0
+    outside_context_source: str = "sun"
+    outside_lux_entity: str | None = None
+    outside_lux_min: int = 0
+    outside_lux_inside_entity: str | None = None
+    outside_lux_inside_delta: int = 0
+    outside_lux_inside_ratio_min_percent: int = 0
+    bright_attribution_hold_seconds: int = 0
+    adaptive_require_ambient_rise: bool = False
+    ambient_rise_window_seconds: int = 120
+    ambient_rise_min_delta: int = 20
     use_priority_filtering: bool = True
 
     @staticmethod
@@ -126,6 +147,12 @@ class LightGroupPolicy:
         new_states: Sequence[str],
         lost_states: Sequence[str],
         current_states: Sequence[str],
+        *,
+        bright_dwell_met: bool = True,
+        min_on_met: bool = True,
+        outside_context_ok: bool = True,
+        attribution_hold_met: bool = True,
+        ambient_rise_met: bool = True,
     ) -> LightGroupDecision:
         """Evaluate a secondary-group light action from area state transitions."""
         current_state_set = set(current_states)
@@ -137,10 +164,38 @@ class LightGroupPolicy:
             AreaStates.BRIGHT in current_state_set
             and AreaStates.BRIGHT not in self.assigned_states
         ):
+            if self.brightness_mode == BrightnessMode.ADVISORY.value:
+                return self._decision(LightAction.NOOP, "bright_advisory_ignore")
             if (
                 AreaStates.BRIGHT in new_states
                 and AreaStates.OCCUPIED not in new_states
             ):
+                if self.brightness_mode == BrightnessMode.ADAPTIVE.value:
+                    if not bright_dwell_met:
+                        return self._decision(
+                            LightAction.NOOP,
+                            "bright_adaptive_waiting_dwell",
+                        )
+                    if not min_on_met:
+                        return self._decision(
+                            LightAction.NOOP,
+                            "bright_adaptive_waiting_min_on",
+                        )
+                    if not outside_context_ok:
+                        return self._decision(
+                            LightAction.NOOP,
+                            "bright_adaptive_outside_context_blocked",
+                        )
+                    if not attribution_hold_met:
+                        return self._decision(
+                            LightAction.NOOP,
+                            "bright_adaptive_attribution_hold",
+                        )
+                    if self.adaptive_require_ambient_rise and not ambient_rise_met:
+                        return self._decision(
+                            LightAction.NOOP,
+                            "bright_adaptive_waiting_ambient_rise",
+                        )
                 return self._decision(
                     LightAction.TURN_OFF,
                     "bright_not_assigned",
@@ -226,6 +281,11 @@ class LightGroupPolicy:
         current_states: Sequence[str],
         control_state: object,
         is_primary: bool,
+        bright_dwell_met: bool = True,
+        min_on_met: bool = True,
+        outside_context_ok: bool = True,
+        attribution_hold_met: bool = True,
+        ambient_rise_met: bool = True,
     ) -> LightGroupDecision:
         """Evaluate a light group decision from explicit control-context fields."""
         if not isinstance(control_state, CommandEchoState):
@@ -245,6 +305,11 @@ class LightGroupPolicy:
             new_states=new_states,
             lost_states=lost_states,
             current_states=current_states,
+            bright_dwell_met=bright_dwell_met,
+            min_on_met=min_on_met,
+            outside_context_ok=outside_context_ok,
+            attribution_hold_met=attribution_hold_met,
+            ambient_rise_met=ambient_rise_met,
         )
 
         # Preserve manual override: if another actor owns the group, do not
@@ -315,6 +380,11 @@ class LightControlGroupPolicy(ControlGroupPolicy):
             current_states=context.current_states,
             control_state=signals.control_state,
             is_primary=signals.is_primary,
+            bright_dwell_met=signals.bright_dwell_met,
+            min_on_met=signals.min_on_met,
+            outside_context_ok=signals.outside_context_ok,
+            attribution_hold_met=signals.attribution_hold_met,
+            ambient_rise_met=signals.ambient_rise_met,
         )
 
 
@@ -322,6 +392,19 @@ def build_light_control_group_policy(
     *,
     assigned_states: Sequence[str],
     act_on_modes: Sequence[str],
+    brightness_mode: str = BrightnessMode.INHIBIT.value,
+    bright_min_on_seconds: int = 0,
+    bright_dwell_seconds: int = 0,
+    outside_context_source: str = "sun",
+    outside_lux_entity: str | None = None,
+    outside_lux_min: int = 0,
+    outside_lux_inside_entity: str | None = None,
+    outside_lux_inside_delta: int = 0,
+    outside_lux_inside_ratio_min_percent: int = 0,
+    bright_attribution_hold_seconds: int = 0,
+    adaptive_require_ambient_rise: bool = False,
+    ambient_rise_window_seconds: int = 120,
+    ambient_rise_min_delta: int = 20,
     light_group_entity_id: str,
 ) -> LightControlGroupPolicy:
     """Build canonical light control-group policy adapter."""
@@ -329,6 +412,21 @@ def build_light_control_group_policy(
         policy=LightGroupPolicy(
             assigned_states=assigned_states,
             act_on_modes=act_on_modes,
+            brightness_mode=brightness_mode,
+            bright_min_on_seconds=max(0, int(bright_min_on_seconds)),
+            bright_dwell_seconds=max(0, int(bright_dwell_seconds)),
+            outside_context_source=outside_context_source,
+            outside_lux_entity=outside_lux_entity,
+            outside_lux_min=max(0, int(outside_lux_min)),
+            outside_lux_inside_entity=outside_lux_inside_entity,
+            outside_lux_inside_delta=max(0, int(outside_lux_inside_delta)),
+            outside_lux_inside_ratio_min_percent=max(
+                0, int(outside_lux_inside_ratio_min_percent)
+            ),
+            bright_attribution_hold_seconds=max(0, int(bright_attribution_hold_seconds)),
+            adaptive_require_ambient_rise=bool(adaptive_require_ambient_rise),
+            ambient_rise_window_seconds=max(0, int(ambient_rise_window_seconds)),
+            ambient_rise_min_delta=max(0, int(ambient_rise_min_delta)),
             use_priority_filtering=True,
         ),
         light_group_entity_id=light_group_entity_id,
@@ -341,6 +439,11 @@ class LightPolicySignals:
 
     is_primary: bool | None
     control_state: CommandEchoState
+    bright_dwell_met: bool = True
+    min_on_met: bool = True
+    outside_context_ok: bool = True
+    attribution_hold_met: bool = True
+    ambient_rise_met: bool = True
     fallback_used: bool = False
 
     @staticmethod
@@ -362,9 +465,33 @@ class LightPolicySignals:
                 if isinstance(control_state_raw, CommandEchoState)
                 else cls._default_control_state()
             )
+            bright_dwell_raw = signals.get("bright_dwell_met")
+            min_on_raw = signals.get("min_on_met")
+            outside_context_raw = signals.get("outside_context_ok")
+            attribution_hold_raw = signals.get("attribution_hold_met")
+            ambient_rise_raw = signals.get("ambient_rise_met")
             return cls(
                 is_primary=is_primary,
                 control_state=control_state,
+                bright_dwell_met=(
+                    bright_dwell_raw if isinstance(bright_dwell_raw, bool) else True
+                ),
+                min_on_met=min_on_raw if isinstance(min_on_raw, bool) else True,
+                outside_context_ok=(
+                    outside_context_raw
+                    if isinstance(outside_context_raw, bool)
+                    else True
+                ),
+                attribution_hold_met=(
+                    attribution_hold_raw
+                    if isinstance(attribution_hold_raw, bool)
+                    else True
+                ),
+                ambient_rise_met=(
+                    ambient_rise_raw
+                    if isinstance(ambient_rise_raw, bool)
+                    else True
+                ),
                 fallback_used=(
                     is_primary is None
                     or not isinstance(control_state_raw, CommandEchoState)

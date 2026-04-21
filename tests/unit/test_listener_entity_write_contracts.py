@@ -168,3 +168,73 @@ def test_light_group_state_change_uses_immediate_write(
     assert result is True
     group.async_write_ha_state.assert_called_once()
     group.schedule_update_ha_state.assert_not_called()
+
+
+def test_light_group_attribute_change_updates_activity_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Attribute-only light updates should refresh adaptive attribution timestamp."""
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.resolve_area_presence_states",
+        lambda **_kwargs: ["occupied"],
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.monotonic",
+        lambda: 123.0,
+    )
+
+    group = SimpleNamespace(
+        _area_id="kitchen",
+        name="Kitchen Overhead",
+        category="overhead",
+        hass=SimpleNamespace(states=SimpleNamespace(get=lambda _entity_id: None)),
+        logger=MagicMock(),
+        _attr_extra_state_attributes={},
+        _echo_state=CommandEchoState(
+            owner_id="light_groups_kitchen_overhead_lights",
+            controlling=True,
+            awaiting_echo=False,
+        ),
+        _last_known_area_states=["occupied"],
+        _last_control_activity_monotonic=None,
+        async_write_ha_state=MagicMock(),
+        schedule_update_ha_state=MagicMock(),
+    )
+
+    def _set_echo_state(state: CommandEchoState) -> None:
+        group._echo_state = state
+
+    group._set_echo_state = _set_echo_state
+    group._reset_control_state = MagicMock()
+    group.controlling = True
+
+    origin_event = Event(
+        "state_changed",
+        {
+            "old_state": SimpleNamespace(
+                state="on",
+                attributes={"brightness": 100},
+            ),
+            "new_state": SimpleNamespace(
+                state="on",
+                attributes={"brightness": 200},
+            ),
+        },
+    )
+    context = Context()
+    context.origin_event = origin_event
+    event = Event[EventStateChangedData](
+        "state_changed",
+        {
+            "entity_id": "light.magic_areas_light_groups_kitchen_overhead_lights",
+            "old_state": None,
+            "new_state": None,
+        },
+        context=context,
+    )
+
+    result = handle_group_state_change(group, event)
+
+    assert result is True
+    assert group._last_control_activity_monotonic == 123.0
+    group.async_write_ha_state.assert_called_once()

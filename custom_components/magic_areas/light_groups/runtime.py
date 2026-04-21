@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+from time import monotonic
 from typing import Protocol, TYPE_CHECKING
 
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.sun.const import STATE_ABOVE_HORIZON
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import Event, State
 from homeassistant.helpers.event import EventStateChangedData
@@ -49,6 +51,10 @@ class _LightGroupHost(Protocol):
     _attr_is_on: bool | None
     _listeners_initialized: bool
     _last_known_area_states: list[str]
+    _bright_since_monotonic: float | None
+    _last_turn_on_monotonic: float | None
+    _last_control_activity_monotonic: float | None
+    _inside_lux_samples: list[tuple[float, float]]
     _child_categories: list[str]
     _child_ids: list[str] | None
     _entity_ids: list[str]
@@ -156,6 +162,8 @@ def setup_listeners(host: _LightGroupHost) -> None:
         host.hass,
         host._area_id,
     )
+    if host.is_on and host._last_turn_on_monotonic is None:
+        host._last_turn_on_monotonic = monotonic()
     register_area_and_group_state_listeners(
         hass=host.hass,
         track_listener=host.track_group_listener,
@@ -167,6 +175,16 @@ def setup_listeners(host: _LightGroupHost) -> None:
 
 
 ON_OFF_STATES = (STATE_ON, STATE_OFF)
+LIGHT_ATTR_KEYS = (
+    "brightness",
+    "color_temp",
+    "color_temp_kelvin",
+    "hs_color",
+    "rgb_color",
+    "rgbw_color",
+    "rgbww_color",
+    "xy_color",
+)
 
 def evaluate_state_change(
     host: _LightGroupHost,
@@ -176,6 +194,49 @@ def evaluate_state_change(
 ) -> bool:
     """Evaluate and apply light-group policy decision for a state transition."""
     new_states, lost_states, current_states = states_tuple
+    _update_bright_tracking(host, new_states, lost_states, current_states)
+
+    now = monotonic()
+    _update_inside_lux_tracking(host, now)
+    bright_dwell_required = int(getattr(host.policy.policy, "bright_dwell_seconds", 0))
+    min_on_required = int(getattr(host.policy.policy, "bright_min_on_seconds", 0))
+    bright_dwell_met = (
+        True
+        if bright_dwell_required <= 0
+        else (
+            host._bright_since_monotonic is not None
+            and (now - host._bright_since_monotonic) >= bright_dwell_required
+        )
+    )
+    min_on_met = (
+        True
+        if min_on_required <= 0
+        else (
+            host._last_turn_on_monotonic is not None
+            and (now - host._last_turn_on_monotonic) >= min_on_required
+        )
+    )
+    outside_context_ok = _outside_context_ok(host)
+    ambient_rise_met = _ambient_rise_met(host, now)
+    attribution_hold_required = int(
+        getattr(host.policy.policy, "bright_attribution_hold_seconds", 0)
+    )
+    attribution_hold_met = (
+        True
+        if attribution_hold_required <= 0
+        else (
+            host._last_control_activity_monotonic is None
+            or (now - host._last_control_activity_monotonic) >= attribution_hold_required
+        )
+    )
+    host._attr_extra_state_attributes["adaptive_guards"] = {
+        "bright_dwell_met": bright_dwell_met,
+        "min_on_met": min_on_met,
+        "outside_context_ok": outside_context_ok,
+        "attribution_hold_met": attribution_hold_met,
+        "ambient_rise_met": ambient_rise_met,
+    }
+
     context = ControlGroupContext(
         group_id=host.entity_id,
         new_states=tuple(new_states),
@@ -184,6 +245,11 @@ def evaluate_state_change(
         signals=LightPolicySignals(
             is_primary=is_primary,
             control_state=host._echo_state,
+            bright_dwell_met=bright_dwell_met,
+            min_on_met=min_on_met,
+            outside_context_ok=outside_context_ok,
+            attribution_hold_met=attribution_hold_met,
+            ambient_rise_met=ambient_rise_met,
         ),
     )
     _decision, executed = evaluate_and_execute_control_group_policy_sync(
@@ -231,6 +297,7 @@ def handle_area_state_change(
 
 def apply_decision(host: _LightGroupHost, decision: ControlGroupDecision) -> bool:
     """Apply one policy decision and any runtime effects."""
+    host._attr_extra_state_attributes["last_policy_reason"] = decision.reason
     execute_control_group_runtime_effects(
         decision,
         on_runtime_effect=lambda effect: apply_runtime_effect(host, effect),
@@ -274,6 +341,8 @@ def is_valid_origin_state_toggle(origin_event: object | None) -> bool:
         return False
     if not new_state or not new_state.state or new_state.state not in ON_OFF_STATES:
         return False
+    if old_state.state == new_state.state:
+        return False
     if old_state.attributes.get("restored"):
         return False
     return True
@@ -306,6 +375,11 @@ def handle_group_state_change(
             host._set_echo_state(host._echo_state.set_controlling(controlling))
     else:
         origin_event = event.context.origin_event
+        if _is_origin_light_attribute_change(origin_event):
+            host._last_control_activity_monotonic = monotonic()
+            host._attr_extra_state_attributes["controlling"] = host.controlling
+            host.async_write_ha_state()
+            return True
         if not process_secondary_group_state_change(host, origin_event):
             return False
 
@@ -326,6 +400,9 @@ def process_secondary_group_state_change(
     else:
         host.logger.debug("%s: Group controlled by something else.", host.name)
         host._set_echo_state(host._echo_state.external_change())
+
+    if _origin_new_state(origin_event) == STATE_ON:
+        host._last_turn_on_monotonic = monotonic()
     return True
 
 
@@ -352,5 +429,179 @@ def _dispatch_controlled_action(
         return False
 
     host._set_echo_state(host._echo_state.command_issued(host.unique_id))
+    host._last_control_activity_monotonic = monotonic()
+    if action == LightAction.TURN_ON:
+        host._last_turn_on_monotonic = monotonic()
     host._dispatch_light_action(action)
     return True
+
+
+def _origin_new_state(origin_event: object | None) -> str | None:
+    """Return new state from origin event payload when available."""
+    if not origin_event:
+        return None
+    event_data = getattr(origin_event, "data", None)
+    if not isinstance(event_data, dict):
+        return None
+    new_state = event_data.get("new_state")
+    if new_state is None:
+        return None
+    state = getattr(new_state, "state", None)
+    return state if isinstance(state, str) else None
+
+
+def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
+    """Return True when origin event reflects on->on light attribute updates."""
+    if not origin_event:
+        return False
+    event_type = getattr(origin_event, "event_type", None)
+    if event_type != "state_changed":
+        return False
+
+    event_data = getattr(origin_event, "data", None)
+    if not isinstance(event_data, dict):
+        return False
+    old_state = event_data.get("old_state")
+    new_state = event_data.get("new_state")
+    if old_state is None or new_state is None:
+        return False
+    if getattr(old_state, "state", None) != STATE_ON or getattr(new_state, "state", None) != STATE_ON:
+        return False
+    old_attrs = getattr(old_state, "attributes", {})
+    new_attrs = getattr(new_state, "attributes", {})
+    if not isinstance(old_attrs, dict) or not isinstance(new_attrs, dict):
+        return False
+    return any(old_attrs.get(key) != new_attrs.get(key) for key in LIGHT_ATTR_KEYS)
+
+
+def _update_bright_tracking(
+    host: _LightGroupHost,
+    new_states: list[str],
+    lost_states: list[str],
+    current_states: list[str],
+) -> None:
+    """Track BRIGHT state timing for adaptive-policy safeguards."""
+    now = monotonic()
+    new_state_values = {str(state) for state in new_states}
+    lost_state_values = {str(state) for state in lost_states}
+    current_state_values = {str(state) for state in current_states}
+
+    if AreaStates.CLEAR.value in new_state_values:
+        host._bright_since_monotonic = None
+        return
+    if AreaStates.BRIGHT.value in new_state_values:
+        host._bright_since_monotonic = now
+        return
+    if AreaStates.BRIGHT.value in lost_state_values:
+        host._bright_since_monotonic = None
+        return
+    if (
+        AreaStates.BRIGHT.value in current_state_values
+        and host._bright_since_monotonic is None
+    ):
+        host._bright_since_monotonic = now
+
+
+def _outside_context_ok(host: _LightGroupHost) -> bool:
+    """Return whether outside context allows adaptive bright-driven off."""
+    source = str(getattr(host.policy.policy, "outside_context_source", "sun")).lower()
+    if source == "none":
+        return False
+
+    if source == "outside_lux":
+        entity_id = getattr(host.policy.policy, "outside_lux_entity", None)
+        if not isinstance(entity_id, str) or not entity_id:
+            return False
+        outside_state = host.hass.states.get(entity_id)
+        if outside_state is None:
+            return False
+        try:
+            outside_lux = float(outside_state.state)
+        except (TypeError, ValueError):
+            return False
+        min_lux = int(getattr(host.policy.policy, "outside_lux_min", 0))
+        if outside_lux < min_lux:
+            return False
+
+        delta_required = int(getattr(host.policy.policy, "outside_lux_inside_delta", 0))
+        ratio_required_pct = int(
+            getattr(host.policy.policy, "outside_lux_inside_ratio_min_percent", 0)
+        )
+        if delta_required <= 0 and ratio_required_pct <= 0:
+            return True
+        inside_entity = getattr(host.policy.policy, "outside_lux_inside_entity", None)
+        if not isinstance(inside_entity, str) or not inside_entity:
+            return False
+        inside_state = host.hass.states.get(inside_entity)
+        if inside_state is None:
+            return False
+        try:
+            inside_lux = float(inside_state.state)
+        except (TypeError, ValueError):
+            return False
+        if delta_required > 0 and (outside_lux - inside_lux) < delta_required:
+            return False
+        if ratio_required_pct <= 0:
+            return True
+        if inside_lux <= 0:
+            return outside_lux > 0
+        ratio = outside_lux / inside_lux
+        return ratio >= (ratio_required_pct / 100.0)
+
+    sun_state = host.hass.states.get("sun.sun")
+    return bool(sun_state and sun_state.state == STATE_ABOVE_HORIZON)
+
+
+def _inside_lux_sample(host: _LightGroupHost) -> float | None:
+    """Return inside lux sample from configured entity, if available."""
+    entity_id = getattr(host.policy.policy, "outside_lux_inside_entity", None)
+    if not isinstance(entity_id, str) or not entity_id:
+        return None
+    state = host.hass.states.get(entity_id)
+    if state is None:
+        return None
+    try:
+        return float(state.state)
+    except (TypeError, ValueError):
+        return None
+
+
+def _update_inside_lux_tracking(host: _LightGroupHost, now: float) -> None:
+    """Append latest inside-lux sample and prune old detector history."""
+    sample = _inside_lux_sample(host)
+    if sample is not None:
+        host._inside_lux_samples.append((now, sample))
+
+    window = int(getattr(host.policy.policy, "ambient_rise_window_seconds", 120))
+    if window <= 0:
+        host._inside_lux_samples = host._inside_lux_samples[-1:]
+        return
+    cutoff = now - window
+    host._inside_lux_samples = [
+        (ts, lux) for ts, lux in host._inside_lux_samples if ts >= cutoff
+    ]
+
+
+def _ambient_rise_met(host: _LightGroupHost, now: float) -> bool:
+    """Return whether inside ambient rise evidence is sufficient."""
+    require = bool(getattr(host.policy.policy, "adaptive_require_ambient_rise", False))
+    if not require:
+        return True
+
+    window = int(getattr(host.policy.policy, "ambient_rise_window_seconds", 120))
+    delta_required = int(getattr(host.policy.policy, "ambient_rise_min_delta", 20))
+    if window <= 0:
+        return False
+    if delta_required <= 0:
+        return True
+
+    if not host._inside_lux_samples:
+        return False
+    cutoff = now - window
+    samples = [(ts, lux) for ts, lux in host._inside_lux_samples if ts >= cutoff]
+    if len(samples) < 2:
+        return False
+
+    start_lux = min(lux for _, lux in samples)
+    end_lux = samples[-1][1]
+    return (end_lux - start_lux) >= delta_required

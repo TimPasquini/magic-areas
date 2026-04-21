@@ -52,6 +52,160 @@ class TestLightGroupPolicy:
         assert decision.next_control_state.controlling is True
         assert decision.next_control_state.awaiting_echo is True
 
+    def test_bright_advisory_mode_does_not_force_turn_off(self) -> None:
+        """Advisory mode should ignore BRIGHT-driven turn-off."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="advisory",
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_advisory_ignore" in decision.reason
+
+    def test_bright_adaptive_mode_waits_for_dwell_and_min_on(self) -> None:
+        """Adaptive mode should block bright turn-off until both guards pass."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=False,
+            min_on_met=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_adaptive_waiting_dwell" in decision.reason
+
+    def test_bright_adaptive_mode_allows_turn_off_when_guards_pass(self) -> None:
+        """Adaptive mode should allow bright turn-off after safeguards pass."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "bright_not_assigned" in decision.reason
+
+    def test_bright_adaptive_mode_blocks_when_outside_context_not_ok(self) -> None:
+        """Adaptive mode should not force off when outside context is blocked."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+            outside_context_ok=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_adaptive_outside_context_blocked" in decision.reason
+
+    def test_bright_adaptive_mode_blocks_during_attribution_hold(self) -> None:
+        """Adaptive mode should not force off during attribution hold window."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+            bright_attribution_hold_seconds=45,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+            outside_context_ok=True,
+            attribution_hold_met=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_adaptive_attribution_hold" in decision.reason
+
+    def test_bright_adaptive_mode_blocks_without_required_ambient_rise(self) -> None:
+        """Adaptive mode should not force off until ambient-rise evidence exists."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            adaptive_require_ambient_rise=True,
+            ambient_rise_window_seconds=120,
+            ambient_rise_min_delta=20,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+            outside_context_ok=True,
+            attribution_hold_met=True,
+            ambient_rise_met=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_adaptive_waiting_ambient_rise" in decision.reason
+
+    def test_bright_adaptive_mode_allows_with_required_ambient_rise(self) -> None:
+        """Adaptive mode should allow bright turn-off when ambient rise is met."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            adaptive_require_ambient_rise=True,
+            ambient_rise_window_seconds=120,
+            ambient_rise_min_delta=20,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+            outside_context_ok=True,
+            attribution_hold_met=True,
+            ambient_rise_met=True,
+        )
+        assert decision.action == LightAction.TURN_OFF
+
     def test_noop_when_bright_and_occupied_added_together(self) -> None:
         """Should noop when BRIGHT and OCCUPIED added together (occupancy prevents bright turn-off)."""
         policy = LightGroupPolicy(

@@ -104,8 +104,10 @@ def build_selector_entity_simple(
         NullableEntitySelector configured with provided entities
 
     """
-    if not options:
+    if not isinstance(options, list):
         options = []
+    else:
+        options = [entity_id for entity_id in options if isinstance(entity_id, str)]
 
     return NullableEntitySelector(
         EntitySelectorConfig(include_entities=options, multiple=multiple)

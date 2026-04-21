@@ -33,6 +33,19 @@ from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups.config import (
     LIGHT_GROUP_DEFAULT_ICON,
+    adaptive_require_ambient_rise,
+    ambient_rise_min_delta,
+    ambient_rise_window_seconds,
+    bright_attribution_hold_seconds,
+    bright_dwell_seconds,
+    bright_min_on_seconds,
+    brightness_mode,
+    outside_context_source,
+    outside_lux_inside_delta,
+    outside_lux_inside_entity,
+    outside_lux_inside_ratio_min_percent,
+    outside_lux_entity,
+    outside_lux_min,
     get_light_group_preset,
     preset_act_on_modes,
     preset_states,
@@ -135,6 +148,10 @@ class AreaLightGroup(MagicLightGroup):
         # Initialize area states cache (will be updated by _setup_listeners)
         self._last_known_area_states: list[str] = []
         self._listeners_initialized = False
+        self._bright_since_monotonic: float | None = None
+        self._last_turn_on_monotonic: float | None = None
+        self._last_control_activity_monotonic: float | None = None
+        self._inside_lux_samples: list[tuple[float, float]] = []
 
         self._icon = LIGHT_GROUP_DEFAULT_ICON
 
@@ -155,6 +172,25 @@ class AreaLightGroup(MagicLightGroup):
         self.policy = build_light_control_group_policy(
             assigned_states=self.assigned_states,
             act_on_modes=self.act_on,
+            brightness_mode=brightness_mode(self._feature_config),
+            bright_min_on_seconds=bright_min_on_seconds(self._feature_config),
+            bright_dwell_seconds=bright_dwell_seconds(self._feature_config),
+            outside_context_source=outside_context_source(self._feature_config),
+            outside_lux_entity=outside_lux_entity(self._feature_config),
+            outside_lux_min=outside_lux_min(self._feature_config),
+            outside_lux_inside_entity=outside_lux_inside_entity(self._feature_config),
+            outside_lux_inside_delta=outside_lux_inside_delta(self._feature_config),
+            outside_lux_inside_ratio_min_percent=outside_lux_inside_ratio_min_percent(
+                self._feature_config
+            ),
+            bright_attribution_hold_seconds=bright_attribution_hold_seconds(
+                self._feature_config
+            ),
+            adaptive_require_ambient_rise=adaptive_require_ambient_rise(
+                self._feature_config
+            ),
+            ambient_rise_window_seconds=ambient_rise_window_seconds(self._feature_config),
+            ambient_rise_min_delta=ambient_rise_min_delta(self._feature_config),
             light_group_entity_id=self.entity_id,
         )
 
@@ -165,6 +201,9 @@ class AreaLightGroup(MagicLightGroup):
         # Add static attributes
         self._attr_extra_state_attributes["lights"] = self._entity_ids
         self._attr_extra_state_attributes["controlling"] = self.controlling
+        self._attr_extra_state_attributes["brightness_mode"] = (
+            self.policy.policy.brightness_mode
+        )
 
         self.logger.debug(
             "%s: Light group (%s) created with entities: %s",

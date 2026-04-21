@@ -21,7 +21,24 @@ from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 
+from custom_components.magic_areas.config_keys.area import (
+    CONF_ENABLED_FEATURES,
+    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+)
 from custom_components.magic_areas.core.runtime_model import async_migrate_unique_ids
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.components import MagicAreasConfigEntry
@@ -80,6 +97,69 @@ async def _migrate_1_0_to_2_0(
     await async_migrate_unique_ids(hass, config_entry)
 
 
+async def _migrate_2_2_to_2_3(
+    hass: HomeAssistant, config_entry: MagicAreasConfigEntry
+) -> None:
+    """Backfill light-groups adaptive brightness keys into feature options."""
+    options = dict(config_entry.options)
+    enabled_features = options.get(CONF_ENABLED_FEATURES)
+    if not isinstance(enabled_features, dict):
+        return
+
+    feature_key = MagicAreasFeatures.LIGHT_GROUPS.value
+    light_cfg = enabled_features.get(feature_key)
+    if not isinstance(light_cfg, dict):
+        return
+
+    changed = False
+    if CONF_LIGHT_GROUP_BRIGHTNESS_MODE not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = "inhibit"
+        changed = True
+    if CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = "sun"
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = ""
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = ""
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = 0
+        changed = True
+    if CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = False
+        changed = True
+    if CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = 120
+        changed = True
+    if CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA not in light_cfg:
+        light_cfg[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = 20
+        changed = True
+
+    if not changed:
+        return
+
+    enabled_features[feature_key] = light_cfg
+    options[CONF_ENABLED_FEATURES] = enabled_features
+    hass.config_entries.async_update_entry(config_entry, options=options)
+
+
 # Registry of all migrations in order
 # These are applied sequentially when config entry version is outdated
 CONFIG_MIGRATIONS: list[ConfigMigration] = [
@@ -94,6 +174,12 @@ CONFIG_MIGRATIONS: list[ConfigMigration] = [
         to_version=(2, 2),
         description="Backfill unique_id migration for entries created before 2.2",
         handler=_migrate_1_0_to_2_0,
+    ),
+    ConfigMigration(
+        from_version=(2, 2),
+        to_version=(2, 3),
+        description="Backfill light-groups brightness mode, adaptive guards, and contrast options",
+        handler=_migrate_2_2_to_2_3,
     ),
     # Future migrations follow this pattern:
     # ConfigMigration(

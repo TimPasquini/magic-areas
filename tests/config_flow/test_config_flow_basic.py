@@ -13,6 +13,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.area_registry import async_get as async_get_ar
+from homeassistant.helpers.entity_registry import async_get as async_get_er
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -247,3 +248,26 @@ def test_resolve_groups() -> None:
         "d",
     ]
     assert ConfigFlowEntityGatherer.resolve_groups(["a", "b", "a"]) == ["a", "b"]
+
+
+async def test_gather_all_entities_includes_registry_entries_without_state(
+    hass: HomeAssistant,
+) -> None:
+    """Gatherer should include registry-backed entities even before state exists."""
+    from custom_components.magic_areas.config_flows import (
+        ConfigFlowEntityGatherer,
+    )
+
+    entity_registry = async_get_er(hass)
+    entity_registry.async_get_or_create(
+        domain="sensor",
+        platform="test",
+        unique_id="registry_only_sensor",
+        suggested_object_id="registry_only_sensor",
+    )
+    await hass.async_block_till_done()
+
+    gatherer = ConfigFlowEntityGatherer(hass, entities_by_domain={}, config_entry_options={})
+    all_entities = gatherer.gather_all_entities()
+
+    assert "sensor.registry_only_sensor" in all_entities

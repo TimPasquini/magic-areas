@@ -92,6 +92,19 @@ def test_origin_toggle_validation_accepts_normal_on_off_transition() -> None:
     assert is_valid_origin_state_toggle(origin_event)
 
 
+def test_origin_toggle_validation_rejects_same_state_change() -> None:
+    """Origin state validation should ignore on->on attribute-only updates."""
+    origin_event = SimpleNamespace(
+        event_type="state_changed",
+        data={
+            "old_state": SimpleNamespace(state="on", attributes={"brightness": 100}),
+            "new_state": SimpleNamespace(state="on", attributes={"brightness": 200}),
+        },
+    )
+
+    assert not is_valid_origin_state_toggle(origin_event)
+
+
 class _FakeAreaLightGroup:
     def __init__(self, *, is_on: bool, controlling: bool = True) -> None:
         self.unique_id = "light_groups_area_1_overhead_lights"

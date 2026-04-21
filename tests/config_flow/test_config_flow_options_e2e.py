@@ -80,6 +80,19 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
     assert config_entry.options[CONF_PRESENCE_DEVICE_PLATFORMS] == ["binary_sensor"]
     assert config_entry.options["secondary_states"][CONF_SLEEP_TIMEOUT] == 3
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] == {
+        "brightness_mode": "inhibit",
+        "bright_min_on_seconds": 0,
+        "bright_dwell_seconds": 0,
+        "bright_attribution_hold_seconds": 0,
+        "adaptive_require_ambient_rise": False,
+        "ambient_rise_window_seconds": 120,
+        "ambient_rise_min_delta": 20,
+        "outside_context_source": "sun",
+        "outside_lux_entity": "",
+        "outside_lux_min": 0,
+        "outside_lux_inside_entity": "",
+        "outside_lux_inside_delta": 0,
+        "outside_lux_inside_ratio_min_percent": 0,
         "overhead_lights": ["light.test_light"],
         "overhead_lights_states": ["occupied"],
         "overhead_lights_act_on": ["occupancy", "state"],

@@ -44,6 +44,11 @@ def test_light_policy_signals_defaults_when_missing() -> None:
     assert parsed.is_primary is None
     assert parsed.control_state.controlling is True
     assert parsed.control_state.awaiting_echo is False
+    assert parsed.bright_dwell_met is True
+    assert parsed.min_on_met is True
+    assert parsed.outside_context_ok is True
+    assert parsed.attribution_hold_met is True
+    assert parsed.ambient_rise_met is True
     assert parsed.fallback_used is True
 
 
@@ -68,4 +73,29 @@ def test_non_payload_signal_inputs_default_deterministically() -> None:
 
     light_parsed = LightPolicySignals.from_signals({})
     assert light_parsed.is_primary is None
+    assert light_parsed.bright_dwell_met is True
+    assert light_parsed.min_on_met is True
+    assert light_parsed.outside_context_ok is True
+    assert light_parsed.attribution_hold_met is True
+    assert light_parsed.ambient_rise_met is True
     assert light_parsed.fallback_used is True
+
+
+def test_light_policy_signals_parse_adaptive_guard_flags() -> None:
+    """Light signals should parse adaptive guard booleans from mapping payload."""
+    parsed = LightPolicySignals.from_signals(
+        {
+            "is_primary": False,
+            "bright_dwell_met": False,
+            "min_on_met": False,
+            "outside_context_ok": False,
+            "attribution_hold_met": False,
+            "ambient_rise_met": False,
+        }
+    )
+    assert parsed.is_primary is False
+    assert parsed.bright_dwell_met is False
+    assert parsed.min_on_met is False
+    assert parsed.outside_context_ok is False
+    assert parsed.attribution_hold_met is False
+    assert parsed.ambient_rise_met is False

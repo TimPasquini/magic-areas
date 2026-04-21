@@ -183,15 +183,37 @@ class TestMigrationIsolation:
 
     def test_no_circular_migration_path(self) -> None:
         """Migrations should not create circular upgrade paths."""
-        # Verify that migrations form a linear path (no cycles)
-        versions_seen = set()
+        # Build directed graph of migration edges and detect cycles via DFS.
+        adjacency: dict[tuple[int, int], set[tuple[int, int]]] = {}
+        nodes: set[tuple[int, int]] = set()
 
         for migration in CONFIG_MIGRATIONS:
-            # From version should not have been seen as a to_version before
-            assert (
-                migration.from_version not in versions_seen
-            ), f"Circular migration path detected at {migration.from_version}"
-            versions_seen.add(migration.to_version)
+            nodes.add(migration.from_version)
+            nodes.add(migration.to_version)
+            adjacency.setdefault(migration.from_version, set()).add(
+                migration.to_version
+            )
+
+        visiting: set[tuple[int, int]] = set()
+        visited: set[tuple[int, int]] = set()
+
+        def has_cycle(node: tuple[int, int]) -> bool:
+            if node in visited:
+                return False
+            if node in visiting:
+                return True
+
+            visiting.add(node)
+            for neighbor in adjacency.get(node, set()):
+                if has_cycle(neighbor):
+                    return True
+            visiting.remove(node)
+            visited.add(node)
+            return False
+
+        assert not any(has_cycle(node) for node in nodes), (
+            "Circular migration path detected in CONFIG_MIGRATIONS"
+        )
 
     def test_migrations_dont_overlap(self) -> None:
         """Migrations should not have overlapping version ranges."""
