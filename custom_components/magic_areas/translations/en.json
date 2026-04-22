@@ -303,8 +303,61 @@
               "occupied": "Occupied",
               "extended": "Extended",
               "sleep": "Sleep",
+              "accented": "Accented",
               "dark": "Dark",
               "bright": "Bright"
+            }
+          },
+          "active_states": {
+            "name": "Active states"
+          },
+          "state_clear": {
+            "name": "Clear",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_occupied": {
+            "name": "Occupied",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_extended": {
+            "name": "Extended",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_sleep": {
+            "name": "Sleep",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_accented": {
+            "name": "Accented",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_dark": {
+            "name": "Dark",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_bright": {
+            "name": "Bright",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
             }
           },
           "active_sensors": {

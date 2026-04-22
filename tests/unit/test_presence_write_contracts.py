@@ -77,6 +77,33 @@ def test_apply_state_projection_updates_cached_state_and_attributes() -> None:
     assert entity._attr_extra_state_attributes["states"] == [
         AreaStates.OCCUPIED.value
     ]
+    assert entity._attr_extra_state_attributes["active_states"] == "Occupied"
+    assert entity._attr_extra_state_attributes["state_occupied"] == "on"
+    assert entity._attr_extra_state_attributes["state_sleep"] == "off"
+
+
+def test_apply_state_projection_exposes_ordered_state_summary_and_flags() -> None:
+    """Projection metadata should expose ordered states + active/inactive flags."""
+    entity = AreaStateBinarySensor(_area_config(), _coordinator())
+    entity._attr_extra_state_attributes = {}
+
+    entity._apply_state_projection(
+        [AreaStates.BRIGHT.value, AreaStates.OCCUPIED.value, AreaStates.SLEEP.value]
+    )
+
+    assert entity._attr_extra_state_attributes["states"] == [
+        AreaStates.OCCUPIED.value,
+        AreaStates.SLEEP.value,
+        AreaStates.BRIGHT.value,
+    ]
+    assert (
+        entity._attr_extra_state_attributes["active_states"]
+        == "Occupied, Sleep, Bright"
+    )
+    assert entity._attr_extra_state_attributes["state_occupied"] == "on"
+    assert entity._attr_extra_state_attributes["state_sleep"] == "on"
+    assert entity._attr_extra_state_attributes["state_bright"] == "on"
+    assert entity._attr_extra_state_attributes["state_extended"] == "off"
 
 
 def test_apply_sensor_inventory_update_tracks_added_sensors() -> None:

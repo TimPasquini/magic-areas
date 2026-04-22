@@ -65,6 +65,24 @@ if TYPE_CHECKING:  # pragma: no cover
 
 _LOGGER = logging.getLogger(__name__)
 UPDATE_INTERVAL_SECONDS = ONE_MINUTE
+_STATE_DISPLAY_ORDER: tuple[str, ...] = (
+    AreaStates.CLEAR.value,
+    AreaStates.OCCUPIED.value,
+    AreaStates.EXTENDED.value,
+    AreaStates.SLEEP.value,
+    AreaStates.ACCENT.value,
+    AreaStates.DARK.value,
+    AreaStates.BRIGHT.value,
+)
+_STATE_LABELS: dict[str, str] = {
+    AreaStates.CLEAR.value: "Clear",
+    AreaStates.OCCUPIED.value: "Occupied",
+    AreaStates.EXTENDED.value: "Extended",
+    AreaStates.SLEEP.value: "Sleep",
+    AreaStates.ACCENT.value: "Accented",
+    AreaStates.DARK.value: "Dark",
+    AreaStates.BRIGHT.value: "Bright",
+}
 
 
 class AreaStateTrackerEntity(BinaryMagicEntity):
@@ -146,13 +164,30 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def get_metadata(self) -> dict[str, object]:
         """Return metadata information about the area's occupancy."""
+        ordered_states = self._ordered_current_states()
+        active_state_flags = {
+            f"state_{state}": ("on" if state in ordered_states else "off")
+            for state in _STATE_DISPLAY_ORDER
+        }
+        active_states_summary = ", ".join(
+            _STATE_LABELS.get(state, state) for state in ordered_states
+        )
         return {
             ATTR_PRESENCE_SENSORS: self._sensors,
             ATTR_ACTIVE_SENSORS: self._tracker.active_sensors,
             ATTR_LAST_ACTIVE_SENSORS: self._tracker.last_active_sensors,
-            ATTR_STATES: self._current_states,  # Use cached states, not stale self.area.states
+            ATTR_STATES: ordered_states,  # Use cached states, not stale self.area.states
+            "active_states": active_states_summary,
             ATTR_CLEAR_TIMEOUT: self._tracker.get_clear_timeout() / ONE_MINUTE,
+            **active_state_flags,
         }
+
+    def _ordered_current_states(self) -> list[str]:
+        """Return current states in stable display order."""
+        current_state_set = {str(state) for state in self._current_states}
+        ordered = [state for state in _STATE_DISPLAY_ORDER if state in current_state_set]
+        remaining = sorted(current_state_set - set(_STATE_DISPLAY_ORDER))
+        return [*ordered, *remaining]
 
     # Helpers
 
