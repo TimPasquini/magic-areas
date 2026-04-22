@@ -169,12 +169,13 @@ class LightGroupPolicy:
             else (AreaStates.BRIGHT in current_state_set)
         )
         if bright_active and AreaStates.BRIGHT not in self.assigned_states:
-            if self.brightness_mode == BrightnessMode.ADVISORY.value:
-                return self._decision(LightAction.NOOP, "bright_advisory_ignore")
-            if (
+            bright_transition = (
                 AreaStates.BRIGHT in new_states
                 and AreaStates.OCCUPIED not in new_states
-            ):
+            )
+            if bright_transition:
+                if self.brightness_mode == BrightnessMode.ADVISORY.value:
+                    return self._decision(LightAction.NOOP, "bright_advisory_ignore")
                 if self.brightness_mode == BrightnessMode.ADAPTIVE.value:
                     if not bright_dwell_met:
                         return self._decision(
@@ -206,7 +207,8 @@ class LightGroupPolicy:
                     "bright_not_assigned",
                     should_track_control=True,
                 )
-            return self._decision(LightAction.NOOP, "bright_active_but_stable")
+            if self.brightness_mode == BrightnessMode.INHIBIT.value:
+                return self._decision(LightAction.NOOP, "bright_active_but_stable")
 
         if not new_states and not lost_states:
             return self._decision(LightAction.NOOP, "no_state_changes")
