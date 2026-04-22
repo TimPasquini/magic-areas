@@ -69,8 +69,8 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "bright_advisory_ignore" in decision.reason
 
-    def test_bright_advisory_mode_does_not_block_occupancy_turn_on(self) -> None:
-        """Advisory mode should allow normal occupancy turn-on while bright is active."""
+    def test_bright_advisory_mode_blocks_occupancy_turn_on_when_bright(self) -> None:
+        """Advisory mode should no-op occupancy turn-on while bright is active."""
         policy = LightGroupPolicy(
             assigned_states=[AreaStates.OCCUPIED],
             act_on_modes=[ActOnMode.OCCUPANCY_CHANGE],
@@ -83,8 +83,8 @@ class TestLightGroupPolicy:
             control_state=CommandEchoState(controlling=True, awaiting_echo=False),
             is_primary=False,
         )
-        assert decision.action == LightAction.TURN_ON
-        assert "valid_states_present" in decision.reason
+        assert decision.action == LightAction.NOOP
+        assert "bright_advisory_inhibit_turn_on" in decision.reason
 
     def test_bright_adaptive_mode_waits_for_dwell_and_min_on(self) -> None:
         """Adaptive mode should block bright turn-off until both guards pass."""
