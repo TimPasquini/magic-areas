@@ -9,7 +9,7 @@ from typing import Protocol, TYPE_CHECKING
 
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sun.const import STATE_ABOVE_HORIZON
-from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, State
 from homeassistant.helpers.event import EventStateChangedData
 
@@ -567,7 +567,9 @@ def _inside_bright_met(host: _LightGroupHost) -> bool | None:
         return None
     inside_bright_state = host.hass.states.get(inside_bright_entity)
     if inside_bright_state is None:
-        return False
+        return None
+    if inside_bright_state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+        return None
     return inside_bright_state.state == STATE_ON
 
 
