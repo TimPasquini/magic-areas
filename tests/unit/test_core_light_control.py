@@ -526,6 +526,38 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.TURN_OFF
         assert "sleep_not_assigned" in decision.reason
 
+    def test_noop_when_accent_active_and_group_not_accent_assigned(self) -> None:
+        """Accent should suppress groups that are not explicitly accent-assigned."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED],
+            act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.OCCUPIED],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.ACCENT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "accent_active_not_assigned" in decision.reason
+
+    def test_turn_off_when_entering_accent_and_group_not_accent_assigned(self) -> None:
+        """Entering accent should actively turn off groups not assigned to accent."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.ACCENT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.ACCENT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "accent_not_assigned" in decision.reason
+
     def test_noop_when_no_changes(self) -> None:
         """Should noop when no state changes."""
         policy = LightGroupPolicy(

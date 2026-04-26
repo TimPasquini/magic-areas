@@ -235,6 +235,20 @@ class LightGroupPolicy:
                 )
             return self._decision(LightAction.NOOP, "sleep_active_not_assigned")
 
+        # Accent is also suppressive for non-accent groups.
+        # Only groups explicitly assigned to ACCENT should remain active.
+        if (
+            AreaStates.ACCENT in current_state_set
+            and AreaStates.ACCENT not in self.assigned_states
+        ):
+            if AreaStates.ACCENT in new_states:
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "accent_not_assigned",
+                    should_track_control=True,
+                )
+            return self._decision(LightAction.NOOP, "accent_active_not_assigned")
+
         valid_states = [
             state for state in self.assigned_states if state in current_state_set
         ]
