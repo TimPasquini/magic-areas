@@ -190,8 +190,8 @@ Current implementation:
 
 ### Stage 5: Aggregate Helpers
 
-Status: implemented for standard sensor/binary aggregate helpers and health helper
-creation.
+Status: implemented for standard sensor/binary aggregate helpers, health helper
+creation, and illuminance threshold helper creation.
 
 Targets:
 
@@ -234,10 +234,14 @@ Current implementation:
   `AreaHealthBinarySensor`.
 - Managed binary helper surfaces can carry desired registry device-class metadata, which
   covers health `problem` classification and binary aggregate helper classification.
+- Illuminance threshold declares a native HA `threshold` helper from the managed
+  illuminance aggregate helper entity, area threshold, and hysteresis config.
 - Aggregate-adjacent behavior tests cover sensor aggregates, binary aggregates,
   threshold, Wasp, fan control, and health with native helper outputs.
 
 ### Stage 6: Threshold Helper
+
+Status: implemented.
 
 Target:
 
@@ -251,8 +255,13 @@ Work:
 
 Exit criteria:
 
-- Magic Areas threshold wrapper is demoted or removed.
-- Threshold helper remains linked to the correct source after reloads and entity renames.
+- Magic Areas threshold wrapper is removed.
+- Threshold helper is attached to the correct HA area and Magic Areas room device by the
+  managed-surface reconciler.
+- Threshold helper is excluded from source enumeration by the managed-helper exclusion
+  path.
+- Threshold helper remains linked to the managed illuminance aggregate helper after
+  reloads.
 
 ### Stage 7: Repairs And Metadata Cleanup
 

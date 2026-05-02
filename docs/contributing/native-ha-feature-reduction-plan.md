@@ -400,14 +400,22 @@ Native HA equivalent:
 
 Target direction:
 
-- Replace Magic Areas threshold entity wrapper with a managed HA threshold helper if the
-  helper config-entry API supports reliable creation/update.
+- Replace Magic Areas threshold entity wrapper with a managed HA threshold helper.
 - Keep Magic Areas responsible for calculating source entity, threshold, and hysteresis.
+
+Current implementation:
+
+- `AggregatesFeatureModule` declares the native HA threshold helper surface after the
+  managed aggregate helper surfaces.
+- The helper uses the managed illuminance aggregate helper as its source and carries the
+  configured upper threshold and hysteresis.
+- The managed-surface reconciler attaches the helper to the Magic Areas room device and
+  HA area, and the source-ingestion path excludes Magic Areas-managed helper entities.
 
 Expected reduction:
 
-- Remove or demote `AreaThresholdSensor` in
-  `custom_components/magic_areas/binary_sensor/threshold.py`.
+- Removed `AreaThresholdSensor` and the custom
+  `custom_components/magic_areas/binary_sensor/threshold.py` runtime wrapper.
 
 Suitability: very high.
 

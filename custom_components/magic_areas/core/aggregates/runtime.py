@@ -143,6 +143,44 @@ def get_illuminance_threshold_spec(
     area_config: AreaConfig,
 ) -> tuple[str, float, float, float] | None:
     """Return illuminance threshold config or None if unavailable."""
+    threshold_config = get_illuminance_threshold_config(data)
+    if threshold_config is None:
+        return None
+
+    (
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        illuminance_threshold_hysteresis_percentage,
+    ) = threshold_config
+
+    illuminance_aggregate_entity_id = resolve_aggregate_entity_id(
+        hass,
+        group_registry=data.group_registry,
+        area_id=area_config.id,
+        domain=homeassistant.components.sensor.const.DOMAIN,
+        device_class=str(
+            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
+        ),
+    )
+    if not illuminance_aggregate_entity_id:
+        _LOGGER.debug(
+            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
+            area_config.slug,
+        )
+        return None
+
+    return (
+        illuminance_aggregate_entity_id,
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        illuminance_threshold_hysteresis_percentage,
+    )
+
+
+def get_illuminance_threshold_config(
+    data: MagicAreasData,
+) -> tuple[float, float, float] | None:
+    """Return illuminance threshold values or None if unavailable."""
     if MagicAreasFeatures.AGGREGATES not in data.enabled_features:  # pragma: no cover
         return None
 
@@ -182,24 +220,7 @@ def get_illuminance_threshold_spec(
             illuminance_threshold_hysteresis_percentage / 100
         )
 
-    illuminance_aggregate_entity_id = resolve_aggregate_entity_id(
-        hass,
-        group_registry=data.group_registry,
-        area_id=area_config.id,
-        domain=homeassistant.components.sensor.const.DOMAIN,
-        device_class=str(
-            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        ),
-    )
-    if not illuminance_aggregate_entity_id:
-        _LOGGER.debug(
-            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
-            area_config.slug,
-        )
-        return None
-
     return (
-        illuminance_aggregate_entity_id,
         float(illuminance_threshold),
         float(illuminance_threshold_hysteresis),
         float(illuminance_threshold_hysteresis_percentage),

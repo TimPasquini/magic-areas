@@ -19,9 +19,6 @@ from custom_components.magic_areas.binary_sensor.presence import (
     AreaStateBinarySensor,
     MetaAreaStateBinarySensor,
 )
-from custom_components.magic_areas.binary_sensor.threshold import (
-    create_illuminance_threshold,
-)
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.platform_dispatch import (
     async_setup_platform_via_features,
@@ -66,6 +63,5 @@ def _build_platform_base_entities(
 __all__ = [
     "create_aggregate_sensors_from_definitions",
     "create_ble_tracker_sensor",
-    "create_illuminance_threshold",
     "create_wasp_in_a_box_sensor",
 ]

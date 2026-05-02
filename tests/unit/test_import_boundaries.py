@@ -344,11 +344,6 @@ TEST_SIDE_DOOR_RULES: tuple[tuple[str, str, str], ...] = (
         "custom_components.magic_areas.media_player",
         "test_media_player",
     ),
-    (
-        "binary-sensor threshold internals",
-        "custom_components.magic_areas.binary_sensor.threshold",
-        "test_binary_sensor_threshold",
-    ),
 )
 
 ALLOWLIST_KEYS = {

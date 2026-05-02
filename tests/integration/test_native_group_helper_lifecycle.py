@@ -6,12 +6,25 @@ from types import MappingProxyType
 
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
+from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorDeviceClass,
+)
+from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.threshold.const import (
+    CONF_HYSTERESIS,
+    CONF_LOWER,
+    CONF_UPPER,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_ENTITIES,
+    CONF_ENTITY_ID,
     CONF_NAME,
+    LIGHT_LUX,
     Platform,
 )
 from homeassistant.core import HomeAssistant
@@ -34,9 +47,10 @@ from custom_components.magic_areas.core.runtime_model import (
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import setup_mock_entities
-from tests.mocks import MockCover
+from tests.mocks import MockCover, MockSensor
 
 GROUP_DOMAIN = "group"
+THRESHOLD_DOMAIN = "threshold"
 
 
 def _managed_group_entry(
@@ -268,3 +282,104 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     await hass.async_block_till_done()
 
     assert hass.states.get(group_entity_id) is None
+
+
+async def test_reconciler_manages_threshold_helper_lifecycle(
+    hass: HomeAssistant,
+) -> None:
+    """The reconciler manages native threshold helpers with metadata/exclusion."""
+    source_sensor = MockSensor(
+        name="living_room_lux",
+        unique_id="living_room_lux",
+        native_value=250,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        unit_of_measurement=LIGHT_LUX,
+    )
+    await setup_mock_entities(
+        hass,
+        SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [source_sensor]},
+    )
+    owner_entry_id = "magic_area_threshold_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Living Room",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
+    unique_id = build_managed_surface_unique_id(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        feature_id="threshold",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="threshold_light",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            ConfigEntryHelperSurface(
+                unique_id=unique_id,
+                domain=THRESHOLD_DOMAIN,
+                title="Magic Areas Threshold Living Room Threshold Light",
+                options={
+                    CONF_NAME: "Magic Areas Threshold Living Room Threshold Light",
+                    CONF_ENTITY_ID: source_sensor.entity_id,
+                    CONF_HYSTERESIS: 10.0,
+                    CONF_LOWER: None,
+                    CONF_UPPER: 100.0,
+                },
+                area_id=DEFAULT_MOCK_AREA.value,
+                device_identifier=(
+                    DOMAIN,
+                    f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+                ),
+                device_name="Living Room",
+                device_class=BinarySensorDeviceClass.LIGHT,
+            )
+        ],
+    )
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = next(
+        entry
+        for entry in hass.config_entries.async_entries(THRESHOLD_DOMAIN)
+        if entry.unique_id == unique_id
+    )
+    threshold_registry_entry = er.async_entries_for_config_entry(
+        entity_registry, entry.entry_id
+    )[0]
+    threshold_entity_id = threshold_registry_entry.entity_id
+    assert threshold_entity_id.startswith(f"{BINARY_SENSOR_DOMAIN}.")
+    assert threshold_registry_entry.area_id == DEFAULT_MOCK_AREA.value
+    assert threshold_registry_entry.device_id is not None
+    assert threshold_registry_entry.device_class == BinarySensorDeviceClass.LIGHT
+
+    device = dr.async_get(hass).async_get(threshold_registry_entry.device_id)
+    assert device is not None
+    assert (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}") in device.identifiers
+
+    threshold_state = hass.states.get(threshold_entity_id)
+    assert threshold_state is not None
+
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=owner_entry_id,
+        config={},
+    )
+    assert threshold_entity_id not in {
+        entity["entity_id"] for entity in entities.get(BINARY_SENSOR_DOMAIN, [])
+    }
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get(threshold_entity_id) is None

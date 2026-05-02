@@ -4,19 +4,30 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorDeviceClass,
+)
 from homeassistant.components.group.binary_sensor import CONF_ALL
 from homeassistant.components.group.const import CONF_HIDE_MEMBERS
 from homeassistant.components.group.const import CONF_IGNORE_NON_NUMERIC
 from homeassistant.components.group.sensor import ATTR_MEAN, ATTR_SUM
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.threshold.const import (
+    CONF_HYSTERESIS,
+    CONF_LOWER,
+    CONF_UPPER,
+)
+from homeassistant.const import (
+    CONF_ENTITIES,
+    CONF_ENTITY_ID,
+    CONF_NAME,
+    CONF_TYPE,
+)
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
-from homeassistant.const import CONF_ENTITIES, CONF_NAME, CONF_TYPE
-
-from custom_components.magic_areas.binary_sensor import (
-    create_illuminance_threshold,
-)
+from homeassistant.util import slugify
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.aggregates import (
@@ -24,13 +35,16 @@ from custom_components.magic_areas.core.aggregates import (
     AggregatePolicyContext,
     aggregate_managed_surface_unique_id,
     build_default_aggregate_selection_policy,
+    get_illuminance_threshold_config,
     register_aggregate_definitions,
 )
 from custom_components.magic_areas.core.aggregates import AggregateKind
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
+    ManagedSurfaceKind,
     ManagedSurface,
     ManagedSurfaceOptionValue,
+    build_managed_surface_unique_id,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
@@ -58,6 +72,7 @@ AGGREGATE_FEATURE_SCHEMA = schema_from_default_options(
 )
 
 GROUP_DOMAIN = "group"
+THRESHOLD_DOMAIN = "threshold"
 
 
 class AggregatesFeatureModule(BaseFeatureModule):
@@ -81,15 +96,7 @@ class AggregatesFeatureModule(BaseFeatureModule):
             definitions=definitions,
             owner_entry_id=area_config.hass_config.entry_id,
         )
-        entities: list[Entity] = []
-
-        threshold_entity = create_illuminance_threshold(
-            coordinator.hass, data, area_config, coordinator
-        )
-        if threshold_entity:
-            entities.append(threshold_entity)
-
-        return entities
+        return []
 
     def desired_managed_surfaces(
         self,
@@ -97,11 +104,19 @@ class AggregatesFeatureModule(BaseFeatureModule):
         data: MagicAreasData,
     ) -> list[ManagedSurface]:
         """Build desired native HA aggregate group helpers."""
-        return [
+        definitions = _aggregate_definitions(data)
+        surfaces = [
             _aggregate_surface(area_config=area_config, definition=definition)
-            for definition in _aggregate_definitions(data)
+            for definition in definitions
             if definition.kind is AggregateKind.STANDARD
         ]
+        if threshold_surface := _illuminance_threshold_surface(
+            area_config=area_config,
+            data=data,
+            definitions=definitions,
+        ):
+            surfaces.append(threshold_surface)
+        return surfaces
 
 
 def _aggregate_definitions(data: MagicAreasData) -> list[AggregateDefinition]:
@@ -122,10 +137,7 @@ def _aggregate_surface(
     definition: AggregateDefinition,
 ) -> ConfigEntryHelperSurface:
     """Build one native group helper surface for an aggregate definition."""
-    title = (
-        f"Magic Areas Aggregates {area_config.name} "
-        f"Aggregate {definition.device_class.replace('_', ' ').title()}"
-    )
+    title = _aggregate_title(area_config=area_config, definition=definition)
     options: dict[str, ManagedSurfaceOptionValue] = {
         "group_type": definition.domain,
         CONF_NAME: title,
@@ -155,6 +167,86 @@ def _aggregate_surface(
         device_class=(
             definition.device_class if definition.domain == BINARY_SENSOR_DOMAIN else None
         ),
+    )
+
+
+def _helper_entity_id(*, domain: str, title: str) -> str:
+    """Return the expected default entity ID for a managed helper title."""
+    return f"{domain}.{slugify(title)}"
+
+
+def _aggregate_title(
+    *,
+    area_config: AreaConfig,
+    definition: AggregateDefinition,
+) -> str:
+    """Build the managed aggregate helper title."""
+    return (
+        f"Magic Areas Aggregates {area_config.name} "
+        f"Aggregate {definition.device_class.replace('_', ' ').title()}"
+    )
+
+
+def _illuminance_threshold_surface(
+    *,
+    area_config: AreaConfig,
+    data: MagicAreasData,
+    definitions: list[AggregateDefinition],
+) -> ConfigEntryHelperSurface | None:
+    """Build the native HA threshold helper surface for calculated light state."""
+    threshold_config = get_illuminance_threshold_config(data)
+    if threshold_config is None:
+        return None
+
+    (
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        _illuminance_threshold_hysteresis_percentage,
+    ) = threshold_config
+
+    illuminance_aggregate = next(
+        (
+            definition
+            for definition in definitions
+            if definition.kind is AggregateKind.STANDARD
+            and definition.domain == SENSOR_DOMAIN
+            and definition.device_class == str(SensorDeviceClass.ILLUMINANCE)
+        ),
+        None,
+    )
+    if illuminance_aggregate is None:
+        return None
+
+    illuminance_aggregate_title = _aggregate_title(
+        area_config=area_config,
+        definition=illuminance_aggregate,
+    )
+    title = f"Magic Areas Threshold {area_config.name} Threshold Light"
+
+    return ConfigEntryHelperSurface(
+        unique_id=build_managed_surface_unique_id(
+            entry_id=area_config.hass_config.entry_id,
+            area_id=area_config.id,
+            feature_id=MagicAreasFeatures.THRESHOLD,
+            surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+            role="threshold_light",
+        ),
+        domain=THRESHOLD_DOMAIN,
+        title=title,
+        options={
+            CONF_NAME: title,
+            CONF_ENTITY_ID: _helper_entity_id(
+                domain=SENSOR_DOMAIN,
+                title=illuminance_aggregate_title,
+            ),
+            CONF_HYSTERESIS: illuminance_threshold_hysteresis,
+            CONF_LOWER: None,
+            CONF_UPPER: illuminance_threshold,
+        },
+        area_id=area_config.id,
+        device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
+        device_name=area_config.name,
+        device_class=BinarySensorDeviceClass.LIGHT,
     )
 
 
