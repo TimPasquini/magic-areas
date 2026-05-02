@@ -469,3 +469,201 @@ async def test_reconciler_reports_and_clears_managed_surface_repair(
     await hass.async_block_till_done()
 
     assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_reconciler_reports_and_clears_update_repair(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Managed-surface update failures are repaired and then cleared."""
+    covers = [
+        MockCover(
+            name="repair_update_left_blind",
+            unique_id="repair_update_left_blind",
+            device_class=CoverDeviceClass.BLIND,
+        ),
+        MockCover(
+            name="repair_update_right_blind",
+            unique_id="repair_update_right_blind",
+            device_class=CoverDeviceClass.BLIND,
+        ),
+    ]
+    await setup_mock_entities(hass, COVER_DOMAIN, {DEFAULT_MOCK_AREA: covers})
+    owner_entry_id = "magic_area_update_repair_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Living Room",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
+    unique_id = build_managed_surface_unique_id(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        feature_id="cover_groups",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="cover_group_blind",
+    )
+    original_surface = ConfigEntryHelperSurface(
+        unique_id=unique_id,
+        domain=GROUP_DOMAIN,
+        title="Magic Areas Living Room Blinds",
+        options={
+            "group_type": Platform.COVER,
+            CONF_NAME: "Magic Areas Living Room Blinds",
+            CONF_ENTITIES: [covers[0].entity_id],
+            "hide_members": False,
+        },
+        area_id=DEFAULT_MOCK_AREA.value,
+        device_identifier=(
+            DOMAIN,
+            f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+        ),
+        device_name="Living Room",
+    )
+    updated_surface = ConfigEntryHelperSurface(
+        unique_id=unique_id,
+        domain=GROUP_DOMAIN,
+        title="Magic Areas Living Room Shades",
+        options={
+            "group_type": Platform.COVER,
+            CONF_NAME: "Magic Areas Living Room Shades",
+            CONF_ENTITIES: [covers[1].entity_id],
+            "hide_members": False,
+        },
+        area_id=DEFAULT_MOCK_AREA.value,
+        device_identifier=(
+            DOMAIN,
+            f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+        ),
+        device_name="Living Room",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[original_surface],
+    )
+    await hass.async_block_till_done()
+
+    original_async_reload = hass.config_entries.async_reload
+
+    async def fail_async_reload(entry_id: str) -> bool:
+        raise RuntimeError("helper reload failed")
+
+    monkeypatch.setattr(hass.config_entries, "async_reload", fail_async_reload)
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[updated_surface],
+    )
+
+    issue_registry = ir.async_get(hass)
+    issue_id = _surface_repair_issue_id(unique_id)
+    issue = issue_registry.async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_placeholders == {
+        "action": "update",
+        "domain": GROUP_DOMAIN,
+        "surface": "Magic Areas Living Room Shades",
+        "error": "RuntimeError: helper reload failed",
+    }
+
+    monkeypatch.setattr(hass.config_entries, "async_reload", original_async_reload)
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[updated_surface],
+    )
+    await hass.async_block_till_done()
+
+    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_reconciler_reports_and_clears_stale_removal_repair(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Managed-surface removal failures are repaired and then cleared."""
+    covers = [
+        MockCover(
+            name="repair_remove_left_blind",
+            unique_id="repair_remove_left_blind",
+            device_class=CoverDeviceClass.BLIND,
+        ),
+    ]
+    await setup_mock_entities(hass, COVER_DOMAIN, {DEFAULT_MOCK_AREA: covers})
+    owner_entry_id = "magic_area_remove_repair_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Living Room",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
+    unique_id = build_managed_surface_unique_id(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        feature_id="cover_groups",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="cover_group_blind",
+    )
+    surface = ConfigEntryHelperSurface(
+        unique_id=unique_id,
+        domain=GROUP_DOMAIN,
+        title="Magic Areas Living Room Blinds",
+        options={
+            "group_type": Platform.COVER,
+            CONF_NAME: "Magic Areas Living Room Blinds",
+            CONF_ENTITIES: [covers[0].entity_id],
+            "hide_members": False,
+        },
+        area_id=DEFAULT_MOCK_AREA.value,
+        device_identifier=(
+            DOMAIN,
+            f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+        ),
+        device_name="Living Room",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[surface],
+    )
+    await hass.async_block_till_done()
+
+    original_async_remove = hass.config_entries.async_remove
+
+    async def fail_async_remove(entry_id: str) -> bool:
+        raise RuntimeError("helper remove failed")
+
+    monkeypatch.setattr(hass.config_entries, "async_remove", fail_async_remove)
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+
+    issue_registry = ir.async_get(hass)
+    issue_id = _surface_repair_issue_id(unique_id)
+    issue = issue_registry.async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_placeholders == {
+        "action": "remove",
+        "domain": GROUP_DOMAIN,
+        "surface": "Magic Areas Living Room Blinds",
+        "error": "RuntimeError: helper remove failed",
+    }
+
+    monkeypatch.setattr(hass.config_entries, "async_remove", original_async_remove)
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+    await hass.async_block_till_done()
+
+    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
