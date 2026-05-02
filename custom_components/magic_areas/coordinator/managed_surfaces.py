@@ -101,6 +101,7 @@ def _apply_surface_registry_metadata(
             entry.entity_id,
             area_id=surface.area_id,
             device_id=device_id,
+            device_class=surface.device_class,
         )
 
 

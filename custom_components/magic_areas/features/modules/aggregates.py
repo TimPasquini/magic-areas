@@ -152,6 +152,9 @@ def _aggregate_surface(
         area_id=area_config.id,
         device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
         device_name=area_config.name,
+        device_class=(
+            definition.device_class if definition.domain == BINARY_SENSOR_DOMAIN else None
+        ),
     )
 
 

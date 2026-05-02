@@ -69,6 +69,9 @@ Required behavior:
   `("magic_areas", "magic_area_device_<area_id>")`.
 - The helper entity must show up with the Magic Areas room device in HA device/entity
   displays.
+- If HA helper construction does not expose a needed domain attribute, such as binary
+  sensor `device_class`, the managed-surface record must carry it as registry metadata
+  rather than forcing a custom entity wrapper to remain.
 - The helper must not become a source entity for the same Magic Area just because it has
   been assigned to the HA area.
 - Entity ingestion must filter Magic Areas-managed helper entities before feature
@@ -373,6 +376,8 @@ Current implementation:
   surfaces with `group_type: binary_sensor`.
 - Magic Areas still computes aggregate membership and `any`/`all` mode selection.
 - Wasp-in-a-box aggregate resolution continues through aggregate metadata.
+- Binary aggregate helpers carry desired device class as managed registry metadata
+  because HA binary group config entries do not pass device class through options.
 
 Expected reduction:
 
@@ -422,9 +427,17 @@ Target direction:
 
 - Fold into the same native binary sensor group reconciliation path as binary aggregates.
 
-Expected reduction:
+Current implementation:
 
-- Remove or demote `AreaHealthBinarySensor` in
+- Health now declares a managed native HA binary sensor group helper with
+  `group_type: binary_sensor`.
+- Magic Areas still computes health membership from configured distress device classes.
+- The helper carries `problem` as managed registry device-class metadata because HA
+  binary group config entries do not pass device class through options.
+
+Completed reduction:
+
+- Removed `AreaHealthBinarySensor` and `create_health_sensors` from
   `custom_components/magic_areas/binary_sensor/aggregate_factory.py`.
 - Shrink `custom_components/magic_areas/features/modules/health.py`.
 

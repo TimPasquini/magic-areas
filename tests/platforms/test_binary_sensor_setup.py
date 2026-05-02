@@ -12,7 +12,6 @@ from custom_components.magic_areas.binary_sensor import (
     create_aggregate_sensors_from_definitions,
     create_wasp_in_a_box_sensor,
     create_ble_tracker_sensor,
-    create_health_sensors,
 )
 from custom_components.magic_areas.core.aggregates import AggregateDefinition, AggregateKind
 from custom_components.magic_areas.const import DOMAIN
@@ -102,63 +101,6 @@ def test_create_ble_tracker_sensor_returns_empty_when_feature_disabled() -> None
     result = create_ble_tracker_sensor(mock_data, mock_area_config, mock_coordinator)
 
     # Should return empty list (line 158)
-    assert result == []
-    assert isinstance(result, list)
-
-
-def test_create_health_sensors_returns_empty_when_feature_disabled() -> None:
-    """Test that create_health_sensors returns empty list when health feature disabled."""
-    # Create mock data with health feature disabled
-    mock_data = MagicMock()
-    mock_data.enabled_features = set()  # No features enabled
-    mock_data.feature_configs = {}
-
-    # Create mock area_config and coordinator
-    mock_area_config = MagicMock()
-    mock_area_config.name = "test"
-    mock_coordinator = MagicMock()
-
-    # Call the function
-    result = create_health_sensors(mock_data, {}, mock_area_config, mock_coordinator)
-
-    # Should return empty list (line 186)
-    assert result == []
-    assert isinstance(result, list)
-
-
-def test_create_health_sensors_handles_exception_during_creation() -> None:
-    """Test that create_health_sensors handles exceptions during sensor creation."""
-    from homeassistant.components.binary_sensor import BinarySensorDeviceClass
-
-    # Create mock data with health feature enabled and a health sensor
-    mock_area_config = MagicMock()
-    mock_area_config.slug = "test_area"
-    mock_area_config.name = "Test Area"
-
-    mock_data = MagicMock()
-    mock_data.enabled_features = {MagicAreasFeatures.HEALTH}
-    mock_data.feature_configs = {MagicAreasFeatures.HEALTH: {}}
-
-    mock_coordinator = MagicMock()
-
-    # Create entities with a health sensor
-    entities_by_domain = {
-        "binary_sensor": [
-            {
-                "entity_id": "binary_sensor.smoke",
-                "device_class": BinarySensorDeviceClass.SMOKE,
-            }
-        ]
-    }
-
-    # Patch AreaHealthBinarySensor to raise an exception
-    with patch(
-        "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaHealthBinarySensor",
-        side_effect=RuntimeError("Test exception"),
-    ):
-        result = create_health_sensors(mock_data, entities_by_domain, mock_area_config, mock_coordinator)
-
-    # Should return empty list after catching exception (lines 228-234)
     assert result == []
     assert isinstance(result, list)
 

@@ -190,8 +190,8 @@ Current implementation:
 
 ### Stage 5: Aggregate Helpers
 
-Status: started for standard sensor/binary aggregate helpers; health aggregation remains
-pending.
+Status: implemented for standard sensor/binary aggregate helpers and health helper
+creation.
 
 Targets:
 
@@ -230,8 +230,12 @@ Current implementation:
   Areas config entry, so downstream aggregate resolution points at the native helper.
 - Fan control resolves tracked aggregate outputs through aggregate metadata instead of
   legacy custom aggregate unique IDs.
+- Health declares a native HA binary sensor group helper and no longer builds a custom
+  `AreaHealthBinarySensor`.
+- Managed binary helper surfaces can carry desired registry device-class metadata, which
+  covers health `problem` classification and binary aggregate helper classification.
 - Aggregate-adjacent behavior tests cover sensor aggregates, binary aggregates,
-  threshold, Wasp, and fan control with native helper outputs.
+  threshold, Wasp, fan control, and health with native helper outputs.
 
 ### Stage 6: Threshold Helper
 

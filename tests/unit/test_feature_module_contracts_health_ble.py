@@ -15,7 +15,7 @@ from .feature_module_contracts_testkit import get_module, make_area_config, make
 
 
 def test_health_module_builds_health_sensor() -> None:
-    """Health module should build the health aggregate sensor."""
+    """Health module should declare a native health helper surface."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.HEALTH},
@@ -33,10 +33,17 @@ def test_health_module_builds_health_sensor() -> None:
 
     module = get_module("health")
     entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    assert [entity.entity_id for entity in entities] == [
-        "binary_sensor.magic_areas_health_kitchen_health_problem"
-    ]
+    assert entities == []
+    assert len(surfaces) == 1
+    assert surfaces[0].unique_id == (
+        "magic_areas:entry-1:area-1:health:config_entry_helper:health_problem"
+    )
+    assert surfaces[0].domain == "group"
+    assert surfaces[0].options["group_type"] == BINARY_SENSOR_DOMAIN
+    assert surfaces[0].options["entities"] == ["binary_sensor.smoke_1"]
+    assert surfaces[0].device_class == BinarySensorDeviceClass.PROBLEM
 
 
 def test_ble_tracker_module_builds_monitor_sensor() -> None:
