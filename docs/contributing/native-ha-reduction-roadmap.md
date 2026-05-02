@@ -90,17 +90,22 @@ Required behavior:
 - create missing surfaces
 - update changed surfaces
 - remove stale managed surfaces
+- attach helper entities to the correct HA area
+- attach helper entities to the correct Magic Areas room device
+- exclude managed helper entities from Magic Areas source-entity enumeration
 - preserve non-Magic-Areas user surfaces
 - emit diagnostics and repairs for failures
 
 Exit criteria:
 
-- Unit tests cover create/update/remove/no-op cases against mocked registries/services.
+- Tests cover create/update/remove/no-op cases against HA registries/services.
 - The foundation supports the decided label/helper architecture without duplicating
   ownership, diffing, diagnostics, or stale-surface cleanup logic.
 - The foundation supports at least one native helper type and either label reconciliation
   directly or a documented sibling label reconciler contract.
 - Feature modules declare desired surfaces rather than implementing helper lifecycle.
+- Every native-helper migration must prove helper area assignment, Magic Areas device
+  attachment, and source-enumeration exclusion.
 
 Current implementation:
 
@@ -111,6 +116,10 @@ Current implementation:
 - Feature modules can declare desired surfaces through `desired_managed_surfaces`.
 - Entry setup reconciles desired surfaces after coordinator refresh and before platform
   forwarding.
+- Managed helper entities are assigned to the HA area and Magic Areas device declared by
+  the desired surface.
+- Entity ingestion filters managed helper entities so assigned helpers do not feed back
+  into the same area's source entity catalog.
 - The first applier supports config-entry-backed helpers only; label, storage,
   repairs, and registry-metadata appliers remain future work.
 
@@ -132,6 +141,9 @@ Exit criteria:
 
 - Cover group feature no longer needs a Magic Areas custom cover group entity.
 - Managed HA cover group helper updates when area membership changes.
+- Managed HA cover group helper appears under the correct Magic Areas area device.
+- Managed HA cover group helper is assigned to the correct HA area.
+- Managed HA cover group helper is not re-enumerated as a source cover entity.
 - Tests prove user-owned cover groups are untouched.
 
 Current implementation:
@@ -142,6 +154,8 @@ Current implementation:
 - Existing cover platform behavior tests still pass with the native helper surface.
 - Direct reconciler tests cover create, update/reload, and stale removal for an owned
   cover group helper.
+- Direct reconciler tests cover HA area assignment, Magic Areas device attachment, and
+  source-enumeration exclusion.
 
 ### Stage 4: Plain Domain Groups
 

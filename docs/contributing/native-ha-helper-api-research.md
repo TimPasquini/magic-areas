@@ -59,6 +59,29 @@ updated independently from ownership identity.
 
 ## Surface Types
 
+## Registry Metadata And Feedback Prevention
+
+Magic Areas-managed native helpers must be treated as exposed HA surfaces, not as new
+source devices discovered inside the same room.
+
+Standard behavior for every managed helper applier:
+
+- Create/update the native HA surface using stable Magic Areas ownership metadata.
+- After HA creates or reloads helper entities, update the entity registry so helper
+  entities have the Magic Area's `area_id`.
+- Attach helper entities to the room's Magic Areas device through the device registry.
+  The device identifier must match the Magic Areas entity device identifier:
+  `("magic_areas", "magic_area_device_<area_id>")`.
+- Keep helper registry metadata in sync on every reconcile, not only on first creation.
+- Filter Magic Areas-managed helper entities out of regular source-entity ingestion by
+  checking the helper config entry's Magic Areas ownership unique ID.
+- Do not filter user-owned helpers that happen to be in the same HA area unless they use
+  Magic Areas-managed ownership metadata.
+
+This prevents a feedback loop where Magic Areas creates a helper, assigns it to the HA
+area for discoverability, and then later enumerates that helper as if it were an
+underlying room device.
+
 ### Labels
 
 HA API:
@@ -139,6 +162,10 @@ Probe result:
   `ConfigEntryHelperSurface`, matches owned helpers by `magic_areas:<entry_id>:` unique
   ID prefix, updates changed options/title, reloads loaded helpers, and removes stale
   owned helpers.
+- Managed helper entities are assigned to the target HA area and attached to the Magic
+  Areas room device after create/update.
+- Entity ingestion excludes managed helper entities from source enumeration by checking
+  the helper config entry ownership prefix.
 - `AreaCoverGroup` has been removed after CRG confirmed it became dead code.
 
 ### Threshold Helpers

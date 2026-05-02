@@ -54,6 +54,36 @@ labels/helpers. The UI and docs should be explicit about that.
 If a user wants a manually managed HA helper, it should not use the Magic Areas managed
 identifier/prefix/ownership metadata.
 
+## Managed Surface Registry Invariants
+
+Every Magic Areas-managed native HA helper must follow the same registry rules. These
+rules are not cover-group-specific.
+
+Required behavior:
+
+- The helper config entry must have a stable Magic Areas ownership ID, currently using
+  the `magic_areas:<owner_entry_id>:` unique-id prefix.
+- The helper entity must be assigned to the same HA area as the Magic Area it represents.
+- The helper entity must be attached to the Magic Areas device for that room-space, using
+  the same device identifier pattern as Magic Areas entities:
+  `("magic_areas", "magic_area_device_<area_id>")`.
+- The helper entity must show up with the Magic Areas room device in HA device/entity
+  displays.
+- The helper must not become a source entity for the same Magic Area just because it has
+  been assigned to the HA area.
+- Entity ingestion must filter Magic Areas-managed helper entities before feature
+  enumeration, while still preserving normal Magic Areas entities in `magic_entities`.
+- User-owned helpers must not be filtered or overwritten unless they carry Magic
+  Areas-managed ownership metadata.
+
+Acceptance criteria for every native-helper migration:
+
+- create, update/reload, and stale removal are covered
+- area assignment is covered
+- Magic Areas device attachment is covered
+- source-enumeration exclusion is covered
+- user-owned helper preservation is covered where applicable
+
 ## Non-Goals
 
 - Do not use HA scenes as the room-state model. Scenes are static snapshots and do not
@@ -93,6 +123,9 @@ The reconciler should:
 - create missing surfaces
 - update changed surfaces
 - remove stale Magic Areas-managed surfaces
+- attach helper entities to the correct HA area and Magic Areas device
+- prevent managed helper entities from feeding back into Magic Areas source-entity
+  enumeration
 - leave non-Magic-Areas user surfaces untouched
 - emit diagnostics for skipped, failed, or stale surfaces
 - avoid doing per-feature create/update/delete logic in feature modules
