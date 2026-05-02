@@ -23,6 +23,9 @@ class ConfigEntryHelperSurface:
     domain: str
     title: str
     options: dict[str, ManagedSurfaceOptionValue]
+    area_id: str | None = None
+    device_identifier: tuple[str, str] | None = None
+    device_name: str | None = None
 
 
 type ManagedSurface = ConfigEntryHelperSurface

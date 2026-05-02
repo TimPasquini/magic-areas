@@ -10,6 +10,8 @@ from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.const import CONF_ENTITIES, CONF_NAME
 from homeassistant.helpers.entity import Entity
 
+from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     ConfigEntryHelperSurface,
     ManagedSurface,
@@ -94,6 +96,12 @@ class CoverGroupsFeatureModule(BaseFeatureModule):
                         ],
                         "hide_members": False,
                     },
+                    area_id=area_config.id,
+                    device_identifier=(
+                        DOMAIN,
+                        f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}",
+                    ),
+                    device_name=area_config.name,
                 )
             )
         return surfaces

@@ -9,6 +9,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     ConfigEntryHelperSurface,
@@ -44,6 +46,62 @@ def _build_config_entry(surface: ConfigEntryHelperSurface) -> ConfigEntry[object
         unique_id=surface.unique_id,
         version=1,
     )
+
+
+def _get_or_create_surface_device(
+    *,
+    hass: HomeAssistant,
+    owner_entry_id: str,
+    surface: ConfigEntryHelperSurface,
+) -> str | None:
+    """Return device ID for the helper surface's Magic Areas device."""
+    if surface.device_identifier is None:
+        return None
+
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get_or_create(
+        config_entry_id=owner_entry_id,
+        identifiers={surface.device_identifier},
+        manufacturer="Magic Areas",
+        model="Magic Area",
+        name=surface.device_name,
+        suggested_area=surface.area_id,
+    )
+    if surface.area_id and device.area_id != surface.area_id:
+        updated_device = device_registry.async_update_device(
+            device.id,
+            area_id=surface.area_id,
+        )
+        return updated_device.id if updated_device else device.id
+    return device.id
+
+
+def _apply_surface_registry_metadata(
+    *,
+    hass: HomeAssistant,
+    owner_entry_id: str,
+    helper_entry: ConfigEntry[object],
+    surface: ConfigEntryHelperSurface,
+) -> None:
+    """Attach helper entities to the correct HA area and Magic Areas device."""
+    if surface.area_id is None and surface.device_identifier is None:
+        return
+
+    device_id = _get_or_create_surface_device(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        surface=surface,
+    )
+    entity_registry = er.async_get(hass)
+    for entry in er.async_entries_for_config_entry(
+        entity_registry,
+        helper_entry.entry_id,
+    ):
+        entity_registry.async_update_entity(
+            entry.entity_id,
+            area_id=surface.area_id,
+            device_id=device_id,
+        )
 
 
 async def async_reconcile_managed_surfaces(
@@ -85,6 +143,17 @@ async def async_reconcile_config_entry_helpers(
     for unique_id, surface in desired_by_unique_id.items():
         if (entry := current_by_unique_id.get(unique_id)) is None:
             await hass.config_entries.async_add(_build_config_entry(surface))
+            entry = next(
+                current_entry
+                for current_entry in hass.config_entries.async_entries(surface.domain)
+                if current_entry.unique_id == unique_id
+            )
+            _apply_surface_registry_metadata(
+                hass=hass,
+                owner_entry_id=owner_entry_id,
+                helper_entry=entry,
+                surface=surface,
+            )
             continue
 
         changed = False
@@ -103,6 +172,12 @@ async def async_reconcile_config_entry_helpers(
             )
         if changed and entry.state is ConfigEntryState.LOADED:
             await hass.config_entries.async_reload(entry.entry_id)
+        _apply_surface_registry_metadata(
+            hass=hass,
+            owner_entry_id=owner_entry_id,
+            helper_entry=entry,
+            surface=surface,
+        )
 
     for unique_id, entry in current_by_unique_id.items():
         if unique_id not in desired_by_unique_id:

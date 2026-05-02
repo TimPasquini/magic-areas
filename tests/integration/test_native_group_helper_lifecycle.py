@@ -15,10 +15,17 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator.managed_surfaces import (
     async_reconcile_config_entry_helpers,
+)
+from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import (
+    load_area_entities,
 )
 from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     ConfigEntryHelperSurface,
@@ -153,9 +160,15 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     ]
     await setup_mock_entities(hass, COVER_DOMAIN, {DEFAULT_MOCK_AREA: covers})
     owner_entry_id = "magic_area_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Kitchen",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
     unique_id = build_managed_surface_unique_id(
         entry_id=owner_entry_id,
-        area_id="living_room",
+        area_id=DEFAULT_MOCK_AREA.value,
         feature_id="cover_groups",
         surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
         role="cover_group_blind",
@@ -175,6 +188,12 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
                     CONF_ENTITIES: [covers[0].entity_id, covers[1].entity_id],
                     "hide_members": False,
                 },
+                area_id=DEFAULT_MOCK_AREA.value,
+                device_identifier=(
+                    DOMAIN,
+                    f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+                ),
+                device_name="Kitchen",
             )
         ],
     )
@@ -195,6 +214,13 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
         covers[0].entity_id,
         covers[1].entity_id,
     }
+    group_registry_entry = entity_registry.async_get(group_entity_id)
+    assert group_registry_entry is not None
+    assert group_registry_entry.area_id == DEFAULT_MOCK_AREA.value
+    assert group_registry_entry.device_id is not None
+    device = dr.async_get(hass).async_get(group_registry_entry.device_id)
+    assert device is not None
+    assert (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}") in device.identifiers
 
     await async_reconcile_config_entry_helpers(
         hass=hass,
@@ -210,6 +236,12 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
                     CONF_ENTITIES: [covers[2].entity_id],
                     "hide_members": False,
                 },
+                area_id=DEFAULT_MOCK_AREA.value,
+                device_identifier=(
+                    DOMAIN,
+                    f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+                ),
+                device_name="Kitchen",
             )
         ],
     )
@@ -218,6 +250,15 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     group_state = hass.states.get(group_entity_id)
     assert group_state is not None
     assert group_state.attributes[ATTR_ENTITY_ID] == [covers[2].entity_id]
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=owner_entry_id,
+        config={},
+    )
+    assert group_entity_id not in {
+        entity["entity_id"] for entity in entities.get(COVER_DOMAIN, [])
+    }
 
     await async_reconcile_config_entry_helpers(
         hass=hass,
