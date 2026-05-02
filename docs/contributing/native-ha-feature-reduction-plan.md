@@ -76,6 +76,9 @@ Required behavior:
   been assigned to the HA area.
 - Entity ingestion must filter Magic Areas-managed helper entities before feature
   enumeration, while still preserving normal Magic Areas entities in `magic_entities`.
+- Meta-area child discovery must include child Magic Areas-managed helper entities,
+  because native helper config entries are owned by HA helper domains rather than the
+  child Magic Areas config entry.
 - User-owned helpers must not be filtered or overwritten unless they carry Magic
   Areas-managed ownership metadata.
 

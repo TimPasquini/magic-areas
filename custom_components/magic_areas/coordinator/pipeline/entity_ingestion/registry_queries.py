@@ -234,6 +234,20 @@ def get_child_magic_entities(
                 continue
             entity_list.append(entity_entry)
 
+        managed_helper_prefix = f"magic_areas:{entry.entry_id}:"
+        for helper_entry in hass.config_entries.async_entries():
+            if helper_entry.state != ConfigEntryState.LOADED:
+                continue
+            if not str(helper_entry.unique_id or "").startswith(managed_helper_prefix):
+                continue
+            helper_entities = entity_registry.entities.get_entries_for_config_entry_id(
+                helper_entry.entry_id
+            )
+            for entity_entry in helper_entities:
+                if entity_entry.entity_id in exclude_entities:
+                    continue
+                entity_list.append(entity_entry)
+
     return entity_list
 
 

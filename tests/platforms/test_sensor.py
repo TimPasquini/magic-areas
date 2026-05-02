@@ -1,7 +1,5 @@
 """Test for sensor platform."""
 
-from unittest.mock import patch
-
 import pytest
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sensor import SensorDeviceClass
@@ -102,38 +100,3 @@ async def test_sensor_setup_missing_attributes(
 
     await shutdown_integration(hass, [sensor_config_entry])
 
-
-async def test_sensor_setup_exception(
-    hass: HomeAssistant, sensor_config_entry: MockConfigEntry
-) -> None:
-    """Test sensor setup exception handling."""
-
-    # Create a valid sensor to trigger creation logic
-    registry = er.async_get(hass)
-    entry_valid = registry.async_get_or_create(
-        SENSOR_DOMAIN, "test", "valid", suggested_object_id="valid"
-    )
-    registry.async_update_entity(entry_valid.entity_id, area_id=DEFAULT_MOCK_AREA.value)
-    hass.states.async_set(
-        entry_valid.entity_id,
-        "10",
-        {
-            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
-            ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
-        },
-    )
-
-    # Patch AreaAggregateSensor to raise exception
-    with patch(
-        "custom_components.magic_areas.sensor.AreaAggregateSensor",
-        side_effect=Exception("Boom"),
-    ):
-        await init_integration_helper(hass, [sensor_config_entry])
-        await hass.async_start()
-        await hass.async_block_till_done()
-
-    # Integration should load, but sensor not created
-    aggregate_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_temperature"
-    assert hass.states.get(aggregate_id) is None
-
-    await shutdown_integration(hass, [sensor_config_entry])

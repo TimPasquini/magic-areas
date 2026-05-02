@@ -228,6 +228,8 @@ Current implementation:
   `group_type: binary_sensor` and native any/all options.
 - Aggregate group-registry records use managed helper unique IDs when owned by a Magic
   Areas config entry, so downstream aggregate resolution points at the native helper.
+- Meta-area child discovery includes child Magic Areas-managed helper entities, so meta
+  aggregates can aggregate native helper outputs from child areas.
 - Fan control resolves tracked aggregate outputs through aggregate metadata instead of
   legacy custom aggregate unique IDs.
 - Health declares a native HA binary sensor group helper and no longer builds a custom
