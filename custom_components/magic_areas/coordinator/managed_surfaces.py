@@ -3,19 +3,37 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import hashlib
+import logging
 from types import MappingProxyType
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
     ManagedSurfaceOptionValue,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+_REPAIR_TRANSLATION_KEY = "managed_surface_reconciliation_failed"
+_EXPECTED_RECONCILIATION_ERRORS = (
+    KeyError,
+    TypeError,
+    ValueError,
+    AttributeError,
+    RuntimeError,
+    StopIteration,
+    HomeAssistantError,
 )
 
 
@@ -45,6 +63,52 @@ def _build_config_entry(surface: ConfigEntryHelperSurface) -> ConfigEntry[object
         title=surface.title,
         unique_id=surface.unique_id,
         version=1,
+    )
+
+
+def _surface_repair_issue_id(unique_id: str) -> str:
+    """Build a stable Repairs issue ID for a managed surface."""
+    digest = hashlib.sha1(unique_id.encode(), usedforsecurity=False).hexdigest()[:12]
+    return f"managed_surface_reconciliation_{digest}"
+
+
+def _create_surface_repair_issue(
+    *,
+    hass: HomeAssistant,
+    surface_unique_id: str,
+    surface_domain: str,
+    surface_title: str,
+    action: str,
+    error: Exception,
+) -> None:
+    """Create or update a Repairs issue for a managed-surface failure."""
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        _surface_repair_issue_id(surface_unique_id),
+        is_fixable=False,
+        is_persistent=True,
+        severity=ir.IssueSeverity.ERROR,
+        translation_key=_REPAIR_TRANSLATION_KEY,
+        translation_placeholders={
+            "action": action,
+            "domain": surface_domain,
+            "surface": surface_title,
+            "error": f"{type(error).__name__}: {error}",
+        },
+    )
+
+
+def _delete_surface_repair_issue(
+    *,
+    hass: HomeAssistant,
+    surface_unique_id: str,
+) -> None:
+    """Clear a Repairs issue for a successfully reconciled managed surface."""
+    ir.async_delete_issue(
+        hass,
+        DOMAIN,
+        _surface_repair_issue_id(surface_unique_id),
     )
 
 
@@ -142,47 +206,94 @@ async def async_reconcile_config_entry_helpers(
     }
 
     for unique_id, surface in desired_by_unique_id.items():
-        if (entry := current_by_unique_id.get(unique_id)) is None:
-            await hass.config_entries.async_add(_build_config_entry(surface))
-            entry = next(
-                current_entry
-                for current_entry in hass.config_entries.async_entries(surface.domain)
-                if current_entry.unique_id == unique_id
-            )
+        action = "create"
+        try:
+            if (entry := current_by_unique_id.get(unique_id)) is None:
+                await hass.config_entries.async_add(_build_config_entry(surface))
+                entry = next(
+                    current_entry
+                    for current_entry in hass.config_entries.async_entries(surface.domain)
+                    if current_entry.unique_id == unique_id
+                )
+                _apply_surface_registry_metadata(
+                    hass=hass,
+                    owner_entry_id=owner_entry_id,
+                    helper_entry=entry,
+                    surface=surface,
+                )
+                _delete_surface_repair_issue(
+                    hass=hass,
+                    surface_unique_id=unique_id,
+                )
+                continue
+
+            action = "update"
+            changed = False
+            if entry.title != surface.title:
+                changed = hass.config_entries.async_update_entry(
+                    entry,
+                    title=surface.title,
+                )
+            if not _options_equal(dict(entry.options), surface.options):
+                changed = (
+                    hass.config_entries.async_update_entry(
+                        entry,
+                        options=surface.options,
+                    )
+                    or changed
+                )
+            if changed and entry.state is ConfigEntryState.LOADED:
+                await hass.config_entries.async_reload(entry.entry_id)
             _apply_surface_registry_metadata(
                 hass=hass,
                 owner_entry_id=owner_entry_id,
                 helper_entry=entry,
                 surface=surface,
             )
-            continue
-
-        changed = False
-        if entry.title != surface.title:
-            changed = hass.config_entries.async_update_entry(
-                entry,
-                title=surface.title,
+            _delete_surface_repair_issue(
+                hass=hass,
+                surface_unique_id=unique_id,
             )
-        if not _options_equal(dict(entry.options), surface.options):
-            changed = (
-                hass.config_entries.async_update_entry(
-                    entry,
-                    options=surface.options,
-                )
-                or changed
+        except _EXPECTED_RECONCILIATION_ERRORS as err:
+            _LOGGER.exception(
+                "%s: Failed to %s managed %s helper surface '%s'",
+                owner_entry_id,
+                action,
+                surface.domain,
+                surface.title,
             )
-        if changed and entry.state is ConfigEntryState.LOADED:
-            await hass.config_entries.async_reload(entry.entry_id)
-        _apply_surface_registry_metadata(
-            hass=hass,
-            owner_entry_id=owner_entry_id,
-            helper_entry=entry,
-            surface=surface,
-        )
+            _create_surface_repair_issue(
+                hass=hass,
+                surface_unique_id=unique_id,
+                surface_domain=surface.domain,
+                surface_title=surface.title,
+                action=action,
+                error=err,
+            )
 
     for unique_id, entry in current_by_unique_id.items():
         if unique_id not in desired_by_unique_id:
-            await hass.config_entries.async_remove(entry.entry_id)
+            try:
+                await hass.config_entries.async_remove(entry.entry_id)
+                _delete_surface_repair_issue(
+                    hass=hass,
+                    surface_unique_id=unique_id,
+                )
+            except _EXPECTED_RECONCILIATION_ERRORS as err:
+                _LOGGER.exception(
+                    "%s: Failed to remove stale managed %s helper surface '%s'",
+                    owner_entry_id,
+                    entry.domain,
+                    entry.title,
+                )
+                _create_surface_repair_issue(
+                    hass=hass,
+                    surface_unique_id=unique_id,
+                    surface_domain=entry.domain,
+                    surface_title=entry.title,
+                    action="remove",
+                    error=err,
+                )
 
 
 __all__ = [

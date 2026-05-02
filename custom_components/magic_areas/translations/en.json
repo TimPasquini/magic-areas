@@ -1,5 +1,11 @@
 {
   "title": "Magic Areas",
+  "issues": {
+    "managed_surface_reconciliation_failed": {
+      "title": "Magic Areas could not reconcile a managed Home Assistant helper",
+      "description": "Magic Areas could not {action} the managed `{domain}` helper `{surface}`. Error: `{error}`.\n\nThe affected helper may be missing, stale, or out of sync until the underlying problem is fixed and Magic Areas reconciles it again."
+    }
+  },
   "config": {
     "step": {
       "user": {

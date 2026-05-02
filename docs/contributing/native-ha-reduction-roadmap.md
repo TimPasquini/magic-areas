@@ -267,6 +267,8 @@ Exit criteria:
 
 ### Stage 7: Repairs And Metadata Cleanup
 
+Status: started.
+
 Targets:
 
 - repairs/issues registry
@@ -284,6 +286,14 @@ Exit criteria:
 - User-actionable reconciliation failures appear as HA repairs.
 - Managed helper ownership is discoverable without fragile name matching.
 - Private group metadata is only used where HA metadata cannot represent the relationship.
+
+Current implementation:
+
+- Config-entry helper reconciliation creates a persistent HA Repair when create, update,
+  or stale-removal fails for a Magic Areas-managed helper.
+- Repair issue IDs are stable per managed surface and do not depend on helper display
+  names.
+- A later successful reconcile of the same managed surface clears the stale Repair.
 
 ### Stage 8: Light Groups
 
