@@ -14,6 +14,9 @@ from custom_components.magic_areas.option_defaults import feature_option_default
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
+    from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+        ManagedSurface,
+    )
     from custom_components.magic_areas.coordinator import MagicAreasData
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
@@ -156,6 +159,14 @@ class FeatureModule(Protocol):
         """Build entities for this feature."""
         ...
 
+    def desired_managed_surfaces(
+        self,
+        area_config: AreaConfig,
+        data: MagicAreasData,
+    ) -> list[ManagedSurface]:
+        """Return HA-managed surfaces desired by this feature."""
+        ...
+
     def attach_listeners(
         self,
         entities: list[Entity],
@@ -212,6 +223,14 @@ class BaseFeatureModule:
     ) -> None:
         """Attach optional listeners for this feature."""
         return None
+
+    def desired_managed_surfaces(
+        self,
+        area_config: AreaConfig,
+        data: MagicAreasData,
+    ) -> list[ManagedSurface]:
+        """Return HA-managed surfaces desired by this feature."""
+        return []
 
     def config_flow_steps(self) -> list[FeatureConfigStep]:
         """Return config flow steps for this feature."""

@@ -135,6 +135,11 @@ Probe result:
   its entity-registry entry.
 - This confirms the cover-group pilot can use direct config-entry-backed helper
   reconciliation instead of the legacy `group.set` service path.
+- The implemented reconciler path stores desired helper state in
+  `ConfigEntryHelperSurface`, matches owned helpers by `magic_areas:<entry_id>:` unique
+  ID prefix, updates changed options/title, reloads loaded helpers, and removes stale
+  owned helpers.
+- `AreaCoverGroup` has been removed after CRG confirmed it became dead code.
 
 ### Threshold Helpers
 

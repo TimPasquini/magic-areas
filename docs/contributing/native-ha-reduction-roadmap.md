@@ -77,6 +77,8 @@ Current finding:
 
 ### Stage 2: Reconciler Foundation
 
+Status: started.
+
 Goal:
 
 - Build the chosen shared desired-surface reconciliation abstraction.
@@ -100,7 +102,21 @@ Exit criteria:
   directly or a documented sibling label reconciler contract.
 - Feature modules declare desired surfaces rather than implementing helper lifecycle.
 
+Current implementation:
+
+- `core/runtime_model/managed_surfaces.py` defines pure desired managed-surface records
+  and stable ownership IDs.
+- `coordinator/managed_surfaces.py` reconciles config-entry-backed helpers by
+  Magic Areas ownership prefix.
+- Feature modules can declare desired surfaces through `desired_managed_surfaces`.
+- Entry setup reconciles desired surfaces after coordinator refresh and before platform
+  forwarding.
+- The first applier supports config-entry-backed helpers only; label, storage,
+  repairs, and registry-metadata appliers remain future work.
+
 ### Stage 3: Pilot With Cover Groups
+
+Status: implemented for native helper creation/update/remove.
 
 Reason:
 
@@ -117,6 +133,15 @@ Exit criteria:
 - Cover group feature no longer needs a Magic Areas custom cover group entity.
 - Managed HA cover group helper updates when area membership changes.
 - Tests prove user-owned cover groups are untouched.
+
+Current implementation:
+
+- Cover groups now declare native HA `group` helper surfaces instead of building
+  `AreaCoverGroup` entities.
+- `AreaCoverGroup` has been removed.
+- Existing cover platform behavior tests still pass with the native helper surface.
+- Direct reconciler tests cover create, update/reload, and stale removal for an owned
+  cover group helper.
 
 ### Stage 4: Plain Domain Groups
 

@@ -6,7 +6,6 @@ from types import MappingProxyType
 
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
-from homeassistant.components.group import DOMAIN as GROUP_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
@@ -18,9 +17,19 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from custom_components.magic_areas.coordinator.managed_surfaces import (
+    async_reconcile_config_entry_helpers,
+)
+from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+    ConfigEntryHelperSurface,
+    ManagedSurfaceKind,
+    build_managed_surface_unique_id,
+)
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import setup_mock_entities
 from tests.mocks import MockCover
+
+GROUP_DOMAIN = "group"
 
 
 def _managed_group_entry(
@@ -29,7 +38,7 @@ def _managed_group_entry(
     unique_id: str,
     name: str,
     entities: list[str],
-) -> ConfigEntry:
+) -> ConfigEntry[object]:
     """Build the shape a Magic Areas reconciler would manage."""
     return ConfigEntry(
         data={},
@@ -119,3 +128,102 @@ async def test_managed_cover_group_config_entry_lifecycle(
 
     assert hass.states.get(group_entity_id) is None
     assert not er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+
+
+async def test_reconciler_manages_cover_group_helper_lifecycle(
+    hass: HomeAssistant,
+) -> None:
+    """The Magic Areas reconciler creates, updates, and removes helper entries."""
+    covers = [
+        MockCover(
+            name="left_blind",
+            unique_id="reconcile_left_blind",
+            device_class=CoverDeviceClass.BLIND,
+        ),
+        MockCover(
+            name="right_blind",
+            unique_id="reconcile_right_blind",
+            device_class=CoverDeviceClass.BLIND,
+        ),
+        MockCover(
+            name="shade",
+            unique_id="reconcile_shade",
+            device_class=CoverDeviceClass.SHADE,
+        ),
+    ]
+    await setup_mock_entities(hass, COVER_DOMAIN, {DEFAULT_MOCK_AREA: covers})
+    owner_entry_id = "magic_area_owner"
+    unique_id = build_managed_surface_unique_id(
+        entry_id=owner_entry_id,
+        area_id="living_room",
+        feature_id="cover_groups",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="cover_group_blind",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            ConfigEntryHelperSurface(
+                unique_id=unique_id,
+                domain=GROUP_DOMAIN,
+                title="Magic Areas Living Room Blinds",
+                options={
+                    "group_type": Platform.COVER,
+                    CONF_NAME: "Magic Areas Living Room Blinds",
+                    CONF_ENTITIES: [covers[0].entity_id, covers[1].entity_id],
+                    "hide_members": False,
+                },
+            )
+        ],
+    )
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = next(
+        entry
+        for entry in hass.config_entries.async_entries(GROUP_DOMAIN)
+        if entry.unique_id == unique_id
+    )
+    group_entity_id = er.async_entries_for_config_entry(entity_registry, entry.entry_id)[
+        0
+    ].entity_id
+    group_state = hass.states.get(group_entity_id)
+    assert group_state is not None
+    assert set(group_state.attributes[ATTR_ENTITY_ID]) == {
+        covers[0].entity_id,
+        covers[1].entity_id,
+    }
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            ConfigEntryHelperSurface(
+                unique_id=unique_id,
+                domain=GROUP_DOMAIN,
+                title="Magic Areas Living Room Shades",
+                options={
+                    "group_type": Platform.COVER,
+                    CONF_NAME: "Magic Areas Living Room Shades",
+                    CONF_ENTITIES: [covers[2].entity_id],
+                    "hide_members": False,
+                },
+            )
+        ],
+    )
+    await hass.async_block_till_done()
+
+    group_state = hass.states.get(group_entity_id)
+    assert group_state is not None
+    assert group_state.attributes[ATTR_ENTITY_ID] == [covers[2].entity_id]
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get(group_entity_id) is None

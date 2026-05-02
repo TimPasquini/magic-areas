@@ -2,10 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from homeassistant.components.cover import CoverDeviceClass
-from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
-from homeassistant.components.group.cover import CoverGroup
 from homeassistant.components.group.fan import FanGroup
 from homeassistant.components.group.media_player import MediaPlayerGroup
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
@@ -46,41 +43,6 @@ class AreaFanGroup(MagicGroupEntity, FanGroup):
         delattr(self, "_attr_name")
 
 
-class AreaCoverGroup(MagicGroupEntity, CoverGroup):
-    """Cover group for handling all covers in the area."""
-
-    feature_id = MagicAreasFeatures.COVER_GROUPS
-
-    def __init__(
-        self,
-        area_config: "AreaConfig",
-        coordinator: "MagicAreasCoordinator",
-        device_class: str | None,
-        entities: list[dict[str, str]],
-    ) -> None:
-        """Initialize cover group."""
-        entity_ids = [entity["entity_id"] for entity in entities]
-        MagicGroupEntity.__init__(
-            self,
-            area_config,
-            coordinator,
-            domain=COVER_DOMAIN,
-            member_entity_ids=entity_ids,
-            translation_key=device_class,
-        )
-        self._attr_device_class = (
-            CoverDeviceClass(device_class) if device_class else None
-        )
-        self._entities = entities
-        CoverGroup.__init__(
-            self,
-            entities=self.member_entity_ids,
-            name="",
-            unique_id=self._attr_unique_id,
-        )
-        delattr(self, "_attr_name")
-
-
 class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
     """Media player group."""
 
@@ -108,4 +70,4 @@ class AreaMediaPlayerGroup(MagicGroupEntity, MediaPlayerGroup):
         )
 
 
-__all__ = ["AreaCoverGroup", "AreaFanGroup", "AreaMediaPlayerGroup"]
+__all__ = ["AreaFanGroup", "AreaMediaPlayerGroup"]

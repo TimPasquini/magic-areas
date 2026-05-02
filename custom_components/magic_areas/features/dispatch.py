@@ -17,6 +17,9 @@ from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+        ManagedSurface,
+    )
     from custom_components.magic_areas.features.registry import FeatureRegistry
 
 
@@ -30,6 +33,33 @@ ExtraEntitiesBuilder = Callable[
     [AreaConfig, MagicAreasCoordinator, MagicAreasData],
     list[Entity] | Awaitable[list[Entity]],
 ]
+
+
+def collect_feature_managed_surfaces(
+    *,
+    registry: FeatureRegistry,
+    data: MagicAreasData,
+    area_config: AreaConfig,
+    logger: logging.Logger,
+) -> list[ManagedSurface]:
+    """Collect desired HA-managed surfaces from enabled feature modules."""
+    surfaces: list[ManagedSurface] = []
+    enabled_features = {str(feature) for feature in data.enabled_features}
+
+    for module in registry.modules():
+        if not module.is_enabled(data):
+            continue
+        missing = {feature.value for feature in module.depends_on()} - enabled_features
+        if missing:
+            logger.warning(
+                "Feature %s missing dependencies: %s",
+                module.id,
+                ", ".join(sorted(missing)),
+            )
+            continue
+        surfaces.extend(module.desired_managed_surfaces(area_config, data))
+
+    return surfaces
 
 
 def collect_feature_entities(

@@ -51,6 +51,7 @@ def _is_feature_module(value: object) -> TypeGuard[FeatureModule]:
             "is_enabled",
             "depends_on",
             "build_entities",
+            "desired_managed_surfaces",
             "attach_listeners",
             "config_flow_steps",
         )

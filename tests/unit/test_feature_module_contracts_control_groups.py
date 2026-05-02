@@ -142,7 +142,7 @@ def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
 
 
 def test_cover_groups_module_builds_device_class_groups() -> None:
-    """Cover groups module should build groups per device class and none."""
+    """Cover groups module should declare native helper surfaces per device class."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.COVER_GROUPS},
@@ -158,11 +158,12 @@ def test_cover_groups_module_builds_device_class_groups() -> None:
 
     module = get_module("cover_groups")
     entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    entity_ids = sorted(entity.entity_id for entity in entities)
-    assert entity_ids == [
-        "cover.magic_areas_cover_groups_kitchen_cover_group",
-        "cover.magic_areas_cover_groups_kitchen_cover_group_blind",
+    assert entities == []
+    assert sorted(surface.title for surface in surfaces) == [
+        "Magic Areas Cover Groups Kitchen Cover Group",
+        "Magic Areas Cover Groups Kitchen Cover Group Blind",
     ]
 
 
