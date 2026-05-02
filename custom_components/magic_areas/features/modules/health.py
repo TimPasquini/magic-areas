@@ -20,6 +20,8 @@ from custom_components.magic_areas.core.aggregates import (
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
+    ManagedSurfaceKind,
+    build_managed_surface_unique_id,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
@@ -78,9 +80,12 @@ class HealthFeatureModule(BaseFeatureModule):
         title = f"Magic Areas Health {area_config.name} Health Problem"
         return [
             ConfigEntryHelperSurface(
-                unique_id=(
-                    f"magic_areas:{area_config.hass_config.entry_id}:"
-                    f"{area_config.id}:health:config_entry_helper:health_problem"
+                unique_id=build_managed_surface_unique_id(
+                    entry_id=area_config.hass_config.entry_id,
+                    area_id=area_config.id,
+                    feature_id=MagicAreasFeatures.HEALTH,
+                    surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+                    role="health_problem",
                 ),
                 domain=GROUP_DOMAIN,
                 title=title,

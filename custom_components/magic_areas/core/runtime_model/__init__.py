@@ -20,10 +20,13 @@ from custom_components.magic_areas.core.runtime_model.identity import (
 )
 from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     ConfigEntryHelperSurface,
+    MANAGED_SURFACE_UNIQUE_ID_PREFIX,
     ManagedSurface,
     ManagedSurfaceKind,
     ManagedSurfaceOptionValue,
+    build_managed_surface_owner_prefix,
     build_managed_surface_unique_id,
+    is_managed_surface_unique_id,
 )
 from custom_components.magic_areas.core.runtime_model.migration import (
     async_migrate_unique_ids,
@@ -45,15 +48,18 @@ __all__ = [
     "GroupMetadataKey",
     "GroupRegistryView",
     "GroupRole",
+    "MANAGED_SURFACE_UNIQUE_ID_PREFIX",
     "ManagedSurface",
     "ManagedSurfaceKind",
     "ManagedSurfaceOptionValue",
     "RegisteredControlGroupView",
     "async_migrate_unique_ids",
+    "build_managed_surface_owner_prefix",
     "build_managed_surface_unique_id",
     "compute_unique_id_from_entity_id",
     "build_entity_references",
     "build_feature_unique_id",
     "build_presence_tracking_unique_id",
+    "is_managed_surface_unique_id",
     "is_reserved_policy_id",
 ]

@@ -294,6 +294,9 @@ Current implementation:
 - Repair issue IDs are stable per managed surface and do not depend on helper display
   names.
 - A later successful reconcile of the same managed surface clears the stale Repair.
+- Managed-surface ownership prefix construction and detection are centralized in the
+  runtime model, so reconciler lookup, source-enumeration exclusion, and meta-area child
+  helper discovery use the same ownership contract.
 
 ### Stage 8: Light Groups
 

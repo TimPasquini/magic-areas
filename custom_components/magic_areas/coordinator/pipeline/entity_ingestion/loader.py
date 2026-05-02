@@ -22,6 +22,7 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion.registr
     get_magic_entities_for_config_entry,
     group_entities,
 )
+from custom_components.magic_areas.core.runtime_model import is_managed_surface_unique_id
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
@@ -35,9 +36,6 @@ _EXPECTED_ENTITY_LOAD_ERRORS = (
     AttributeError,
     RuntimeError,
 )
-
-_MANAGED_HELPER_UNIQUE_ID_PREFIX = "magic_areas:"
-
 
 async def load_area_entities(
     hass: HomeAssistant,
@@ -130,9 +128,7 @@ def _exclude_managed_helper_entities(
     for entity in entity_list:
         if entity.config_entry_id:
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
-            if entry and str(entry.unique_id or "").startswith(
-                _MANAGED_HELPER_UNIQUE_ID_PREFIX
-            ):
+            if entry and is_managed_surface_unique_id(entry.unique_id):
                 continue
         filtered.append(entity)
     return filtered
