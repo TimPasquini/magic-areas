@@ -13,7 +13,7 @@ from .feature_module_contracts_testkit import get_module, make_area_config, make
 
 
 def test_fan_groups_module_builds_group_and_control_switch() -> None:
-    """Fan groups module should build fan group and control switch."""
+    """Fan groups module should build control switch and native helper surface."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.FAN_GROUPS},
@@ -24,12 +24,17 @@ def test_fan_groups_module_builds_group_and_control_switch() -> None:
 
     module = get_module("fan_groups")
     entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
     entity_ids = sorted(entity.entity_id for entity in entities)
-    assert entity_ids == [
-        "fan.magic_areas_fan_groups_kitchen_fan_group",
-        "switch.magic_areas_fan_groups_kitchen_fan_control",
-    ]
+    assert entity_ids == ["switch.magic_areas_fan_groups_kitchen_fan_control"]
+    assert len(surfaces) == 1
+    assert surfaces[0].unique_id == (
+        "magic_areas:entry-1:area-1:fan_groups:config_entry_helper:fan_group"
+    )
+    assert surfaces[0].domain == "group"
+    assert surfaces[0].options["group_type"] == FAN_DOMAIN
+    assert surfaces[0].options["entities"] == ["fan.ceiling_1"]
 
 
 def test_fan_groups_module_registers_default_control_group() -> None:
@@ -45,7 +50,11 @@ def test_fan_groups_module_registers_default_control_group() -> None:
     module.build_entities(area_config, coordinator, snapshot)
 
     groups = snapshot.group_registry.get_for_area(area_config.id)
-    assert any(group.definition.group_id == "fan_groups_area-1_fan_group" for group in groups)
+    assert any(
+        group.definition.group_id
+        == "magic_areas:entry-1:area-1:fan_groups:config_entry_helper:fan_group"
+        for group in groups
+    )
 
 
 def test_fan_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
@@ -72,11 +81,14 @@ def test_fan_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
         group.definition.group_id
         for group in initial_snapshot.group_registry.get_for_area(area_config.id)
     }
-    assert "fan_groups_area-1_fan_group" not in group_ids
+    assert (
+        "magic_areas:entry-1:area-1:fan_groups:config_entry_helper:fan_group"
+        not in group_ids
+    )
 
 
 def test_media_player_groups_module_builds_group_and_control_switch() -> None:
-    """Media player groups module should build group and control switch."""
+    """Media player groups module should build control switch and helper surface."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.MEDIA_PLAYER_GROUPS},
@@ -87,12 +99,18 @@ def test_media_player_groups_module_builds_group_and_control_switch() -> None:
 
     module = get_module("media_player_groups")
     entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
     entity_ids = sorted(entity.entity_id for entity in entities)
-    assert entity_ids == [
-        "media_player.magic_areas_media_player_groups_kitchen_media_player_group",
-        "switch.magic_areas_media_player_groups_kitchen_media_player_control",
-    ]
+    assert entity_ids == ["switch.magic_areas_media_player_groups_kitchen_media_player_control"]
+    assert len(surfaces) == 1
+    assert surfaces[0].unique_id == (
+        "magic_areas:entry-1:area-1:media_player_groups:config_entry_helper:"
+        "media_player_group"
+    )
+    assert surfaces[0].domain == "group"
+    assert surfaces[0].options["group_type"] == MEDIA_PLAYER_DOMAIN
+    assert surfaces[0].options["entities"] == ["media_player.tv"]
 
 
 def test_media_player_groups_module_registers_default_control_group() -> None:
@@ -109,7 +127,9 @@ def test_media_player_groups_module_registers_default_control_group() -> None:
 
     groups = snapshot.group_registry.get_for_area(area_config.id)
     assert any(
-        group.definition.group_id == "media_player_groups_area-1_media_player_group"
+        group.definition.group_id
+        == "magic_areas:entry-1:area-1:media_player_groups:config_entry_helper:"
+        "media_player_group"
         for group in groups
     )
 
@@ -138,7 +158,11 @@ def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
         group.definition.group_id
         for group in initial_snapshot.group_registry.get_for_area(area_config.id)
     }
-    assert "media_player_groups_area-1_media_player_group" not in group_ids
+    assert (
+        "magic_areas:entry-1:area-1:media_player_groups:config_entry_helper:"
+        "media_player_group"
+        not in group_ids
+    )
 
 
 def test_cover_groups_module_builds_device_class_groups() -> None:

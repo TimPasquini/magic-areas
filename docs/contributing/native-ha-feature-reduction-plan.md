@@ -229,10 +229,18 @@ Target direction:
 - Keep Magic Areas fan control policy until fan intent arbitration is redesigned.
 - Future humidity/odor fan logic should consume native helper sensors where possible.
 
-Expected reduction:
+Current implementation:
 
-- Remove or demote `AreaFanGroup` from `custom_components/magic_areas/group_entities.py`.
-- Shrink `custom_components/magic_areas/features/modules/fan_groups.py`.
+- Fan groups now declare native HA `group` helper surfaces instead of building
+  custom Magic Areas fan group entities.
+- Fan control still runs through the Magic Areas control switch/policy.
+- Control switches resolve native helper targets through the managed helper config
+  entry when direct entity-registry unique-id lookup is insufficient.
+- The former `group_entities.py` custom fan/media group module has been removed.
+
+Remaining reduction:
+
+- Further shrink shared custom group-builder code after light groups no longer need it.
 
 Suitability: high for grouping, medium for full control behavior.
 
@@ -253,11 +261,11 @@ Target direction:
 - Use this as the first pilot for native helper reconciliation.
 - Reconcile HA cover group helpers from current area/domain/device-class discovery.
 
-Expected reduction:
+Current implementation:
 
-- Remove or demote `AreaCoverGroup` from `custom_components/magic_areas/group_entities.py`.
-- Shrink `custom_components/magic_areas/features/modules/cover_groups.py` to desired
-  helper declarations.
+- Cover groups declare native HA `group` helper surfaces instead of building custom
+  Magic Areas cover group entities.
+- `AreaCoverGroup` has been removed.
 
 Suitability: very high.
 
@@ -279,10 +287,16 @@ Target direction:
 - Keep area-aware media routing separate; native groups do not replace occupied-area
   routing.
 
-Expected reduction:
+Current implementation:
 
-- Remove or demote `AreaMediaPlayerGroup` from `custom_components/magic_areas/group_entities.py`.
-- Shrink `custom_components/magic_areas/features/modules/media_player_groups.py`.
+- Media player groups now declare native HA `group` helper surfaces instead of building
+  custom Magic Areas media-player group entities.
+- Media player control still runs through the Magic Areas control switch/policy.
+- The former `group_entities.py` custom fan/media group module has been removed.
+
+Remaining reduction:
+
+- Further shrink shared custom group-builder code after light groups no longer need it.
 
 Suitability: high for grouping.
 

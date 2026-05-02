@@ -14,7 +14,7 @@ from custom_components.magic_areas.option_defaults import feature_option_default
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
-    from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+    from custom_components.magic_areas.core.runtime_model import (
         ManagedSurface,
     )
     from custom_components.magic_areas.coordinator import MagicAreasData

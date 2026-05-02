@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
     ManagedSurfaceKind,

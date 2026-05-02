@@ -66,7 +66,7 @@ async def async_setup_entry(
             listeners=tracked_listeners,
         )
 
-        from custom_components.magic_areas.coordinator.managed_surfaces import (
+        from custom_components.magic_areas.coordinator import (
             async_reconcile_managed_surfaces,
         )
         from custom_components.magic_areas.features.dispatch import (

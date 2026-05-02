@@ -21,13 +21,13 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.coordinator.managed_surfaces import (
+from custom_components.magic_areas.coordinator import (
     async_reconcile_config_entry_helpers,
 )
 from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import (
     load_area_entities,
 )
-from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
+from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurfaceKind,
     build_managed_surface_unique_id,

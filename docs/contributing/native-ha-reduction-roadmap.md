@@ -159,6 +159,8 @@ Current implementation:
 
 ### Stage 4: Plain Domain Groups
 
+Status: implemented for fan/media native helper creation and switch targeting.
+
 Targets:
 
 - media player groups
@@ -175,6 +177,16 @@ Exit criteria:
 - `AreaMediaPlayerGroup` and `AreaFanGroup` are demoted or removed.
 - Existing control switches still have a valid target surface.
 - Reconciler handles multiple helper domains without feature-specific lifecycle code.
+
+Current implementation:
+
+- Fan groups declare native HA `group` helper surfaces for `group_type: fan`.
+- Media player groups declare native HA `group` helper surfaces for
+  `group_type: media_player`.
+- Fan/media control switches continue to exist as Magic Areas policy surfaces.
+- Control-group runtime resolves both legacy Magic Areas entities and native helper
+  config-entry-backed group entities.
+- The former custom fan/media `group_entities.py` module has been removed.
 
 ### Stage 5: Aggregate Helpers
 
