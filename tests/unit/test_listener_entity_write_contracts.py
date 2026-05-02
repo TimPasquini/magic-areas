@@ -127,6 +127,7 @@ def test_light_group_state_change_uses_immediate_write(
             awaiting_echo=True,
         ),
         _last_known_area_states=["occupied"],
+        _last_known_area_states_from_dispatcher=False,
         async_write_ha_state=MagicMock(),
         schedule_update_ha_state=MagicMock(),
     )

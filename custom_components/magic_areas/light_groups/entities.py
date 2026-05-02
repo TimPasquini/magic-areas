@@ -149,6 +149,7 @@ class AreaLightGroup(MagicLightGroup):
 
         # Initialize area states cache (will be updated by _setup_listeners)
         self._last_known_area_states: list[str] = []
+        self._last_known_area_states_from_dispatcher = False
         self._listeners_initialized = False
         self._bright_since_monotonic: float | None = None
         self._last_turn_on_monotonic: float | None = None

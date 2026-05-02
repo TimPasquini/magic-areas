@@ -51,6 +51,7 @@ class _LightGroupHost(Protocol):
     _attr_is_on: bool | None
     _listeners_initialized: bool
     _last_known_area_states: list[str]
+    _last_known_area_states_from_dispatcher: bool
     _bright_since_monotonic: float | None
     _last_turn_on_monotonic: float | None
     _last_control_activity_monotonic: float | None
@@ -151,6 +152,9 @@ async def setup_group(host: _LightGroupHost) -> None:
     attrs["lights"] = host._entity_ids
     attrs["controlling"] = host.controlling
     await host._setup_listeners()
+    if AreaStates.OCCUPIED.value not in host._last_known_area_states:
+        host._reset_control_state()
+        attrs["controlling"] = host.controlling
 
 
 def setup_listeners(host: _LightGroupHost) -> None:
@@ -162,6 +166,7 @@ def setup_listeners(host: _LightGroupHost) -> None:
         host.hass,
         host._area_id,
     )
+    host._last_known_area_states_from_dispatcher = False
     if host.is_on and host._last_turn_on_monotonic is None:
         host._last_turn_on_monotonic = monotonic()
     register_area_and_group_state_listeners(
@@ -290,6 +295,7 @@ def handle_area_state_change(
     host.logger.debug("%s: Light group detected area state change", host.name)
     _new_states, _lost_states, current_states = states_tuple
     host._last_known_area_states = list(current_states)
+    host._last_known_area_states_from_dispatcher = True
 
     return evaluate_state_change(
         host,
@@ -358,16 +364,28 @@ def handle_group_state_change(
     if not event.context:
         return False
 
-    current_area_states = resolve_area_presence_states(
-        hass=host.hass,
-        area_id=host._area_id,
-        cached_states=host._last_known_area_states,
-        require_occupied=True,
-    )
+    origin_event = event.context.origin_event
+    if host.category != LightGroupCategory.ALL:
+        if _is_origin_light_attribute_change(origin_event):
+            host._last_control_activity_monotonic = monotonic()
+            host._attr_extra_state_attributes["controlling"] = host.controlling
+            host.async_write_ha_state()
+            return True
+        if not is_valid_origin_state_toggle(origin_event):
+            return False
+
+    current_area_states = _current_area_states_for_group_event(host)
 
     if AreaStates.OCCUPIED.value not in current_area_states:
-        host._reset_control_state()
-        host.logger.debug("%s: Control Reset.", host.name)
+        if (
+            host.category != LightGroupCategory.ALL
+            and _origin_new_state(origin_event) == STATE_ON
+        ):
+            if not process_secondary_group_state_change(host, origin_event):
+                return False
+        else:
+            host._reset_control_state()
+            host.logger.debug("%s: Control Reset.", host.name)
     elif host.category == LightGroupCategory.ALL:
         if host._child_ids:
             controlling = any(
@@ -377,18 +395,23 @@ def handle_group_state_change(
             )
             host._set_echo_state(host._echo_state.set_controlling(controlling))
     else:
-        origin_event = event.context.origin_event
-        if _is_origin_light_attribute_change(origin_event):
-            host._last_control_activity_monotonic = monotonic()
-            host._attr_extra_state_attributes["controlling"] = host.controlling
-            host.async_write_ha_state()
-            return True
         if not process_secondary_group_state_change(host, origin_event):
             return False
 
     host._attr_extra_state_attributes["controlling"] = host.controlling
     host.async_write_ha_state()
     return True
+
+
+def _current_area_states_for_group_event(host: _LightGroupHost) -> list[str]:
+    """Resolve area states for group self-events without overriding fresh cache."""
+    if host._last_known_area_states_from_dispatcher and host._last_known_area_states:
+        return list(host._last_known_area_states)
+    return resolve_area_presence_states(
+        hass=host.hass,
+        area_id=host._area_id,
+        require_occupied=True,
+    )
 
 
 def process_secondary_group_state_change(
