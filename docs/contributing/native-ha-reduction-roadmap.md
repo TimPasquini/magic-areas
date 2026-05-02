@@ -190,6 +190,9 @@ Current implementation:
 
 ### Stage 5: Aggregate Helpers
 
+Status: started for standard sensor/binary aggregate helpers; health aggregation remains
+pending.
+
 Targets:
 
 - binary sensor aggregates
@@ -201,13 +204,34 @@ Work:
 - Keep Magic Areas aggregate selection logic.
 - Reconcile native HA group helper surfaces for selected aggregate memberships.
 - Validate current aggregate semantics against HA helper semantics.
+- Apply the standard managed-helper invariants: helper area assignment, Magic Areas room
+  device attachment, and source-enumeration exclusion.
+- Ensure downstream runtime consumers resolve aggregate helper outputs through managed
+  helper ownership/aggregate metadata instead of legacy custom aggregate unique IDs.
 
 Exit criteria:
 
 - Aggregate entity outputs match current behavior for supported cases.
+- Aggregate helpers assigned to an HA area do not feed back into Magic Areas source
+  enumeration for that same area.
+- Threshold, Wasp, and fan-control runtime paths can resolve native aggregate helper
+  outputs.
 - Health sensor uses the same binary group helper path.
 - Unsupported aggregate semantics remain Magic Areas-owned until a native equivalent is
   confirmed.
+
+Current implementation:
+
+- Standard sensor aggregates declare native HA `group` helpers using `group_type:
+  sensor` and native mean/sum options.
+- Standard binary sensor aggregates declare native HA `group` helpers using
+  `group_type: binary_sensor` and native any/all options.
+- Aggregate group-registry records use managed helper unique IDs when owned by a Magic
+  Areas config entry, so downstream aggregate resolution points at the native helper.
+- Fan control resolves tracked aggregate outputs through aggregate metadata instead of
+  legacy custom aggregate unique IDs.
+- Aggregate-adjacent behavior tests cover sensor aggregates, binary aggregates,
+  threshold, Wasp, and fan control with native helper outputs.
 
 ### Stage 6: Threshold Helper
 

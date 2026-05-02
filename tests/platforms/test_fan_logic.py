@@ -4,9 +4,11 @@
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor.const import SensorDeviceClass
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import (
     ATTR_ENTITY_ID,
+    ATTR_DEVICE_CLASS,
     SERVICE_TURN_ON,
     STATE_OFF,
     STATE_ON,
@@ -112,7 +114,10 @@ async def test_fan_group_logic(
     hass.states.async_set(
         temperature_sensor_entity_id,
         str(int(SETPOINT_VALUE * 2)),
-        attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+        attributes={
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            "unit_of_measurement": UnitOfTemperature.CELSIUS,
+        },
     )
     await hass.async_block_till_done()
     assert_state(hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2)))
@@ -168,7 +173,10 @@ async def test_fan_group_logic(
     hass.states.async_set(
         temperature_sensor_entity_id,
         str(SENSOR_INITIAL_VALUE),
-        attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+        attributes={
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            "unit_of_measurement": UnitOfTemperature.CELSIUS,
+        },
     )
     await hass.async_block_till_done()
     assert_state(hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE))
@@ -183,7 +191,10 @@ async def test_fan_group_logic(
     hass.states.async_set(
         temperature_sensor_entity_id,
         str(int(SETPOINT_VALUE * 2)),
-        attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+        attributes={
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            "unit_of_measurement": UnitOfTemperature.CELSIUS,
+        },
     )
     await hass.async_block_till_done()
     assert_state(hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2)))
@@ -193,7 +204,10 @@ async def test_fan_group_logic(
     hass.states.async_set(
         temperature_sensor_entity_id,
         str(SENSOR_INITIAL_VALUE),
-        attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+        attributes={
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            "unit_of_measurement": UnitOfTemperature.CELSIUS,
+        },
     )
     await hass.async_block_till_done()
     assert_state(hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE))

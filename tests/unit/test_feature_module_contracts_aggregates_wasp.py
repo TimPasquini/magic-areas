@@ -26,7 +26,6 @@ from custom_components.magic_areas.sensor import (
     create_aggregate_sensors_from_definitions as create_sensor_aggregates,
 )
 from custom_components.magic_areas.binary_sensor import (
-    create_aggregate_sensors_from_definitions as create_binary_aggregates,
     create_illuminance_threshold,
     create_wasp_in_a_box_sensor,
 )
@@ -41,7 +40,7 @@ from .feature_module_contracts_testkit import (
 
 
 def test_aggregates_module_matches_legacy_sensor_entities() -> None:
-    """Aggregates module should match legacy sensor aggregate output."""
+    """Aggregates module should declare native helper surface for sensor aggregates."""
     area_config = make_area_config()
     entities_by_domain = {
         SENSOR_DOMAIN: [
@@ -69,22 +68,21 @@ def test_aggregates_module_matches_legacy_sensor_entities() -> None:
         entities=entities_by_domain,
     )
     coordinator = make_coordinator(snapshot)
-    definitions = build_aggregate_definitions(snapshot)
-
-    legacy_entities = create_sensor_aggregates(
-        definitions=definitions,
-        area_config=area_config,
-        coordinator=coordinator,
-    )
-
     module = get_module("aggregates")
     module_entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    legacy_ids = sorted(entity.entity_id for entity in legacy_entities)
-    module_ids = sorted(
-        entity.entity_id for entity in module_entities if entity.entity_id.startswith("sensor.")
+    assert module_entities == []
+    assert len(surfaces) == 1
+    assert surfaces[0].unique_id == (
+        "magic_areas:entry-1:area-1:aggregates:config_entry_helper:"
+        "aggregate_sensor_standard_temperature"
     )
-    assert module_ids == legacy_ids
+    assert surfaces[0].domain == "group"
+    assert surfaces[0].options["group_type"] == SENSOR_DOMAIN
+    assert surfaces[0].options["entities"] == ["sensor.temp_1", "sensor.temp_2"]
+    assert surfaces[0].options["type"] == "mean"
+    assert surfaces[0].area_id == area_config.id
 
 
 @pytest.mark.asyncio
@@ -92,7 +90,7 @@ async def test_aggregates_module_matches_legacy_binary_entities_and_threshold(
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Aggregates module should match legacy binary aggregates and threshold output."""
+    """Aggregates module should declare binary helper and keep threshold entity."""
     area_config = make_area_config()
     entities_by_domain = {
         SENSOR_DOMAIN: [
@@ -130,27 +128,37 @@ async def test_aggregates_module_matches_legacy_binary_entities_and_threshold(
         ),
     )
     coordinator = make_coordinator(snapshot, hass)
-    definitions = build_aggregate_definitions(snapshot)
-
-    legacy_entities = create_binary_aggregates(
-        definitions=definitions,
-        area_config=area_config,
-        coordinator=coordinator,
-    )
     threshold_entity = create_illuminance_threshold(hass, snapshot, area_config, coordinator)
-    if threshold_entity:
-        legacy_entities.append(threshold_entity)
 
     module = get_module("aggregates")
     module_entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    legacy_ids = sorted(entity.entity_id for entity in legacy_entities)
     module_ids = sorted(
         entity.entity_id
         for entity in module_entities
         if entity.entity_id.startswith("binary_sensor.")
     )
-    assert module_ids == legacy_ids
+    assert threshold_entity is not None
+    assert module_ids == [threshold_entity.entity_id]
+    assert {surface.options["group_type"] for surface in surfaces} == {
+        BINARY_SENSOR_DOMAIN,
+        SENSOR_DOMAIN,
+    }
+    binary_surface = next(
+        surface
+        for surface in surfaces
+        if surface.options["group_type"] == BINARY_SENSOR_DOMAIN
+    )
+    assert binary_surface.unique_id == (
+        "magic_areas:entry-1:area-1:aggregates:config_entry_helper:"
+        "aggregate_binary-sensor_standard_motion"
+    )
+    assert binary_surface.options["entities"] == [
+        "binary_sensor.motion_1",
+        "binary_sensor.motion_2",
+    ]
+    assert binary_surface.options["all"] is False
 
 
 def test_aggregates_module_respects_min_entities_config() -> None:
@@ -231,6 +239,7 @@ def test_aggregates_module_registers_group_registry_definitions() -> None:
     register_defs.assert_called_once()
     _, kwargs = register_defs.call_args
     assert kwargs["area_id"] == area_config.id
+    assert kwargs["owner_entry_id"] == "entry-1"
     assert any(
         definition.domain == SENSOR_DOMAIN
         and definition.device_class == SensorDeviceClass.TEMPERATURE

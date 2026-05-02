@@ -14,6 +14,10 @@ from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
 from custom_components.magic_areas.core.runtime_model import GroupMetadataKey
+from custom_components.magic_areas.core.runtime_model import (
+    ManagedSurfaceKind,
+    build_managed_surface_unique_id,
+)
 from custom_components.magic_areas.core.controls import (
     GroupRegistry,
     resolve_group_entity_ids_by_metadata,
@@ -36,21 +40,49 @@ def aggregate_group_id(*, area_id: str, device_class: str) -> str:
     return f"aggregates_{area_id}_aggregate_{device_class}"
 
 
+def aggregate_managed_surface_unique_id(
+    *,
+    entry_id: str,
+    area_id: str,
+    definition: AggregateDefinition,
+) -> str:
+    """Return the native helper ownership ID for an aggregate definition."""
+    domain_key = definition.domain.replace("_", "-")
+    role = f"aggregate_{domain_key}_{definition.kind.value}_{definition.device_class}"
+    return build_managed_surface_unique_id(
+        entry_id=entry_id,
+        area_id=area_id,
+        feature_id=MagicAreasFeatures.AGGREGATES,
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role=role,
+    )
+
+
 def register_aggregate_definitions(
     *,
     group_registry: GroupRegistry,
     area_id: str,
     definitions: list[AggregateDefinition],
+    owner_entry_id: str | None = None,
 ) -> None:
     """Register aggregate definitions as area defaults in the group registry."""
     group_definitions: list[ControlGroupDefinition] = []
     for definition in definitions:
+        group_id = (
+            aggregate_managed_surface_unique_id(
+                entry_id=owner_entry_id,
+                area_id=area_id,
+                definition=definition,
+            )
+            if owner_entry_id
+            else aggregate_group_id(
+                area_id=area_id,
+                device_class=definition.device_class,
+            )
+        )
         group_definitions.append(
             ControlGroupDefinition(
-                group_id=aggregate_group_id(
-                    area_id=area_id,
-                    device_class=definition.device_class,
-                ),
+                group_id=group_id,
                 members=definition.entity_ids,
                 policy_id=AGGREGATE_POLICY_ID,
                 metadata={

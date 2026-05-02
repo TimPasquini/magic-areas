@@ -83,6 +83,9 @@ Acceptance criteria for every native-helper migration:
 - Magic Areas device attachment is covered
 - source-enumeration exclusion is covered
 - user-owned helper preservation is covered where applicable
+- downstream Magic Areas runtime consumers resolve managed helper entities through
+  managed-surface ownership or aggregate/control metadata, not legacy custom entity
+  unique IDs
 
 ## Non-Goals
 
@@ -320,6 +323,21 @@ Target direction:
   aggregate semantics.
 - Add statistics helpers only where the desired behavior is explicitly statistical or
   rolling-window based.
+- Assign managed aggregate helpers to the same HA area and Magic Areas device as the
+  room-space while excluding those helpers from future source-entity enumeration. This
+  prevents aggregate helpers from being selected into their own next aggregate pass.
+- Runtime consumers such as threshold sensors and fan control must resolve aggregate
+  outputs through aggregate metadata/native helper ownership instead of the old custom
+  aggregate entity unique ID.
+
+Current implementation:
+
+- Standard sensor aggregate definitions declare managed native HA `group` helper
+  surfaces with `group_type: sensor`.
+- Magic Areas still computes aggregate membership and mode selection.
+- The native helper owns numeric calculation for supported `mean` and `sum` cases.
+- Tests cover source updates flowing through native helper output and downstream fan
+  control/threshold/Wasp aggregate resolution.
 
 Expected reduction:
 
@@ -346,6 +364,15 @@ Target direction:
 
 - Keep Magic Areas aggregate selection policy.
 - Reconcile native HA binary sensor groups for matching device-class aggregate surfaces.
+- Assign and protect managed binary aggregate helpers using the same area/device and
+  source-enumeration exclusion invariants as every other managed helper.
+
+Current implementation:
+
+- Standard binary sensor aggregate definitions declare managed native HA `group` helper
+  surfaces with `group_type: binary_sensor`.
+- Magic Areas still computes aggregate membership and `any`/`all` mode selection.
+- Wasp-in-a-box aggregate resolution continues through aggregate metadata.
 
 Expected reduction:
 
