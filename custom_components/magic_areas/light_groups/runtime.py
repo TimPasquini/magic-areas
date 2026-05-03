@@ -84,6 +84,7 @@ class _LightGroupHost(Protocol):
 
     async def async_get_last_state(self) -> State | None: ...
     async def _setup_listeners(self) -> None: ...
+    def current_control_target_is_on(self) -> bool | None: ...
     def _dispatch_light_action(self, action: LightAction) -> None: ...
     def _reset_control_state(self) -> None: ...
     def _set_echo_state(self, state: CommandEchoState) -> None: ...
@@ -167,7 +168,7 @@ def setup_listeners(host: _LightGroupHost) -> None:
         host._area_id,
     )
     host._last_known_area_states_from_dispatcher = False
-    if host.is_on and host._last_turn_on_monotonic is None:
+    if host.current_control_target_is_on() and host._last_turn_on_monotonic is None:
         host._last_turn_on_monotonic = monotonic()
     register_area_and_group_state_listeners(
         hass=host.hass,
@@ -451,7 +452,7 @@ def _dispatch_controlled_action(
     """Dispatch one light action when control is enabled and on/off state matches."""
     if not host._echo_state.controlling:
         return False
-    if host.is_on != when_is_on:
+    if host.current_control_target_is_on() != when_is_on:
         return False
 
     host._set_echo_state(host._echo_state.command_issued(host.unique_id))

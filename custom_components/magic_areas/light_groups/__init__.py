@@ -4,6 +4,9 @@ from custom_components.magic_areas.light_groups.entities import (
     AreaLightGroup,
     MagicLightGroup,
 )
+from custom_components.magic_areas.light_groups.identity import (
+    build_light_group_helper_surface_unique_id,
+)
 from custom_components.magic_areas.light_groups.policy import (
     ActOnMode,
     CommandEchoState,
@@ -130,6 +133,7 @@ __all__ = [
     "LightGroupPolicy",
     "LightPolicySignals",
     "MagicLightGroup",
+    "build_light_group_helper_surface_unique_id",
     "process_secondary_group_state_change",
     "build_light_control_group_policy",
     "light_action_to_control_group",

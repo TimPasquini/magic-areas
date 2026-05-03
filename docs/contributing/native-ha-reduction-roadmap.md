@@ -350,15 +350,26 @@ Current implementation:
 - The existing custom `AreaLightGroup` runtime remains the behavior-preserving policy
   owner for automatic control, manual override, command echo, suppression, and adaptive
   brightness guards.
+- Light-group helper identity is centralized in the light-groups public surface so
+  feature declaration and runtime target resolution use the same managed-surface ID
+  contract without side-door imports.
+- Automatic light-group actions now resolve the reconciled native HA light group helper
+  as their service-call target and fall back to the custom `AreaLightGroup` entity only
+  when the helper is not available yet.
+- Runtime on/off gating now reads the reconciled native helper state first, falling back
+  to the custom entity state only when the helper state is missing or not an on/off
+  state.
 - Reconciler coverage verifies native light helper create, update, stale removal, HA area
   assignment, Magic Areas device attachment, and source-enumeration exclusion.
 
 Remaining work:
 
-- Move runtime target resolution from custom light-group entities to the reconciled
-  native helper role target map.
-- Split or demote custom `AreaLightGroup` so it no longer acts as membership truth after
-  native helpers become the control target.
+- Split or demote custom `AreaLightGroup` so it no longer exposes a duplicate
+  user-facing light group after native helpers become the stable control and state
+  target.
+- Decide whether manual override/command-echo listeners should remain on the custom
+  policy entity, move to native helper events, or be owned by a future intent-engine
+  policy surface.
 - Add label reconciliation for global light role labels once the label applier is in
   scope.
 

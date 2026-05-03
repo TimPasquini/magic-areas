@@ -165,7 +165,8 @@ async def test_owned_turn_off_echo_completes_without_releasing_control(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
     target_group._last_known_area_states = [AreaStates.OCCUPIED.value]
-    target_group._attr_is_on = True
+    hass.states.async_set(target_group._control_target_entity_id(), STATE_ON)
+    await hass.async_block_till_done()
 
     assert turn_off(target_group) is True
     assert target_group._echo_state.awaiting_echo is True

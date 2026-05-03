@@ -18,8 +18,6 @@ from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
     GroupMetadataKey,
     ManagedSurface,
-    ManagedSurfaceKind,
-    build_managed_surface_unique_id,
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
@@ -41,6 +39,7 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_FEATURE_SCHEMA,
     MagicLightGroup,
     LIGHT_GROUP_PRESETS,
+    build_light_group_helper_surface_unique_id,
     light_groups_feature_config,
     preset_members,
     preset_states,
@@ -262,12 +261,10 @@ def _light_group_surface_unique_id(
     category: str,
 ) -> str:
     """Return managed helper unique ID for a light role group."""
-    return build_managed_surface_unique_id(
+    return build_light_group_helper_surface_unique_id(
         entry_id=area_config.hass_config.entry_id,
         area_id=area_config.id,
-        feature_id=MagicAreasFeatures.LIGHT_GROUPS,
-        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
-        role=f"light_group_{category}",
+        category=category,
     )
 
 
