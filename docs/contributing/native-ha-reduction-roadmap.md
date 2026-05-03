@@ -319,6 +319,8 @@ Closure assessment:
 
 ### Stage 8: Light Groups
 
+Status: started.
+
 Reason for delay:
 
 - Light groups combine exact surfaces, role metadata, automatic control, suppression,
@@ -337,6 +339,28 @@ Exit criteria:
 - Light role helper surfaces exist and update through reconciliation.
 - Runtime no longer treats custom Magic Areas light group entities as membership truth.
 - Existing behavior is preserved unless explicitly changed.
+
+Current implementation:
+
+- Light groups declare exact native HA light group helper surfaces for the area all-light
+  target and each configured role target with members.
+- Native helper titles intentionally use a distinct `Magic Areas Native Light Groups`
+  prefix so they do not collide with existing custom `AreaLightGroup` entity IDs while
+  runtime policy still lives on those custom entities.
+- The existing custom `AreaLightGroup` runtime remains the behavior-preserving policy
+  owner for automatic control, manual override, command echo, suppression, and adaptive
+  brightness guards.
+- Reconciler coverage verifies native light helper create, update, stale removal, HA area
+  assignment, Magic Areas device attachment, and source-enumeration exclusion.
+
+Remaining work:
+
+- Move runtime target resolution from custom light-group entities to the reconciled
+  native helper role target map.
+- Split or demote custom `AreaLightGroup` so it no longer acts as membership truth after
+  native helpers become the control target.
+- Add label reconciliation for global light role labels once the label applier is in
+  scope.
 
 ### Stage 9: Custom Control Groups
 

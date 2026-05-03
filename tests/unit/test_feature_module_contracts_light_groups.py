@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.core.runtime_model import ConfigEntryHelperSurface
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from .feature_module_contracts_testkit import (
@@ -189,3 +190,65 @@ def test_light_groups_module_clears_stale_groups_when_no_lights_remain() -> None
     group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
     assert "light_groups_area-1_all_lights" not in group_ids
     assert "light_groups_area-1_overhead_lights" not in group_ids
+
+
+def test_light_groups_module_declares_native_light_helper_surfaces() -> None:
+    """Light groups should declare exact native HA helper surfaces by role."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+                "task_lights": ["light.task_1"],
+                "task_lights_states": ["occupied"],
+            }
+        },
+        entities={
+            "light": [
+                {"entity_id": "light.overhead_1"},
+                {"entity_id": "light.task_1"},
+                {"entity_id": "light.unassigned_1"},
+            ]
+        },
+    )
+    module = get_module("light_groups")
+
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
+
+    assert all(isinstance(surface, ConfigEntryHelperSurface) for surface in surfaces)
+    surfaces_by_id = {surface.unique_id: surface for surface in surfaces}
+    assert sorted(surfaces_by_id) == [
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights",
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights",
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_task_lights",
+    ]
+    assert surfaces_by_id[
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights"
+    ].options["entities"] == [
+        "light.overhead_1",
+        "light.task_1",
+        "light.unassigned_1",
+    ]
+    assert surfaces_by_id[
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
+    ].options["entities"] == ["light.overhead_1"]
+
+
+def test_light_groups_module_removes_native_surfaces_when_no_lights_remain() -> None:
+    """Light managed helper surfaces should be absent without source lights."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "overhead_lights_states": ["occupied"],
+            }
+        },
+        entities={},
+    )
+    module = get_module("light_groups")
+
+    assert module.desired_managed_surfaces(area_config, snapshot) == []

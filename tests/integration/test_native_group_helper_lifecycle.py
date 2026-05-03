@@ -6,6 +6,7 @@ from types import MappingProxyType
 
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
+from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
@@ -52,7 +53,7 @@ from custom_components.magic_areas.core.runtime_model import (
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import setup_mock_entities
-from tests.mocks import MockCover, MockSensor
+from tests.mocks import MockCover, MockLight, MockSensor
 
 GROUP_DOMAIN = "group"
 THRESHOLD_DOMAIN = "threshold"
@@ -277,6 +278,129 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     )
     assert group_entity_id not in {
         entity["entity_id"] for entity in entities.get(COVER_DOMAIN, [])
+    }
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get(group_entity_id) is None
+
+
+async def test_reconciler_manages_light_group_helper_lifecycle(
+    hass: HomeAssistant,
+) -> None:
+    """Managed native light group helpers can be reconciled and excluded."""
+    lights = [
+        MockLight(
+            name="overhead_light",
+            state="off",
+            unique_id="native_helper_overhead_light",
+        ),
+        MockLight(
+            name="task_light",
+            state="off",
+            unique_id="native_helper_task_light",
+        ),
+    ]
+    await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
+    owner_entry_id = "magic_area_light_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Kitchen",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
+    unique_id = build_managed_surface_unique_id(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        feature_id="light_groups",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="light_group_overhead_lights",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            ConfigEntryHelperSurface(
+                unique_id=unique_id,
+                domain=GROUP_DOMAIN,
+                title="Magic Areas Native Light Groups Kitchen Overhead Lights",
+                options={
+                    "group_type": Platform.LIGHT,
+                    CONF_NAME: "Magic Areas Native Light Groups Kitchen Overhead Lights",
+                    CONF_ENTITIES: [lights[0].entity_id],
+                    "hide_members": False,
+                },
+                area_id=DEFAULT_MOCK_AREA.value,
+                device_identifier=(
+                    DOMAIN,
+                    f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+                ),
+                device_name="Kitchen",
+            )
+        ],
+    )
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = next(
+        entry
+        for entry in hass.config_entries.async_entries(GROUP_DOMAIN)
+        if entry.unique_id == unique_id
+    )
+    group_registry_entry = er.async_entries_for_config_entry(
+        entity_registry, entry.entry_id
+    )[0]
+    group_entity_id = group_registry_entry.entity_id
+    assert group_entity_id.startswith(f"{LIGHT_DOMAIN}.")
+    assert group_registry_entry.area_id == DEFAULT_MOCK_AREA.value
+    assert group_registry_entry.device_id is not None
+
+    group_state = hass.states.get(group_entity_id)
+    assert group_state is not None
+    assert group_state.attributes[ATTR_ENTITY_ID] == [lights[0].entity_id]
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            ConfigEntryHelperSurface(
+                unique_id=unique_id,
+                domain=GROUP_DOMAIN,
+                title="Magic Areas Native Light Groups Kitchen Task Lights",
+                options={
+                    "group_type": Platform.LIGHT,
+                    CONF_NAME: "Magic Areas Native Light Groups Kitchen Task Lights",
+                    CONF_ENTITIES: [lights[1].entity_id],
+                    "hide_members": False,
+                },
+                area_id=DEFAULT_MOCK_AREA.value,
+                device_identifier=(
+                    DOMAIN,
+                    f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+                ),
+                device_name="Kitchen",
+            )
+        ],
+    )
+    await hass.async_block_till_done()
+
+    group_state = hass.states.get(group_entity_id)
+    assert group_state is not None
+    assert group_state.attributes[ATTR_ENTITY_ID] == [lights[1].entity_id]
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=owner_entry_id,
+        config={},
+    )
+    assert group_entity_id not in {
+        entity["entity_id"] for entity in entities.get(LIGHT_DOMAIN, [])
     }
 
     await async_reconcile_config_entry_helpers(
