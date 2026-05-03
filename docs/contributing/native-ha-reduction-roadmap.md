@@ -297,6 +297,10 @@ Current implementation:
 - Managed-surface ownership prefix construction and detection are centralized in the
   runtime model, so reconciler lookup, source-enumeration exclusion, and meta-area child
   helper discovery use the same ownership contract.
+- HA registry lookup for managed-surface config entries and helper entities is
+  centralized in `core.managed_surface_registry`, replacing ad hoc config-entry scans in
+  the reconciler, source ingestion, meta-area helper discovery, and control-group runtime
+  fallback resolution.
 
 ### Stage 8: Light Groups
 

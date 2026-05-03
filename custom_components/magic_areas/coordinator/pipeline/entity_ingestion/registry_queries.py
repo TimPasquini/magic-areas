@@ -17,7 +17,9 @@ from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.defaults import (
     DEFAULT_IGNORE_DIAGNOSTIC_ENTITIES,
 )
-from custom_components.magic_areas.core.runtime_model import is_managed_surface_unique_id
+from custom_components.magic_areas.core.managed_surface_registry import (
+    iter_managed_surface_entity_entries,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
@@ -235,21 +237,15 @@ def get_child_magic_entities(
                 continue
             entity_list.append(entity_entry)
 
-        for helper_entry in hass.config_entries.async_entries():
-            if helper_entry.state != ConfigEntryState.LOADED:
+        for entity_entry in iter_managed_surface_entity_entries(
+            hass,
+            entity_registry,
+            owner_entry_id=entry.entry_id,
+            loaded_only=True,
+        ):
+            if entity_entry.entity_id in exclude_entities:
                 continue
-            if not is_managed_surface_unique_id(
-                helper_entry.unique_id,
-                owner_entry_id=entry.entry_id,
-            ):
-                continue
-            helper_entities = entity_registry.entities.get_entries_for_config_entry_id(
-                helper_entry.entry_id
-            )
-            for entity_entry in helper_entities:
-                if entity_entry.entity_id in exclude_entities:
-                    continue
-                entity_list.append(entity_entry)
+            entity_list.append(entity_entry)
 
     return entity_list
 

@@ -23,6 +23,9 @@ from custom_components.magic_areas.core.runtime_model import (
 from custom_components.magic_areas.core.runtime_model import (
     build_presence_tracking_unique_id,
 )
+from custom_components.magic_areas.core.managed_surface_registry import (
+    resolve_managed_surface_entity_id,
+)
 from custom_components.magic_areas.enums import MagicAreasEvents
 
 NATIVE_GROUP_HELPER_PLATFORM = "group"
@@ -82,16 +85,13 @@ def _resolve_registered_group_entity_id(
     )
     if entity_id:
         return entity_id
-    for config_entry in hass.config_entries.async_entries(NATIVE_GROUP_HELPER_PLATFORM):
-        if config_entry.unique_id != group_id:
-            continue
-        for registry_entry in entity_registry_module.async_entries_for_config_entry(
-            entity_registry,
-            config_entry.entry_id,
-        ):
-            if registry_entry.domain == domain:
-                return registry_entry.entity_id
-    return None
+    return resolve_managed_surface_entity_id(
+        hass,
+        entity_registry,
+        unique_id=group_id,
+        entity_domain=domain,
+        config_entry_domain=NATIVE_GROUP_HELPER_PLATFORM,
+    )
 
 
 def resolve_group_entity_id(

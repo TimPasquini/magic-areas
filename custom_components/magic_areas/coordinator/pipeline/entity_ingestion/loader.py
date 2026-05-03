@@ -22,7 +22,9 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion.registr
     get_magic_entities_for_config_entry,
     group_entities,
 )
-from custom_components.magic_areas.core.runtime_model import is_managed_surface_unique_id
+from custom_components.magic_areas.core.managed_surface_registry import (
+    is_managed_surface_config_entry,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
@@ -128,7 +130,7 @@ def _exclude_managed_helper_entities(
     for entity in entity_list:
         if entity.config_entry_id:
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
-            if entry and is_managed_surface_unique_id(entry.unique_id):
+            if entry and is_managed_surface_config_entry(entry):
                 continue
         filtered.append(entity)
     return filtered

@@ -21,7 +21,9 @@ from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
     ManagedSurfaceOptionValue,
-    is_managed_surface_unique_id,
+)
+from custom_components.magic_areas.core.managed_surface_registry import (
+    iter_managed_surface_config_entries,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,14 +38,6 @@ _EXPECTED_RECONCILIATION_ERRORS = (
     StopIteration,
     HomeAssistantError,
 )
-
-
-def _is_managed_by_entry(entry: ConfigEntry[object], owner_entry_id: str) -> bool:
-    """Return whether config entry is owned by this Magic Areas entry."""
-    return is_managed_surface_unique_id(
-        entry.unique_id,
-        owner_entry_id=owner_entry_id,
-    )
 
 
 def _options_equal(
@@ -199,11 +193,9 @@ async def async_reconcile_config_entry_helpers(
 ) -> None:
     """Create, update, and remove owned config-entry-backed helpers."""
     desired_by_unique_id = {surface.unique_id: surface for surface in desired_surfaces}
-    managed_entries = [
-        entry
-        for entry in hass.config_entries.async_entries()
-        if _is_managed_by_entry(entry, owner_entry_id)
-    ]
+    managed_entries = list(
+        iter_managed_surface_config_entries(hass, owner_entry_id=owner_entry_id)
+    )
     current_by_unique_id = {
         entry.unique_id: entry for entry in managed_entries if entry.unique_id
     }

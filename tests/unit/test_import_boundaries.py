@@ -120,6 +120,7 @@ CORE_PUBLIC_API_SURFACES: set[str] = {
     "custom_components.magic_areas.core.controls.policies.media",
     "custom_components.magic_areas.core.discovery",
     "custom_components.magic_areas.core.listener_registry",
+    "custom_components.magic_areas.core.managed_surface_registry",
     "custom_components.magic_areas.core.meta",
     "custom_components.magic_areas.core.meta_reload",
     "custom_components.magic_areas.core.presence_tracker",
