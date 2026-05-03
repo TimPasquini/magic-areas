@@ -267,7 +267,7 @@ Exit criteria:
 
 ### Stage 7: Repairs And Metadata Cleanup
 
-Status: started.
+Status: implemented.
 
 Targets:
 
@@ -301,6 +301,21 @@ Current implementation:
   centralized in `core.managed_surface_registry`, replacing ad hoc config-entry scans in
   the reconciler, source ingestion, meta-area helper discovery, and control-group runtime
   fallback resolution.
+
+Closure assessment:
+
+- User-actionable reconciliation failures now appear as HA Repairs and are cleared after
+  successful reconciliation.
+- Managed helper ownership is discoverable through stable managed-surface unique IDs and
+  shared registry helpers, not helper display names.
+- Remaining private group metadata is intentionally retained because it represents Magic
+  Areas policy semantics that HA registry metadata cannot express:
+  - `role` selects primary control targets and prevents ambiguous policy resolution.
+  - `category` orders and resolves light-group child surfaces for all-light behavior.
+  - aggregate domain/device-class/kind metadata maps generated helper outputs back to
+    Magic Areas runtime consumers such as threshold, Wasp, and fan control.
+- HA registry metadata remains the ownership/discovery layer; private group metadata is
+  now limited to policy relationships HA cannot represent safely.
 
 ### Stage 8: Light Groups
 
