@@ -3,6 +3,7 @@
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
@@ -77,6 +78,12 @@ async def test_light_group_entity_ids_and_count_match_contract(
         f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights",
         f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_task_lights",
     ]
+
+    entity_registry = er.async_get(hass)
+    for entity_id in expected_light_ids:
+        registry_entry = entity_registry.async_get(entity_id)
+        assert registry_entry is not None
+        assert registry_entry.hidden_by is er.RegistryEntryHider.INTEGRATION
 
     light_control_switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"

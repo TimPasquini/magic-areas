@@ -359,16 +359,17 @@ Current implementation:
 - Runtime on/off gating now reads the reconciled native helper state first, falling back
   to the custom entity state only when the helper state is missing or not an on/off
   state.
+- Custom `AreaLightGroup` entities are hidden by the integration in the entity registry
+  while remaining enabled as internal policy/runtime surfaces. Existing visible policy
+  entities are re-hidden during setup unless the entry is already hidden by another
+  owner.
 - Reconciler coverage verifies native light helper create, update, stale removal, HA area
   assignment, Magic Areas device attachment, and source-enumeration exclusion.
 
 Remaining work:
 
-- Split or demote custom `AreaLightGroup` so it no longer exposes a duplicate
-  user-facing light group after native helpers become the stable control and state
-  target.
-- Decide whether manual override/command-echo listeners should remain on the custom
-  policy entity, move to native helper events, or be owned by a future intent-engine
+- Decide whether manual override/command-echo listeners should remain on hidden custom
+  policy entities, move to native helper events, or be owned by a future intent-engine
   policy surface.
 - Add label reconciliation for global light role labels once the label applier is in
   scope.

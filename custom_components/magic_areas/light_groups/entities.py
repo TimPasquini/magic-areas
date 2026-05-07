@@ -142,6 +142,7 @@ class AreaLightGroup(MagicLightGroup):
             self, area_config, coordinator, entities, translation_key=category
         )
 
+        self._attr_entity_registry_visible_default = False
         self._child_categories = child_categories or []
         self._child_ids: list[str] | None = None
         self._feature_config = feature_config or {}
@@ -270,6 +271,20 @@ class AreaLightGroup(MagicLightGroup):
     async def _async_setup_group(self) -> None:
         """Set up light group - called by MagicGroupEntity lifecycle."""
         await setup_group(self)
+        self._hide_policy_entity()
+
+    def _hide_policy_entity(self) -> None:
+        """Hide the custom policy entity while keeping it enabled for runtime use."""
+        entity_registry = er.async_get(self.hass)
+        registry_entry = self.registry_entry or entity_registry.async_get(
+            self.entity_id
+        )
+        if registry_entry is None or registry_entry.hidden_by is not None:
+            return
+        self.registry_entry = entity_registry.async_update_entity(
+            self.entity_id,
+            hidden_by=er.RegistryEntryHider.INTEGRATION,
+        )
 
     async def _setup_listeners(self) -> None:
         """Set up listeners for area state change."""

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import Mock
 
+from homeassistant.helpers import entity_registry as er
 import pytest
 
 from custom_components.magic_areas.core.controls import ControlActionType
@@ -66,6 +67,58 @@ def test_is_control_enabled_defaults_true_without_coordinator_data() -> None:
     )
 
     assert AreaLightGroup.is_control_enabled(group) is True  # type: ignore[arg-type]
+
+
+def test_hide_policy_entity_marks_visible_registry_entry_hidden(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Custom light policy entities should be hidden but remain enabled."""
+    registry_entry = SimpleNamespace(hidden_by=None)
+    updated_entry = SimpleNamespace(hidden_by="integration")
+    entity_registry = SimpleNamespace(
+        async_get=Mock(return_value=registry_entry),
+        async_update_entity=Mock(return_value=updated_entry),
+    )
+    group = SimpleNamespace(
+        hass=object(),
+        entity_id="light.magic_areas_light_groups_living_room_overhead",
+        registry_entry=None,
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.entities.er.async_get",
+        Mock(return_value=entity_registry),
+    )
+
+    AreaLightGroup._hide_policy_entity(group)  # type: ignore[arg-type]
+
+    entity_registry.async_update_entity.assert_called_once_with(
+        group.entity_id,
+        hidden_by=er.RegistryEntryHider.INTEGRATION,
+    )
+    assert group.registry_entry is updated_entry
+
+
+def test_hide_policy_entity_preserves_existing_hidden_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Existing hidden entries should not be rewritten on every setup."""
+    entity_registry = SimpleNamespace(
+        async_get=Mock(),
+        async_update_entity=Mock(),
+    )
+    group = SimpleNamespace(
+        hass=object(),
+        entity_id="light.magic_areas_light_groups_living_room_overhead",
+        registry_entry=SimpleNamespace(hidden_by="user"),
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.entities.er.async_get",
+        Mock(return_value=entity_registry),
+    )
+
+    AreaLightGroup._hide_policy_entity(group)  # type: ignore[arg-type]
+
+    entity_registry.async_update_entity.assert_not_called()
 
 
 def test_group_state_change_uses_clear_cache_before_presence_fallback(
