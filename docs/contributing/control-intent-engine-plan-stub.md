@@ -401,33 +401,91 @@ than replacing it.
 
 Available foundation after native HA reduction:
 
-- `LabelSurface` is part of the managed-surface model.
-- `ConfigEntryHelperSurface` reconciles config-entry-backed native helpers.
-- Light groups declare native HA light helper surfaces for all-lights and configured
-  role groups.
-- Light groups reconcile global role labels for overhead/task/sleep/accent membership.
-- Custom control groups reconcile `ma:control:*` labels.
-- Managed labels persist owner-scoped snapshots for deletion cleanup.
-- Managed helpers are assigned to the correct HA area and Magic Areas device.
-- Managed helper entities are excluded from source enumeration to avoid feedback loops.
-- Runtime light actions resolve the native helper entity first, with custom policy entity
+- `custom_components/magic_areas/core/runtime_model/managed_surfaces.py`
+  defines the desired surface primitives:
+  - `LabelSurface`
+  - `ConfigEntryHelperSurface`
+  - `ManagedSurfaceKind.CONFIG_ENTRY_HELPER`
+  - stable ownership IDs via `build_managed_surface_unique_id(...)`
+- `custom_components/magic_areas/coordinator/managed_surfaces.py`
+  reconciles desired surfaces:
+  - creates/updates/removes config-entry-backed helpers
+  - applies helper registry metadata to attach helper entities to the Magic Areas device
+    and HA area
+  - creates/updates/deletes labels by name
+  - applies entity-label membership while preserving unrelated labels
+  - persists owner-scoped managed-label snapshots under
+    `MANAGED_LABEL_SURFACES_DATA_KEY`
+  - creates Repairs issues for helper reconciliation failures
+- `custom_components/magic_areas/core/managed_surface_registry.py`
+  is the current lookup boundary for native helper ownership:
+  - `iter_managed_surface_config_entries(...)`
+  - `iter_managed_surface_entity_entries(...)`
+  - `resolve_managed_surface_entity_id(...)`
+- `custom_components/magic_areas/features/modules/light_groups.py`
+  declares current light surfaces:
+  - exact native HA light helper for all area lights
+  - exact native HA light helper for each configured role group with members
+  - global role labels for each light role
+- `custom_components/magic_areas/light_groups/identity.py`
+  defines current light role label names:
+  - `ma:overhead`
+  - `ma:task`
+  - `ma:sleep`
+  - `ma:accent`
+- `custom_components/magic_areas/features/dispatch.py`
+  adds custom control label surfaces from normalized custom control groups:
+  - `control.task` -> `ma:control:task`
+  - arbitrary custom group IDs -> `ma:control:<slug>`
+- `custom_components/magic_areas/light_groups/entities.py`
+  already dispatches automatic light actions to the native helper entity when
+  `resolve_managed_surface_entity_id(...)` finds one, with hidden custom policy entity
   fallback.
+- Source enumeration excludes Magic Areas-managed helper entities through managed-surface
+  ownership checks in the entity ingestion pipeline.
 
 Still legacy/compatibility surfaces:
 
-- Hidden custom `AreaLightGroup` entities remain the policy/manual-override/command-echo
-  owner.
-- `GroupRegistry` and `ControlGroupDefinition.members` still provide runtime lookup for
-  current feature policies.
-- Light suppression and brightness gating remain embedded in light-group policy/runtime.
+- Hidden custom `AreaLightGroup` entities remain the policy, manual-override, command
+  echo, listener, and debug-attribute owner.
+- `custom_components/magic_areas/core/controls/registry.py` still stores
+  `ControlGroupDefinition` entries by area/group ID and filters them by policy.
+- `custom_components/magic_areas/core/controls/control_group_runtime.py` still exposes
+  registry-based target helpers:
+  - `resolve_group_entity_id(...)`
+  - `resolve_group_member_entity_id(...)`
+  - `resolve_group_entity_ids_by_metadata(...)`
+  - `resolve_group_entity_ids_for_metadata_values(...)`
+  - `resolve_group_member_entity_id_by_metadata(...)`
+- `GroupRegistry` remains the compatibility source for:
+  - child category lookup for the light all-group
+  - current fan/media/climate policy target lookup
+  - custom control definitions registered from config
+- Light suppression, brightness gating, adaptive guards, and manual override decisions
+  remain embedded in `light_groups/policy.py` and `light_groups/runtime.py`.
 - Custom control group config still stores member lists as guided UI input, even though
   labels are reconciled from those lists.
+- Light role config lists still feed both native helper/label reconciliation and current
+  compatibility `ControlGroupDefinition` registration.
+
+Current target-surface inventory:
+
+| Surface | Current source | Runtime use today | Engine target role |
+| --- | --- | --- | --- |
+| Global light role labels | `LightGroupsFeatureModule.desired_managed_surfaces` | HA-visible membership only | membership/possible broad target |
+| Native light helper groups | `ConfigEntryHelperSurface` from light groups | automatic light service target | exact room/role helper target |
+| Hidden `AreaLightGroup` entities | light feature entity build | policy/manual override/listeners/fallback target | compatibility policy surface |
+| Custom control labels | dispatch-managed `LabelSurface` | HA-visible membership only | future custom role target |
+| `GroupRegistry` definitions | feature build + snapshot custom groups | member/group lookup | compatibility resolver input |
+| Managed helper registry | config-entry unique IDs | resolve native helper entity IDs | exact helper lookup |
 
 Immediate implication:
 
 - Do not start by rewriting suppression inside the existing light policy.
 - Start by defining a source-neutral `RoleTarget`/target map that can be produced from
   current labels, helper surfaces, and compatibility registry data.
+- Phase 0 should produce a contract that can represent all current target surfaces
+  without forcing runtime to choose one execution style prematurely.
 
 ## Light v1 Behavior Model
 
@@ -609,6 +667,13 @@ Test additions:
   - explicit entity subset target
 - Define diagnostics fields for target source, resolution path, and fallback reason.
 - Keep this pure and HA-free where possible.
+- Current concrete target contract should account for:
+  - label name and resolved label ID
+  - helper unique ID and resolved helper entity ID
+  - explicit entity IDs
+  - compatibility source, such as `group_registry` or `config_reconciliation`
+  - whether the target is broad, exact, or filtered/intersectional
+  - fallback order and fallback reason
 
 Exit criteria:
 
@@ -616,6 +681,9 @@ Exit criteria:
 - No runtime behavior changes.
 - The engine contract no longer names `ControlGroupDefinition.members` as primary
   membership truth.
+- The contract can model every row in the current target-surface inventory table.
+- Any remaining dependency on `GroupRegistry` is documented as compatibility input, not
+  durable membership truth.
 
 ### Phase 1: Runtime Target Resolver
 
