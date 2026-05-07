@@ -363,14 +363,18 @@ Current implementation:
   while remaining enabled as internal policy/runtime surfaces. Existing visible policy
   entities are re-hidden during setup unless the entry is already hidden by another
   owner.
+- Manual override and command-echo tracking remain on the hidden custom policy entity
+  for this branch. Native helper service calls still propagate through member state and
+  the custom group state listener, so manual native-helper control releases policy
+  ownership without moving listeners yet.
 - Reconciler coverage verifies native light helper create, update, stale removal, HA area
   assignment, Magic Areas device attachment, and source-enumeration exclusion.
 
 Remaining work:
 
-- Decide whether manual override/command-echo listeners should remain on hidden custom
-  policy entities, move to native helper events, or be owned by a future intent-engine
-  policy surface.
+- Revisit listener ownership when the control intent engine introduces a dedicated
+  policy surface; do not move listeners to native helpers in this branch unless runtime
+  evidence shows the hidden-policy listener path is insufficient.
 - Add label reconciliation for global light role labels once the label applier is in
   scope.
 
