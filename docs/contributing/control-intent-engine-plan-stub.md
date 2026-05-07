@@ -665,6 +665,7 @@ Test additions:
   - broad HA label target
   - exact native helper entity target
   - explicit entity subset target
+  - hidden compatibility policy entity target during transition
 - Define diagnostics fields for target source, resolution path, and fallback reason.
 - Keep this pure and HA-free where possible.
 - Current concrete target contract should account for:
@@ -677,12 +678,12 @@ Test additions:
 
 Exit criteria:
 
-- Plan and tests describe the current surfaces and target contract.
-- No runtime behavior changes.
-- The engine contract no longer names `ControlGroupDefinition.members` as primary
+- [x] Plan and tests describe the current surfaces and target contract.
+- [x] No runtime behavior changes.
+- [x] The engine contract no longer names `ControlGroupDefinition.members` as primary
   membership truth.
-- The contract can model every row in the current target-surface inventory table.
-- Any remaining dependency on `GroupRegistry` is documented as compatibility input, not
+- [x] The contract can model every row in the current target-surface inventory table.
+- [x] Any remaining dependency on `GroupRegistry` is documented as compatibility input, not
   durable membership truth.
 
 ### Phase 1: Runtime Target Resolver
@@ -697,10 +698,10 @@ Exit criteria:
 
 Exit criteria:
 
-- Unit tests cover label role resolution, native helper target selection, and explicit
+- [x] Unit tests cover label role resolution, native helper target selection, and explicit
   subset fallback.
-- Tests prove labels are scoped by area/domain boundary before control use.
-- Runtime target records can represent `label_id`, helper entity ID, and explicit
+- [x] Tests prove labels are scoped by area/domain boundary before control use.
+- [x] Runtime target records can represent `label_id`, helper entity ID, and explicit
   entity IDs.
 
 ### Phase 2: Pure Engine Skeleton
