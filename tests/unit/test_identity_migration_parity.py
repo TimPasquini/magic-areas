@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from custom_components.magic_areas.core.runtime_model import (
+    ManagedSurfaceKind,
+    build_managed_surface_owner_prefix,
+    build_managed_surface_unique_id,
     build_presence_tracking_unique_id,
+    is_managed_surface_unique_id,
 )
 from custom_components.magic_areas.core.runtime_model import (
     compute_unique_id_from_entity_id,
@@ -118,3 +122,25 @@ def test_migration_returns_none_for_non_migratable_entity_ids(
         )
         is None
     )
+
+
+def test_managed_surface_ownership_helpers_match_unique_id_contract() -> None:
+    """Managed-surface ownership checks should use the canonical ID shape."""
+    unique_id = build_managed_surface_unique_id(
+        entry_id="entry-1",
+        area_id="kitchen",
+        feature_id="fan_groups",
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role="fan_group",
+    )
+
+    assert (
+        unique_id
+        == "magic_areas:entry-1:kitchen:fan_groups:config_entry_helper:fan_group"
+    )
+    assert build_managed_surface_owner_prefix("entry-1") == "magic_areas:entry-1:"
+    assert is_managed_surface_unique_id(unique_id)
+    assert is_managed_surface_unique_id(unique_id, owner_entry_id="entry-1")
+    assert not is_managed_surface_unique_id(unique_id, owner_entry_id="other-entry")
+    assert not is_managed_surface_unique_id(None)
+    assert not is_managed_surface_unique_id("fan_groups_kitchen_fan_group")

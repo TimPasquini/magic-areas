@@ -121,6 +121,9 @@ class _FakeAreaLightGroup:
     def _set_echo_state(self, state: CommandEchoState) -> None:
         self._echo_state = state
 
+    def current_control_target_is_on(self) -> bool:
+        return self.is_on
+
     def _async_create_task(self, coro: object) -> asyncio.Task[None]:
         task = asyncio.create_task(cast(Coroutine[object, object, None], coro))
         self.scheduled_tasks.append(task)

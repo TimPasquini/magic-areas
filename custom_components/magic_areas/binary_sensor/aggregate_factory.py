@@ -22,8 +22,6 @@ from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.core.aggregates import (
     AggregateDefinition,
     AggregateKind,
-    AggregatePolicyContext,
-    build_default_aggregate_selection_policy,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.entity import MagicGroupEntity
@@ -96,12 +94,6 @@ class AreaAggregateBinarySensor(AreaSensorGroupBinarySensor):
     """Aggregate sensor for the area."""
 
     feature_id = MagicAreasFeatures.AGGREGATES
-
-
-class AreaHealthBinarySensor(AreaSensorGroupBinarySensor):
-    """Aggregate sensor for the area."""
-
-    feature_id = MagicAreasFeatures.HEALTH
 
 
 def create_aggregate_sensors_from_definitions(
@@ -191,60 +183,10 @@ def create_ble_tracker_sensor(
         return []
 
 
-def create_health_sensors(
-    data: MagicAreasData,
-    entities_by_domain: dict[str, list[dict[str, str]]],
-    area_config: AreaConfig,
-    coordinator: MagicAreasCoordinator,
-) -> list[AreaHealthBinarySensor]:
-    """Add the health sensors for the area."""
-    policy = build_default_aggregate_selection_policy()
-    spec = policy.health_spec(
-        AggregatePolicyContext(
-            entities_by_domain=entities_by_domain,
-            feature_configs=data.feature_configs,
-            enabled_features=data.enabled_features,
-        )
-    )
-
-    if not spec:
-        if MagicAreasFeatures.HEALTH in data.enabled_features:
-            _LOGGER.debug(
-                "%s: No binary sensors found for configured health device classes.",
-                area_config.name,
-            )
-        return []
-
-    _LOGGER.debug(
-        "%s: Creating health sensor with the following entities: %s",
-        area_config.slug,
-        str(spec.entity_ids),
-    )
-
-    try:
-        return [
-            AreaHealthBinarySensor(
-                area_config,
-                coordinator,
-                device_class=BinarySensorDeviceClass.PROBLEM,
-                entity_ids=spec.entity_ids,
-            )
-        ]
-    except EXPECTED_ENTITY_BUILD_ERRORS as exc:  # pragma: no cover
-        log_creation_error(
-            area_slug=area_config.slug,
-            label="area health sensor",
-            exc=exc,
-        )
-        return []
-
-
 __all__ = [
     "AreaAggregateBinarySensor",
-    "AreaHealthBinarySensor",
     "create_aggregate_sensors_from_definitions",
     "create_ble_tracker_sensor",
-    "create_health_sensors",
     "create_wasp_in_a_box_sensor",
     "EXPECTED_ENTITY_BUILD_ERRORS",
     "log_creation_error",

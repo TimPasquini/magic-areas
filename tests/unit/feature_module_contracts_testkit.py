@@ -51,6 +51,7 @@ def _is_feature_module(value: object) -> TypeGuard[FeatureModule]:
             "is_enabled",
             "depends_on",
             "build_entities",
+            "desired_managed_surfaces",
             "attach_listeners",
             "config_flow_steps",
         )
@@ -59,13 +60,15 @@ def _is_feature_module(value: object) -> TypeGuard[FeatureModule]:
 
 def make_area_config() -> AreaConfig:
     """Build standard area config for feature contract tests."""
+    hass_config = MagicMock()
+    hass_config.entry_id = "entry-1"
     return AreaConfig(
         id="area-1",
         name="Kitchen",
         slug="kitchen",
         area_type=AreaType.INTERIOR,
         config={},
-        hass_config=MagicMock(),
+        hass_config=hass_config,
     )
 
 

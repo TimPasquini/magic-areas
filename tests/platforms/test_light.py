@@ -184,8 +184,9 @@ async def test_light_group_canonical_policy_transition_parity(
     assert changed is False
     assert target_group._echo_state.awaiting_echo is False
 
-    # Primary CLEAR transition should issue turn-off when group is on.
-    target_group._attr_is_on = True
+    # Primary CLEAR transition should issue turn-off when the native target is on.
+    hass.states.async_set(target_group._control_target_entity_id(), STATE_ON)
+    await hass.async_block_till_done()
     changed = target_group.state_change_primary(
         (
             [AreaStates.CLEAR.value],

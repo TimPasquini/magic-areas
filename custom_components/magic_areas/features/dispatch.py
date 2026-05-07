@@ -10,13 +10,19 @@ from typing import TYPE_CHECKING
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import slugify
 
 from custom_components.magic_areas.components import MagicAreasConfigEntry
+from custom_components.magic_areas.core.config import normalize_custom_control_groups
 from custom_components.magic_areas.core.runtime_model import AreaConfig
+from custom_components.magic_areas.core.runtime_model import LabelSurface
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.runtime_model import (
+        ManagedSurface,
+    )
     from custom_components.magic_areas.features.registry import FeatureRegistry
 
 
@@ -30,6 +36,72 @@ ExtraEntitiesBuilder = Callable[
     [AreaConfig, MagicAreasCoordinator, MagicAreasData],
     list[Entity] | Awaitable[list[Entity]],
 ]
+
+
+def collect_feature_managed_surfaces(
+    *,
+    registry: FeatureRegistry,
+    data: MagicAreasData,
+    area_config: AreaConfig,
+    logger: logging.Logger,
+) -> list[ManagedSurface]:
+    """Collect desired HA-managed surfaces from enabled feature modules."""
+    surfaces: list[ManagedSurface] = []
+    enabled_features = {str(feature) for feature in data.enabled_features}
+
+    for module in registry.modules():
+        if not module.is_enabled(data):
+            continue
+        missing = {feature.value for feature in module.depends_on()} - enabled_features
+        if missing:
+            logger.warning(
+                "Feature %s missing dependencies: %s",
+                module.id,
+                ", ".join(sorted(missing)),
+            )
+            continue
+        surfaces.extend(module.desired_managed_surfaces(area_config, data))
+
+    surfaces.extend(
+        _custom_control_group_label_surfaces(
+            area_config=area_config,
+            data=data,
+        )
+    )
+    return surfaces
+
+
+def _custom_control_group_label_surfaces(
+    *,
+    area_config: AreaConfig,
+    data: MagicAreasData,
+) -> list[LabelSurface]:
+    """Compile custom control groups into scoped HA label surfaces."""
+    eligible_entities = tuple(
+        entity["entity_id"]
+        for entities in data.entities.values()
+        for entity in entities
+        if "entity_id" in entity
+    )
+    surfaces: list[LabelSurface] = []
+    for definition in normalize_custom_control_groups(area_config.config):
+        surfaces.append(
+            LabelSurface(
+                name=f"ma:control:{_custom_control_group_label_suffix(definition.group_id)}",
+                entity_ids=definition.members,
+                prune_entity_ids=eligible_entities,
+                icon="mdi:label",
+                description=f"Magic Areas custom control group: {definition.group_id}",
+            )
+        )
+    return surfaces
+
+
+def _custom_control_group_label_suffix(group_id: str) -> str:
+    """Return stable label suffix for a custom control group id."""
+    label_source = group_id.removeprefix("control.")
+    label_suffix = slugify(label_source).replace("_", "-")
+    return label_suffix or "custom"
 
 
 def collect_feature_entities(
@@ -127,4 +199,5 @@ async def async_setup_feature_platform(
 __all__ = [
     "async_setup_feature_platform",
     "collect_feature_entities",
+    "collect_feature_managed_surfaces",
 ]

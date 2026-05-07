@@ -4,6 +4,9 @@ ONE_MINUTE = 60  # seconds, for conversion
 
 DOMAIN = "magic_areas"
 
+# Private config-entry data used by managed-surface reconciliation.
+MANAGED_LABEL_SURFACES_DATA_KEY = "managed_label_surfaces"
+
 # Common entity attributes
 ATTR_STATES = "states"
 ATTR_AREAS = "areas"

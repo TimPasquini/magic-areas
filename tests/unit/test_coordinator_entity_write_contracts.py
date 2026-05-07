@@ -9,7 +9,6 @@ from homeassistant.core import HomeAssistant
 from custom_components.magic_areas.binary_sensor.aggregate_factory import (
     AreaAggregateBinarySensor,
 )
-from custom_components.magic_areas.binary_sensor.threshold import AreaThresholdSensor
 from custom_components.magic_areas.sensor import AreaAggregateSensor
 
 
@@ -79,40 +78,6 @@ async def test_aggregate_sensor_group_uses_single_write_path(
             new=AsyncMock(),
         ),
         patch.object(entity, "_async_setup_group", new=AsyncMock()),
-        patch.object(entity, "async_write_ha_state") as mock_write,
-        patch.object(entity, "schedule_update_ha_state") as mock_schedule,
-    ):
-        await entity.async_added_to_hass()
-
-    mock_write.assert_called_once()
-    mock_schedule.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_threshold_sensor_uses_immediate_write_on_setup(
-    hass: HomeAssistant,
-) -> None:
-    """Threshold sensors should finish setup with a direct write, not a scheduler call."""
-    entity = AreaThresholdSensor(
-        hass=hass,
-        area_config=_area_config(),
-        coordinator=_coordinator(hass),
-        device_class=BinarySensorDeviceClass.LIGHT,
-        entity_id="sensor.kitchen_illuminance",
-        upper=10,
-        hysteresis=1,
-    )
-    entity.hass = hass
-
-    with (
-        patch(
-            "homeassistant.helpers.restore_state.RestoreEntity.async_added_to_hass",
-            new=AsyncMock(),
-        ),
-        patch(
-            "homeassistant.components.threshold.binary_sensor.ThresholdSensor.async_added_to_hass",
-            new=AsyncMock(),
-        ),
         patch.object(entity, "async_write_ha_state") as mock_write,
         patch.object(entity, "schedule_update_ha_state") as mock_schedule,
     ):

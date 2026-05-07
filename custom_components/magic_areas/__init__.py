@@ -66,6 +66,26 @@ async def async_setup_entry(
             listeners=tracked_listeners,
         )
 
+        from custom_components.magic_areas.coordinator import (
+            async_reconcile_managed_surfaces,
+        )
+        from custom_components.magic_areas.features.dispatch import (
+            collect_feature_managed_surfaces,
+        )
+        from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
+
+        if coordinator.data:
+            await async_reconcile_managed_surfaces(
+                hass=hass,
+                owner_entry_id=config_entry.entry_id,
+                desired_surfaces=collect_feature_managed_surfaces(
+                    registry=FEATURE_REGISTRY,
+                    data=coordinator.data,
+                    area_config=area_config,
+                    logger=_LOGGER,
+                ),
+            )
+
         # Setup platforms (get from coordinator data after refresh)
         platforms = (
             coordinator.data.area_config.available_platforms()

@@ -22,6 +22,9 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion.registr
     get_magic_entities_for_config_entry,
     group_entities,
 )
+from custom_components.magic_areas.core.managed_surface_registry import (
+    is_managed_surface_config_entry,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
@@ -35,7 +38,6 @@ _EXPECTED_ENTITY_LOAD_ERRORS = (
     AttributeError,
     RuntimeError,
 )
-
 
 async def load_area_entities(
     hass: HomeAssistant,
@@ -104,6 +106,8 @@ async def load_area_entities(
             )
         )
 
+    entity_list = _exclude_managed_helper_entities(hass, entity_list)
+
     # Process entity list into domain-grouped format
     entities_by_domain = await _process_entity_list(
         hass, entity_list, area_id, logger
@@ -115,6 +119,21 @@ async def load_area_entities(
     )
 
     return entities_by_domain, magic_entities_by_domain
+
+
+def _exclude_managed_helper_entities(
+    hass: HomeAssistant,
+    entity_list: list[RegistryEntry],
+) -> list[RegistryEntry]:
+    """Remove HA helper entities managed by Magic Areas from source enumeration."""
+    filtered: list[RegistryEntry] = []
+    for entity in entity_list:
+        if entity.config_entry_id:
+            entry = hass.config_entries.async_get_entry(entity.config_entry_id)
+            if entry and is_managed_surface_config_entry(entry):
+                continue
+        filtered.append(entity)
+    return filtered
 
 
 async def load_meta_area_entities(

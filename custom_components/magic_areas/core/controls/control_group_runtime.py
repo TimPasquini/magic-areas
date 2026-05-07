@@ -23,7 +23,12 @@ from custom_components.magic_areas.core.runtime_model import (
 from custom_components.magic_areas.core.runtime_model import (
     build_presence_tracking_unique_id,
 )
+from custom_components.magic_areas.core.managed_surface_registry import (
+    resolve_managed_surface_entity_id,
+)
 from custom_components.magic_areas.enums import MagicAreasEvents
+
+NATIVE_GROUP_HELPER_PLATFORM = "group"
 
 
 class AreaStateHandler(Protocol):
@@ -62,6 +67,33 @@ def _metadata_matches(
     return True
 
 
+def _resolve_registered_group_entity_id(
+    hass: HomeAssistant,
+    entity_registry: entity_registry_module.EntityRegistry,
+    *,
+    domain: str,
+    group_id: str,
+) -> str | None:
+    """Resolve a custom Magic Areas group or its native HA group-helper replacement."""
+    entity_id = entity_registry.async_get_entity_id(domain, DOMAIN, group_id)
+    if entity_id:
+        return entity_id
+    entity_id = entity_registry.async_get_entity_id(
+        domain,
+        NATIVE_GROUP_HELPER_PLATFORM,
+        group_id,
+    )
+    if entity_id:
+        return entity_id
+    return resolve_managed_surface_entity_id(
+        hass,
+        entity_registry,
+        unique_id=group_id,
+        entity_domain=domain,
+        config_entry_domain=NATIVE_GROUP_HELPER_PLATFORM,
+    )
+
+
 def resolve_group_entity_id(
     hass: HomeAssistant,
     *,
@@ -77,10 +109,11 @@ def resolve_group_entity_id(
     if not resolved_group:
         return None
 
-    return entity_registry.async_get_entity_id(
-        domain,
-        DOMAIN,
-        resolved_group.definition.group_id,
+    return _resolve_registered_group_entity_id(
+        hass,
+        entity_registry,
+        domain=domain,
+        group_id=resolved_group.definition.group_id,
     )
 
 
@@ -126,10 +159,11 @@ def resolve_group_entity_ids_by_metadata(
             metadata_filters=metadata_filters,
         ):
             continue
-        entity_id = entity_registry.async_get_entity_id(
-            domain,
-            DOMAIN,
-            entry.definition.group_id,
+        entity_id = _resolve_registered_group_entity_id(
+            hass,
+            entity_registry,
+            domain=domain,
+            group_id=entry.definition.group_id,
         )
         if entity_id:
             resolved[metadata_value] = entity_id
@@ -197,10 +231,11 @@ def resolve_group_entity_id_by_metadata(
         return None
 
     entity_registry = er.async_get(hass)
-    return entity_registry.async_get_entity_id(
-        domain,
-        DOMAIN,
-        matches[0].definition.group_id,
+    return _resolve_registered_group_entity_id(
+        hass,
+        entity_registry,
+        domain=domain,
+        group_id=matches[0].definition.group_id,
     )
 
 

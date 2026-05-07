@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys.area import (
@@ -112,6 +113,9 @@ async def test_health_sensor(
 
     # Initial state (Healthy/OFF)
     await wait_for_state(hass, health_sensor_id, STATE_OFF)
+    registry_entry = er.async_get(hass).async_get(health_sensor_id)
+    assert registry_entry is not None
+    assert registry_entry.device_class == BinarySensorDeviceClass.PROBLEM
 
     # Trigger problem sensor
     problem_sensor.turn_on()

@@ -26,7 +26,7 @@ from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
     resolve_area_presence_states,
 )
-from custom_components.magic_areas.core.aggregates import aggregate_group_id
+from custom_components.magic_areas.core.aggregates import resolve_aggregate_entity_id
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
@@ -48,6 +48,7 @@ class FanControlSwitch(ControlSwitchBase):
     _last_states: list[str]
     _area_sensor_entity_id: str | None
     _fan_group_entity_id: str | None
+
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
     ) -> None:
@@ -81,12 +82,12 @@ class FanControlSwitch(ControlSwitchBase):
         from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 
         if not self.tracked_entity_id:
-            self.tracked_entity_id = self._resolve_entity_id_by_unique_id(
-                SENSOR_DOMAIN,
-                aggregate_group_id(
-                    area_id=self._area_id,
-                    device_class=self._tracked_device_class,
-                ),
+            self.tracked_entity_id = resolve_aggregate_entity_id(
+                self.hass,
+                group_registry=self._coordinator.data.group_registry,
+                area_id=self._area_id,
+                domain=SENSOR_DOMAIN,
+                device_class=self._tracked_device_class,
             )
         if not self._fan_group_entity_id:
             self._fan_group_entity_id = self._resolve_primary_group_entity_id(

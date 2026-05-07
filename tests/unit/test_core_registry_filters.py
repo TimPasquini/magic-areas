@@ -17,6 +17,8 @@ from custom_components.magic_areas.coordinator.pipeline import (
     make_device_registry_filter,
     make_entity_registry_filter,
 )
+from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator.pipeline.lifecycle import (
     _extract_changed_area_id,
     _merged_area_config_data,
@@ -146,13 +148,21 @@ class TestMakeDeviceRegistryFilter:
 
     def test_filter_ignores_magic_area_devices(self, mock_hass: HomeAssistant) -> None:
         """Test that Magic Areas' own devices are ignored."""
-        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get"):
+        with patch("custom_components.magic_areas.coordinator.pipeline.lifecycle.devicereg_async_get") as mock_reg:
+            mock_registry = MagicMock()
+            mock_reg.return_value = mock_registry
+
+            mock_entry = MagicMock()
+            mock_entry.area_id = "test_area"
+            mock_entry.identifiers = {(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}test_area")}
+            mock_registry.async_get.return_value = mock_entry
+
             filter_func = make_device_registry_filter(mock_hass, "test_area")
 
             event_data = cast(
                 EventDeviceRegistryUpdatedData,
                 {
-                    "device_id": "magic_areas_device_test_area",
+                    "device_id": "opaque-ha-device-id",
                     "action": "create",
                 },
             )
@@ -167,6 +177,7 @@ class TestMakeDeviceRegistryFilter:
 
             mock_entry = MagicMock()
             mock_entry.area_id = "test_area"
+            mock_entry.identifiers = {("test", "regular_device")}
             mock_registry.async_get.return_value = mock_entry
 
             filter_func = make_device_registry_filter(mock_hass, "test_area")
@@ -189,6 +200,7 @@ class TestMakeDeviceRegistryFilter:
 
             mock_entry = MagicMock()
             mock_entry.area_id = "other_area"
+            mock_entry.identifiers = {("test", "regular_device")}
             mock_registry.async_get.return_value = mock_entry
 
             filter_func = make_device_registry_filter(mock_hass, "test_area")

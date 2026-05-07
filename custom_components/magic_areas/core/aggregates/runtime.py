@@ -14,6 +14,10 @@ from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
 from custom_components.magic_areas.core.runtime_model import GroupMetadataKey
+from custom_components.magic_areas.core.runtime_model import (
+    ManagedSurfaceKind,
+    build_managed_surface_unique_id,
+)
 from custom_components.magic_areas.core.controls import (
     GroupRegistry,
     resolve_group_entity_ids_by_metadata,
@@ -36,21 +40,49 @@ def aggregate_group_id(*, area_id: str, device_class: str) -> str:
     return f"aggregates_{area_id}_aggregate_{device_class}"
 
 
+def aggregate_managed_surface_unique_id(
+    *,
+    entry_id: str,
+    area_id: str,
+    definition: AggregateDefinition,
+) -> str:
+    """Return the native helper ownership ID for an aggregate definition."""
+    domain_key = definition.domain.replace("_", "-")
+    role = f"aggregate_{domain_key}_{definition.kind.value}_{definition.device_class}"
+    return build_managed_surface_unique_id(
+        entry_id=entry_id,
+        area_id=area_id,
+        feature_id=MagicAreasFeatures.AGGREGATES,
+        surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
+        role=role,
+    )
+
+
 def register_aggregate_definitions(
     *,
     group_registry: GroupRegistry,
     area_id: str,
     definitions: list[AggregateDefinition],
+    owner_entry_id: str | None = None,
 ) -> None:
     """Register aggregate definitions as area defaults in the group registry."""
     group_definitions: list[ControlGroupDefinition] = []
     for definition in definitions:
+        group_id = (
+            aggregate_managed_surface_unique_id(
+                entry_id=owner_entry_id,
+                area_id=area_id,
+                definition=definition,
+            )
+            if owner_entry_id
+            else aggregate_group_id(
+                area_id=area_id,
+                device_class=definition.device_class,
+            )
+        )
         group_definitions.append(
             ControlGroupDefinition(
-                group_id=aggregate_group_id(
-                    area_id=area_id,
-                    device_class=definition.device_class,
-                ),
+                group_id=group_id,
                 members=definition.entity_ids,
                 policy_id=AGGREGATE_POLICY_ID,
                 metadata={
@@ -111,6 +143,44 @@ def get_illuminance_threshold_spec(
     area_config: AreaConfig,
 ) -> tuple[str, float, float, float] | None:
     """Return illuminance threshold config or None if unavailable."""
+    threshold_config = get_illuminance_threshold_config(data)
+    if threshold_config is None:
+        return None
+
+    (
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        illuminance_threshold_hysteresis_percentage,
+    ) = threshold_config
+
+    illuminance_aggregate_entity_id = resolve_aggregate_entity_id(
+        hass,
+        group_registry=data.group_registry,
+        area_id=area_config.id,
+        domain=homeassistant.components.sensor.const.DOMAIN,
+        device_class=str(
+            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
+        ),
+    )
+    if not illuminance_aggregate_entity_id:
+        _LOGGER.debug(
+            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
+            area_config.slug,
+        )
+        return None
+
+    return (
+        illuminance_aggregate_entity_id,
+        illuminance_threshold,
+        illuminance_threshold_hysteresis,
+        illuminance_threshold_hysteresis_percentage,
+    )
+
+
+def get_illuminance_threshold_config(
+    data: MagicAreasData,
+) -> tuple[float, float, float] | None:
+    """Return illuminance threshold values or None if unavailable."""
     if MagicAreasFeatures.AGGREGATES not in data.enabled_features:  # pragma: no cover
         return None
 
@@ -150,24 +220,7 @@ def get_illuminance_threshold_spec(
             illuminance_threshold_hysteresis_percentage / 100
         )
 
-    illuminance_aggregate_entity_id = resolve_aggregate_entity_id(
-        hass,
-        group_registry=data.group_registry,
-        area_id=area_config.id,
-        domain=homeassistant.components.sensor.const.DOMAIN,
-        device_class=str(
-            homeassistant.components.sensor.const.SensorDeviceClass.ILLUMINANCE
-        ),
-    )
-    if not illuminance_aggregate_entity_id:
-        _LOGGER.debug(
-            "Area '%s': Illuminance aggregate not available yet, skipping threshold sensor",
-            area_config.slug,
-        )
-        return None
-
     return (
-        illuminance_aggregate_entity_id,
         float(illuminance_threshold),
         float(illuminance_threshold_hysteresis),
         float(illuminance_threshold_hysteresis_percentage),

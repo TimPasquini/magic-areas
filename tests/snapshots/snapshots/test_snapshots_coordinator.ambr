@@ -43,15 +43,13 @@
     ]),
     'is_meta': False,
     'magic_entity_counts': dict({
-      'binary_sensor': 2,
+      'binary_sensor': 1,
       'light': 1,
-      'sensor': 1,
       'switch': 1,
     }),
     'magic_entity_domains': list([
       'binary_sensor',
       'light',
-      'sensor',
       'switch',
     ]),
     'presence_device_classes': list([
@@ -82,15 +80,13 @@
 # name: test_coordinator_entity_grouping
   dict({
     'magic_entity_count_by_domain': dict({
-      'binary_sensor': 2,
+      'binary_sensor': 1,
       'light': 1,
-      'sensor': 1,
       'switch': 1,
     }),
     'magic_entity_domains': list([
       'binary_sensor',
       'light',
-      'sensor',
       'switch',
     ]),
     'regular_entity_counts': dict({

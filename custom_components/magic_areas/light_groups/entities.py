@@ -6,14 +6,18 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.group.light import FORWARDED_ATTRIBUTES, LightGroup
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_ON
+from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
 from homeassistant.core import Context, Event, State, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData
 from custom_components.magic_areas.light_groups.policy import (
     CommandEchoState,
 )
 from custom_components.magic_areas.core.controls import (
     execute_control_group_decision,
+)
+from custom_components.magic_areas.core.managed_surface_registry import (
+    resolve_managed_surface_entity_id,
 )
 from custom_components.magic_areas.light_groups.policy import (
     LightAction,
@@ -52,10 +56,15 @@ from custom_components.magic_areas.light_groups.config import (
     preset_act_on_modes,
     preset_states,
 )
+from custom_components.magic_areas.light_groups.identity import (
+    build_light_group_helper_surface_unique_id,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+
+GROUP_DOMAIN = "group"
 
 
 class MagicLightGroup(MagicGroupEntity, LightGroup):
@@ -133,11 +142,19 @@ class AreaLightGroup(MagicLightGroup):
             self, area_config, coordinator, entities, translation_key=category
         )
 
+        self._attr_entity_registry_visible_default = False
         self._child_categories = child_categories or []
         self._child_ids: list[str] | None = None
         self._feature_config = feature_config or {}
 
         self.category = category
+        self._native_control_target_unique_id = (
+            build_light_group_helper_surface_unique_id(
+                entry_id=area_config.hass_config.entry_id,
+                area_id=area_config.id,
+                category=category or LightGroupCategory.ALL,
+            )
+        )
         self.assigned_states: list[str] = []
         self.act_on: list[str] = []
 
@@ -149,6 +166,7 @@ class AreaLightGroup(MagicLightGroup):
 
         # Initialize area states cache (will be updated by _setup_listeners)
         self._last_known_area_states: list[str] = []
+        self._last_known_area_states_from_dispatcher = False
         self._listeners_initialized = False
         self._bright_since_monotonic: float | None = None
         self._last_turn_on_monotonic: float | None = None
@@ -253,6 +271,20 @@ class AreaLightGroup(MagicLightGroup):
     async def _async_setup_group(self) -> None:
         """Set up light group - called by MagicGroupEntity lifecycle."""
         await setup_group(self)
+        self._hide_policy_entity()
+
+    def _hide_policy_entity(self) -> None:
+        """Hide the custom policy entity while keeping it enabled for runtime use."""
+        entity_registry = er.async_get(self.hass)
+        registry_entry = self.registry_entry or entity_registry.async_get(
+            self.entity_id
+        )
+        if registry_entry is None or registry_entry.hidden_by is not None:
+            return
+        self.registry_entry = entity_registry.async_update_entity(
+            self.entity_id,
+            hidden_by=er.RegistryEntryHider.INTEGRATION,
+        )
 
     async def _setup_listeners(self) -> None:
         """Set up listeners for area state change."""
@@ -287,12 +319,31 @@ class AreaLightGroup(MagicLightGroup):
 
     def _dispatch_light_action(self, action: LightAction) -> None:
         """Dispatch canonical light action through shared control execution."""
+        target_entity_id = self._control_target_entity_id()
         self.hass.async_create_task(
             execute_control_group_decision(
                 self.hass,
-                light_action_to_control_group(action, self.entity_id),
+                light_action_to_control_group(action, target_entity_id),
             )
         )
+
+    def _control_target_entity_id(self) -> str:
+        """Return the native helper target when reconciled, else the policy entity."""
+        native_target = resolve_managed_surface_entity_id(
+            self.hass,
+            er.async_get(self.hass),
+            unique_id=self._native_control_target_unique_id,
+            entity_domain=LIGHT_DOMAIN,
+            config_entry_domain=GROUP_DOMAIN,
+        )
+        return native_target or self.entity_id
+
+    def current_control_target_is_on(self) -> bool | None:
+        """Return current native helper on/off state when available."""
+        target_state = self.hass.states.get(self._control_target_entity_id())
+        if target_state is not None and target_state.state in (STATE_ON, STATE_OFF):
+            return target_state.state == STATE_ON
+        return self.is_on
 
     # Control Release
 

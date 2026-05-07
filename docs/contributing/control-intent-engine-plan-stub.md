@@ -9,6 +9,14 @@ media control without another architecture rewrite.
 This plan is intentionally implementation-oriented, but still light enough to revise as
 we learn from the first pass.
 
+Status:
+
+- Deferred while the native Home Assistant feature-reduction branch is active.
+- Revisit this plan after label/helper reconciliation reshapes the runtime membership and
+  target model.
+- Do not implement the intent engine against current custom group entities as membership
+  truth.
+
 ## Current Problem
 
 Light-group policy currently mixes several concerns in one decision path:
@@ -36,10 +44,10 @@ lights should be suppressed by one state or the other. A whole-group `turn_on` o
 ## Non-Goals
 
 - No fan, climate, or media runtime migration in v1.
-- No broad coordinator or registry rewrite.
 - No persistent combo-group entities unless a later UX requirement needs them.
 - No custom label system if Home Assistant Labels can provide the needed metadata.
-- No migration away from existing light-group config in the first implementation pass.
+- No assumption that the current control-group registry is the right long-term center of
+  membership. The research phase must test that assumption before implementation.
 
 ## Existing Code Anchors
 
@@ -68,11 +76,253 @@ The engine should fit into the current control-group architecture:
 4. Prefer virtual intersections over hidden combo entities.
 5. Use HA Labels as first-class membership metadata when label-backed membership is
    added.
-6. Keep existing config-defined membership as the v1 source of truth unless label access
-   proves simple enough to add safely.
-7. Make member-level exceptions explicit in the engine output.
-8. Treat suppression reason codes as higher priority than brightness or sensor reason
+6. Make member-level exceptions explicit in the engine output.
+7. Treat suppression reason codes as higher priority than brightness or sensor reason
    codes when multiple constraints apply.
+
+## Related Plans
+
+- [Label-Backed Control Membership Plan](./label-backed-control-membership-plan.md)
+  defines the membership migration that should feed this engine.
+- [Native Home Assistant Feature Reduction Plan](./native-ha-feature-reduction-plan.md)
+  defines the pre-work to migrate duplicated HA mechanics to native labels/helpers.
+- [Native HA Reduction Roadmap](./native-ha-reduction-roadmap.md)
+  defines the branch sequence before intent engine work resumes.
+
+## Research Frame
+
+The label-backed membership investigation is no longer only a feasibility check. The
+working decision is that Magic Areas-owned HA Labels should become the HA-visible control
+membership and control-target surface, reconciled from Magic Areas' existing enumeration
+and config flows. See the related label plan for the authoritative migration details.
+
+The origin point remains Magic Areas:
+
+```text
+Magic Areas enumerates entities.
+Magic Areas config captures user intent and conceptual grouping.
+Magic Areas reconciles magic:* labels.
+Home Assistant exposes those labels as target/control surfaces.
+Magic Areas and other automations can act on those labels.
+```
+
+Home Assistant Labels provide storage, visibility, selectors, and native target
+execution. They do not decide what a conceptual role like sleep, accent, odor, or
+humidity means in a particular room. Magic Areas still owns the guided role-definition
+layer.
+
+Architectures to compare:
+
+- **Current registry-centered model**: config groups remain durable concepts and labels
+  are not the primary control surface. This is now treated as the legacy/baseline model
+  to migrate away from for light-role and custom-control membership.
+- **Label-first model**: HA Labels become the durable control membership primitive;
+  overhead/task/sleep/accent config groups become convenience UI surfaces that reconcile
+  predefined labels.
+- **Compatibility transition model**: config surfaces feed label reconciliation, labels
+  feed runtime membership resolution, and both compile into the same membership map
+  consumed by the engine. This is a bridge, not a permanent two-truth architecture.
+
+The research phase must challenge whether existing abstractions remain useful:
+
+- `ControlGroupDefinition`
+- `GroupRegistry`
+- category metadata lookups
+- built-in light group config lists
+- custom control-group `members` lists
+- child/parent group entity resolution
+- feature-specific grouping paths for fan/media/climate
+
+The output of this phase should be a recommendation, not just a list of insertion
+points.
+
+## Research Findings
+
+### HA Label Capability
+
+Home Assistant's installed APIs support Labels on entities, devices, and areas. That
+makes a label-backed control model technically plausible, not speculative.
+
+Available local APIs in the supported HA version include:
+
+- `entity_registry.async_entries_for_label(...)`
+- `device_registry.async_entries_for_label(...)`
+- `area_registry.async_entries_for_label(...)`
+- `label_registry.async_get_label(...)`
+- `label_registry.async_get_label_by_name(...)`
+- `label_registry.async_create(...)`
+- registry update calls that can set `labels` on entities, devices, and areas
+
+Implication:
+
+- Magic Areas can read/write labels without owning a custom tagging system.
+- Magic Areas should create, update, and remove labels under its own prefix through a
+  scoped reconciliation process.
+- Magic Areas must not mutate labels outside its owned prefix.
+
+Additional target-resolution findings:
+
+- HA service targets support `label_id`.
+- Multiple `label_id` values are expanded as a union, not an intersection.
+- Domain services filter the final expanded set to that domain's registered entities,
+  but they do not solve role/area intersection.
+- Direct `label_id` targeting is safe for broad semantic commands. Exact room/role
+  control surfaces should generally come from native HA helper groups rather than scoped
+  labels.
+- Magic Areas must resolve explicit entity IDs when the desired target means role plus
+  area, role plus suppression exception, or multiple labels combined as an AND query.
+
+This means the engine contract must not assume that a set of labels is executable as an
+intersection. It should emit a broad label target, an exact helper target, or an explicit
+entity subset.
+
+### Current Membership Architecture
+
+Current control membership is stored in integration-owned structures:
+
+- light groups use preset config lists (`overhead`, `task`, `sleep`, `accent`)
+- custom control groups store direct `members` lists
+- fan/media groups usually derive members from all area entities in a domain
+- climate control stores or resolves a single member entity
+- feature modules register `ControlGroupDefinition` objects into `GroupRegistry`
+- runtime code resolves members or group entities from registry metadata
+
+This means there are two durable membership concepts today:
+
+- feature-specific config membership
+- custom control-group membership
+
+The current registry is useful as a runtime catalog, but it also makes member lists look
+like durable integration-owned truth. A label-first model challenges that.
+
+### Label And Native Helper Architecture Impact
+
+If labels become the HA-visible semantic role layer and native helpers become exact
+generated surfaces:
+
+- `overhead`, `task`, `sleep`, and `accent` can become predefined label roles.
+- Config groups can become convenience UI for reconciling those labels and exact HA group
+  helpers.
+- Custom control groups can become label queries plus trigger/policy metadata, rather
+  than stored entity lists.
+- Light category entities may be replaced by native HA helper groups where exact control
+  surfaces are needed.
+- Runtime can target HA labels directly for broad role actions, native helper groups for
+  exact room/role actions, and resolved member subsets for filtered/intersection
+  decisions.
+
+The label resolver should not query global labels and then decide what to control. It
+should start from Magic Areas' existing area-scoped/domain-scoped entity universe, then
+apply label membership inside that boundary. The current entity ingestion path already
+handles area/device assignment, include/exclude lists, diagnostic filtering, and
+integration-owned entity exclusion. Reusing that boundary prevents a shared label from
+accidentally controlling entities in another room.
+
+Label source semantics should be explicit:
+
+- entity labels are precise control membership.
+- device labels can expand to entities, but only after domain and area filtering.
+- area labels are contextual metadata and should not directly imply every light, fan, or
+  media entity in the area belongs to the same control intent.
+
+Potential simplifications:
+
+- less feature-specific member-list schema
+- fewer duplicated entity selector lists in options flows
+- one membership query model for lights, fans, media, climate, and custom controls
+- easier overlap behavior, because an entity can naturally carry multiple labels
+- clearer compatibility with external integrations such as Adaptive Lighting
+
+Potential costs:
+
+- HA Labels are user-visible; Magic Areas reconciliation must be predictable and scoped.
+- External edits to Magic Areas-owned labels may be overwritten by reconciliation.
+- entity labels, device labels, and area labels have different semantics and may need
+  explicit precedence.
+- label queries must still be scoped by area/domain to avoid cross-room control mistakes.
+- migration from existing config lists must be deliberate.
+- tests need HA registry fixtures for label read/write behavior.
+
+### Current Registry-Centered Architecture Impact
+
+If the current group registry remains the durable membership center:
+
+- implementation is smaller and fits existing code.
+- current tests and config flows remain closer to unchanged.
+- labels can be added as an alternate source for group members.
+
+But this risks creating two parallel membership systems. If labels are later promoted to
+the real model, engine work built around `ControlGroupDefinition.members` may need to be
+rewritten.
+
+### Hybrid Transition Impact
+
+A compatibility model can compile reconciled labels into the same membership map for the
+engine while existing config lists remain convenience/reconciliation inputs.
+
+This is likely the safest migration path if we preserve existing users:
+
+- existing config lists continue to work as config/editing surfaces
+- labels are assigned during area-scoped reconciliation
+- the engine receives a source-neutral membership map
+- runtime policy does not read config lists as membership truth
+
+The compatibility model should not become a permanent two-truth architecture. Its value
+is preserving current config UX while labels become the runtime membership surface.
+
+### Research Recommendation
+
+Do label/membership modeling before runtime engine implementation.
+
+The engine should not consume `ControlGroupDefinition.members` directly as its primary
+model. It should consume a source-neutral role target map or equivalent structure:
+
+- role id
+- domain
+- area scope
+- label target when the action can safely use broad HA `label_id`
+- helper target when an exact native HA helper surface exists
+- resolved entity subset when policy needs filtering/intersections
+- source (`reconciled_label`, `config_reconciliation`, `device_label`, `area_label`, `custom`)
+- optional diagnostics
+
+Then the project can compare reconciliation/resolution paths without changing engine
+behavior:
+
+- config-list-to-label reconciliation
+- label resolver
+- compatibility resolver
+
+Initial implementation should prove boundary-safe label resolution first, then add
+area-scoped reconciliation that creates, updates, and removes Magic Areas-owned labels
+from the existing entity catalog and config.
+
+The current `ControlAction` shape already supports explicit `target_entity_ids`. That is
+not sufficient for the label/native-helper model. The action contract should support
+HA-native targets such as `label_id`, exact helper entity targets, and explicit
+`entity_id` targets. Member-level suppression and label-backed subsets do not require
+hidden combo entities: broad actions can use label targets, exact room/role actions can
+use native helper groups, and filtered/intersection actions can use resolved entity
+subsets. Magic Areas custom group entities should not remain policy truth.
+
+Action execution should use an explicit target-resolution ladder:
+
+```text
+desired role target
+-> is the action intentionally broad enough for a global label?
+   -> yes: execute with label_id
+-> does a native helper entity represent exactly this set?
+   -> yes: execute against helper entity
+-> otherwise resolve through Magic Areas area/domain boundary and execute with entity_id
+```
+
+The engine should not decide the HA registry mechanics. It should emit a target shape
+that allows the runtime adapter to choose the safest execution path.
+
+Because HA target syntax does not provide label intersection semantics, `label_id`
+execution is not the exact room/role path. If the target is "Living Room sleep lights"
+and the available label is broad `magic:sleep`, runtime should use the reconciled native
+Living Room sleep helper group or resolve to entity IDs.
 
 ## Engine Vocabulary
 
@@ -93,15 +343,17 @@ Inputs:
 - new and lost area states
 - control group id
 - trigger source/context
-- available targets
-- target memberships by intent/state/category
+- available role targets
+- role labels and resolved subsets by intent/state/category
 - current control ownership/manual override state
 - optional mode-specific signals such as brightness guard results
 
 Outputs:
 
 - action kind: `activate`, `deactivate`, or `noop`
-- explicit target entity ids, possibly an empty set
+- HA-native service target, such as `label_id`, or explicit target entity ids
+- target-resolution reason, such as exact label target, scoped entity subset, or
+  intersection/suppression subset
 - reason code
 - optional runtime effects, such as command ownership state updates
 - optional diagnostics payload for entity attributes
@@ -128,6 +380,19 @@ The label-backed membership research phase should explicitly consider whether th
 config groups can become convenience groups that assign predefined HA Labels. In that
 model, `overhead`, `task`, `sleep`, and `accent` remain user-facing shortcuts, but the
 engine reads membership from labels instead of bespoke group-specific config lists.
+
+Those shortcuts are still important. Home Assistant cannot infer which lights are
+overhead, sleep-safe, task-oriented, or accent-oriented in a specific home. Magic Areas
+must provide the guided assignment surfaces, then reconcile the resulting labels.
+
+This also supports a controller-disabled use case: some users may use Magic Areas mostly
+as a guided room-role label manager. They still get stable HA labels for automations,
+dashboards, and scripts even if Magic Areas is not issuing the final light commands.
+
+The research must also assess whether keeping category light entities is still necessary
+under label-backed membership. A label-first design may prefer resolved target subsets
+over persistent category group entities, while still preserving user-facing switches or
+diagnostics where they provide real value.
 
 ### Suppression
 
@@ -279,7 +544,8 @@ Exit criteria:
 ### Phase 2: Light Adapter Without Behavior Change
 
 - Build a light adapter that translates existing light policy inputs into engine inputs.
-- Preserve current whole-group decisions initially.
+- Preserve current behavior initially, but do not hard-code the new path around generated
+  group entity targets.
 - Keep existing tests passing.
 
 Exit criteria:
@@ -293,12 +559,13 @@ Exit criteria:
 - Teach the light adapter to resolve eligible target subsets.
 - Apply suppressive states by target membership.
 - Avoid hidden combo entities; compute intersections at decision time.
+- Use HA `label_id` targets for simple role-wide actions where safe.
 
 Exit criteria:
 
 - Tests cover sleep-only, accent-only, overlap, and neither-member targets.
 - Both-states-active behavior matches the example matrix above.
-- Runtime decisions can target explicit entity ids.
+- Runtime decisions can target HA labels or explicit entity ids.
 
 ### Phase 4: Observability
 
@@ -311,22 +578,36 @@ Exit criteria:
 - Debug attributes explain why a group did or did not act.
 - Tests cover reason-code stability for important paths.
 
-### Phase 5: Label-Backed Membership Investigation
+### Phase 5: Label-Backed Membership Preparation
 
-- Determine whether HA Labels can be read cleanly for entity membership in the current
+- Implement or prepare the source-neutral membership map expected by the label migration
+  plan.
+- Prove HA Labels can be read and written cleanly for entity membership in the current
   supported HA version.
-- Decide whether labels supplement or replace existing config membership.
+- Use Magic Areas-owned labels as the runtime membership surface for control intent.
+- Keep current config lists as convenience/reconciliation inputs, not runtime membership
+  truth.
+- Define the action target contract so runtime can choose broad `label_id`, exact helper
+  entity targets, or explicit `entity_id` lists for intersection/suppression targets.
+- Account for native helper groups as the expected exact room/role surface.
 - Assess whether switching to label-backed control membership creates broad project
   simplification, especially in light groups and future fan/media/climate control.
-- Compare doing label membership before engine integration versus after engine
-  integration, with explicit attention to avoided rework.
-- Evaluate whether existing config groups can become convenience groups that assign
+- Keep label work before or directly alongside engine integration to avoid rework.
+- Evaluate whether existing config groups can become convenience groups that reconcile
   predefined labels.
+- Evaluate whether custom control groups should become label queries instead of stored
+  member lists.
+- Evaluate whether category/parent group entities remain useful or become implementation
+  baggage under a label-first model.
 
 Exit criteria:
 
-- Documented decision before implementation.
-- No label migration is required for v1 runtime behavior.
+- Documented architecture recommendation before implementation.
+- Boundary-safe label resolution exists.
+- Area-scoped reconciliation behavior is defined before runtime engine integration.
+- Magic Areas-owned label mutation is scoped to the Magic Areas prefix.
+- Action targets can represent `label_id`, native helper entity targets, and explicit
+  `entity_id`.
 
 ### Phase 6: Adaptive Lighting Coordination Research
 
@@ -362,15 +643,21 @@ Light adapter:
 
 Runtime:
 
-- explicit target subset maps to correct HA service target
+- broad role-wide action maps to correct HA `label_id` service target
+- exact room/role action maps to the correct native helper target
+- explicit target subset maps to correct HA `entity_id` service target
 - no duplicate service calls for the same entity
 - child/all light group behavior remains compatible
 
 Label research:
 
-- existing config membership can be mapped to equivalent label membership
-- convenience-group config can assign or imply predefined labels
+- existing config membership can reconcile equivalent label membership
+- convenience-group config can assign/update/remove predefined labels
+- guided conceptual role assignment remains in Magic Areas config/UI
 - label-backed membership reduces code paths rather than adding a parallel system
+- label-backed architecture is treated as the runtime membership surface, not only as a
+  resolver plugged into current groups
+- custom groups are evaluated as label queries or label-backed intent groups
 
 Adaptive Lighting research:
 
@@ -387,29 +674,30 @@ Adaptive Lighting research:
 4. Existing default light behavior is preserved except for explicitly approved
    member-level suppression fixes.
 5. Engine outputs can represent target subsets.
-6. Diagnostics expose stable reason codes.
-7. The contract is ready for fan arbitration without implementing fan runtime support.
-8. Suppression reason codes take precedence over brightness/sensor reason codes.
+6. Engine outputs can represent HA-native label targets for broad role actions.
+7. Engine outputs can represent exact native helper targets.
+8. Diagnostics expose stable reason codes.
+9. The contract is ready for fan arbitration without implementing fan runtime support.
+10. Suppression reason codes take precedence over brightness/sensor reason codes.
 
-## Open Questions
+## Remaining Open Questions
 
-1. Does switching to label-backed control membership broadly simplify the project, or
-   does it add a second membership system beside config groups?
-2. Is label membership more valuable before engine integration, or after the light
-   adapter proves the engine shape?
-3. Can current config groups become convenience groups that assign predefined labels?
-4. Should whole-group entities remain the primary service target when no subset filtering
-   is needed, or should label-backed operation always target resolved members?
-5. Should suppressed targets be exposed only as debug attributes?
-6. How should Adaptive Lighting discovery work: area, config group, label, or explicit
-   entity selection?
+1. Should custom control groups become label queries instead of stored member lists?
+2. Should category and parent group entities survive a label-first model, or should they
+   become optional diagnostics/control surfaces?
+3. Which service target should be preferred for each simple action: broad `label_id`,
+   native helper entity, or explicit entity IDs?
+4. Should suppressed targets be exposed only as debug attributes?
+5. Which native helper surfaces must exist before the intent engine resumes?
+6. How should Adaptive Lighting discovery and creation work for derived room/role groups?
 7. Should Adaptive Lighting coordination be its own intent or a constraint/effect of
    light intents?
 
 ## Initial Recommendation
 
-Build the pure engine and light adapter first using existing config membership, but run
-label-backed membership research before large runtime rewiring. The research must answer
-whether labels simplify enough code to justify doing them early. Treat Adaptive Lighting
-as a research item before implementation, with special attention to sleep, accent, and
-manual override cooldown behavior.
+Do not start runtime implementation until label/native-helper reconciliation gives the
+engine a source-neutral target map. Do native helper reduction before or alongside the
+engine model to avoid building the engine around custom group entities we intend to
+remove or demote.
+Treat Adaptive Lighting as a research item before implementation, with special attention
+to sleep, accent, and manual override cooldown behavior.

@@ -7,12 +7,18 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
+from homeassistant.const import CONF_ENTITIES, CONF_NAME
 from homeassistant.helpers.entity import Entity
 
+from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import LightGroupCategory, MagicAreasFeatures
 from custom_components.magic_areas.core.runtime_model import (
+    ConfigEntryHelperSurface,
     ControlGroupPolicyId,
     GroupMetadataKey,
+    LabelSurface,
+    ManagedSurface,
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
@@ -31,9 +37,11 @@ from custom_components.magic_areas.features.control_builders import (
 )
 from custom_components.magic_areas.light_groups import (
     AreaLightGroup,
+    LIGHT_GROUP_ROLE_LABELS,
     LIGHT_GROUP_FEATURE_SCHEMA,
     MagicLightGroup,
     LIGHT_GROUP_PRESETS,
+    build_light_group_helper_surface_unique_id,
     light_groups_feature_config,
     preset_members,
     preset_states,
@@ -107,6 +115,48 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         )
 
         return light_groups
+
+    def desired_managed_surfaces(
+        self,
+        area_config: AreaConfig,
+        data: MagicAreasData,
+    ) -> list[ManagedSurface]:
+        """Build desired native HA light group helper surfaces."""
+        light_entities = [e["entity_id"] for e in data.entities.get(LIGHT_DOMAIN, [])]
+        if not light_entities:
+            return []
+
+        feature_config = light_groups_feature_config(data.feature_configs)
+        surfaces: list[ManagedSurface] = [
+            _light_group_surface(
+                area_config=area_config,
+                category=LightGroupCategory.ALL,
+                members=light_entities,
+            )
+        ]
+        for preset in LIGHT_GROUP_PRESETS:
+            members = preset_members(
+                feature_config,
+                preset,
+                available_entities=light_entities,
+            )
+            surfaces.append(
+                _light_group_role_label_surface(
+                    category=preset.category,
+                    members=members,
+                    eligible_entities=light_entities,
+                )
+            )
+            if not members:
+                continue
+            surfaces.append(
+                _light_group_surface(
+                    area_config=area_config,
+                    category=preset.category,
+                    members=members,
+                )
+            )
+        return surfaces
 
     def _build_meta_light_groups(
         self,
@@ -212,6 +262,65 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         )
 
         return groups, definitions
+
+
+def _light_group_surface_unique_id(
+    *,
+    area_config: AreaConfig,
+    category: str,
+) -> str:
+    """Return managed helper unique ID for a light role group."""
+    return build_light_group_helper_surface_unique_id(
+        entry_id=area_config.hass_config.entry_id,
+        area_id=area_config.id,
+        category=category,
+    )
+
+
+def _light_group_role_label_surface(
+    *,
+    category: str,
+    members: list[str],
+    eligible_entities: list[str],
+) -> LabelSurface:
+    """Build the global HA label surface for one light role."""
+    return LabelSurface(
+        name=LIGHT_GROUP_ROLE_LABELS[category],
+        entity_ids=tuple(members),
+        prune_entity_ids=tuple(eligible_entities),
+        icon="mdi:label",
+        description=f"Magic Areas light role: {str(category).replace('_lights', '')}",
+    )
+
+
+def _light_group_surface(
+    *,
+    area_config: AreaConfig,
+    category: str,
+    members: list[str],
+) -> ConfigEntryHelperSurface:
+    """Build one native HA light group helper surface."""
+    title = (
+        f"Magic Areas Native Light Groups {area_config.name} "
+        f"{str(category).replace('_', ' ').title()}"
+    )
+    return ConfigEntryHelperSurface(
+        unique_id=_light_group_surface_unique_id(
+            area_config=area_config,
+            category=category,
+        ),
+        domain="group",
+        title=title,
+        options={
+            "group_type": LIGHT_DOMAIN,
+            CONF_NAME: title,
+            CONF_ENTITIES: members,
+            "hide_members": False,
+        },
+        area_id=area_config.id,
+        device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
+        device_name=area_config.name,
+    )
 
 
 __all__ = ["LightGroupsFeatureModule"]

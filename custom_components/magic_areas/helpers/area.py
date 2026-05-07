@@ -20,6 +20,7 @@ from homeassistant.util import slugify
 
 from custom_components.magic_areas.area_state import MetaAreaType
 from custom_components.magic_areas.config_keys.area import CONF_TYPE
+from custom_components.magic_areas.const import MANAGED_LABEL_SURFACES_DATA_KEY
 from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.components import MetaAreaIcons
 
@@ -105,6 +106,7 @@ def build_area_config_for_config_entry(
     area_name: str = config_entry.data[ATTR_NAME]
 
     area_config_data: ConfigEntryData = dict(config_entry.data)
+    area_config_data.pop(MANAGED_LABEL_SURFACES_DATA_KEY, None)
     if config_entry.options:
         area_config_data.update(config_entry.options)
 

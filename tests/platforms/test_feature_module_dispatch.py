@@ -12,9 +12,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.magic_areas.config_keys.area import CONF_CUSTOM_CONTROL_GROUPS
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.runtime_model import LabelSurface
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import FeatureConfigStep
+from custom_components.magic_areas.features.dispatch import (
+    collect_feature_managed_surfaces,
+)
 from custom_components.magic_areas.features.registry import FeatureRegistry
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import get_basic_config_entry_data
@@ -212,3 +217,68 @@ async def test_dependency_missing_skips_module_entities(hass: HomeAssistant, cap
 
     module.build_entities.assert_not_called()
     assert "missing dependencies" in caplog.text
+
+
+def test_collect_managed_surfaces_includes_custom_control_group_labels() -> None:
+    """Custom control groups should compile into scoped HA label surfaces."""
+    area_config = MagicMock()
+    area_config.config = {
+        CONF_CUSTOM_CONTROL_GROUPS: [
+            {
+                "group_id": "control.task",
+                "members": ["light.task_lamp", "switch.task_relay"],
+                "trigger_states": ["occupied"],
+                "metadata": {"label": "Task"},
+            },
+            {
+                "group_id": "control.external",
+                "members": ["light.external_member"],
+                "trigger_states": ["occupied"],
+                "metadata": {"label": "External"},
+            },
+        ]
+    }
+    data = MagicMock()
+    data.enabled_features = set()
+    data.entities = {
+        "light": [
+            {"entity_id": "light.task_lamp"},
+            {"entity_id": "light.other_lamp"},
+        ],
+        "switch": [{"entity_id": "switch.task_relay"}],
+    }
+    registry = FeatureRegistry([])
+
+    surfaces = collect_feature_managed_surfaces(
+        registry=registry,
+        data=data,
+        area_config=area_config,
+        logger=MagicMock(),
+    )
+
+    labels_by_name = {
+        surface.name: surface
+        for surface in surfaces
+        if isinstance(surface, LabelSurface)
+    }
+    assert sorted(labels_by_name) == [
+        "ma:control:external",
+        "ma:control:task",
+    ]
+    assert labels_by_name["ma:control:task"].entity_ids == (
+        "light.task_lamp",
+        "switch.task_relay",
+    )
+    assert labels_by_name["ma:control:task"].prune_entity_ids == (
+        "light.task_lamp",
+        "light.other_lamp",
+        "switch.task_relay",
+    )
+    assert labels_by_name["ma:control:external"].entity_ids == (
+        "light.external_member",
+    )
+    assert labels_by_name["ma:control:external"].prune_entity_ids == (
+        "light.task_lamp",
+        "light.other_lamp",
+        "switch.task_relay",
+    )

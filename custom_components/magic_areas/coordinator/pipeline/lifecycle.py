@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Collection, Coroutine, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -34,6 +34,7 @@ from custom_components.magic_areas.components import (
     MAGICAREAS_UNIQUEID_PREFIX,
     MAGIC_DEVICE_ID_PREFIX,
 )
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.core.config import reload_on_registry_change
 from custom_components.magic_areas.core.meta_reload import evaluate_reload
@@ -387,6 +388,16 @@ def _is_magicareas_entity(entity_id: str) -> bool:
         return False
     entity_part = parts[1]
     return entity_part.startswith(MAGICAREAS_UNIQUEID_PREFIX)
+
+
+def _has_magicareas_device_identifier(
+    identifiers: Collection[tuple[str, str]],
+) -> bool:
+    """Return whether device identifiers belong to a Magic Areas room device."""
+    return any(
+        domain == DOMAIN and identifier.startswith(MAGIC_DEVICE_ID_PREFIX)
+        for domain, identifier in identifiers
+    )
 
 
 def _is_registry_event_relevant_to_area(
@@ -868,11 +879,10 @@ def make_device_registry_filter(
 
     def _device_registry_filter(event_data: EventDeviceRegistryUpdatedData) -> bool:
         """Filter device registry events relevant to this area."""
-        if event_data["device_id"].startswith(MAGIC_DEVICE_ID_PREFIX):
-            return False
-
         device_registry = devicereg_async_get(hass)
         device_entry = device_registry.async_get(event_data["device_id"])
+        if device_entry and _has_magicareas_device_identifier(device_entry.identifiers):
+            return False
         device_area_id = device_entry.area_id if device_entry else None
         changed_area_id = _extract_changed_area_id(event_data.get("changes"))
 

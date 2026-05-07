@@ -2,7 +2,14 @@
 
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STATE_ON
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_ENTITY_ID,
+    SERVICE_TURN_ON,
+    STATE_OFF,
+    STATE_ON,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -26,7 +33,7 @@ async def test_fan_control_switch(
     entities_fan_control: tuple[MockFan, MockSensor],
 ) -> None:
     """Test fan control switch logic."""
-    mock_fan, _mock_sensor = entities_fan_control
+    mock_fan, mock_sensor = entities_fan_control
     aggregate_sensor_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_{SensorDeviceClass.TEMPERATURE}"
 
     await init_integration_helper(hass, [fan_control_config_entry])
@@ -60,8 +67,16 @@ async def test_fan_control_switch(
     await hass.async_block_till_done()
     await wait_for_state(hass, mock_fan.entity_id, STATE_OFF)
 
-    hass.states.async_set(aggregate_sensor_id, "30.0")
+    hass.states.async_set(
+        mock_sensor.entity_id,
+        "30.0",
+        attributes={
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            "unit_of_measurement": UnitOfTemperature.CELSIUS,
+        },
+    )
     await hass.async_block_till_done()
+    await wait_for_state(hass, aggregate_sensor_id, "30.0")
     await wait_for_state(hass, mock_fan.entity_id, STATE_ON)
 
     await shutdown_integration(hass, [fan_control_config_entry])

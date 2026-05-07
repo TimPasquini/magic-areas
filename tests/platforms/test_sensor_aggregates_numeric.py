@@ -6,7 +6,8 @@ from random import randint
 from statistics import mean
 
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
-from homeassistant.const import UnitOfElectricCurrent, UnitOfTemperature
+from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.const import ATTR_DEVICE_CLASS, UnitOfElectricCurrent, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 
 from tests.mocks import MockSensor
@@ -41,7 +42,10 @@ async def test_aggregates_sensor_avg(
         hass.states.async_set(
             mock_entity.entity_id,
             str(random_value),
-            attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+            attributes={
+                ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+                "unit_of_measurement": UnitOfTemperature.CELSIUS,
+            },
         )
         await hass.async_block_till_done()
         changed_state = hass.states.get(mock_entity.entity_id)
@@ -78,7 +82,10 @@ async def test_aggregates_sensor_sum(
         hass.states.async_set(
             mock_entity.entity_id,
             str(random_value),
-            attributes={"unit_of_measurement": UnitOfElectricCurrent.AMPERE},
+            attributes={
+                ATTR_DEVICE_CLASS: SensorDeviceClass.CURRENT,
+                "unit_of_measurement": UnitOfElectricCurrent.AMPERE,
+            },
         )
         await hass.async_block_till_done()
         changed_state = hass.states.get(mock_entity.entity_id)

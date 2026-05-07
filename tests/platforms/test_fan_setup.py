@@ -1,7 +1,7 @@
 """Tests for fan setup error handling."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -19,10 +19,10 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 
 
-async def test_fan_setup_handles_group_errors(
+async def test_fan_setup_adds_no_custom_group_entities(
     hass: HomeAssistant, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test fan group errors are handled."""
+    """Fan platform should not add Magic Areas custom fan-group entities."""
     area = MagicMock()
     area.entities = {"fan": [{"entity_id": "fan.test"}]}
     area.slug = "test-area"
@@ -65,13 +65,7 @@ async def test_fan_setup_handles_group_errors(
 
     async_add_entities = MagicMock()
     caplog.set_level("ERROR")
-    with (
-        patch(
-            "custom_components.magic_areas.features.modules.fan_groups.AreaFanGroup",
-            side_effect=ValueError("boom"),
-        ),
-    ):
-        await async_setup_entry(hass, config_entry, async_add_entities)
+    await async_setup_entry(hass, config_entry, async_add_entities)
 
     async_add_entities.assert_not_called()
-    assert "Error creating fan group" in caplog.text
+    assert "Error creating fan group" not in caplog.text

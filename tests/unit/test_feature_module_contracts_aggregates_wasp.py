@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT
-from homeassistant.core import HomeAssistant
 
 from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
@@ -26,8 +24,6 @@ from custom_components.magic_areas.sensor import (
     create_aggregate_sensors_from_definitions as create_sensor_aggregates,
 )
 from custom_components.magic_areas.binary_sensor import (
-    create_aggregate_sensors_from_definitions as create_binary_aggregates,
-    create_illuminance_threshold,
     create_wasp_in_a_box_sensor,
 )
 
@@ -41,7 +37,7 @@ from .feature_module_contracts_testkit import (
 
 
 def test_aggregates_module_matches_legacy_sensor_entities() -> None:
-    """Aggregates module should match legacy sensor aggregate output."""
+    """Aggregates module should declare native helper surface for sensor aggregates."""
     area_config = make_area_config()
     entities_by_domain = {
         SENSOR_DOMAIN: [
@@ -69,30 +65,25 @@ def test_aggregates_module_matches_legacy_sensor_entities() -> None:
         entities=entities_by_domain,
     )
     coordinator = make_coordinator(snapshot)
-    definitions = build_aggregate_definitions(snapshot)
-
-    legacy_entities = create_sensor_aggregates(
-        definitions=definitions,
-        area_config=area_config,
-        coordinator=coordinator,
-    )
-
     module = get_module("aggregates")
     module_entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    legacy_ids = sorted(entity.entity_id for entity in legacy_entities)
-    module_ids = sorted(
-        entity.entity_id for entity in module_entities if entity.entity_id.startswith("sensor.")
+    assert module_entities == []
+    assert len(surfaces) == 1
+    assert surfaces[0].unique_id == (
+        "magic_areas:entry-1:area-1:aggregates:config_entry_helper:"
+        "aggregate_sensor_standard_temperature"
     )
-    assert module_ids == legacy_ids
+    assert surfaces[0].domain == "group"
+    assert surfaces[0].options["group_type"] == SENSOR_DOMAIN
+    assert surfaces[0].options["entities"] == ["sensor.temp_1", "sensor.temp_2"]
+    assert surfaces[0].options["type"] == "mean"
+    assert surfaces[0].area_id == area_config.id
 
 
-@pytest.mark.asyncio
-async def test_aggregates_module_matches_legacy_binary_entities_and_threshold(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Aggregates module should match legacy binary aggregates and threshold output."""
+def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> None:
+    """Aggregates module should declare native binary and threshold helper surfaces."""
     area_config = make_area_config()
     entities_by_domain = {
         SENSOR_DOMAIN: [
@@ -121,36 +112,48 @@ async def test_aggregates_module_matches_legacy_binary_entities_and_threshold(
         feature_configs=feature_configs,
         entities=entities_by_domain,
     )
-    monkeypatch.setattr(
-        "custom_components.magic_areas.core.aggregates.runtime.resolve_aggregate_entity_id",
-        MagicMock(
-            return_value=(
-                "sensor.magic_areas_aggregates_kitchen_aggregate_illuminance"
-            )
-        ),
-    )
-    coordinator = make_coordinator(snapshot, hass)
-    definitions = build_aggregate_definitions(snapshot)
-
-    legacy_entities = create_binary_aggregates(
-        definitions=definitions,
-        area_config=area_config,
-        coordinator=coordinator,
-    )
-    threshold_entity = create_illuminance_threshold(hass, snapshot, area_config, coordinator)
-    if threshold_entity:
-        legacy_entities.append(threshold_entity)
+    coordinator = make_coordinator(snapshot)
 
     module = get_module("aggregates")
     module_entities = module.build_entities(area_config, coordinator, snapshot)
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    legacy_ids = sorted(entity.entity_id for entity in legacy_entities)
-    module_ids = sorted(
-        entity.entity_id
-        for entity in module_entities
-        if entity.entity_id.startswith("binary_sensor.")
+    assert module_entities == []
+    group_surfaces = [surface for surface in surfaces if surface.domain == "group"]
+    assert {surface.options["group_type"] for surface in group_surfaces} == {
+        BINARY_SENSOR_DOMAIN,
+        SENSOR_DOMAIN,
+    }
+    binary_surface = next(
+        surface
+        for surface in group_surfaces
+        if surface.options["group_type"] == BINARY_SENSOR_DOMAIN
     )
-    assert module_ids == legacy_ids
+    assert binary_surface.unique_id == (
+        "magic_areas:entry-1:area-1:aggregates:config_entry_helper:"
+        "aggregate_binary-sensor_standard_motion"
+    )
+    assert binary_surface.options["entities"] == [
+        "binary_sensor.motion_1",
+        "binary_sensor.motion_2",
+    ]
+    assert binary_surface.options["all"] is False
+
+    threshold_surface = next(
+        surface for surface in surfaces if surface.domain == "threshold"
+    )
+    assert threshold_surface.unique_id == (
+        "magic_areas:entry-1:area-1:threshold:config_entry_helper:"
+        "threshold_light"
+    )
+    assert threshold_surface.title == "Magic Areas Threshold Kitchen Threshold Light"
+    assert threshold_surface.options["entity_id"] == (
+        "sensor.magic_areas_aggregates_kitchen_aggregate_illuminance"
+    )
+    assert threshold_surface.options["upper"] == 50.0
+    assert threshold_surface.options["hysteresis"] == 5.0
+    assert threshold_surface.options["lower"] is None
+    assert threshold_surface.device_class == "light"
 
 
 def test_aggregates_module_respects_min_entities_config() -> None:
@@ -190,6 +193,36 @@ def test_aggregates_module_respects_min_entities_config() -> None:
 
     assert legacy_entities == []
     assert module_entities == []
+    assert module.desired_managed_surfaces(area_config, snapshot) == []
+
+
+def test_aggregates_module_skips_threshold_without_illuminance_aggregate() -> None:
+    """Threshold helper should not be declared without a managed source aggregate."""
+    area_config = make_area_config()
+    entities_by_domain = {
+        SENSOR_DOMAIN: [
+            {
+                ATTR_DEVICE_CLASS: SensorDeviceClass.ILLUMINANCE,
+                ATTR_ENTITY_ID: "sensor.lux_1",
+                ATTR_UNIT_OF_MEASUREMENT: "lx",
+            }
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES: {
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [SensorDeviceClass.ILLUMINANCE],
+            CONF_AGGREGATES_MIN_ENTITIES: 2,
+            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 50,
+        }
+    }
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.AGGREGATES},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+    module = get_module("aggregates")
+
+    assert module.desired_managed_surfaces(area_config, snapshot) == []
 
 
 def test_aggregates_module_registers_group_registry_definitions() -> None:
@@ -231,6 +264,7 @@ def test_aggregates_module_registers_group_registry_definitions() -> None:
     register_defs.assert_called_once()
     _, kwargs = register_defs.call_args
     assert kwargs["area_id"] == area_config.id
+    assert kwargs["owner_entry_id"] == "entry-1"
     assert any(
         definition.domain == SENSOR_DOMAIN
         and definition.device_class == SensorDeviceClass.TEMPERATURE
