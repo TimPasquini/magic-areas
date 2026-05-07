@@ -37,7 +37,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
-from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.const import DOMAIN, MANAGED_LABEL_SURFACES_DATA_KEY
 from custom_components.magic_areas.coordinator import (
     async_reconcile_config_entry_helpers,
     async_reconcile_label_surfaces,
@@ -126,6 +126,135 @@ async def test_reconciler_manages_scoped_label_membership(
     assert overhead_label.label_id in entity_registry.async_get(lights[2].entity_id).labels
     assert task_label.label_id not in entity_registry.async_get(lights[1].entity_id).labels
     assert user_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+
+
+async def test_reconciler_clears_deleted_owner_label_surfaces(
+    hass: HomeAssistant,
+) -> None:
+    """Deleted managed labels should prune only memberships owned by that entry."""
+    lights = [
+        MockLight("owner_1_task", "off", unique_id="owner_1_task"),
+        MockLight("owner_2_task", "off", unique_id="owner_2_task"),
+    ]
+    await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
+    owner_1 = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="label_owner_1",
+        title="Kitchen",
+        unique_id="label-owner-1",
+    )
+    owner_2 = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="label_owner_2",
+        title="Office",
+        unique_id="label-owner-2",
+    )
+    owner_1.add_to_hass(hass)
+    owner_2.add_to_hass(hass)
+    entity_registry = er.async_get(hass)
+    label_registry = lr.async_get(hass)
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner_1.entry_id,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:control:task",
+                entity_ids=(lights[0].entity_id,),
+                prune_entity_ids=(lights[0].entity_id,),
+            ),
+        ],
+    )
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner_2.entry_id,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:control:task",
+                entity_ids=(lights[1].entity_id,),
+                prune_entity_ids=(lights[1].entity_id,),
+            ),
+        ],
+    )
+
+    task_label = label_registry.async_get_label_by_name("ma:control:task")
+    assert task_label is not None
+    assert task_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner_1.entry_id,
+        desired_surfaces=[],
+    )
+
+    assert task_label.label_id not in entity_registry.async_get(lights[0].entity_id).labels
+    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+    assert label_registry.async_get_label_by_name("ma:control:task") is not None
+    assert owner_1.data[MANAGED_LABEL_SURFACES_DATA_KEY] == {}
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner_2.entry_id,
+        desired_surfaces=[],
+    )
+
+    assert task_label.label_id not in entity_registry.async_get(lights[1].entity_id).labels
+    assert label_registry.async_get_label_by_name("ma:control:task") is None
+    assert owner_2.data[MANAGED_LABEL_SURFACES_DATA_KEY] == {}
+
+
+async def test_reconciler_prunes_previous_owner_members_for_retained_label(
+    hass: HomeAssistant,
+) -> None:
+    """Retained labels should still prune members previously owned by this entry."""
+    lights = [
+        MockLight("previous_task", "off", unique_id="previous_task"),
+        MockLight("current_task", "off", unique_id="current_task"),
+    ]
+    await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
+    owner = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="label_owner_retained",
+        title="Kitchen",
+        unique_id="label-owner-retained",
+    )
+    owner.add_to_hass(hass)
+    entity_registry = er.async_get(hass)
+    label_registry = lr.async_get(hass)
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner.entry_id,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:control:reading",
+                entity_ids=(lights[0].entity_id,),
+                prune_entity_ids=(),
+            ),
+        ],
+    )
+
+    reading_label = label_registry.async_get_label_by_name("ma:control:reading")
+    assert reading_label is not None
+    assert reading_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        owner_entry_id=owner.entry_id,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:control:reading",
+                entity_ids=(lights[1].entity_id,),
+                prune_entity_ids=(),
+            ),
+        ],
+    )
+
+    assert reading_label.label_id not in entity_registry.async_get(
+        lights[0].entity_id
+    ).labels
+    assert reading_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
 
 
 def _managed_group_entry(

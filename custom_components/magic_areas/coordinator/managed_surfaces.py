@@ -17,7 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 
-from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.const import DOMAIN, MANAGED_LABEL_SURFACES_DATA_KEY
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     LabelSurface,
@@ -187,6 +187,7 @@ async def async_reconcile_managed_surfaces(
     )
     async_reconcile_label_surfaces(
         hass=hass,
+        owner_entry_id=owner_entry_id,
         desired_surfaces=[
             surface for surface in desired_surfaces if isinstance(surface, LabelSurface)
         ],
@@ -250,18 +251,39 @@ def async_reconcile_label_surfaces(
     *,
     hass: HomeAssistant,
     desired_surfaces: list[LabelSurface],
+    owner_entry_id: str | None = None,
 ) -> None:
     """Create/update labels and reconcile scoped entity label membership."""
     label_registry = lr.async_get(hass)
     entity_registry = er.async_get(hass)
+    owner_entry = (
+        hass.config_entries.async_get_entry(owner_entry_id)
+        if owner_entry_id is not None
+        else None
+    )
+    previous_owner_labels = _managed_label_snapshot(owner_entry)
+    desired_by_name = {surface.name: surface for surface in desired_surfaces}
+    surfaces_to_reconcile = list(desired_surfaces)
+    surfaces_to_reconcile.extend(
+        LabelSurface(
+            name=label_name,
+            entity_ids=(),
+            prune_entity_ids=entity_ids,
+        )
+        for label_name, entity_ids in previous_owner_labels.items()
+        if label_name not in desired_by_name
+    )
 
-    for surface in desired_surfaces:
+    for surface in surfaces_to_reconcile:
         label = _find_or_create_label(
             label_registry=label_registry,
             surface=surface,
         )
         desired_entity_ids = set(surface.entity_ids)
-        prune_entity_ids = set(surface.prune_entity_ids) or desired_entity_ids
+        previous_entity_ids = set(previous_owner_labels.get(surface.name, ()))
+        prune_entity_ids = (
+            set(surface.prune_entity_ids) | previous_entity_ids
+        ) or desired_entity_ids
 
         for entity_id in desired_entity_ids:
             _set_entity_label_membership(
@@ -281,6 +303,58 @@ def async_reconcile_label_surfaces(
 
         if not er.async_entries_for_label(entity_registry, label.label_id):
             label_registry.async_delete(label.label_id)
+
+    _store_managed_label_snapshot(
+        hass=hass,
+        owner_entry=owner_entry,
+        desired_surfaces=desired_surfaces,
+    )
+
+
+def _managed_label_snapshot(
+    owner_entry: ConfigEntry[object] | None,
+) -> dict[str, tuple[str, ...]]:
+    """Return previously reconciled labels owned by this config entry."""
+    if owner_entry is None:
+        return {}
+
+    raw_snapshot = owner_entry.data.get(MANAGED_LABEL_SURFACES_DATA_KEY, {})
+    if not isinstance(raw_snapshot, Mapping):
+        return {}
+
+    snapshot: dict[str, tuple[str, ...]] = {}
+    for label_name, entity_ids in raw_snapshot.items():
+        if not isinstance(label_name, str) or not isinstance(entity_ids, list):
+            continue
+        snapshot[label_name] = tuple(
+            entity_id for entity_id in entity_ids if isinstance(entity_id, str)
+        )
+    return snapshot
+
+
+def _store_managed_label_snapshot(
+    *,
+    hass: HomeAssistant,
+    owner_entry: ConfigEntry[object] | None,
+    desired_surfaces: list[LabelSurface],
+) -> None:
+    """Persist the labels this owner last intended so deletions can prune them."""
+    if owner_entry is None:
+        return
+
+    next_snapshot = {
+        surface.name: sorted(set(surface.entity_ids)) for surface in desired_surfaces
+    }
+    if owner_entry.data.get(MANAGED_LABEL_SURFACES_DATA_KEY, {}) == next_snapshot:
+        return
+
+    hass.config_entries.async_update_entry(
+        owner_entry,
+        data={
+            **owner_entry.data,
+            MANAGED_LABEL_SURFACES_DATA_KEY: next_snapshot,
+        },
+    )
 
 
 async def async_reconcile_config_entry_helpers(

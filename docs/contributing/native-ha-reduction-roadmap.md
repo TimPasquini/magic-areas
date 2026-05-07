@@ -412,13 +412,14 @@ Current implementation:
 - Membership assignment preserves explicit configured members, including entities outside
   the current area catalog, while stale pruning is scoped to entities currently enumerated
   for that Magic Area.
+- Managed labels persist owner-scoped membership snapshots in internal config-entry data,
+  so deleting a custom control group removes only the memberships previously applied by
+  that Magic Areas entry.
 - The guided Magic Areas config UI remains the source of custom control intent. HA labels
   are the exposed storage/control surface, not the place where group meaning is inferred.
 
 Remaining work:
 
-- Decide whether deleted custom control group labels need an ownership index so they can be
-  retired safely without stripping labels still used by other areas.
 - Revisit runtime target resolution once the control intent engine consumes label-backed
   role targets directly.
 
