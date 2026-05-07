@@ -445,6 +445,40 @@ Exit criteria:
 - No custom rolling-window/rate-of-change code is added before native helper suitability
   is decided.
 
+Current recommendation:
+
+- Use native signal helpers before adding any new custom rolling-window/rate-of-change
+  logic.
+- Statistics helpers are the preferred native surface for rolling scalar summaries such as
+  humidity settling, recent change, noisiness, and binary-source percentages/counts.
+- Trend helpers are the preferred native surface for direct boolean “rising/falling enough”
+  signals such as adaptive-light ambient-rise evidence or humidity rate triggers.
+- Derivative helpers are the preferred native surface when policy needs a numeric rate
+  output or when a rate should be chained into a managed threshold helper.
+- Schedule helpers are the preferred native surface for user-editable time-window
+  eligibility such as sleep/quiet/profile constraints, but they require a separate
+  storage-collection applier.
+- For adaptive switching, do not expand the current in-runtime ambient-rise code. The next
+  adaptive pass should either consume selected user helpers or introduce a managed signal
+  bundle backed by trend/derivative/statistics helpers.
+- For future fan humidity/odor control, keep current setpoint behavior stable and design
+  rate/settle triggers as helper-backed signals consumed by policy.
+
+Implementation implications:
+
+- Add signal helper desired-surface types before implementing helper-backed adaptive/fan
+  behavior:
+  - `StatisticsSignalSurface`
+  - `TrendSignalSurface`
+  - `DerivativeSignalSurface`
+  - `ScheduleSurface`
+- Config-entry-backed signal helpers can reuse the existing helper ownership model after
+  direct create/update/remove probes are added for each helper type.
+- Schedule helpers must use a storage-collection applier, not the config-entry helper
+  applier.
+- Policies must expose warm-up/unknown/unavailable signal states in debug attributes so HA
+  helper startup behavior does not look like a false low/false clear condition.
+
 ## Branch Exit Criteria
 
 - Native helper reconciliation architecture exists.

@@ -225,6 +225,28 @@ Reconciler implication:
 - Useful for future adaptive and fan signal handling.
 - Do not implement custom rolling statistics until the helper suitability is decided.
 
+Stage 10 recommendation:
+
+- Treat statistics helpers as the first choice for rolling-window scalar summaries where
+  Magic Areas needs an actual value, not just a boolean trigger.
+- Strong fits:
+  - humidity settling / recent humidity change after a shower
+  - rolling mean/min/max/variance/noisiness diagnostics
+  - binary-source percentages/counts for “recently active” style observability
+- Weak fits:
+  - immediate edge detection
+  - control paths that cannot tolerate sparse-source or startup `unknown` behavior
+- Native docs note that statistics can restore from recorder history on startup, but
+  without recorder some characteristics need multiple samples before reporting. The
+  planner must expose warm-up/unknown handling explicitly in policy debug attributes.
+- If Magic Areas generates these, use config-entry helper ownership like group helpers
+  and attach the helper entity to the Magic Area device/area while excluding it from
+  source enumeration.
+- Do not use statistics as the only fan-control truth until policy distinguishes:
+  - source unavailable
+  - helper warming up
+  - helper reporting a valid low/settled value
+
 ### Trend Helpers
 
 HA API shape:
@@ -256,6 +278,23 @@ Reconciler implication:
 - If source entity changes, safest approach may be recreate rather than update in place.
 - Good candidate for future humidity-rate or ambient-rise signals, but not first pilot.
 
+Stage 10 recommendation:
+
+- Treat trend helpers as the first choice when Magic Areas needs a boolean “rising” or
+  “falling” signal over a configured sample window.
+- Strong fits:
+  - adaptive-light ambient-rise evidence for “daylight is increasing enough”
+  - humidity rising/falling triggers for bathroom fan control
+  - future odor proxy signals where a binary trend condition is sufficient
+- Weak fits:
+  - decisions that need the numeric rate value for ranking/debugging
+  - source sensors that update too sparsely to satisfy `min_samples` quickly
+- Native docs define trend as a fitted trend line compared against `min_gradient`, with
+  gradient measured in source units per second. Magic Areas config must present
+  user-facing units, then convert to the HA helper’s per-second gradient.
+- Because source replacement appears less flexible than option updates, model source
+  entity changes as recreate-safe unless tests prove update-in-place works reliably.
+
 ### Derivative Helpers
 
 HA API shape:
@@ -284,6 +323,23 @@ Reconciler implication:
 - Candidate for future rate-of-change calculations.
 - Needs semantic comparison with trend/statistics before adopting.
 
+Stage 10 recommendation:
+
+- Treat derivative helpers as the first choice when Magic Areas needs a numeric rate
+  output instead of a direct boolean.
+- Strong fits:
+  - humidity rate-of-rise/rate-of-fall diagnostics
+  - adaptive-light lux rise rate when policy needs tunable thresholds or debug visibility
+  - chaining into a threshold helper when a managed binary trigger is desired
+- Weak fits:
+  - simple “rising enough?” conditions where trend can produce the binary signal directly
+  - noisy sensors unless `time_window` smoothing is configured
+- Native docs define `time_window` smoothing and `max_sub_interval`; Magic Areas should
+  surface those only through named presets at first, not raw expert-only knobs.
+- If derivative plus threshold are both generated for one behavior, the desired-surface
+  planner must own both as a single signal bundle so cleanup, diagnostics, and labels do
+  not drift apart.
+
 ### Schedule Helpers
 
 HA API shape:
@@ -310,6 +366,26 @@ Reconciler implication:
 
 - Needs a storage-collection helper applier, not the config-entry helper applier.
 - Defer implementation until schedule-backed states are actually needed.
+
+Stage 10 recommendation:
+
+- Treat schedule helpers as the preferred HA-native surface for user-editable time
+  windows such as sleep eligibility, quiet hours, or future profile constraints.
+- Strong fits:
+  - user-visible sleep/quiet eligibility windows
+  - optional time-window constraints consumed by the future control intent engine
+  - profile attributes carried as schedule block data when the data remains small and
+    semantic, not scene-like
+- Weak fits:
+  - current presence/extended/sleep timeout mechanics
+  - static scene replacement
+  - generated schedules that users are not expected to edit
+- Native docs define schedules as weekly on/off entities with non-overlapping time blocks
+  and optional active-block attributes. Magic Areas should consume schedule state as an
+  eligibility signal, not move room-state resolution into the schedule helper.
+- Because schedules are storage-collection-backed, implementation requires a
+  `StorageCollectionHelperApplier`; do not force schedules through the config-entry helper
+  reconciler.
 
 ### Repairs / Issue Registry
 
