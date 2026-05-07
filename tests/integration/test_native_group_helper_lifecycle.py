@@ -32,6 +32,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import label_registry as lr
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -39,6 +40,7 @@ from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator import (
     async_reconcile_config_entry_helpers,
+    async_reconcile_label_surfaces,
 )
 from custom_components.magic_areas.coordinator.managed_surfaces import (
     _surface_repair_issue_id,
@@ -48,6 +50,7 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import 
 )
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
+    LabelSurface,
     ManagedSurfaceKind,
     build_managed_surface_unique_id,
 )
@@ -57,6 +60,72 @@ from tests.mocks import MockCover, MockLight, MockSensor
 
 GROUP_DOMAIN = "group"
 THRESHOLD_DOMAIN = "threshold"
+
+
+async def test_reconciler_manages_scoped_label_membership(
+    hass: HomeAssistant,
+) -> None:
+    """Label reconciliation should preserve unrelated labels and prune only scope."""
+    lights = [
+        MockLight("overhead_1", "off", unique_id="label_overhead_1"),
+        MockLight("task_1", "off", unique_id="label_task_1"),
+        MockLight("other_1", "off", unique_id="label_other_1"),
+    ]
+    await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
+    entity_registry = er.async_get(hass)
+    label_registry = lr.async_get(hass)
+    user_label = label_registry.async_create("User Label")
+    entity_registry.async_update_entity(
+        lights[0].entity_id,
+        labels={user_label.label_id},
+    )
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:overhead",
+                entity_ids=(lights[0].entity_id,),
+                prune_entity_ids=tuple(light.entity_id for light in lights),
+            ),
+            LabelSurface(
+                name="ma:task",
+                entity_ids=(lights[1].entity_id,),
+                prune_entity_ids=tuple(light.entity_id for light in lights),
+            ),
+        ],
+    )
+
+    overhead_label = label_registry.async_get_label_by_name("ma:overhead")
+    task_label = label_registry.async_get_label_by_name("ma:task")
+    assert overhead_label is not None
+    assert task_label is not None
+    assert overhead_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+    assert user_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+
+    async_reconcile_label_surfaces(
+        hass=hass,
+        desired_surfaces=[
+            LabelSurface(
+                name="ma:overhead",
+                entity_ids=(lights[2].entity_id,),
+                prune_entity_ids=tuple(light.entity_id for light in lights),
+            ),
+            LabelSurface(
+                name="ma:task",
+                entity_ids=(),
+                prune_entity_ids=tuple(light.entity_id for light in lights),
+            ),
+        ],
+    )
+
+    assert overhead_label.label_id not in entity_registry.async_get(
+        lights[0].entity_id
+    ).labels
+    assert overhead_label.label_id in entity_registry.async_get(lights[2].entity_id).labels
+    assert task_label.label_id not in entity_registry.async_get(lights[1].entity_id).labels
+    assert user_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
 
 
 def _managed_group_entry(

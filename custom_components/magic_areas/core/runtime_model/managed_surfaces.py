@@ -31,7 +31,19 @@ class ConfigEntryHelperSurface:
     device_class: str | None = None
 
 
-type ManagedSurface = ConfigEntryHelperSurface
+@dataclass(frozen=True, slots=True)
+class LabelSurface:
+    """Desired state for one HA label assignment surface."""
+
+    name: str
+    entity_ids: tuple[str, ...]
+    prune_entity_ids: tuple[str, ...] = ()
+    icon: str | None = None
+    color: str | None = None
+    description: str | None = None
+
+
+type ManagedSurface = ConfigEntryHelperSurface | LabelSurface
 
 
 def build_managed_surface_owner_prefix(entry_id: str) -> str:
@@ -76,6 +88,7 @@ def build_managed_surface_unique_id(
 
 __all__ = [
     "ConfigEntryHelperSurface",
+    "LabelSurface",
     "MANAGED_SURFACE_UNIQUE_ID_PREFIX",
     "ManagedSurface",
     "ManagedSurfaceKind",

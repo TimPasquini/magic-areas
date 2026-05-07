@@ -120,8 +120,11 @@ Current implementation:
   the desired surface.
 - Entity ingestion filters managed helper entities so assigned helpers do not feed back
   into the same area's source entity catalog.
-- The first applier supports config-entry-backed helpers only; label, storage,
-  repairs, and registry-metadata appliers remain future work.
+- The config-entry helper applier supports config-entry-backed helpers.
+- The label applier supports scoped entity-label reconciliation for desired label
+  surfaces, preserving unrelated user labels and pruning only within the declaring
+  surface's eligible entity scope.
+- Storage-collection helpers and registry-metadata appliers remain future work.
 
 ### Stage 3: Pilot With Cover Groups
 
@@ -367,6 +370,12 @@ Current implementation:
   for this branch. Native helper service calls still propagate through member state and
   the custom group state listener, so manual native-helper control releases policy
   ownership without moving listeners yet.
+- Light groups reconcile global HA role labels for configured light role membership:
+  `ma:overhead`, `ma:task`, `ma:sleep`, and `ma:accent`.
+- Light role labels are reconciled as scoped entity labels. Each role surface assigns
+  its configured members and can remove stale role labels only from the current area's
+  eligible light entities, so a global role label in one room does not strip another
+  room's membership.
 - Reconciler coverage verifies native light helper create, update, stale removal, HA area
   assignment, Magic Areas device attachment, and source-enumeration exclusion.
 
@@ -375,8 +384,8 @@ Remaining work:
 - Revisit listener ownership when the control intent engine introduces a dedicated
   policy surface; do not move listeners to native helpers in this branch unless runtime
   evidence shows the hidden-policy listener path is insufficient.
-- Add label reconciliation for global light role labels once the label applier is in
-  scope.
+- Decide whether Stage 8 should close with labels as HA-visible membership only, or also
+  introduce label-backed runtime target records before returning to custom control groups.
 
 ### Stage 9: Custom Control Groups
 

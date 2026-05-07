@@ -20,6 +20,7 @@ from custom_components.magic_areas.core.runtime_model.identity import (
 )
 from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     ConfigEntryHelperSurface,
+    LabelSurface,
     MANAGED_SURFACE_UNIQUE_ID_PREFIX,
     ManagedSurface,
     ManagedSurfaceKind,
@@ -48,6 +49,7 @@ __all__ = [
     "GroupMetadataKey",
     "GroupRegistryView",
     "GroupRole",
+    "LabelSurface",
     "MANAGED_SURFACE_UNIQUE_ID_PREFIX",
     "ManagedSurface",
     "ManagedSurfaceKind",

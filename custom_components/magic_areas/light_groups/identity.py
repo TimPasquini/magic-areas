@@ -8,6 +8,13 @@ from custom_components.magic_areas.core.runtime_model import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
+LIGHT_GROUP_ROLE_LABELS: dict[str, str] = {
+    "overhead_lights": "ma:overhead",
+    "task_lights": "ma:task",
+    "sleep_lights": "ma:sleep",
+    "accent_lights": "ma:accent",
+}
+
 
 def build_light_group_helper_surface_unique_id(
     *,
@@ -25,4 +32,4 @@ def build_light_group_helper_surface_unique_id(
     )
 
 
-__all__ = ["build_light_group_helper_surface_unique_id"]
+__all__ = ["LIGHT_GROUP_ROLE_LABELS", "build_light_group_helper_surface_unique_id"]

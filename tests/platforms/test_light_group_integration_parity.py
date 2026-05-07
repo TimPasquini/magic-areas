@@ -4,6 +4,7 @@ from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import label_registry as lr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
@@ -84,6 +85,22 @@ async def test_light_group_entity_ids_and_count_match_contract(
         registry_entry = entity_registry.async_get(entity_id)
         assert registry_entry is not None
         assert registry_entry.hidden_by is er.RegistryEntryHider.INTEGRATION
+
+    label_registry = lr.async_get(hass)
+    overhead_label = label_registry.async_get_label_by_name("ma:overhead")
+    task_label = label_registry.async_get_label_by_name("ma:task")
+    sleep_label = label_registry.async_get_label_by_name("ma:sleep")
+    accent_label = label_registry.async_get_label_by_name("ma:accent")
+    assert overhead_label is not None
+    assert task_label is not None
+    assert sleep_label is None
+    assert accent_label is None
+    overhead_entry = entity_registry.async_get("light.overhead_1")
+    task_entry = entity_registry.async_get("light.task_1")
+    assert overhead_entry is not None
+    assert task_entry is not None
+    assert overhead_label.label_id in overhead_entry.labels
+    assert task_label.label_id in task_entry.labels
 
     light_control_switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"

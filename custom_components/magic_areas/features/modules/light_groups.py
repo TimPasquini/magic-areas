@@ -17,6 +17,7 @@ from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ControlGroupPolicyId,
     GroupMetadataKey,
+    LabelSurface,
     ManagedSurface,
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
@@ -36,6 +37,7 @@ from custom_components.magic_areas.features.control_builders import (
 )
 from custom_components.magic_areas.light_groups import (
     AreaLightGroup,
+    LIGHT_GROUP_ROLE_LABELS,
     LIGHT_GROUP_FEATURE_SCHEMA,
     MagicLightGroup,
     LIGHT_GROUP_PRESETS,
@@ -137,6 +139,13 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                 feature_config,
                 preset,
                 available_entities=light_entities,
+            )
+            surfaces.append(
+                _light_group_role_label_surface(
+                    category=preset.category,
+                    members=members,
+                    eligible_entities=light_entities,
+                )
             )
             if not members:
                 continue
@@ -265,6 +274,22 @@ def _light_group_surface_unique_id(
         entry_id=area_config.hass_config.entry_id,
         area_id=area_config.id,
         category=category,
+    )
+
+
+def _light_group_role_label_surface(
+    *,
+    category: str,
+    members: list[str],
+    eligible_entities: list[str],
+) -> LabelSurface:
+    """Build the global HA label surface for one light role."""
+    return LabelSurface(
+        name=LIGHT_GROUP_ROLE_LABELS[category],
+        entity_ids=tuple(members),
+        prune_entity_ids=tuple(eligible_entities),
+        icon="mdi:label",
+        description=f"Magic Areas light role: {str(category).replace('_lights', '')}",
     )
 
 

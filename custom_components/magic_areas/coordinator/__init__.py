@@ -22,6 +22,7 @@ from custom_components.magic_areas.coordinator.pipeline import (
 )
 from custom_components.magic_areas.coordinator.managed_surfaces import (
     async_reconcile_config_entry_helpers,
+    async_reconcile_label_surfaces,
     async_reconcile_managed_surfaces,
 )
 from custom_components.magic_areas.enums import MagicAreasEvents
@@ -40,6 +41,7 @@ __all__ = [
     "MagicAreasCoordinator",
     "MagicAreasData",
     "async_reconcile_config_entry_helpers",
+    "async_reconcile_label_surfaces",
     "async_reconcile_managed_surfaces",
     "attach_registry_listeners",
 ]

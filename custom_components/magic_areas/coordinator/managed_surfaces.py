@@ -15,10 +15,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import label_registry as lr
 
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
+    LabelSurface,
     ManagedSurface,
     ManagedSurfaceOptionValue,
 )
@@ -183,6 +185,102 @@ async def async_reconcile_managed_surfaces(
             if isinstance(surface, ConfigEntryHelperSurface)
         ],
     )
+    async_reconcile_label_surfaces(
+        hass=hass,
+        desired_surfaces=[
+            surface for surface in desired_surfaces if isinstance(surface, LabelSurface)
+        ],
+    )
+
+
+def _find_or_create_label(
+    *,
+    label_registry: lr.LabelRegistry,
+    surface: LabelSurface,
+) -> lr.LabelEntry:
+    """Return an existing label by name or create it."""
+    label = label_registry.async_get_label_by_name(surface.name)
+    if label is None:
+        return label_registry.async_create(
+            surface.name,
+            color=surface.color,
+            icon=surface.icon,
+            description=surface.description,
+        )
+
+    if (
+        label.color != surface.color
+        or label.icon != surface.icon
+        or label.description != surface.description
+    ):
+        return label_registry.async_update(
+            label.label_id,
+            color=surface.color,
+            icon=surface.icon,
+            description=surface.description,
+        )
+    return label
+
+
+def _set_entity_label_membership(
+    *,
+    entity_registry: er.EntityRegistry,
+    entity_id: str,
+    label_id: str,
+    assigned: bool,
+) -> None:
+    """Set one label membership while preserving all unrelated labels."""
+    entry = entity_registry.async_get(entity_id)
+    if entry is None:
+        return
+
+    labels = set(entry.labels)
+    if assigned:
+        if label_id in labels:
+            return
+        labels.add(label_id)
+    else:
+        if label_id not in labels:
+            return
+        labels.remove(label_id)
+    entity_registry.async_update_entity(entity_id, labels=labels)
+
+
+def async_reconcile_label_surfaces(
+    *,
+    hass: HomeAssistant,
+    desired_surfaces: list[LabelSurface],
+) -> None:
+    """Create/update labels and reconcile scoped entity label membership."""
+    label_registry = lr.async_get(hass)
+    entity_registry = er.async_get(hass)
+
+    for surface in desired_surfaces:
+        label = _find_or_create_label(
+            label_registry=label_registry,
+            surface=surface,
+        )
+        desired_entity_ids = set(surface.entity_ids)
+        prune_entity_ids = set(surface.prune_entity_ids) or desired_entity_ids
+
+        for entity_id in desired_entity_ids:
+            _set_entity_label_membership(
+                entity_registry=entity_registry,
+                entity_id=entity_id,
+                label_id=label.label_id,
+                assigned=True,
+            )
+
+        for entity_id in prune_entity_ids - desired_entity_ids:
+            _set_entity_label_membership(
+                entity_registry=entity_registry,
+                entity_id=entity_id,
+                label_id=label.label_id,
+                assigned=False,
+            )
+
+        if not er.async_entries_for_label(entity_registry, label.label_id):
+            label_registry.async_delete(label.label_id)
 
 
 async def async_reconcile_config_entry_helpers(
@@ -293,5 +391,6 @@ async def async_reconcile_config_entry_helpers(
 
 __all__ = [
     "async_reconcile_config_entry_helpers",
+    "async_reconcile_label_surfaces",
     "async_reconcile_managed_surfaces",
 ]

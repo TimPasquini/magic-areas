@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from custom_components.magic_areas.core.controls import GroupRegistry
-from custom_components.magic_areas.core.runtime_model import ConfigEntryHelperSurface
+from custom_components.magic_areas.core.runtime_model import (
+    ConfigEntryHelperSurface,
+    LabelSurface,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from .feature_module_contracts_testkit import (
@@ -217,13 +220,34 @@ def test_light_groups_module_declares_native_light_helper_surfaces() -> None:
 
     surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    assert all(isinstance(surface, ConfigEntryHelperSurface) for surface in surfaces)
-    surfaces_by_id = {surface.unique_id: surface for surface in surfaces}
+    helper_surfaces = [
+        surface for surface in surfaces if isinstance(surface, ConfigEntryHelperSurface)
+    ]
+    label_surfaces = [
+        surface for surface in surfaces if isinstance(surface, LabelSurface)
+    ]
+    surfaces_by_id = {surface.unique_id: surface for surface in helper_surfaces}
     assert sorted(surfaces_by_id) == [
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights",
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights",
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_task_lights",
     ]
+    labels_by_name = {surface.name: surface for surface in label_surfaces}
+    assert sorted(labels_by_name) == [
+        "ma:accent",
+        "ma:overhead",
+        "ma:sleep",
+        "ma:task",
+    ]
+    assert labels_by_name["ma:overhead"].entity_ids == ("light.overhead_1",)
+    assert labels_by_name["ma:task"].entity_ids == ("light.task_1",)
+    assert labels_by_name["ma:sleep"].entity_ids == ()
+    assert labels_by_name["ma:accent"].entity_ids == ()
+    assert labels_by_name["ma:accent"].prune_entity_ids == (
+        "light.overhead_1",
+        "light.task_1",
+        "light.unassigned_1",
+    )
     assert surfaces_by_id[
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights"
     ].options["entities"] == [

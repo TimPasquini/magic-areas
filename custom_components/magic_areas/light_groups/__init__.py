@@ -5,6 +5,7 @@ from custom_components.magic_areas.light_groups.entities import (
     MagicLightGroup,
 )
 from custom_components.magic_areas.light_groups.identity import (
+    LIGHT_GROUP_ROLE_LABELS,
     build_light_group_helper_surface_unique_id,
 )
 from custom_components.magic_areas.light_groups.policy import (
@@ -109,6 +110,7 @@ __all__ = [
     "LIGHT_GROUP_ACT_ON_STATE_CHANGE",
     "LIGHT_GROUP_FEATURE_SCHEMA",
     "LIGHT_GROUP_PRESETS",
+    "LIGHT_GROUP_ROLE_LABELS",
     "adaptive_require_ambient_rise",
     "ambient_rise_min_delta",
     "ambient_rise_window_seconds",
