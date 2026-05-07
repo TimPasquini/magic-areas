@@ -402,6 +402,26 @@ Exit criteria:
   built-in groups.
 - Direct member-list storage is no longer the preferred runtime truth.
 
+Current implementation:
+
+- Normalized custom control groups now compile into scoped HA label surfaces through the
+  existing managed-surface collection path.
+- Stable label names use the `ma:control:*` namespace. Built-in starter IDs such as
+  `control.task`, `control.reading`, and `control.media` become `ma:control:task`,
+  `ma:control:reading`, and `ma:control:media`.
+- Membership assignment preserves explicit configured members, including entities outside
+  the current area catalog, while stale pruning is scoped to entities currently enumerated
+  for that Magic Area.
+- The guided Magic Areas config UI remains the source of custom control intent. HA labels
+  are the exposed storage/control surface, not the place where group meaning is inferred.
+
+Remaining work:
+
+- Decide whether deleted custom control group labels need an ownership index so they can be
+  retired safely without stripping labels still used by other areas.
+- Revisit runtime target resolution once the control intent engine consumes label-backed
+  role targets directly.
+
 ### Stage 10: Signal Helper Research
 
 Targets:
