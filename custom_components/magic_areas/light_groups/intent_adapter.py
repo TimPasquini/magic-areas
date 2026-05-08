@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.control_intents import (
+    ConstraintEffect,
     ControlIntent,
     IntentAction,
+    IntentConstraint,
     IntentDecision,
     IntentReason,
     RoleTarget,
@@ -86,6 +89,57 @@ def light_decision_from_intent_decision(
     )
 
 
+def evaluate_light_member_suppression(
+    *,
+    target: RoleTarget,
+    current_states: Sequence[str],
+    sleep_entity_ids: Sequence[str] = (),
+    accent_entity_ids: Sequence[str] = (),
+    action: IntentAction = IntentAction.ACTIVATE,
+) -> IntentDecision:
+    """Evaluate light member eligibility under suppressive area states."""
+    target_entity_ids = target.target_entity_ids
+    constraints: list[IntentConstraint] = []
+
+    if AreaStates.SLEEP in current_states:
+        constraints.append(
+            IntentConstraint(
+                constraint_id="sleep_suppression",
+                effect=ConstraintEffect.SUPPRESS,
+                reason="not_sleep_member",
+                target_entity_ids=_entities_not_in_membership(
+                    target_entity_ids,
+                    sleep_entity_ids,
+                ),
+                priority=20,
+            )
+        )
+
+    if AreaStates.ACCENT in current_states:
+        constraints.append(
+            IntentConstraint(
+                constraint_id="accent_suppression",
+                effect=ConstraintEffect.SUPPRESS,
+                reason="not_accent_member",
+                target_entity_ids=_entities_not_in_membership(
+                    target_entity_ids,
+                    accent_entity_ids,
+                ),
+                priority=10,
+            )
+        )
+
+    return evaluate_intent(
+        ControlIntent(
+            intent_id="light_member_suppression",
+            action=action,
+            target=target,
+            reason="member_suppression_evaluated",
+        ),
+        constraints=constraints,
+    )
+
+
 def _intent_action_for_light_action(action: LightAction) -> IntentAction:
     """Map current light actions to generic intent actions."""
     if action is LightAction.TURN_ON:
@@ -113,7 +167,17 @@ def _light_reason_from_intent_decision(intent_decision: IntentDecision) -> str:
     return intent_decision.reason.value
 
 
+def _entities_not_in_membership(
+    target_entity_ids: tuple[str, ...],
+    member_entity_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """Return target entities outside a membership set."""
+    members = set(member_entity_ids)
+    return tuple(entity_id for entity_id in target_entity_ids if entity_id not in members)
+
+
 __all__ = [
+    "evaluate_light_member_suppression",
     "evaluate_light_policy_with_intent_engine",
     "light_decision_from_intent_decision",
 ]

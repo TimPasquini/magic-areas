@@ -12,6 +12,7 @@ from custom_components.magic_areas.core.control_intents import (
     RoleTarget,
 )
 from custom_components.magic_areas.light_groups.intent_adapter import (
+    evaluate_light_member_suppression,
     evaluate_light_policy_with_intent_engine,
     light_decision_from_intent_decision,
 )
@@ -33,6 +34,24 @@ def _target() -> RoleTarget:
         precision=ControlTargetPrecision.FILTERED,
         source=ControlTargetSource.RECONCILED_LABEL,
         entity_ids=("light.lamp",),
+    )
+
+
+def _multi_light_target() -> RoleTarget:
+    """Build a target containing all overlap matrix members."""
+    return RoleTarget(
+        role="all_lights",
+        domain="light",
+        area_id="living_room",
+        kind=ControlTargetKind.ENTITY_SUBSET,
+        precision=ControlTargetPrecision.FILTERED,
+        source=ControlTargetSource.CONFIG_RECONCILIATION,
+        entity_ids=(
+            "light.sleep_accent_lamp",
+            "light.sleep_lamp",
+            "light.accent_lamp",
+            "light.neither_lamp",
+        ),
     )
 
 
@@ -167,3 +186,122 @@ def test_light_decision_from_intent_decision_preserves_legacy_reason() -> None:
     assert converted.action is LightAction.TURN_ON
     assert converted.reason == "valid_states_present (dark)"
     assert converted.should_track_control
+
+
+def test_member_suppression_sleep_state_allows_only_sleep_members() -> None:
+    """Sleep state should suppress non-sleep members at entity level."""
+    decision = evaluate_light_member_suppression(
+        target=_multi_light_target(),
+        current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.TARGET_PARTIALLY_SUPPRESSED
+    assert decision.target_entity_ids == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+    assert decision.applied_constraints == ("sleep_suppression",)
+
+
+def test_member_suppression_accent_state_allows_only_accent_members() -> None:
+    """Accent state should suppress non-accent members at entity level."""
+    decision = evaluate_light_member_suppression(
+        target=_multi_light_target(),
+        current_states=[AreaStates.OCCUPIED, AreaStates.ACCENT],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.TARGET_PARTIALLY_SUPPRESSED
+    assert decision.target_entity_ids == (
+        "light.sleep_accent_lamp",
+        "light.accent_lamp",
+    )
+    assert decision.applied_constraints == ("accent_suppression",)
+
+
+def test_member_suppression_sleep_and_accent_allows_only_overlap() -> None:
+    """Sleep plus accent should allow only members present in both roles."""
+    decision = evaluate_light_member_suppression(
+        target=_multi_light_target(),
+        current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP, AreaStates.ACCENT],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.TARGET_PARTIALLY_SUPPRESSED
+    assert decision.target_entity_ids == ("light.sleep_accent_lamp",)
+    assert decision.applied_constraints == (
+        "sleep_suppression",
+        "accent_suppression",
+    )
+
+
+def test_member_suppression_noops_when_no_target_members_survive() -> None:
+    """Neither-members should be fully suppressed when suppressive states overlap."""
+    target = RoleTarget(
+        role="all_lights",
+        domain="light",
+        area_id="living_room",
+        kind=ControlTargetKind.ENTITY_SUBSET,
+        precision=ControlTargetPrecision.FILTERED,
+        source=ControlTargetSource.RECONCILED_LABEL,
+        entity_ids=("light.neither_lamp",),
+    )
+
+    decision = evaluate_light_member_suppression(
+        target=target,
+        current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP, AreaStates.ACCENT],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.is_noop
+    assert decision.reason is IntentReason.TARGET_SUPPRESSED
+    assert decision.target_entity_ids == ()
+    assert decision.applied_constraints == ("sleep_suppression",)
+
+
+def test_member_suppression_without_suppressive_states_allows_full_target() -> None:
+    """Without sleep/accent state, suppression should not narrow the target."""
+    decision = evaluate_light_member_suppression(
+        target=_multi_light_target(),
+        current_states=[AreaStates.OCCUPIED],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.INTENT_ALLOWED
+    assert decision.target_entity_ids == _multi_light_target().entity_ids
+    assert decision.applied_constraints == ()
+
+
+def test_member_suppression_preserves_broad_label_target_when_safe() -> None:
+    """Broad labels remain valid when no suppression subset is required."""
+    target = RoleTarget(
+        role="accent",
+        domain="light",
+        area_id="living_room",
+        kind=ControlTargetKind.LABEL,
+        precision=ControlTargetPrecision.BROAD,
+        source=ControlTargetSource.RECONCILED_LABEL,
+        label_name="ma:accent",
+        label_id="ma_accent",
+    )
+
+    decision = evaluate_light_member_suppression(
+        target=target,
+        current_states=[AreaStates.OCCUPIED],
+        accent_entity_ids=("light.accent_lamp",),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.INTENT_ALLOWED
+    assert decision.target is target
+    assert decision.target_entity_ids == ()

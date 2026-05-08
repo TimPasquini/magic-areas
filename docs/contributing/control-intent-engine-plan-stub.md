@@ -762,12 +762,17 @@ Exit criteria:
 - Apply suppressive states by target membership.
 - Avoid hidden combo entities; compute intersections at decision time.
 - Use HA `label_id` targets for simple role-wide actions where safe.
+- First implementation lives in `light_groups/intent_adapter.py` as
+  `evaluate_light_member_suppression(...)`. It accepts an already-resolved target plus
+  sleep/accent membership sets, builds suppressive constraints, and lets the pure engine
+  compute the surviving explicit subset. Runtime wiring into `LightGroupPolicy` remains
+  a separate follow-through step.
 
 Exit criteria:
 
-- Tests cover sleep-only, accent-only, overlap, and neither-member targets.
-- Both-states-active behavior matches the example matrix above.
-- Runtime decisions can target HA labels or explicit entity ids.
+- [x] Tests cover sleep-only, accent-only, overlap, and neither-member targets.
+- [x] Both-states-active behavior matches the example matrix above.
+- [x] Runtime decisions can target HA labels or explicit entity ids.
 
 ### Phase 5: Observability
 
