@@ -879,18 +879,61 @@ Exit criteria:
 
 ### Phase 6: Label-Backed Runtime Migration Cleanup
 
+Goal: finish moving runtime membership and target selection toward HA-native labels,
+native helpers, and explicit resolver outputs. Keep compatibility surfaces only where
+they have a concrete runtime or user-facing purpose.
+
+Consolidated current target-surface census:
+
+| Surface | Current status | Current guidance |
+| --- | --- | --- |
+| Global light role labels | Implemented as `ma:overhead`, `ma:task`, `ma:sleep`, `ma:accent` | Preferred semantic membership truth for light roles |
+| Native light helper groups | Implemented for all lights and configured role groups | Preferred exact room/role service target |
+| Hidden `AreaLightGroup` entities | Still present, hidden but enabled | Compatibility policy/manual override/listener/debug surface |
+| Custom control labels | Implemented as `ma:control:*` | HA-visible custom membership surface; future custom role target |
+| `GroupRegistry` definitions | Still present | Compatibility resolver input, not durable membership truth |
+| Managed helper registry | Implemented | Exact helper lookup and ownership discovery |
+
+Established guidance:
+
+- Labels define membership.
+- Config lists remain guided UI and reconciliation inputs, not preferred runtime truth.
+- Native helper entities are preferred for exact room/role service targets.
+- Explicit entity IDs are required for filtered, intersection, and suppression subsets.
+- Broad HA `label_id` service targets are only safe when the intended action is broad
+  enough that area/domain overreach is impossible or irrelevant.
+- Hidden custom policy entities are compatibility policy surfaces, not desired final
+  membership truth.
+- Group entities can remain when they provide dashboard, diagnostics, command, or
+  compatibility value.
+- Group entities should not remain the durable source of policy membership truth.
+- Aggregates remain enumeration-based by default; labels are optional metadata there.
+- Fan, media, and climate should only adopt role labels when they need intent-level
+  membership distinctions.
+- Custom control groups should move toward label/query/helper-backed desired surfaces
+  while keeping the guided Magic Areas config UI as the authoring surface.
+
+Implemented Phase 6 slice:
+
 - [x] Move light suppression membership consumption from config-first lists to
   reconciled `ma:sleep` / `ma:accent` labels, filtered inside the current light-group
   entity boundary.
-- [ ] Move remaining runtime consumption from compatibility registry data toward reconciled labels and
-  native helpers.
-- Keep config lists as convenience/reconciliation inputs, not runtime membership truth.
-- Identify which category/parent group entities are still useful and which are now
-  implementation baggage.
-- Evaluate whether custom control groups can evolve from stored member lists to label
-  queries or label-derived targets.
-- Revisit listener ownership and decide whether hidden custom policy entities remain the
-  right command-echo/manual-override surface.
+
+Remaining Phase 6 working checklist:
+
+- [ ] Decide which generated category/parent group entities remain useful as dashboard,
+  command, diagnostics, or compatibility surfaces.
+- [ ] Identify any remaining light runtime paths that still read category/group
+  membership as truth instead of labels/helpers/resolved subsets.
+- [ ] Decide whether custom control groups become true label-query definitions or remain
+  stored member lists that reconcile labels.
+- [ ] Route custom control runtime targets through the same target resolver where
+  practical.
+- [ ] Revisit listener ownership and decide whether hidden `AreaLightGroup` policy
+  entities remain the right command-echo/manual-override owner.
+- [ ] Decide which simple actions can safely use broad HA `label_id` targets.
+- [ ] Document explicit reasons for every compatibility surface that remains after this
+  phase.
 
 Current compatibility fallbacks:
 
@@ -898,6 +941,12 @@ Current compatibility fallbacks:
   If labels are not available yet, it falls back to the configured role members bounded
   by the current light-group entity list. This keeps startup/reconciliation races safe
   without treating config lists as the preferred runtime truth.
+- Native light helper service targets fall back to hidden custom `AreaLightGroup`
+  entities when the helper does not exist yet.
+- `GroupRegistry` remains available as compatibility input for current fan/media/climate
+  target lookup, light all-group child category lookup, and custom control definitions.
+- Custom control group config still stores explicit member lists even though labels are
+  reconciled from those lists.
 
 Exit criteria:
 
