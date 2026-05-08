@@ -655,10 +655,12 @@ New core module:
 - `custom_components/magic_areas/core/control_intents/models.py`
 - `custom_components/magic_areas/core/control_intents/engine.py`
 - `custom_components/magic_areas/core/control_intents/targets.py`
-- `custom_components/magic_areas/core/control_intents/light_adapter.py`
 
 Likely light changes:
 
+- `custom_components/magic_areas/light_groups/intent_adapter.py`
+  - light-specific adapter between current light policy concepts and the pure engine.
+  - belongs in the light feature slice, not generic core.
 - `custom_components/magic_areas/light_groups/policy.py`
   - move suppression/overlap decision logic into the engine adapter path.
   - keep light-specific brightness mode inputs and command echo handling.
@@ -742,11 +744,16 @@ Exit criteria:
 - Preserve current behavior initially, but do not hard-code the new path around generated
   group entity targets.
 - Keep existing tests passing.
+- Phase 3 adapter lives in `light_groups/intent_adapter.py` because it contains
+  light-specific semantics. It keeps the current `LightGroupPolicy` authoritative and
+  emits matching intent decisions only for actioning cases. Runtime wiring and moving
+  suppression into the engine are intentionally deferred to member-level suppression
+  work.
 
 Exit criteria:
 
-- Current light policy tests pass.
-- New adapter tests prove current `sleep`, `accented`, manual override, and brightness
+- [x] Current light policy tests pass.
+- [x] New adapter tests prove current `sleep`, `accented`, manual override, and brightness
   behavior is preserved.
 
 ### Phase 4: Member-Level Suppression

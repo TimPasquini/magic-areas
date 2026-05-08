@@ -46,6 +46,14 @@ ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
     # and parity behavior at light_groups implementation boundaries.
     "test_light_groups": {
         (
+            "tests/unit/test_light_control_intent_adapter",
+            "custom_components.magic_areas.light_groups.intent_adapter",
+        ),
+        (
+            "tests/unit/test_light_control_intent_adapter",
+            "custom_components.magic_areas.light_groups.policy",
+        ),
+        (
             "tests/unit/test_listener_entity_write_contracts",
             "custom_components.magic_areas.light_groups.entities",
         ),
@@ -112,6 +120,7 @@ def _assert_allowlist_exact(
 CORE_PUBLIC_API_SURFACES: set[str] = {
     "custom_components.magic_areas.core.aggregates",
     "custom_components.magic_areas.core.config",
+    "custom_components.magic_areas.core.control_intents",
     "custom_components.magic_areas.core.controls",
     "custom_components.magic_areas.core.controls.builders",
     "custom_components.magic_areas.core.controls.policies",
