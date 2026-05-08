@@ -13,6 +13,10 @@ from homeassistant.helpers.event import EventStateChangedData
 from custom_components.magic_areas.light_groups.policy import (
     CommandEchoState,
 )
+from custom_components.magic_areas.core.control_intents import (
+    ControlTargetSource,
+    resolve_role_target,
+)
 from custom_components.magic_areas.core.controls import (
     execute_control_group_decision,
 )
@@ -37,6 +41,7 @@ from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups.config import (
     LIGHT_GROUP_DEFAULT_ICON,
+    LightGroupPreset,
     adaptive_require_ambient_rise,
     ambient_rise_min_delta,
     ambient_rise_window_seconds,
@@ -58,6 +63,7 @@ from custom_components.magic_areas.light_groups.config import (
     preset_states,
 )
 from custom_components.magic_areas.light_groups.identity import (
+    LIGHT_GROUP_ROLE_LABELS,
     build_light_group_helper_surface_unique_id,
 )
 
@@ -338,29 +344,34 @@ class AreaLightGroup(MagicLightGroup):
         """Return sleep/accent memberships for member-level suppression."""
         sleep_preset = get_light_group_preset(LightGroupCategory.SLEEP)
         accent_preset = get_light_group_preset(LightGroupCategory.ACCENT)
-        sleep_members = (
-            tuple(
-                preset_members(
-                    self._feature_config,
-                    sleep_preset,
-                    available_entities=list(self._entity_ids),
-                )
-            )
-            if sleep_preset is not None
-            else ()
+        return (
+            self._resolved_role_members(sleep_preset),
+            self._resolved_role_members(accent_preset),
         )
-        accent_members = (
-            tuple(
-                preset_members(
-                    self._feature_config,
-                    accent_preset,
-                    available_entities=list(self._entity_ids),
-                )
-            )
-            if accent_preset is not None
-            else ()
+
+    def _resolved_role_members(
+        self,
+        preset: LightGroupPreset | None,
+    ) -> tuple[str, ...]:
+        """Resolve role members from reconciled labels with config fallback."""
+        if preset is None:
+            return ()
+        fallback_entity_ids = preset_members(
+            self._feature_config,
+            preset,
+            available_entities=list(self._entity_ids),
         )
-        return sleep_members, accent_members
+        target = resolve_role_target(
+            self.hass,
+            area_id=self._area_id,
+            domain=LIGHT_DOMAIN,
+            role=str(preset.category),
+            area_entity_ids=self._entity_ids,
+            label_name=LIGHT_GROUP_ROLE_LABELS.get(str(preset.category)),
+            fallback_entity_ids=fallback_entity_ids,
+            fallback_source=ControlTargetSource.CONFIG_RECONCILIATION,
+        )
+        return target.target_entity_ids
 
     def _control_target_entity_id(self) -> str:
         """Return the native helper target when reconciled, else the policy entity."""

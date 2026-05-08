@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 from unittest.mock import Mock
 
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import label_registry as lr
 import pytest
 
 from custom_components.magic_areas.core.controls import ControlActionType
@@ -248,6 +249,44 @@ def test_current_control_target_state_falls_back_to_policy_entity_state() -> Non
     )
 
     assert AreaLightGroup.current_control_target_is_on(group) is True  # type: ignore[arg-type]
+
+
+def test_light_member_suppression_members_prefers_reconciled_labels(
+    hass,
+) -> None:
+    """Sleep/accent suppression should read HA labels before config fallback."""
+    entity_registry = er.async_get(hass)
+    sleep_lamp = entity_registry.async_get_or_create("light", "test", "sleep_lamp")
+    accent_lamp = entity_registry.async_get_or_create("light", "test", "accent_lamp")
+    other_room_sleep_lamp = entity_registry.async_get_or_create(
+        "light",
+        "test",
+        "other_room_sleep_lamp",
+    )
+    sleep_label = lr.async_get(hass).async_create("ma:sleep")
+    for entry in (sleep_lamp, other_room_sleep_lamp):
+        entity_registry.async_update_entity(entry.entity_id, labels={sleep_label.label_id})
+
+    group = SimpleNamespace(
+        hass=hass,
+        _area_id="living_room",
+        _entity_ids=[sleep_lamp.entity_id, accent_lamp.entity_id],
+        _feature_config={
+            "sleep_lights": [],
+            "accent_lights": [accent_lamp.entity_id],
+        },
+    )
+    group._resolved_role_members = lambda preset: AreaLightGroup._resolved_role_members(
+        group,
+        preset,
+    )
+
+    sleep_members, accent_members = AreaLightGroup.light_member_suppression_members(
+        group,  # type: ignore[arg-type]
+    )
+
+    assert sleep_members == (sleep_lamp.entity_id,)
+    assert accent_members == (accent_lamp.entity_id,)
 
 
 def test_turn_on_uses_control_target_state_for_dispatch_gate() -> None:

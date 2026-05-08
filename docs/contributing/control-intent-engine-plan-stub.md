@@ -879,7 +879,10 @@ Exit criteria:
 
 ### Phase 6: Label-Backed Runtime Migration Cleanup
 
-- Move runtime consumption from compatibility registry data toward reconciled labels and
+- [x] Move light suppression membership consumption from config-first lists to
+  reconciled `ma:sleep` / `ma:accent` labels, filtered inside the current light-group
+  entity boundary.
+- [ ] Move remaining runtime consumption from compatibility registry data toward reconciled labels and
   native helpers.
 - Keep config lists as convenience/reconciliation inputs, not runtime membership truth.
 - Identify which category/parent group entities are still useful and which are now
@@ -888,6 +891,13 @@ Exit criteria:
   queries or label-derived targets.
 - Revisit listener ownership and decide whether hidden custom policy entities remain the
   right command-echo/manual-override surface.
+
+Current compatibility fallbacks:
+
+- Light sleep/accent suppression now resolves role labels first via `resolve_role_target`.
+  If labels are not available yet, it falls back to the configured role members bounded
+  by the current light-group entity list. This keeps startup/reconciliation races safe
+  without treating config lists as the preferred runtime truth.
 
 Exit criteria:
 
