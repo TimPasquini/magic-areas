@@ -60,6 +60,20 @@ def test_light_noop_maps_to_noop_without_actions() -> None:
     assert decision.actions == ()
 
 
+def test_light_action_maps_explicit_entity_subset() -> None:
+    """Light action conversion should support explicit entity targets."""
+    decision = light_action_to_control_group(
+        LightAction.TURN_ON,
+        ("light.sleep_accent_lamp", "light.sleep_lamp"),
+    )
+
+    assert decision.action_type == ControlActionType.ACTIVATE
+    assert decision.actions[0].target_entity_ids == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+
+
 def test_origin_toggle_validation_rejects_restored_state() -> None:
     """Origin state validation should ignore restored state changes."""
     origin_event = SimpleNamespace(
@@ -106,17 +120,45 @@ def test_origin_toggle_validation_rejects_same_state_change() -> None:
 
 
 class _FakeAreaLightGroup:
-    def __init__(self, *, is_on: bool, controlling: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        is_on: bool,
+        controlling: bool = True,
+        area_states: tuple[str, ...] = (),
+        entity_states: dict[str, str] | None = None,
+        sleep_members: tuple[str, ...] = (),
+        accent_members: tuple[str, ...] = (),
+    ) -> None:
         self.unique_id = "light_groups_area_1_overhead_lights"
         self.entity_id = "light.magic_areas_light_groups_area_1_overhead_lights"
         self.is_on = is_on
+        self.category = "overhead_lights"
+        self._area_id = "area_1"
+        self._entity_ids = [
+            "light.sleep_accent_lamp",
+            "light.sleep_lamp",
+            "light.accent_lamp",
+        ]
+        self._last_known_area_states = list(area_states)
+        self._attr_extra_state_attributes: dict[str, object] = {}
+        self._sleep_members = sleep_members
+        self._accent_members = accent_members
+        states = {
+            entity_id: SimpleNamespace(state=state)
+            for entity_id, state in (entity_states or {}).items()
+        }
         self._echo_state = CommandEchoState(
             owner_id=self.unique_id,
             controlling=controlling,
             awaiting_echo=False,
         )
         self.scheduled_tasks: list[asyncio.Task[None]] = []
-        self.hass = SimpleNamespace(async_create_task=self._async_create_task)
+        self.hass = SimpleNamespace(
+            async_create_task=self._async_create_task,
+            states=SimpleNamespace(get=lambda entity_id: states.get(entity_id)),
+        )
+        self.dispatched: list[tuple[LightAction, tuple[str, ...] | None]] = []
 
     def _set_echo_state(self, state: CommandEchoState) -> None:
         self._echo_state = state
@@ -129,13 +171,23 @@ class _FakeAreaLightGroup:
         self.scheduled_tasks.append(task)
         return task
 
-    def _dispatch_light_action(self, action: LightAction) -> None:
+    def _dispatch_light_action(
+        self,
+        action: LightAction,
+        target_entity_ids: tuple[str, ...] | None = None,
+    ) -> None:
+        self.dispatched.append((action, target_entity_ids))
         self.hass.async_create_task(
             execute_control_group_decision(
                 self.hass,  # type: ignore[arg-type]
-                light_action_to_control_group(action, self.entity_id),
+                light_action_to_control_group(action, target_entity_ids or self.entity_id),
             )
         )
+
+    def light_member_suppression_members(
+        self,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        return self._sleep_members, self._accent_members
 
 
 class _FakeSecondaryStateGroup:
@@ -212,6 +264,144 @@ async def test_turn_on_uses_control_group_executor(
 
 
 @pytest.mark.asyncio
+async def test_turn_on_uses_explicit_subset_when_sleep_suppression_narrows_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should dispatch explicit entities when suppression narrows target."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeAreaLightGroup(
+        is_on=False,
+        area_states=("occupied", "sleep"),
+        entity_states={
+            "light.sleep_accent_lamp": "off",
+            "light.sleep_lamp": "off",
+            "light.accent_lamp": "off",
+        },
+        sleep_members=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_members=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    result = turn_on(cast(_LightGroupHost, group))
+    assert result is True
+
+    await asyncio.gather(*group.scheduled_tasks)
+    execute_mock.assert_awaited_once()
+    assert execute_mock.await_args is not None
+    _hass, decision = execute_mock.await_args.args
+    assert decision.action_type == ControlActionType.ACTIVATE
+    assert decision.actions[0].target_entity_ids == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+    assert group.dispatched == [
+        (
+            LightAction.TURN_ON,
+            ("light.sleep_accent_lamp", "light.sleep_lamp"),
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_turn_on_uses_explicit_subset_when_accent_suppression_narrows_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should dispatch accent-member entities when accent suppresses target."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeAreaLightGroup(
+        is_on=False,
+        area_states=("occupied", "accented"),
+        entity_states={
+            "light.sleep_accent_lamp": "off",
+            "light.sleep_lamp": "off",
+            "light.accent_lamp": "off",
+        },
+        sleep_members=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_members=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    result = turn_on(cast(_LightGroupHost, group))
+    assert result is True
+
+    await asyncio.gather(*group.scheduled_tasks)
+    execute_mock.assert_awaited_once()
+    assert execute_mock.await_args is not None
+    _hass, decision = execute_mock.await_args.args
+    assert decision.actions[0].target_entity_ids == (
+        "light.sleep_accent_lamp",
+        "light.accent_lamp",
+    )
+
+
+@pytest.mark.asyncio
+async def test_turn_on_uses_overlap_subset_when_sleep_and_accent_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should dispatch only overlap members when sleep and accent are active."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeAreaLightGroup(
+        is_on=False,
+        area_states=("occupied", "sleep", "accented"),
+        entity_states={
+            "light.sleep_accent_lamp": "off",
+            "light.sleep_lamp": "off",
+            "light.accent_lamp": "off",
+        },
+        sleep_members=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_members=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    result = turn_on(cast(_LightGroupHost, group))
+    assert result is True
+
+    await asyncio.gather(*group.scheduled_tasks)
+    execute_mock.assert_awaited_once()
+    assert execute_mock.await_args is not None
+    _hass, decision = execute_mock.await_args.args
+    assert decision.actions[0].target_entity_ids == ("light.sleep_accent_lamp",)
+
+
+@pytest.mark.asyncio
+async def test_turn_on_noops_when_sleep_and_accent_suppress_all_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should not dispatch activate when no target members survive."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeAreaLightGroup(
+        is_on=False,
+        area_states=("occupied", "sleep", "accented"),
+        entity_states={
+            "light.sleep_accent_lamp": "off",
+            "light.sleep_lamp": "off",
+            "light.accent_lamp": "off",
+        },
+        sleep_members=("light.sleep_lamp",),
+        accent_members=("light.accent_lamp",),
+    )
+
+    result = turn_on(cast(_LightGroupHost, group))
+
+    assert result is False
+    assert group.dispatched == []
+    execute_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_turn_off_uses_control_group_executor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -235,6 +425,39 @@ async def test_turn_off_uses_control_group_executor(
     assert decision.action_type == ControlActionType.DEACTIVATE
     assert decision.actions[0].service == "turn_off"
     assert decision.actions[0].target_entity_ids == (group.entity_id,)
+
+
+@pytest.mark.asyncio
+async def test_turn_off_uses_suppressed_subset_when_sleep_suppresses_members(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should turn off members that do not survive suppressive state."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeAreaLightGroup(
+        is_on=True,
+        area_states=("occupied", "sleep"),
+        entity_states={
+            "light.sleep_accent_lamp": "on",
+            "light.sleep_lamp": "on",
+            "light.accent_lamp": "on",
+        },
+        sleep_members=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_members=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    result = turn_off(cast(_LightGroupHost, group))
+    assert result is True
+
+    await asyncio.gather(*group.scheduled_tasks)
+    execute_mock.assert_awaited_once()
+    assert execute_mock.await_args is not None
+    _hass, decision = execute_mock.await_args.args
+    assert decision.action_type == ControlActionType.DEACTIVATE
+    assert decision.actions[0].target_entity_ids == ("light.accent_lamp",)
 
 
 def test_turn_off_noop_when_not_controlling() -> None:

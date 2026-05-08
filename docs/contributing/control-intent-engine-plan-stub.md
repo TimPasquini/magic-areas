@@ -802,16 +802,16 @@ Required runtime inputs:
 
 Implementation shape:
 
-- Keep `LightGroupPolicy` as the initial action gate during this phase.
-- Only evaluate member-level suppression after the existing policy returns an actioning
+- [x] Keep `LightGroupPolicy` as the initial action gate during this phase.
+- [x] Only evaluate member-level suppression after the existing policy returns an actioning
   decision and command ownership permits dispatch.
-- If no suppressive state is active, keep the current helper/policy target path.
-- If suppression leaves the target unchanged, keep the current helper/policy target path.
-- If suppression narrows the target, dispatch directly to explicit entity IDs.
-- If suppression removes all target members, do not dispatch an activate action.
-- For suppressive state entry that requires turning off non-surviving members, dispatch
+- [x] If no suppressive state is active, keep the current helper/policy target path.
+- [x] If suppression leaves the target unchanged, keep the current helper/policy target path.
+- [x] If suppression narrows the target, dispatch directly to explicit entity IDs.
+- [x] If suppression removes all target members, do not dispatch an activate action.
+- [x] For suppressive state entry that requires turning off non-surviving members, dispatch
   explicit `turn_off` entity IDs rather than whole helper groups.
-- Do not introduce hidden combo entities.
+- [x] Do not introduce hidden combo entities.
 
 Membership resolution approach:
 
@@ -821,6 +821,14 @@ Membership resolution approach:
   config membership as compatibility input if that avoids a larger resolver rewrite.
 - The compatibility path must remain explicitly transitional in code/tests. It must not
   re-promote `ControlGroupDefinition.members` as durable truth.
+
+Runtime behavior now wired:
+
+- `TURN_ON` in sleep/accent suppression uses the surviving allowed entity subset.
+- `TURN_OFF` in sleep/accent suppression uses the non-surviving suppressed entity
+  subset, so sleep/accent members are not turned off by the suppression transition.
+- Whole-target helper/policy dispatch remains unchanged when no explicit subset is
+  required.
 
 Execution target rules:
 
@@ -832,13 +840,14 @@ Execution target rules:
 
 Exit criteria:
 
-- Runtime tests prove an existing whole-target light action still uses the current
+- [x] Runtime tests prove an existing whole-target light action still uses the current
   helper/policy target when no suppression subset is required.
-- Runtime tests prove sleep-only, accent-only, and sleep+accent overlap dispatch explicit
+- [x] Runtime tests prove sleep-only, accent-only, and sleep+accent overlap dispatch explicit
   entity IDs when suppression narrows the target.
-- Runtime tests prove no service call occurs when suppressive states remove all target
+- [x] Runtime tests prove no service call occurs when suppressive states remove all target
   members from an activate action.
-- Existing core light policy tests and unit suite remain green.
+- [x] Runtime tests prove suppressive `turn_off` targets only non-surviving members.
+- [x] Existing core light policy tests and unit suite remain green.
 
 ### Phase 5: Observability
 

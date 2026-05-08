@@ -26,6 +26,14 @@ from custom_components.magic_areas.core.controls import (
     resolve_area_presence_states,
     resolve_group_entity_ids_for_metadata_values,
 )
+from custom_components.magic_areas.core.control_intents import (
+    ControlTargetKind,
+    ControlTargetPrecision,
+    ControlTargetSource,
+    IntentAction,
+    IntentReason,
+    RoleTarget,
+)
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
@@ -36,6 +44,9 @@ from custom_components.magic_areas.light_groups.policy import CommandEchoState
 from custom_components.magic_areas.light_groups.policy import (
     LightAction,
     LightPolicySignals,
+)
+from custom_components.magic_areas.light_groups.intent_adapter import (
+    evaluate_light_member_suppression,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -85,7 +96,14 @@ class _LightGroupHost(Protocol):
     async def async_get_last_state(self) -> State | None: ...
     async def _setup_listeners(self) -> None: ...
     def current_control_target_is_on(self) -> bool | None: ...
-    def _dispatch_light_action(self, action: LightAction) -> None: ...
+    def _dispatch_light_action(
+        self,
+        action: LightAction,
+        target_entity_ids: tuple[str, ...] | None = None,
+    ) -> None: ...
+    def light_member_suppression_members(
+        self,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]: ...
     def _reset_control_state(self) -> None: ...
     def _set_echo_state(self, state: CommandEchoState) -> None: ...
     def async_write_ha_state(self) -> None: ...
@@ -452,15 +470,98 @@ def _dispatch_controlled_action(
     """Dispatch one light action when control is enabled and on/off state matches."""
     if not host._echo_state.controlling:
         return False
-    if host.current_control_target_is_on() != when_is_on:
+
+    target_entity_ids = _suppressed_target_entity_ids(host, action)
+    target_is_on = (
+        _explicit_target_is_on(host, target_entity_ids)
+        if target_entity_ids is not None
+        else host.current_control_target_is_on()
+    )
+    if target_is_on != when_is_on:
         return False
 
     host._set_echo_state(host._echo_state.command_issued(host.unique_id))
     host._last_control_activity_monotonic = monotonic()
     if action == LightAction.TURN_ON:
         host._last_turn_on_monotonic = monotonic()
-    host._dispatch_light_action(action)
+    if target_entity_ids is None:
+        host._dispatch_light_action(action)
+    else:
+        host._dispatch_light_action(action, target_entity_ids)
     return True
+
+
+def _suppressed_target_entity_ids(
+    host: _LightGroupHost,
+    action: LightAction,
+) -> tuple[str, ...] | None:
+    """Return explicit suppressed target subset, or None for normal dispatch."""
+    current_states = tuple(getattr(host, "_last_known_area_states", ()))
+    if AreaStates.SLEEP not in current_states and AreaStates.ACCENT not in current_states:
+        return None
+
+    sleep_entity_ids, accent_entity_ids = host.light_member_suppression_members()
+    target = RoleTarget(
+        role=str(host.category or LightGroupCategory.ALL),
+        domain=LIGHT_DOMAIN,
+        area_id=host._area_id,
+        kind=ControlTargetKind.ENTITY_SUBSET,
+        precision=ControlTargetPrecision.FILTERED,
+        source=ControlTargetSource.CONFIG_RECONCILIATION,
+        entity_ids=tuple(host._entity_ids),
+    )
+    decision = evaluate_light_member_suppression(
+        target=target,
+        current_states=current_states,
+        sleep_entity_ids=sleep_entity_ids,
+        accent_entity_ids=accent_entity_ids,
+        action=_intent_action_for_light_action(action),
+    )
+    host._attr_extra_state_attributes["last_intent_reason"] = decision.reason.value
+    host._attr_extra_state_attributes["last_intent_target_entity_ids"] = (
+        decision.target_entity_ids
+    )
+    source_entity_ids = tuple(host._entity_ids)
+    if decision.reason is IntentReason.INTENT_ALLOWED:
+        return None
+    if decision.target_entity_ids == source_entity_ids:
+        return None
+    if action is LightAction.TURN_OFF:
+        surviving_entity_ids = set(decision.target_entity_ids)
+        return tuple(
+            entity_id
+            for entity_id in source_entity_ids
+            if entity_id not in surviving_entity_ids
+        )
+    return decision.target_entity_ids
+
+
+def _intent_action_for_light_action(action: LightAction) -> IntentAction:
+    """Map light actions to generic intent actions."""
+    if action is LightAction.TURN_ON:
+        return IntentAction.ACTIVATE
+    if action is LightAction.TURN_OFF:
+        return IntentAction.DEACTIVATE
+    return IntentAction.NOOP
+
+
+def _explicit_target_is_on(
+    host: _LightGroupHost,
+    target_entity_ids: tuple[str, ...],
+) -> bool | None:
+    """Return helper-like on/off state for an explicit target subset."""
+    if not target_entity_ids:
+        return None
+    any_on = False
+    any_known = False
+    for entity_id in target_entity_ids:
+        state = host.hass.states.get(entity_id)
+        if state is None or state.state not in ON_OFF_STATES:
+            continue
+        any_known = True
+        if state.state == STATE_ON:
+            any_on = True
+    return any_on if any_known else None
 
 
 def _origin_new_state(origin_event: object | None) -> str | None:

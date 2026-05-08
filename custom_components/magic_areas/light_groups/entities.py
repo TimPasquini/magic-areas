@@ -53,6 +53,7 @@ from custom_components.magic_areas.light_groups.config import (
     outside_lux_entity,
     outside_lux_min,
     get_light_group_preset,
+    preset_members,
     preset_act_on_modes,
     preset_states,
 )
@@ -317,15 +318,49 @@ class AreaLightGroup(MagicLightGroup):
 
     # Light Handling
 
-    def _dispatch_light_action(self, action: LightAction) -> None:
+    def _dispatch_light_action(
+        self,
+        action: LightAction,
+        target_entity_ids: tuple[str, ...] | None = None,
+    ) -> None:
         """Dispatch canonical light action through shared control execution."""
-        target_entity_id = self._control_target_entity_id()
+        target_entity_ids = target_entity_ids or (self._control_target_entity_id(),)
         self.hass.async_create_task(
             execute_control_group_decision(
                 self.hass,
-                light_action_to_control_group(action, target_entity_id),
+                light_action_to_control_group(action, target_entity_ids),
             )
         )
+
+    def light_member_suppression_members(
+        self,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Return sleep/accent memberships for member-level suppression."""
+        sleep_preset = get_light_group_preset(LightGroupCategory.SLEEP)
+        accent_preset = get_light_group_preset(LightGroupCategory.ACCENT)
+        sleep_members = (
+            tuple(
+                preset_members(
+                    self._feature_config,
+                    sleep_preset,
+                    available_entities=list(self._entity_ids),
+                )
+            )
+            if sleep_preset is not None
+            else ()
+        )
+        accent_members = (
+            tuple(
+                preset_members(
+                    self._feature_config,
+                    accent_preset,
+                    available_entities=list(self._entity_ids),
+                )
+            )
+            if accent_preset is not None
+            else ()
+        )
+        return sleep_members, accent_members
 
     def _control_target_entity_id(self) -> str:
         """Return the native helper target when reconciled, else the policy entity."""

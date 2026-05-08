@@ -144,7 +144,7 @@ class LightGroupPolicy:
             next_control_state=next_control_state,
         )
 
-    def evaluate(
+    def evaluate(  # noqa: C901
         self,
         new_states: Sequence[str],
         lost_states: Sequence[str],
@@ -542,9 +542,14 @@ class LightPolicySignals:
 
 
 def light_action_to_control_group(
-    action: LightAction, light_group_entity_id: str
+    action: LightAction, light_group_entity_id: str | tuple[str, ...]
 ) -> ControlGroupDecision:
     """Translate a light group action into control-group execution form."""
+    target_entity_ids = (
+        (light_group_entity_id,)
+        if isinstance(light_group_entity_id, str)
+        else light_group_entity_id
+    )
     service_map: dict[LightAction, tuple[ControlActionType, str, str]] = {
         LightAction.TURN_ON: (
             ControlActionType.ACTIVATE,
@@ -567,7 +572,7 @@ def light_action_to_control_group(
                 ControlAction(
                     domain=LIGHT_DOMAIN,
                     service=service,
-                    target_entity_ids=(light_group_entity_id,),
+                    target_entity_ids=target_entity_ids,
                 ),
             ),
         )
