@@ -360,6 +360,26 @@ execution is not the exact room/role path. If the target is "Living Room sleep l
 and the available label is broad `magic:sleep`, runtime should use the reconciled native
 Living Room sleep helper group or resolve to entity IDs.
 
+Phase 1 implementation notes to preserve:
+
+- The resolver boundary is the right seam for HA registry mechanics. It can normalize
+  managed helpers, labels, explicit subsets, and hidden policy entities without knowing
+  light policy, suppressive states, adaptive switching, or feature config semantics.
+- Broad label execution must remain explicit opt-in. By default, a label resolves to an
+  area/domain-filtered entity subset because HA label service targeting is broad and does
+  not express area plus role intersection.
+- During transition, an existing label that resolves to no entities inside the supplied
+  area/domain boundary currently falls through to compatibility fallback. This preserves
+  behavior while labels are not yet the only runtime truth. Later cleanup must decide
+  whether strict label-runtime mode should treat an empty reconciled label as an empty
+  target instead.
+- Hidden `AreaLightGroup` policy entities are not labels, helpers, or subsets. They are
+  explicitly modeled as compatibility policy targets so they do not masquerade as the
+  durable architecture.
+- `RoleTarget` is a resolved runtime target record, not necessarily the pure engine's
+  final decision shape. The pure engine may reference a `RoleTarget` while emitting
+  narrowed explicit entity subsets for suppression/intersection decisions.
+
 ## Engine Vocabulary
 
 - **Intent**: a desired behavior requested by current context, such as `regular_light`,
@@ -713,8 +733,8 @@ Exit criteria:
 
 Exit criteria:
 
-- Pure unit tests cover allow, suppress, force-off/noop, and target subset decisions.
-- No Home Assistant imports are required by the pure engine module.
+- [x] Pure unit tests cover allow, suppress, force-off/noop, and target subset decisions.
+- [x] No Home Assistant imports are required by the pure engine module.
 
 ### Phase 3: Light Adapter Without Behavior Change
 
