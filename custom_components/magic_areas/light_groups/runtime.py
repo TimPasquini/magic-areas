@@ -12,8 +12,10 @@ from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sun.const import STATE_ABOVE_HORIZON
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, State
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData
 
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.controls import (
     ControlActionType,
     ControlGroupContext,
@@ -25,7 +27,6 @@ from custom_components.magic_areas.core.controls import (
     read_area_presence_states,
     register_area_and_group_state_listeners,
     resolve_area_presence_states,
-    resolve_group_entity_ids_for_metadata_values,
 )
 from custom_components.magic_areas.core.control_intents import (
     ControlTargetKind,
@@ -36,10 +37,7 @@ from custom_components.magic_areas.core.control_intents import (
     RoleTarget,
 )
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.runtime_model import (
-    ControlGroupPolicyId,
-    GroupMetadataKey,
-)
+from custom_components.magic_areas.core.runtime_model.feature_ids import build_light_group_id
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.light_groups.policy import CommandEchoState
 from custom_components.magic_areas.light_groups.policy import (
@@ -52,7 +50,6 @@ from custom_components.magic_areas.light_groups.intent_adapter import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
-    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.light_groups.policy import LightControlGroupPolicy
 
 
@@ -72,7 +69,6 @@ class _LightGroupHost(Protocol):
     _child_ids: list[str] | None
     _entity_ids: list[str]
     _area_id: str
-    _coordinator: MagicAreasCoordinator
     category: str | None
     entity_id: str
     hass: HomeAssistant
@@ -151,19 +147,7 @@ async def setup_group(host: _LightGroupHost) -> None:
     host._attr_extra_state_attributes = attrs
 
     if host.category == LightGroupCategory.ALL and host._child_categories:
-        group_registry = host._coordinator.data.group_registry if host._coordinator.data else None
-        if group_registry is None:
-            host._child_ids = []
-        else:
-            host._child_ids = resolve_group_entity_ids_for_metadata_values(
-                host.hass,
-                group_registry=group_registry,
-                area_id=host._area_id,
-                policy_id=str(ControlGroupPolicyId.LIGHT_GROUPS),
-                domain=LIGHT_DOMAIN,
-                metadata_key=str(GroupMetadataKey.CATEGORY),
-                metadata_values=host._child_categories,
-            )
+        host._child_ids = _resolve_light_child_policy_entity_ids(host)
         attrs["child_ids"] = host._child_ids
 
     last_state = await host.async_get_last_state()
@@ -175,6 +159,21 @@ async def setup_group(host: _LightGroupHost) -> None:
     if AreaStates.OCCUPIED.value not in host._last_known_area_states:
         host._reset_control_state()
         attrs["controlling"] = host.controlling
+
+
+def _resolve_light_child_policy_entity_ids(host: _LightGroupHost) -> list[str]:
+    """Resolve child policy entities by stable light-group unique IDs."""
+    entity_registry = er.async_get(host.hass)
+    child_ids: list[str] = []
+    for category in host._child_categories:
+        entity_id = entity_registry.async_get_entity_id(
+            LIGHT_DOMAIN,
+            DOMAIN,
+            build_light_group_id(area_id=host._area_id, category=category),
+        )
+        if entity_id is not None:
+            child_ids.append(entity_id)
+    return child_ids
 
 
 def setup_listeners(host: _LightGroupHost) -> None:

@@ -918,6 +918,8 @@ Implemented Phase 6 slice:
 - [x] Move light suppression membership consumption from config-first lists to
   reconciled `ma:sleep` / `ma:accent` labels, filtered inside the current light-group
   entity boundary.
+- [x] Resolve all-lights child policy entities by stable policy unique IDs instead of
+  `GroupRegistry` category metadata.
 
 Remaining Phase 6 working checklist:
 
@@ -944,7 +946,7 @@ Current compatibility fallbacks:
 - Native light helper service targets fall back to hidden custom `AreaLightGroup`
   entities when the helper does not exist yet.
 - `GroupRegistry` remains available as compatibility input for current fan/media/climate
-  target lookup, light all-group child category lookup, and custom control definitions.
+  target lookup and custom control definitions.
 - Custom control group config still stores explicit member lists even though labels are
   reconciled from those lists.
 
