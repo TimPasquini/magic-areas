@@ -774,6 +774,72 @@ Exit criteria:
 - [x] Both-states-active behavior matches the example matrix above.
 - [x] Runtime decisions can target HA labels or explicit entity ids.
 
+### Phase 4b: Runtime Integration For Member-Level Suppression
+
+The completed Phase 4 adapter proves the subset math, but live light control still uses
+the existing whole-target runtime path. Phase 4b wires the adapter into live light-group
+dispatch without rewriting brightness, manual override, or command echo.
+
+Current runtime seam:
+
+- `light_groups/runtime.py::evaluate_state_change(...)` builds `LightPolicySignals`,
+  evaluates `host.policy`, and calls `apply_decision(...)`.
+- `light_groups/runtime.py::apply_decision(...)` maps activate/deactivate decisions to
+  `turn_on(...)` or `turn_off(...)`.
+- `light_groups/runtime.py::_dispatch_controlled_action(...)` checks command ownership
+  and current target state, then calls `host._dispatch_light_action(action)`.
+- `light_groups/entities.py::AreaLightGroup._dispatch_light_action(...)` currently
+  resolves one native helper or hidden policy entity through `_control_target_entity_id()`
+  and dispatches a whole-target `ControlGroupDecision`.
+
+Required runtime inputs:
+
+- current area states from the `states_tuple` already handled by `evaluate_state_change`.
+- current group target membership from `host._entity_ids`.
+- sleep role membership and accent role membership for the same Magic Area.
+- current action from the existing `LightGroupPolicy` decision.
+- command-echo state and manual override status from the existing runtime path.
+
+Implementation shape:
+
+- Keep `LightGroupPolicy` as the initial action gate during this phase.
+- Only evaluate member-level suppression after the existing policy returns an actioning
+  decision and command ownership permits dispatch.
+- If no suppressive state is active, keep the current helper/policy target path.
+- If suppression leaves the target unchanged, keep the current helper/policy target path.
+- If suppression narrows the target, dispatch directly to explicit entity IDs.
+- If suppression removes all target members, do not dispatch an activate action.
+- For suppressive state entry that requires turning off non-surviving members, dispatch
+  explicit `turn_off` entity IDs rather than whole helper groups.
+- Do not introduce hidden combo entities.
+
+Membership resolution approach:
+
+- Prefer resolved/reconciled role memberships from labels or native helper surfaces once
+  available through the target resolver.
+- For the first runtime wiring pass, it is acceptable to use the existing light-role
+  config membership as compatibility input if that avoids a larger resolver rewrite.
+- The compatibility path must remain explicitly transitional in code/tests. It must not
+  re-promote `ControlGroupDefinition.members` as durable truth.
+
+Execution target rules:
+
+- Broad label targets are only safe when the intended action is intentionally broad and
+  no suppression/intersection filtering is required.
+- Exact helper targets remain preferred for room/role actions when the target is not
+  narrowed.
+- Explicit entity IDs are required for suppression/intersection subsets.
+
+Exit criteria:
+
+- Runtime tests prove an existing whole-target light action still uses the current
+  helper/policy target when no suppression subset is required.
+- Runtime tests prove sleep-only, accent-only, and sleep+accent overlap dispatch explicit
+  entity IDs when suppression narrows the target.
+- Runtime tests prove no service call occurs when suppressive states remove all target
+  members from an activate action.
+- Existing core light policy tests and unit suite remain green.
+
 ### Phase 5: Observability
 
 - Expose last intent decision reason on light group attributes.
