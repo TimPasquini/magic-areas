@@ -851,14 +851,31 @@ Exit criteria:
 
 ### Phase 5: Observability
 
-- Expose last intent decision reason on light group attributes.
-- Include constrained/suppressed target lists when useful.
-- Keep attributes concise enough for Home Assistant details views.
+- [x] Expose last intent decision reason on light group attributes.
+- [x] Keep policy reason and intent dispatch reason separate:
+  `last_policy_reason` explains the existing light policy decision, while
+  `last_intent_reason` explains runtime dispatch/suppression gating.
+- [x] Include concise target metadata:
+  `last_intent_target_entity_ids` is the actual dispatch target,
+  `last_intent_allowed_entity_ids` is the surviving allowed subset, and
+  `last_intent_suppressed_entity_ids` is the removed/non-surviving subset.
+- [x] Expose whether the last intent executed, plus target-state gate details when
+  dispatch was skipped because the target was already in the requested state.
+- [x] Keep attributes concise enough for Home Assistant details views.
+
+Reason-code expectations:
+
+- `intent_allowed`: no suppressive state narrowed the target.
+- `target_partially_suppressed`: suppressive state narrowed the target.
+- `target_suppressed`: suppressive state removed every activate target, so no service
+  call should occur.
+- `control_disabled`: command ownership/manual override prevented runtime dispatch.
+- `target_state_mismatch`: runtime state gate prevented duplicate on/off dispatch.
 
 Exit criteria:
 
-- Debug attributes explain why a group did or did not act.
-- Tests cover reason-code stability for important paths.
+- [x] Debug attributes explain why a group did or did not act.
+- [x] Tests cover reason-code stability for important paths.
 
 ### Phase 6: Label-Backed Runtime Migration Cleanup
 

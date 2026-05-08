@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 import logging
 from time import monotonic
 from typing import Protocol, TYPE_CHECKING
@@ -209,6 +210,17 @@ LIGHT_ATTR_KEYS = (
     "rgbww_color",
     "xy_color",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _IntentDispatchPlan:
+    """Runtime intent target metadata for light dispatch observability."""
+
+    target_entity_ids: tuple[str, ...] | None = None
+    allowed_entity_ids: tuple[str, ...] = ()
+    suppressed_entity_ids: tuple[str, ...] = ()
+    reason: str = IntentReason.INTENT_ALLOWED.value
+
 
 def evaluate_state_change(
     host: _LightGroupHost,
@@ -469,21 +481,52 @@ def _dispatch_controlled_action(
 ) -> bool:
     """Dispatch one light action when control is enabled and on/off state matches."""
     if not host._echo_state.controlling:
+        _set_last_intent_attributes(
+            host,
+            action=action,
+            reason="control_disabled",
+            executed=False,
+        )
         return False
 
-    target_entity_ids = _suppressed_target_entity_ids(host, action)
+    dispatch_plan = _intent_dispatch_plan(host, action)
+    target_entity_ids = dispatch_plan.target_entity_ids
     target_is_on = (
         _explicit_target_is_on(host, target_entity_ids)
         if target_entity_ids is not None
         else host.current_control_target_is_on()
     )
     if target_is_on != when_is_on:
+        _set_last_intent_attributes(
+            host,
+            action=action,
+            reason=dispatch_plan.reason
+            if target_entity_ids == ()
+            else "target_state_mismatch",
+            executed=False,
+            target_entity_ids=target_entity_ids or (),
+            allowed_entity_ids=dispatch_plan.allowed_entity_ids,
+            suppressed_entity_ids=dispatch_plan.suppressed_entity_ids,
+            target_is_on=target_is_on,
+            expected_target_is_on=when_is_on,
+        )
         return False
 
     host._set_echo_state(host._echo_state.command_issued(host.unique_id))
     host._last_control_activity_monotonic = monotonic()
     if action == LightAction.TURN_ON:
         host._last_turn_on_monotonic = monotonic()
+    _set_last_intent_attributes(
+        host,
+        action=action,
+        reason=dispatch_plan.reason,
+        executed=True,
+        target_entity_ids=target_entity_ids or (),
+        allowed_entity_ids=dispatch_plan.allowed_entity_ids,
+        suppressed_entity_ids=dispatch_plan.suppressed_entity_ids,
+        target_is_on=target_is_on,
+        expected_target_is_on=when_is_on,
+    )
     if target_entity_ids is None:
         host._dispatch_light_action(action)
     else:
@@ -491,16 +534,17 @@ def _dispatch_controlled_action(
     return True
 
 
-def _suppressed_target_entity_ids(
+def _intent_dispatch_plan(
     host: _LightGroupHost,
     action: LightAction,
-) -> tuple[str, ...] | None:
-    """Return explicit suppressed target subset, or None for normal dispatch."""
+) -> _IntentDispatchPlan:
+    """Return suppression-aware dispatch target metadata."""
     current_states = tuple(getattr(host, "_last_known_area_states", ()))
     if AreaStates.SLEEP not in current_states and AreaStates.ACCENT not in current_states:
-        return None
+        return _IntentDispatchPlan()
 
     sleep_entity_ids, accent_entity_ids = host.light_member_suppression_members()
+    source_entity_ids = tuple(host._entity_ids)
     target = RoleTarget(
         role=str(host.category or LightGroupCategory.ALL),
         domain=LIGHT_DOMAIN,
@@ -508,7 +552,7 @@ def _suppressed_target_entity_ids(
         kind=ControlTargetKind.ENTITY_SUBSET,
         precision=ControlTargetPrecision.FILTERED,
         source=ControlTargetSource.CONFIG_RECONCILIATION,
-        entity_ids=tuple(host._entity_ids),
+        entity_ids=source_entity_ids,
     )
     decision = evaluate_light_member_suppression(
         target=target,
@@ -517,23 +561,65 @@ def _suppressed_target_entity_ids(
         accent_entity_ids=accent_entity_ids,
         action=_intent_action_for_light_action(action),
     )
-    host._attr_extra_state_attributes["last_intent_reason"] = decision.reason.value
-    host._attr_extra_state_attributes["last_intent_target_entity_ids"] = (
-        decision.target_entity_ids
-    )
-    source_entity_ids = tuple(host._entity_ids)
     if decision.reason is IntentReason.INTENT_ALLOWED:
-        return None
+        return _IntentDispatchPlan(reason=decision.reason.value)
     if decision.target_entity_ids == source_entity_ids:
-        return None
-    if action is LightAction.TURN_OFF:
-        surviving_entity_ids = set(decision.target_entity_ids)
-        return tuple(
-            entity_id
-            for entity_id in source_entity_ids
-            if entity_id not in surviving_entity_ids
+        return _IntentDispatchPlan(
+            allowed_entity_ids=decision.target_entity_ids,
+            reason=decision.reason.value,
         )
-    return decision.target_entity_ids
+
+    surviving_entity_ids = set(decision.target_entity_ids)
+    suppressed_entity_ids = tuple(
+        entity_id for entity_id in source_entity_ids if entity_id not in surviving_entity_ids
+    )
+    if action is LightAction.TURN_OFF:
+        return _IntentDispatchPlan(
+            target_entity_ids=suppressed_entity_ids,
+            allowed_entity_ids=decision.target_entity_ids,
+            suppressed_entity_ids=suppressed_entity_ids,
+            reason=decision.reason.value,
+        )
+    return _IntentDispatchPlan(
+        target_entity_ids=decision.target_entity_ids,
+        allowed_entity_ids=decision.target_entity_ids,
+        suppressed_entity_ids=suppressed_entity_ids,
+        reason=decision.reason.value,
+    )
+
+
+def _set_last_intent_attributes(
+    host: _LightGroupHost,
+    *,
+    action: LightAction,
+    reason: str,
+    executed: bool,
+    target_entity_ids: tuple[str, ...] = (),
+    allowed_entity_ids: tuple[str, ...] = (),
+    suppressed_entity_ids: tuple[str, ...] = (),
+    target_is_on: bool | None = None,
+    expected_target_is_on: bool | None = None,
+) -> None:
+    """Expose concise last-intent diagnostics on light-group attributes."""
+    attrs = getattr(host, "_attr_extra_state_attributes", None)
+    if attrs is None:
+        attrs = {}
+        host._attr_extra_state_attributes = attrs
+
+    attrs["last_intent_action"] = action.value
+    attrs["last_intent_reason"] = reason
+    attrs["last_intent_executed"] = executed
+    attrs["last_intent_target_entity_ids"] = target_entity_ids
+    attrs["last_intent_allowed_entity_ids"] = allowed_entity_ids
+    attrs["last_intent_suppressed_entity_ids"] = suppressed_entity_ids
+    if target_is_on is None:
+        attrs.pop("last_intent_target_is_on", None)
+    else:
+        attrs["last_intent_target_is_on"] = target_is_on
+    if expected_target_is_on is None:
+        attrs.pop("last_intent_expected_target_is_on", None)
+    else:
+        attrs["last_intent_expected_target_is_on"] = expected_target_is_on
 
 
 def _intent_action_for_light_action(action: LightAction) -> IntentAction:

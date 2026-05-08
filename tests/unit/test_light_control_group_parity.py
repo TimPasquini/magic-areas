@@ -261,6 +261,10 @@ async def test_turn_on_uses_control_group_executor(
     assert decision.action_type == ControlActionType.ACTIVATE
     assert decision.actions[0].service == "turn_on"
     assert decision.actions[0].target_entity_ids == (group.entity_id,)
+    assert group._attr_extra_state_attributes["last_intent_action"] == "turn_on"
+    assert group._attr_extra_state_attributes["last_intent_reason"] == "intent_allowed"
+    assert group._attr_extra_state_attributes["last_intent_executed"] is True
+    assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == ()
 
 
 @pytest.mark.asyncio
@@ -303,6 +307,21 @@ async def test_turn_on_uses_explicit_subset_when_sleep_suppression_narrows_targe
             ("light.sleep_accent_lamp", "light.sleep_lamp"),
         )
     ]
+    assert (
+        group._attr_extra_state_attributes["last_intent_reason"]
+        == "target_partially_suppressed"
+    )
+    assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+    assert group._attr_extra_state_attributes["last_intent_allowed_entity_ids"] == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+    assert group._attr_extra_state_attributes["last_intent_suppressed_entity_ids"] == (
+        "light.accent_lamp",
+    )
 
 
 @pytest.mark.asyncio
@@ -398,6 +417,14 @@ async def test_turn_on_noops_when_sleep_and_accent_suppress_all_targets(
 
     assert result is False
     assert group.dispatched == []
+    assert group._attr_extra_state_attributes["last_intent_reason"] == "target_suppressed"
+    assert group._attr_extra_state_attributes["last_intent_executed"] is False
+    assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == ()
+    assert group._attr_extra_state_attributes["last_intent_suppressed_entity_ids"] == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+        "light.accent_lamp",
+    )
     execute_mock.assert_not_awaited()
 
 
@@ -458,6 +485,20 @@ async def test_turn_off_uses_suppressed_subset_when_sleep_suppresses_members(
     _hass, decision = execute_mock.await_args.args
     assert decision.action_type == ControlActionType.DEACTIVATE
     assert decision.actions[0].target_entity_ids == ("light.accent_lamp",)
+    assert (
+        group._attr_extra_state_attributes["last_intent_reason"]
+        == "target_partially_suppressed"
+    )
+    assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == (
+        "light.accent_lamp",
+    )
+    assert group._attr_extra_state_attributes["last_intent_allowed_entity_ids"] == (
+        "light.sleep_accent_lamp",
+        "light.sleep_lamp",
+    )
+    assert group._attr_extra_state_attributes["last_intent_suppressed_entity_ids"] == (
+        "light.accent_lamp",
+    )
 
 
 def test_turn_off_noop_when_not_controlling() -> None:
@@ -468,6 +509,8 @@ def test_turn_off_noop_when_not_controlling() -> None:
 
     assert result is False
     assert group._echo_state.awaiting_echo is False
+    assert group._attr_extra_state_attributes["last_intent_reason"] == "control_disabled"
+    assert group._attr_extra_state_attributes["last_intent_executed"] is False
 
 
 def test_turn_off_noop_when_already_off() -> None:
@@ -478,3 +521,8 @@ def test_turn_off_noop_when_already_off() -> None:
 
     assert result is False
     assert group._echo_state.awaiting_echo is False
+    assert group._attr_extra_state_attributes["last_intent_reason"] == (
+        "target_state_mismatch"
+    )
+    assert group._attr_extra_state_attributes["last_intent_target_is_on"] is False
+    assert group._attr_extra_state_attributes["last_intent_expected_target_is_on"] is True
