@@ -1052,6 +1052,9 @@ Research findings:
 - Adaptive Lighting manual-control semantics overlap with Magic Areas command echo/manual
   override semantics. The first implementation must not let the two systems fight over
   ownership.
+- Adaptive Lighting switches are behavior-control switches, not light power switches.
+  They enable, disable, or change adaptation behavior applied to lights while Adaptive
+  Lighting remains responsible for calculating brightness/color behavior.
 
 Discovery constraints:
 
@@ -1066,18 +1069,25 @@ Discovery constraints:
 
 Recommended first implementation boundary:
 
-- Keep Adaptive Lighting optional and disabled unless explicitly configured.
-- Do not create or mutate Adaptive Lighting configurations in the first implementation.
-- Discover or accept references to existing Adaptive Lighting switch sets.
+- Keep Adaptive Lighting optional.
+- Offer three user modes per Magic Areas room/role target:
+  - `ignore`: Magic Areas does not coordinate Adaptive Lighting for this target.
+  - `adopt_existing`: the user associates existing Adaptive Lighting switch sets with
+    Magic Areas groups/roles; Magic Areas coordinates those behavior switches.
+  - `manage`: Magic Areas creates/updates Adaptive Lighting configurations and maintains
+    their members from the enabled Magic Areas groups/roles.
 - Model one Adaptive Lighting switch set as an external ambient-control target associated
   with one Magic Areas room/role target.
-- Prefer explicit configured switch references first; add label/area discovery only when
-  the matching rules can prove a single unambiguous switch set.
-- Use Magic Areas' existing manual override state as the authority. Adaptive Lighting
-  should be paused/resumed around that state, not allowed to independently reclaim lights.
+- Prefer explicit configured switch references first for `adopt_existing`; add label/area
+  discovery only when the matching rules can prove a single unambiguous switch set.
+- Defer `manage` mode until the Adaptive Lighting create/update surface is researched and
+  tested. The intent is still to support it, but not before the adoption path is stable.
+- Use Magic Areas' existing manual override state as the authority for when to pause or
+  resume Adaptive Lighting behavior switches. Adaptive Lighting owns the adaptive
+  brightness/color calculations.
 - Treat sleep coordination as an effect of Magic Areas `sleep`: Magic Areas may turn on
   the corresponding Adaptive Lighting sleep switch while sleep is active and turn it off
-  when sleep clears, but only for configured/adopted switch sets.
+  when sleep clears, but only for associated switch sets.
 - Treat accent coordination as a suppressive/ambient pause: when accent mode intentionally
   creates a viewing scene, Magic Areas may pause brightness/color adaptation for affected
   lights and restore it when accent clears.
@@ -1100,6 +1110,7 @@ First implementable behavior:
   name candidates, without service calls.
 - [ ] Add label/area discovery only after matching rules can prove one unambiguous switch
   set.
+- [ ] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
 - Add no runtime dependency on Adaptive Lighting services until the resolver model and
   ownership rules are tested.
 
@@ -1199,16 +1210,23 @@ Resolved:
 - Adaptive Lighting discovery starts with explicit switch-set references and complete
   conventional name matches only. Label/area discovery waits until ambiguity rules can
   prove a single switch set.
+- Adaptive Lighting coordination should be a runtime adapter/side effect first, not a core
+  light intent. Magic Areas sets Adaptive Lighting behavior switches based on Magic Areas
+  state; Adaptive Lighting performs the adaptive work.
+- Adaptive Lighting v1 mode shape is three-way: ignore, adopt existing switch sets, or
+  let Magic Areas manage Adaptive Lighting groups. The implementation order should start
+  with ignore/adopt existing and defer full management until the Adaptive Lighting
+  create/update surface is proven.
+- Adaptive Lighting switches are not light power switches. They control adaptation
+  behavior applied to the associated lights when those lights are on.
 
 Still open:
 
-1. Should Adaptive Lighting coordination be modeled as its own intent, a constraint on
-   light intents, or a runtime side effect?
-2. Should Magic Areas eventually create/update Adaptive Lighting configurations, or only
-   coordinate existing user-created switch sets?
-3. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
+1. What exact Adaptive Lighting create/update surface supports `manage` mode, and can it
+   safely maintain members from Magic Areas groups?
+2. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
    if so which labels are control-critical versus informational?
-4. Which native signal-helper bundle, if any, should replace or supplement the current
+3. Which native signal-helper bundle, if any, should replace or supplement the current
    in-runtime ambient-rise evidence before adaptive switching resumes?
 
 ## Initial Recommendation
