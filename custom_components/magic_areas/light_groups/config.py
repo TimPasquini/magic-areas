@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.config_keys.area import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
     CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
@@ -22,6 +23,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+)
+from custom_components.magic_areas.core.control_intents import (
+    AdaptiveLightingSwitchSet,
+    switch_set_from_explicit_refs,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
@@ -52,6 +57,7 @@ LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX = "outside_lux"
 LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE = "none"
 
 LIGHT_GROUP_DEFAULT_ICON = "mdi:lightbulb-group"
+
 
 @dataclass(frozen=True, slots=True)
 class LightGroupPreset:
@@ -182,6 +188,8 @@ def brightness_mode(feature_config: FeatureConfigDict) -> str:
 def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -> int:
     """Read integer option from feature config with safe fallback."""
     value = feature_config.get(key, default)
+    if not isinstance(value, str | bytes | bytearray | int | float):
+        return default
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -191,7 +199,9 @@ def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -
 
 def bright_min_on_seconds(feature_config: FeatureConfigDict) -> int:
     """Return adaptive min-on-time threshold in seconds."""
-    return _int_option(feature_config, CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS, default=0)
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS, default=0
+    )
 
 
 def bright_dwell_seconds(feature_config: FeatureConfigDict) -> int:
@@ -256,7 +266,9 @@ def outside_lux_inside_entity(feature_config: FeatureConfigDict) -> str | None:
 
 def outside_lux_inside_delta(feature_config: FeatureConfigDict) -> int:
     """Return required outside-inside lux delta for adaptive bright-off gating."""
-    return _int_option(feature_config, CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0)
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0
+    )
 
 
 def outside_lux_inside_ratio_min_percent(feature_config: FeatureConfigDict) -> int:
@@ -268,7 +280,9 @@ def outside_lux_inside_ratio_min_percent(feature_config: FeatureConfigDict) -> i
 
 def bright_attribution_hold_seconds(feature_config: FeatureConfigDict) -> int:
     """Return suppressive hold window after controlled light activity."""
-    return _int_option(feature_config, CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS, default=0)
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS, default=0
+    )
 
 
 def adaptive_require_ambient_rise(feature_config: FeatureConfigDict) -> bool:
@@ -279,12 +293,43 @@ def adaptive_require_ambient_rise(feature_config: FeatureConfigDict) -> bool:
 
 def ambient_rise_window_seconds(feature_config: FeatureConfigDict) -> int:
     """Return lookback window used by ambient-rise detector."""
-    return _int_option(feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120)
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120
+    )
 
 
 def ambient_rise_min_delta(feature_config: FeatureConfigDict) -> int:
     """Return minimum inside lux rise required within the ambient window."""
-    return _int_option(feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA, default=20)
+    return _int_option(
+        feature_config, CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA, default=20
+    )
+
+
+def adaptive_lighting_switch_set(
+    feature_config: FeatureConfigDict,
+    *,
+    area_id: str,
+    category: str,
+) -> AdaptiveLightingSwitchSet | None:
+    """Return explicitly associated Adaptive Lighting switches for a light role."""
+    raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
+    if not isinstance(raw_switch_sets, Mapping):
+        return None
+
+    raw_switch_refs = raw_switch_sets.get(category)
+    if not isinstance(raw_switch_refs, Mapping):
+        return None
+
+    switch_refs = {
+        str(key): str(value)
+        for key, value in raw_switch_refs.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }
+    return switch_set_from_explicit_refs(
+        area_id=area_id,
+        role=category,
+        switch_refs=switch_refs,
+    )
 
 
 def build_light_group_feature_schema() -> vol.Schema:
@@ -322,9 +367,11 @@ def build_light_group_feature_schema() -> vol.Schema:
     schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN, default=0)] = vol.All(
         vol.Coerce(int), vol.Range(min=0)
     )
-    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY, default="")] = cv.string
-    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0)] = vol.All(
-        vol.Coerce(int), vol.Range(min=0)
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY, default="")] = (
+        cv.string
+    )
+    schema[vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA, default=0)] = (
+        vol.All(vol.Coerce(int), vol.Range(min=0))
     )
     schema[
         vol.Optional(CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT, default=0)
@@ -332,14 +379,17 @@ def build_light_group_feature_schema() -> vol.Schema:
     schema[
         vol.Optional(CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS, default=0)
     ] = vol.All(vol.Coerce(int), vol.Range(min=0))
-    schema[vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE, default=False)] = (
-        cv.boolean
-    )
     schema[
-        vol.Optional(CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120)
-    ] = vol.All(vol.Coerce(int), vol.Range(min=0))
+        vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE, default=False)
+    ] = cv.boolean
+    schema[vol.Optional(CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS, default=120)] = (
+        vol.All(vol.Coerce(int), vol.Range(min=0))
+    )
     schema[vol.Optional(CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA, default=20)] = vol.All(
         vol.Coerce(int), vol.Range(min=0)
+    )
+    schema[vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS, default={})] = (
+        dict
     )
     return vol.Schema(schema, extra=vol.REMOVE_EXTRA)
 

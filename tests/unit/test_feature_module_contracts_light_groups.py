@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from custom_components.magic_areas.core.controls import GroupRegistry
+from custom_components.magic_areas.core.control_intents import (
+    ADAPT_BRIGHTNESS_SWITCH,
+    ADAPT_COLOR_SWITCH,
+    MAIN_SWITCH,
+    SLEEP_SWITCH,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     LabelSurface,
@@ -44,6 +50,50 @@ def test_light_groups_module_builds_expected_entities() -> None:
         "light.magic_areas_light_groups_kitchen_overhead_lights",
         "switch.magic_areas_light_groups_kitchen_light_control",
     ]
+
+
+def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> None:
+    """Adaptive Lighting switch sets should attach only to their configured role."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "adaptive_lighting_switch_sets": {
+                    "overhead_lights": {
+                        MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
+                        SLEEP_SWITCH: (
+                            "switch.adaptive_lighting_sleep_mode_kitchen_overhead"
+                        ),
+                        ADAPT_BRIGHTNESS_SWITCH: (
+                            "switch.adaptive_lighting_adapt_brightness_kitchen_overhead"
+                        ),
+                        ADAPT_COLOR_SWITCH: (
+                            "switch.adaptive_lighting_adapt_color_kitchen_overhead"
+                        ),
+                    }
+                },
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+    groups = {
+        entity.entity_id: entity
+        for entity in entities
+        if entity.entity_id.startswith("light.")
+    }
+
+    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
+    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+
+    assert getattr(all_group, "_adaptive_lighting_switch_set") is None
+    switch_set = getattr(overhead_group, "_adaptive_lighting_switch_set")
+    assert switch_set is not None
+    assert switch_set.role == "overhead_lights"
 
 
 def test_light_groups_module_registers_default_control_groups() -> None:
@@ -137,7 +187,9 @@ def test_light_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
                 "task_lights_states": ["occupied"],
             }
         },
-        entities={"light": [{"entity_id": "light.overhead_1"}, {"entity_id": "light.task_1"}]},
+        entities={
+            "light": [{"entity_id": "light.overhead_1"}, {"entity_id": "light.task_1"}]
+        },
     )
     updated_snapshot = make_snapshot(
         enabled={MagicAreasFeatures.LIGHT_GROUPS},
@@ -151,10 +203,16 @@ def test_light_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
     )
     initial_snapshot.group_registry = registry
     updated_snapshot.group_registry = registry
-    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
-    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+    module.build_entities(
+        area_config, make_coordinator(initial_snapshot), initial_snapshot
+    )
+    module.build_entities(
+        area_config, make_coordinator(updated_snapshot), updated_snapshot
+    )
 
-    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    group_ids = {
+        group.definition.group_id for group in registry.get_for_area(area_config.id)
+    }
     assert "light_groups_area-1_overhead_lights" in group_ids
     assert "light_groups_area-1_task_lights" not in group_ids
 
@@ -187,10 +245,16 @@ def test_light_groups_module_clears_stale_groups_when_no_lights_remain() -> None
     )
     initial_snapshot.group_registry = registry
     updated_snapshot.group_registry = registry
-    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
-    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+    module.build_entities(
+        area_config, make_coordinator(initial_snapshot), initial_snapshot
+    )
+    module.build_entities(
+        area_config, make_coordinator(updated_snapshot), updated_snapshot
+    )
 
-    group_ids = {group.definition.group_id for group in registry.get_for_area(area_config.id)}
+    group_ids = {
+        group.definition.group_id for group in registry.get_for_area(area_config.id)
+    }
     assert "light_groups_area-1_all_lights" not in group_ids
     assert "light_groups_area-1_overhead_lights" not in group_ids
 

@@ -18,6 +18,7 @@ from custom_components.magic_areas.light_groups.policy import (
     light_action_to_control_group,
 )
 from custom_components.magic_areas.light_groups.config import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
     CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
@@ -49,6 +50,7 @@ from custom_components.magic_areas.light_groups.config import (
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
     LIGHT_GROUP_FEATURE_SCHEMA,
     LIGHT_GROUP_PRESETS,
+    adaptive_lighting_switch_set,
     adaptive_require_ambient_rise,
     ambient_rise_min_delta,
     ambient_rise_window_seconds,
@@ -79,6 +81,7 @@ from custom_components.magic_areas.light_groups.runtime import (
 
 __all__ = [
     "AreaLightGroup",
+    "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS",
     "CONF_LIGHT_GROUP_BRIGHTNESS_MODE",
     "CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS",
     "CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS",
@@ -113,6 +116,7 @@ __all__ = [
     "LIGHT_GROUP_FEATURE_SCHEMA",
     "LIGHT_GROUP_PRESETS",
     "LIGHT_GROUP_ROLE_LABELS",
+    "adaptive_lighting_switch_set",
     "adaptive_require_ambient_rise",
     "ambient_rise_min_delta",
     "ambient_rise_window_seconds",

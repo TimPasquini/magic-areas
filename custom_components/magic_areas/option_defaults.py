@@ -25,6 +25,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
     CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
@@ -60,6 +61,7 @@ from custom_components.magic_areas.defaults import (
     DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
+
 FeatureOptionValue = object
 FeatureOptionDefaults = dict[str, FeatureOptionValue]
 
@@ -108,6 +110,7 @@ FEATURE_OPTION_DEFAULTS: dict[MagicAreasFeatures, FeatureOptionDefaults] = {
         CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY: "",
         CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA: 0,
         CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT: 0,
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {},
     },
     MagicAreasFeatures.PRESENCE_HOLD: {
         CONF_PRESENCE_HOLD_TIMEOUT: DEFAULT_PRESENCE_HOLD_TIMEOUT,
@@ -120,8 +123,6 @@ FEATURE_OPTION_DEFAULTS: dict[MagicAreasFeatures, FeatureOptionDefaults] = {
 }
 
 
-def feature_option_default(
-    feature: MagicAreasFeatures, key: str
-) -> FeatureOptionValue:
+def feature_option_default(feature: MagicAreasFeatures, key: str) -> FeatureOptionValue:
     """Return canonical default value for a feature option key."""
     return FEATURE_OPTION_DEFAULTS[feature][key]

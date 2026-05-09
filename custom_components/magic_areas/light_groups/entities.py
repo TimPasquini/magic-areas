@@ -42,6 +42,7 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups.config import (
     LIGHT_GROUP_DEFAULT_ICON,
     LightGroupPreset,
+    adaptive_lighting_switch_set,
     adaptive_require_ambient_rise,
     ambient_rise_min_delta,
     ambient_rise_window_seconds,
@@ -108,9 +109,7 @@ class MagicLightGroup(MagicGroupEntity, LightGroup):
         """Forward the turn_on command to all lights in the light group."""
         active_lights = self._get_active_lights()
         data = {
-            key: value
-            for key, value in kwargs.items()
-            if key in FORWARDED_ATTRIBUTES
+            key: value for key, value in kwargs.items() if key in FORWARDED_ATTRIBUTES
         }
         data[ATTR_ENTITY_ID] = active_lights or self._entity_ids
         context = kwargs.get("context")
@@ -175,6 +174,11 @@ class AreaLightGroup(MagicLightGroup):
         self._last_known_area_states: list[str] = []
         self._last_known_area_states_from_dispatcher = False
         self._listeners_initialized = False
+        self._adaptive_lighting_switch_set = adaptive_lighting_switch_set(
+            self._feature_config,
+            area_id=area_config.id,
+            category=category or LightGroupCategory.ALL,
+        )
         self._bright_since_monotonic: float | None = None
         self._last_turn_on_monotonic: float | None = None
         self._last_control_activity_monotonic: float | None = None
@@ -218,7 +222,9 @@ class AreaLightGroup(MagicLightGroup):
             adaptive_require_ambient_rise=adaptive_require_ambient_rise(
                 self._feature_config
             ),
-            ambient_rise_window_seconds=ambient_rise_window_seconds(self._feature_config),
+            ambient_rise_window_seconds=ambient_rise_window_seconds(
+                self._feature_config
+            ),
             ambient_rise_min_delta=ambient_rise_min_delta(self._feature_config),
             light_group_entity_id=self.entity_id,
         )

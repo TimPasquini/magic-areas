@@ -1130,6 +1130,10 @@ First implementable behavior:
 - [x] Add a guarded light-runtime scheduler that executes Adaptive Lighting
   state-transition intents only when a light group has an associated switch set. This
   keeps the runtime inert until adoption/config wiring explicitly provides a target.
+- [x] Add role-scoped explicit switch-set adoption for light groups. A configured switch
+  set attaches only to its target role, incomplete refs fail closed, and area-level refs
+  must use the `all_lights` role to avoid duplicated service calls from multiple group
+  entities.
 - Add no unconditional runtime dependency on Adaptive Lighting services; all service
   execution must remain behind explicit switch-set association.
 

@@ -1,10 +1,18 @@
 """Tests for light-group preset declarations and schema defaults."""
 
 from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.core.control_intents import (
+    ADAPT_BRIGHTNESS_SWITCH,
+    ADAPT_COLOR_SWITCH,
+    MAIN_SWITCH,
+    SLEEP_SWITCH,
+)
 from custom_components.magic_areas.light_groups import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_OVERHEAD_LIGHTS,
     LIGHT_GROUP_FEATURE_SCHEMA,
     LIGHT_GROUP_PRESETS,
+    adaptive_lighting_switch_set,
     get_light_group_preset,
 )
 
@@ -26,6 +34,7 @@ def test_light_group_schema_defaults_follow_preset_defaults() -> None:
 
     assert defaults[LIGHT_GROUP_PRESETS[0].states_key] == [AreaStates.OCCUPIED]
     assert LIGHT_GROUP_PRESETS[0].category == CONF_OVERHEAD_LIGHTS
+    assert defaults[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS] == {}
 
 
 def test_get_light_group_preset_returns_category_match() -> None:
@@ -38,3 +47,56 @@ def test_get_light_group_preset_returns_category_match() -> None:
 def test_get_light_group_preset_returns_none_for_unknown_category() -> None:
     """Preset lookup should return None for custom/unknown categories."""
     assert get_light_group_preset("custom_task_scene") is None
+
+
+def test_adaptive_lighting_switch_set_reads_role_scoped_explicit_refs() -> None:
+    """Explicit AL adoption should attach only to the configured light role."""
+    feature_config = {
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
+            CONF_OVERHEAD_LIGHTS: {
+                MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
+                SLEEP_SWITCH: "switch.adaptive_lighting_sleep_mode_kitchen_overhead",
+                ADAPT_BRIGHTNESS_SWITCH: (
+                    "switch.adaptive_lighting_adapt_brightness_kitchen_overhead"
+                ),
+                ADAPT_COLOR_SWITCH: (
+                    "switch.adaptive_lighting_adapt_color_kitchen_overhead"
+                ),
+            }
+        }
+    }
+
+    switch_set = adaptive_lighting_switch_set(
+        feature_config,
+        area_id="kitchen",
+        category=CONF_OVERHEAD_LIGHTS,
+    )
+
+    assert switch_set is not None
+    assert switch_set.area_id == "kitchen"
+    assert switch_set.role == CONF_OVERHEAD_LIGHTS
+    assert (
+        adaptive_lighting_switch_set(
+            feature_config,
+            area_id="kitchen",
+            category="sleep_lights",
+        )
+        is None
+    )
+
+
+def test_adaptive_lighting_switch_set_fails_closed_for_incomplete_refs() -> None:
+    """Incomplete AL switch config should not partially enable coordination."""
+    switch_set = adaptive_lighting_switch_set(
+        {
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
+                CONF_OVERHEAD_LIGHTS: {
+                    MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
+                }
+            }
+        },
+        area_id="kitchen",
+        category=CONF_OVERHEAD_LIGHTS,
+    )
+
+    assert switch_set is None
