@@ -1083,6 +1083,9 @@ Recommended first implementation boundary:
   lights and restore it when accent clears.
 - Restoration should clear Adaptive Lighting manual-control state for affected lights
   only after the Magic Areas manual override cooldown expires.
+- Do not expand the current in-runtime ambient-rise code while adding Adaptive Lighting
+  coordination. Future daylight/adaptive evidence should come from selected user helpers
+  or managed native signal helpers such as trend/statistics/derivative helpers.
 
 First implementable behavior:
 
@@ -1176,16 +1179,37 @@ Adaptive Lighting research:
 
 ## Remaining Open Questions
 
-1. Should custom control groups become label queries instead of stored member lists?
-2. Should category and parent group entities survive a label-first model, or should they
-   become optional diagnostics/control surfaces?
-3. Which service target should be preferred for each simple action: broad `label_id`,
-   native helper entity, or explicit entity IDs?
-4. Should suppressed targets be exposed only as debug attributes?
-5. Which native helper surfaces must exist before the intent engine resumes?
-6. How should Adaptive Lighting discovery and creation work for derived room/role groups?
-7. Should Adaptive Lighting coordination be its own intent or a constraint/effect of
-   light intents?
+Resolved:
+
+- Custom control groups remain stored config member lists as the guided authoring surface
+  and reconciliation input. Runtime target resolution can prefer reconciled
+  `ma:control:*` labels.
+- Category and parent light helper entities survive as user-facing dashboard/command
+  surfaces. Hidden `AreaLightGroup` entities survive as compatibility policy/listener
+  surfaces until the intent target model is stable enough to deliberately replace that
+  responsibility.
+- Service-target preference is now explicit: broad `label_id` only for intentionally
+  broad semantic actions, native helper entities for exact room/role actions, explicit
+  entity IDs for filtered/intersection/suppression subsets.
+- Suppressed/allowed/target subsets are exposed as concise debug attributes on the light
+  policy entity.
+- Native helper surfaces required before this branch resumed are in place for label-backed
+  light roles, native light helper targets, custom control labels, and managed helper
+  lookup.
+- Adaptive Lighting discovery starts with explicit switch-set references and complete
+  conventional name matches only. Label/area discovery waits until ambiguity rules can
+  prove a single switch set.
+
+Still open:
+
+1. Should Adaptive Lighting coordination be modeled as its own intent, a constraint on
+   light intents, or a runtime side effect?
+2. Should Magic Areas eventually create/update Adaptive Lighting configurations, or only
+   coordinate existing user-created switch sets?
+3. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
+   if so which labels are control-critical versus informational?
+4. Which native signal-helper bundle, if any, should replace or supplement the current
+   in-runtime ambient-rise evidence before adaptive switching resumes?
 
 ## Initial Recommendation
 
