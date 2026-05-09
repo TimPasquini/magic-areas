@@ -7,18 +7,39 @@ from homeassistant.const import ATTR_ENTITY_ID
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
+    ADAPTIVE_LIGHTING_DOMAIN,
     ATTR_LIGHTS,
     MAIN_SWITCH,
+    SERVICE_SET_MANUAL_CONTROL,
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
     SLEEP_SWITCH,
+    AdaptiveLightingCoordinationReason,
     AdaptiveLightingSwitchCandidate,
+    AdaptiveLightingSwitchSet,
+    adaptive_lighting_accent_adaptation_intents,
     adaptive_lighting_apply_data,
     adaptive_lighting_change_switch_settings_data,
     adaptive_lighting_manual_control_data,
+    adaptive_lighting_manual_restore_intents,
+    adaptive_lighting_sleep_switch_intents,
     adaptive_lighting_switch_entity_ids,
     switch_set_from_discovery_candidates,
     switch_set_from_explicit_refs,
     switch_set_from_name_candidates,
 )
+
+SWITCH_DOMAIN = "switch"
+
+
+def _switch_set() -> AdaptiveLightingSwitchSet:
+    """Build a complete AL switch set for service-contract tests."""
+    switch_set = switch_set_from_explicit_refs(
+        area_id="kitchen",
+        switch_refs=adaptive_lighting_switch_entity_ids("Kitchen"),
+    )
+    assert switch_set is not None
+    return switch_set
 
 
 def test_adaptive_lighting_switch_entity_ids_follow_documented_convention() -> None:
@@ -238,11 +259,7 @@ def test_discovery_candidates_can_require_labels() -> None:
 
 def test_adaptive_lighting_apply_data_uses_documented_service_shape() -> None:
     """Apply service data should use entity_id for AL switch and lights for targets."""
-    switch_set = switch_set_from_explicit_refs(
-        area_id="kitchen",
-        switch_refs=adaptive_lighting_switch_entity_ids("Kitchen"),
-    )
-    assert switch_set is not None
+    switch_set = _switch_set()
 
     data = adaptive_lighting_apply_data(
         switch_set,
@@ -265,11 +282,7 @@ def test_adaptive_lighting_apply_data_uses_documented_service_shape() -> None:
 
 def test_adaptive_lighting_manual_control_data_uses_documented_service_shape() -> None:
     """Manual-control service data should target the AL switch and selected lights."""
-    switch_set = switch_set_from_explicit_refs(
-        area_id="kitchen",
-        switch_refs=adaptive_lighting_switch_entity_ids("Kitchen"),
-    )
-    assert switch_set is not None
+    switch_set = _switch_set()
 
     data = adaptive_lighting_manual_control_data(
         switch_set,
@@ -299,3 +312,98 @@ def test_adaptive_lighting_change_switch_settings_data_targets_behavior_switch()
         "adapt_brightness": False,
         "use_defaults": "current",
     }
+
+
+def test_sleep_switch_intent_tracks_magic_areas_sleep_state() -> None:
+    """MA sleep state should map to the Adaptive Lighting sleep switch."""
+    switch_set = _switch_set()
+
+    active_intent = adaptive_lighting_sleep_switch_intents(
+        switch_set,
+        sleep_active=True,
+    )[0]
+
+    assert active_intent.domain == SWITCH_DOMAIN
+    assert active_intent.service == SERVICE_TURN_ON
+    assert active_intent.data == {
+        ATTR_ENTITY_ID: "switch.adaptive_lighting_sleep_mode_kitchen"
+    }
+    assert active_intent.reason is AdaptiveLightingCoordinationReason.SLEEP_ACTIVE
+
+    cleared_intent = adaptive_lighting_sleep_switch_intents(
+        switch_set,
+        sleep_active=False,
+    )[0]
+    assert cleared_intent.service == SERVICE_TURN_OFF
+    assert cleared_intent.reason is AdaptiveLightingCoordinationReason.SLEEP_CLEARED
+
+
+def test_accent_adaptation_intents_pause_and_restore_behavior_switches() -> None:
+    """MA accent state should pause, then restore, brightness/color adaptation."""
+    switch_set = _switch_set()
+
+    pause_intents = adaptive_lighting_accent_adaptation_intents(
+        switch_set,
+        accent_active=True,
+    )
+
+    assert tuple(intent.domain for intent in pause_intents) == (
+        SWITCH_DOMAIN,
+        SWITCH_DOMAIN,
+    )
+    assert tuple(intent.service for intent in pause_intents) == (
+        SERVICE_TURN_OFF,
+        SERVICE_TURN_OFF,
+    )
+    assert tuple(intent.data[ATTR_ENTITY_ID] for intent in pause_intents) == (
+        "switch.adaptive_lighting_adapt_brightness_kitchen",
+        "switch.adaptive_lighting_adapt_color_kitchen",
+    )
+    assert {intent.reason for intent in pause_intents} == {
+        AdaptiveLightingCoordinationReason.ACCENT_ACTIVE
+    }
+
+    restore_intents = adaptive_lighting_accent_adaptation_intents(
+        switch_set,
+        accent_active=False,
+    )
+    assert tuple(intent.service for intent in restore_intents) == (
+        SERVICE_TURN_ON,
+        SERVICE_TURN_ON,
+    )
+    assert {intent.reason for intent in restore_intents} == {
+        AdaptiveLightingCoordinationReason.ACCENT_CLEARED
+    }
+
+
+def test_manual_restore_intent_waits_for_magic_areas_cooldown() -> None:
+    """MA should clear AL manual control only after its own cooldown expires."""
+    switch_set = _switch_set()
+
+    assert (
+        adaptive_lighting_manual_restore_intents(
+            switch_set,
+            light_entity_ids=("light.lamp",),
+            cooldown_expired=False,
+        )
+        == ()
+    )
+
+    intents = adaptive_lighting_manual_restore_intents(
+        switch_set,
+        light_entity_ids=("light.lamp",),
+        cooldown_expired=True,
+    )
+
+    assert len(intents) == 1
+    assert intents[0].domain == ADAPTIVE_LIGHTING_DOMAIN
+    assert intents[0].service == SERVICE_SET_MANUAL_CONTROL
+    assert intents[0].data == {
+        ATTR_ENTITY_ID: "switch.adaptive_lighting_kitchen",
+        ATTR_LIGHTS: ("light.lamp",),
+        "manual_control": False,
+    }
+    assert (
+        intents[0].reason
+        is AdaptiveLightingCoordinationReason.MANUAL_OVERRIDE_COOLDOWN_EXPIRED
+    )

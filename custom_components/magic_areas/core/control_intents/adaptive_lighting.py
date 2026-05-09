@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.util import slugify
@@ -15,6 +16,10 @@ SLEEP_SWITCH = "sleep"
 ADAPT_BRIGHTNESS_SWITCH = "adapt_brightness"
 ADAPT_COLOR_SWITCH = "adapt_color"
 ATTR_LIGHTS = "lights"
+SERVICE_TURN_OFF = "turn_off"
+SERVICE_TURN_ON = "turn_on"
+ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
+SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +52,27 @@ class AdaptiveLightingSwitchCandidate:
     area_id: str | None = None
     label_ids: frozenset[str] = frozenset()
     label_names: frozenset[str] = frozenset()
+
+
+class AdaptiveLightingCoordinationReason(StrEnum):
+    """Stable reason codes for Adaptive Lighting coordination side effects."""
+
+    SLEEP_ACTIVE = "sleep_active"
+    SLEEP_CLEARED = "sleep_cleared"
+    ACCENT_ACTIVE = "accent_active"
+    ACCENT_CLEARED = "accent_cleared"
+    MANUAL_OVERRIDE_COOLDOWN_ACTIVE = "manual_override_cooldown_active"
+    MANUAL_OVERRIDE_COOLDOWN_EXPIRED = "manual_override_cooldown_expired"
+
+
+@dataclass(frozen=True, slots=True)
+class AdaptiveLightingServiceIntent:
+    """Pure description of one service call needed to coordinate Adaptive Lighting."""
+
+    domain: str
+    service: str
+    data: dict[str, object]
+    reason: AdaptiveLightingCoordinationReason
 
 
 def adaptive_lighting_switch_entity_ids(name: str) -> dict[str, str]:
@@ -196,6 +222,75 @@ def adaptive_lighting_change_switch_settings_data(
     return {ATTR_ENTITY_ID: switch_entity_id, **settings}
 
 
+def adaptive_lighting_sleep_switch_intents(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    sleep_active: bool,
+) -> tuple[AdaptiveLightingServiceIntent, ...]:
+    """Return the switch action that mirrors MA sleep state into AL sleep mode."""
+    return (
+        AdaptiveLightingServiceIntent(
+            domain=SWITCH_DOMAIN,
+            service=SERVICE_TURN_ON if sleep_active else SERVICE_TURN_OFF,
+            data={ATTR_ENTITY_ID: switch_set.sleep_switch_entity_id},
+            reason=(
+                AdaptiveLightingCoordinationReason.SLEEP_ACTIVE
+                if sleep_active
+                else AdaptiveLightingCoordinationReason.SLEEP_CLEARED
+            ),
+        ),
+    )
+
+
+def adaptive_lighting_accent_adaptation_intents(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    accent_active: bool,
+) -> tuple[AdaptiveLightingServiceIntent, ...]:
+    """Return switch actions that pause or resume adaptation for MA accent mode."""
+    service = SERVICE_TURN_OFF if accent_active else SERVICE_TURN_ON
+    reason = (
+        AdaptiveLightingCoordinationReason.ACCENT_ACTIVE
+        if accent_active
+        else AdaptiveLightingCoordinationReason.ACCENT_CLEARED
+    )
+    return tuple(
+        AdaptiveLightingServiceIntent(
+            domain=SWITCH_DOMAIN,
+            service=service,
+            data={ATTR_ENTITY_ID: entity_id},
+            reason=reason,
+        )
+        for entity_id in (
+            switch_set.adapt_brightness_switch_entity_id,
+            switch_set.adapt_color_switch_entity_id,
+        )
+    )
+
+
+def adaptive_lighting_manual_restore_intents(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    light_entity_ids: Iterable[str],
+    cooldown_expired: bool,
+) -> tuple[AdaptiveLightingServiceIntent, ...]:
+    """Return manual-control restore intent only after MA cooldown expires."""
+    if not cooldown_expired:
+        return ()
+    return (
+        AdaptiveLightingServiceIntent(
+            domain=ADAPTIVE_LIGHTING_DOMAIN,
+            service=SERVICE_SET_MANUAL_CONTROL,
+            data=adaptive_lighting_manual_control_data(
+                switch_set,
+                light_entity_ids=light_entity_ids,
+                manual_control=False,
+            ),
+            reason=AdaptiveLightingCoordinationReason.MANUAL_OVERRIDE_COOLDOWN_EXPIRED,
+        ),
+    )
+
+
 def _has_required_switch_refs(switch_refs: Mapping[str, str]) -> bool:
     """Return whether explicit refs include every Adaptive Lighting switch."""
     return all(
@@ -264,13 +359,22 @@ __all__ = [
     "ADAPT_BRIGHTNESS_SWITCH",
     "ADAPT_COLOR_SWITCH",
     "ATTR_LIGHTS",
+    "ADAPTIVE_LIGHTING_DOMAIN",
     "MAIN_SWITCH",
+    "SERVICE_SET_MANUAL_CONTROL",
+    "SERVICE_TURN_OFF",
+    "SERVICE_TURN_ON",
     "SLEEP_SWITCH",
+    "AdaptiveLightingCoordinationReason",
+    "AdaptiveLightingServiceIntent",
     "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
+    "adaptive_lighting_accent_adaptation_intents",
     "adaptive_lighting_apply_data",
     "adaptive_lighting_change_switch_settings_data",
     "adaptive_lighting_manual_control_data",
+    "adaptive_lighting_manual_restore_intents",
+    "adaptive_lighting_sleep_switch_intents",
     "adaptive_lighting_switch_entity_ids",
     "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",

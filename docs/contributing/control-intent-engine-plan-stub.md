@@ -1124,6 +1124,9 @@ First implementable behavior:
   Current result: no documented durable service surface exists for creating/updating
   configurations or changing member lights. `manage` mode remains deferred unless a
   public durable config-entry/options API is identified and tested.
+- [x] Add pure coordination intents for sleep, accent, and manual-override restoration:
+  sleep toggles the AL sleep switch, accent pauses/restores AL brightness/color behavior
+  switches, and manual-control restoration waits for the Magic Areas cooldown.
 - Add no runtime dependency on Adaptive Lighting services until the resolver model and
   ownership rules are tested.
 
