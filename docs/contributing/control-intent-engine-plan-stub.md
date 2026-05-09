@@ -1042,8 +1042,9 @@ Research findings:
   - color adaptation switch: `switch.adaptive_lighting_adapt_color_<name>`
 - The main switch attributes can expose current settings and manual-control state.
 - `adaptive_lighting.apply` can apply the current Adaptive Lighting settings to selected
-  lights, with options for brightness adaptation, color adaptation, transition, and
-  whether to turn on lights.
+  lights, with the Adaptive Lighting switch passed as `entity_id` and target lights
+  passed as `lights`; options include brightness adaptation, color adaptation,
+  transition, and whether to turn on lights.
 - `adaptive_lighting.set_manual_control` can mark or unmark selected lights as manually
   controlled. This is the likely bridge for resuming Adaptive Lighting after a Magic
   Areas manual override cooldown.
@@ -1055,6 +1056,10 @@ Research findings:
 - Adaptive Lighting switches are behavior-control switches, not light power switches.
   They enable, disable, or change adaptation behavior applied to lights while Adaptive
   Lighting remains responsible for calculating brightness/color behavior.
+- Adaptive Lighting exposes `adaptive_lighting.change_switch_settings`, but the documented
+  service is runtime-only: changed settings are not persisted and reset on Home Assistant
+  restart. It also explicitly disallows changing `entity_id`, `lights`, `name`, and
+  `interval`, so it is not a durable create/update API for MA-managed configurations.
 
 Discovery constraints:
 
@@ -1115,7 +1120,10 @@ First implementable behavior:
   unambiguous switch set and rejects incomplete or ambiguous matches.
 - [x] Bind area/label discovery to HA registries while keeping ambiguity handling in
   the pure resolver.
-- [ ] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
+- [x] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
+  Current result: no documented durable service surface exists for creating/updating
+  configurations or changing member lights. `manage` mode remains deferred unless a
+  public durable config-entry/options API is identified and tested.
 - Add no runtime dependency on Adaptive Lighting services until the resolver model and
   ownership rules are tested.
 

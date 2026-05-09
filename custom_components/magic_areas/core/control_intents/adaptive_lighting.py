@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.util import slugify
 
 SWITCH_DOMAIN = "switch"
@@ -13,6 +14,7 @@ MAIN_SWITCH = "main"
 SLEEP_SWITCH = "sleep"
 ADAPT_BRIGHTNESS_SWITCH = "adapt_brightness"
 ADAPT_COLOR_SWITCH = "adapt_color"
+ATTR_LIGHTS = "lights"
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +149,53 @@ def switch_set_from_discovery_candidates(
     return matches[0]
 
 
+def adaptive_lighting_apply_data(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    light_entity_ids: Iterable[str],
+    adapt_brightness: bool | None = None,
+    adapt_color: bool | None = None,
+    turn_on_lights: bool | None = None,
+    transition: float | None = None,
+) -> dict[str, object]:
+    """Return documented service data for `adaptive_lighting.apply`."""
+    data: dict[str, object] = {
+        ATTR_ENTITY_ID: switch_set.main_switch_entity_id,
+        ATTR_LIGHTS: tuple(light_entity_ids),
+    }
+    if adapt_brightness is not None:
+        data["adapt_brightness"] = adapt_brightness
+    if adapt_color is not None:
+        data["adapt_color"] = adapt_color
+    if turn_on_lights is not None:
+        data["turn_on_lights"] = turn_on_lights
+    if transition is not None:
+        data["transition"] = transition
+    return data
+
+
+def adaptive_lighting_manual_control_data(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    light_entity_ids: Iterable[str],
+    manual_control: bool | str,
+) -> dict[str, object]:
+    """Return documented service data for `adaptive_lighting.set_manual_control`."""
+    return {
+        ATTR_ENTITY_ID: switch_set.main_switch_entity_id,
+        ATTR_LIGHTS: tuple(light_entity_ids),
+        "manual_control": manual_control,
+    }
+
+
+def adaptive_lighting_change_switch_settings_data(
+    switch_entity_id: str,
+    **settings: object,
+) -> dict[str, object]:
+    """Return documented service data for `adaptive_lighting.change_switch_settings`."""
+    return {ATTR_ENTITY_ID: switch_entity_id, **settings}
+
+
 def _has_required_switch_refs(switch_refs: Mapping[str, str]) -> bool:
     """Return whether explicit refs include every Adaptive Lighting switch."""
     return all(
@@ -214,10 +263,14 @@ def _adaptive_lighting_switch_parts(entity_id: str) -> tuple[str | None, str | N
 __all__ = [
     "ADAPT_BRIGHTNESS_SWITCH",
     "ADAPT_COLOR_SWITCH",
+    "ATTR_LIGHTS",
     "MAIN_SWITCH",
     "SLEEP_SWITCH",
     "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
+    "adaptive_lighting_apply_data",
+    "adaptive_lighting_change_switch_settings_data",
+    "adaptive_lighting_manual_control_data",
     "adaptive_lighting_switch_entity_ids",
     "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",

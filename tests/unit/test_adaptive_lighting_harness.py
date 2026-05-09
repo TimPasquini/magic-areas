@@ -15,6 +15,8 @@ from tests.unit.adaptive_lighting_testkit import (
     setup_adaptive_lighting_harness,
 )
 
+ATTR_LIGHTS = "lights"
+
 
 def _state(hass: HomeAssistant, entity_id: str) -> State:
     """Return a test state, failing clearly if the harness did not create it."""
@@ -63,8 +65,8 @@ async def test_harness_captures_apply_service_expectation(
         ADAPTIVE_LIGHTING_DOMAIN,
         SERVICE_APPLY,
         {
-            "switch": switch_set.main_switch_entity_id,
-            ATTR_ENTITY_ID: ["light.lamp"],
+            ATTR_ENTITY_ID: switch_set.main_switch_entity_id,
+            ATTR_LIGHTS: ["light.lamp"],
             "adapt_brightness": True,
             "adapt_color": False,
             "turn_on_lights": False,
@@ -75,8 +77,8 @@ async def test_harness_captures_apply_service_expectation(
     assert len(harness.calls) == 1
     assert harness.calls[0].service == SERVICE_APPLY
     assert harness.calls[0].data == {
-        "switch": switch_set.main_switch_entity_id,
-        ATTR_ENTITY_ID: ["light.lamp"],
+        ATTR_ENTITY_ID: switch_set.main_switch_entity_id,
+        ATTR_LIGHTS: ["light.lamp"],
         "adapt_brightness": True,
         "adapt_color": False,
         "turn_on_lights": False,
@@ -93,8 +95,8 @@ async def test_harness_captures_manual_control_reset_expectation(
         ADAPTIVE_LIGHTING_DOMAIN,
         SERVICE_SET_MANUAL_CONTROL,
         {
-            "switch": harness.switch_set.main_switch_entity_id,
-            ATTR_ENTITY_ID: ["light.lamp"],
+            ATTR_ENTITY_ID: harness.switch_set.main_switch_entity_id,
+            ATTR_LIGHTS: ["light.lamp"],
             "manual_control": False,
         },
         blocking=True,
@@ -103,8 +105,8 @@ async def test_harness_captures_manual_control_reset_expectation(
     assert len(harness.calls) == 1
     assert harness.calls[0].service == SERVICE_SET_MANUAL_CONTROL
     assert harness.calls[0].data == {
-        "switch": harness.switch_set.main_switch_entity_id,
-        ATTR_ENTITY_ID: ["light.lamp"],
+        ATTR_ENTITY_ID: harness.switch_set.main_switch_entity_id,
+        ATTR_LIGHTS: ["light.lamp"],
         "manual_control": False,
     }
 

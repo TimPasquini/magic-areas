@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from homeassistant.const import ATTR_ENTITY_ID
+
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
+    ATTR_LIGHTS,
     MAIN_SWITCH,
     SLEEP_SWITCH,
     AdaptiveLightingSwitchCandidate,
+    adaptive_lighting_apply_data,
+    adaptive_lighting_change_switch_settings_data,
+    adaptive_lighting_manual_control_data,
     adaptive_lighting_switch_entity_ids,
     switch_set_from_discovery_candidates,
     switch_set_from_explicit_refs,
@@ -228,3 +234,68 @@ def test_discovery_candidates_can_require_labels() -> None:
         )
         is None
     )
+
+
+def test_adaptive_lighting_apply_data_uses_documented_service_shape() -> None:
+    """Apply service data should use entity_id for AL switch and lights for targets."""
+    switch_set = switch_set_from_explicit_refs(
+        area_id="kitchen",
+        switch_refs=adaptive_lighting_switch_entity_ids("Kitchen"),
+    )
+    assert switch_set is not None
+
+    data = adaptive_lighting_apply_data(
+        switch_set,
+        light_entity_ids=("light.lamp",),
+        adapt_brightness=True,
+        adapt_color=False,
+        turn_on_lights=False,
+        transition=1.5,
+    )
+
+    assert data == {
+        ATTR_ENTITY_ID: "switch.adaptive_lighting_kitchen",
+        ATTR_LIGHTS: ("light.lamp",),
+        "adapt_brightness": True,
+        "adapt_color": False,
+        "turn_on_lights": False,
+        "transition": 1.5,
+    }
+
+
+def test_adaptive_lighting_manual_control_data_uses_documented_service_shape() -> None:
+    """Manual-control service data should target the AL switch and selected lights."""
+    switch_set = switch_set_from_explicit_refs(
+        area_id="kitchen",
+        switch_refs=adaptive_lighting_switch_entity_ids("Kitchen"),
+    )
+    assert switch_set is not None
+
+    data = adaptive_lighting_manual_control_data(
+        switch_set,
+        light_entity_ids=("light.lamp",),
+        manual_control=False,
+    )
+
+    assert data == {
+        ATTR_ENTITY_ID: "switch.adaptive_lighting_kitchen",
+        ATTR_LIGHTS: ("light.lamp",),
+        "manual_control": False,
+    }
+
+
+def test_adaptive_lighting_change_switch_settings_data_targets_behavior_switch() -> (
+    None
+):
+    """Switch-setting service data should target the behavior switch being changed."""
+    data = adaptive_lighting_change_switch_settings_data(
+        "switch.adaptive_lighting_adapt_brightness_kitchen",
+        adapt_brightness=False,
+        use_defaults="current",
+    )
+
+    assert data == {
+        ATTR_ENTITY_ID: "switch.adaptive_lighting_adapt_brightness_kitchen",
+        "adapt_brightness": False,
+        "use_defaults": "current",
+    }
