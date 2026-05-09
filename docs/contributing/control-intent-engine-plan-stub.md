@@ -946,12 +946,46 @@ Implemented Phase 6 slice:
   `GroupRegistry` category metadata.
 - [x] Add custom-control target resolution through the shared resolver: reconciled
   `ma:control:*` labels first, config member lists as compatibility fallback.
+- [x] Complete light runtime membership census:
+  - `light_groups/runtime.py` no longer reads `GroupRegistry` or category metadata as
+    runtime membership truth.
+  - `AreaLightGroup._resolved_role_members(...)` resolves sleep/accent memberships
+    through reconciled labels first and uses config lists only as bounded compatibility
+    fallback.
+  - `_entity_ids` remains the current light-group entity boundary and suppression source
+    set, not durable role membership truth.
+  - `category` remains policy/role identity for branching, diagnostics, and stable unique
+    IDs.
+- [x] Decide generated light group entity purpose:
+  - native HA helper groups remain the preferred user-facing dashboard/command/service
+    target for exact room/role light groups.
+  - hidden `AreaLightGroup` entities remain compatibility policy entities for listener
+    ownership, command echo, manual override, fallback dispatch, and debug attributes.
+  - generated `ControlGroupDefinition` entries for light groups remain transitional
+    compatibility registration only; they should not regain runtime membership authority.
+  - parent/all-lights helpers remain useful as exact room-wide command surfaces, while
+    parent hidden policy entities remain useful for all-lights policy coordination.
+- [x] Decide broad HA `label_id` usage for this phase:
+  - broad label targets are safe only for explicitly broad semantic actions where acting
+    on every entity with that label is intended.
+  - normal room/role automation must not use broad labels because HA label targets are
+    not area/domain/role intersections.
+  - exact room/role actions should use native helper entities when available.
+  - filtered, intersection, and suppression actions should use explicit resolved entity
+    IDs.
+- [x] Document explicit compatibility-surface reasons:
+  - hidden light policy entities: listener ownership, command echo, manual override,
+    fallback dispatch, and debug attributes.
+  - native helper groups: preferred HA-facing exact command/dashboard surface.
+  - `GroupRegistry`: fan/media/climate target compatibility, custom control definition
+    compatibility, and transitional light group registration.
+  - config member lists: guided user authoring and reconciliation input.
 
 Remaining Phase 6 working checklist:
 
-- [ ] Decide which generated category/parent group entities remain useful as dashboard,
+- [x] Decide which generated category/parent group entities remain useful as dashboard,
   command, diagnostics, or compatibility surfaces.
-- [ ] Identify any remaining light runtime paths that still read category/group
+- [x] Identify any remaining light runtime paths that still read category/group
   membership as truth instead of labels/helpers/resolved subsets.
 - [x] Decide custom control membership model for this phase: keep stored config member
   lists as the authoring surface and reconciliation input; prefer reconciled labels for
@@ -960,11 +994,15 @@ Remaining Phase 6 working checklist:
   practical.
 - [x] Decide Phase 6 listener ownership: keep hidden `AreaLightGroup` policy entities as
   command-echo/manual-override/listener owners for now.
-- [ ] Revisit whether hidden `AreaLightGroup` policy entities can be reduced or removed
-  after the intent engine target model is stable.
-- [ ] Decide which simple actions can safely use broad HA `label_id` targets.
-- [ ] Document explicit reasons for every compatibility surface that remains after this
+- [x] Decide which simple actions can safely use broad HA `label_id` targets.
+- [x] Document explicit reasons for every compatibility surface that remains after this
   phase.
+
+Deferred beyond Phase 6:
+
+- Revisit whether hidden `AreaLightGroup` policy entities can be reduced or removed after
+  the intent engine target model is stable enough to preserve manual override, command
+  echo, listener ownership, and diagnostics deliberately.
 
 Current compatibility fallbacks:
 
@@ -976,7 +1014,8 @@ Current compatibility fallbacks:
   entities when the helper does not exist yet. Hidden policy entities also remain the
   owner for light listener state, command echo, manual override, and debug attributes.
 - `GroupRegistry` remains available as compatibility input for current fan/media/climate
-  target lookup and custom control definitions.
+  target lookup, custom control definitions, and transitional light group registration.
+  Light runtime should not consume it as membership truth.
 - Custom control group config still stores explicit member lists because those lists are
   the guided authoring surface and reconciliation input. Runtime target resolution can
   consume reconciled `ma:control:*` labels first and fall back to those config members.
