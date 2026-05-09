@@ -12,6 +12,9 @@ from custom_components.magic_areas.core.control_intents.adaptive_lighting import
     switch_set_from_explicit_refs,
     switch_set_from_name_candidates,
 )
+from custom_components.magic_areas.core.control_intents.adaptive_lighting_registry import (
+    switch_set_from_hass_registry,
+)
 from custom_components.magic_areas.core.control_intents.engine import (
     ConstraintEffect,
     ControlIntent,
@@ -57,5 +60,6 @@ __all__ = [
     "resolve_role_target",
     "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",
+    "switch_set_from_hass_registry",
     "switch_set_from_name_candidates",
 ]

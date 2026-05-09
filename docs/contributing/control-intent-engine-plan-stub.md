@@ -1113,8 +1113,8 @@ First implementable behavior:
   events without importing the HACS integration.
 - [x] Add pure area/label discovery matching that resolves only one complete,
   unambiguous switch set and rejects incomplete or ambiguous matches.
-- [ ] Bind area/label discovery to HA registries after the pure matching rules remain
-  stable.
+- [x] Bind area/label discovery to HA registries while keeping ambiguity handling in
+  the pure resolver.
 - [ ] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
 - Add no runtime dependency on Adaptive Lighting services until the resolver model and
   ownership rules are tested.
