@@ -291,6 +291,50 @@ def adaptive_lighting_manual_restore_intents(
     )
 
 
+def adaptive_lighting_state_coordination_intents(
+    switch_set: AdaptiveLightingSwitchSet,
+    *,
+    new_states: Iterable[str],
+    lost_states: Iterable[str],
+) -> tuple[AdaptiveLightingServiceIntent, ...]:
+    """Return AL coordination intents for MA area-state transitions."""
+    intents: list[AdaptiveLightingServiceIntent] = []
+    new_state_set = set(new_states)
+    lost_state_set = set(lost_states)
+
+    if "sleep" in new_state_set:
+        intents.extend(
+            adaptive_lighting_sleep_switch_intents(
+                switch_set,
+                sleep_active=True,
+            )
+        )
+    elif "sleep" in lost_state_set:
+        intents.extend(
+            adaptive_lighting_sleep_switch_intents(
+                switch_set,
+                sleep_active=False,
+            )
+        )
+
+    if "accented" in new_state_set:
+        intents.extend(
+            adaptive_lighting_accent_adaptation_intents(
+                switch_set,
+                accent_active=True,
+            )
+        )
+    elif "accented" in lost_state_set:
+        intents.extend(
+            adaptive_lighting_accent_adaptation_intents(
+                switch_set,
+                accent_active=False,
+            )
+        )
+
+    return tuple(intents)
+
+
 def _has_required_switch_refs(switch_refs: Mapping[str, str]) -> bool:
     """Return whether explicit refs include every Adaptive Lighting switch."""
     return all(
@@ -375,6 +419,7 @@ __all__ = [
     "adaptive_lighting_manual_control_data",
     "adaptive_lighting_manual_restore_intents",
     "adaptive_lighting_sleep_switch_intents",
+    "adaptive_lighting_state_coordination_intents",
     "adaptive_lighting_switch_entity_ids",
     "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",

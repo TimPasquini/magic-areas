@@ -23,6 +23,7 @@ from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_manual_control_data,
     adaptive_lighting_manual_restore_intents,
     adaptive_lighting_sleep_switch_intents,
+    adaptive_lighting_state_coordination_intents,
     adaptive_lighting_switch_entity_ids,
     switch_set_from_discovery_candidates,
     switch_set_from_explicit_refs,
@@ -406,4 +407,60 @@ def test_manual_restore_intent_waits_for_magic_areas_cooldown() -> None:
     assert (
         intents[0].reason
         is AdaptiveLightingCoordinationReason.MANUAL_OVERRIDE_COOLDOWN_EXPIRED
+    )
+
+
+def test_state_coordination_intents_track_sleep_and_accent_transitions() -> None:
+    """State-transition combiner should emit only changed AL coordination intents."""
+    switch_set = _switch_set()
+
+    intents = adaptive_lighting_state_coordination_intents(
+        switch_set,
+        new_states=("sleep", "accented"),
+        lost_states=(),
+    )
+
+    assert tuple(intent.service for intent in intents) == (
+        SERVICE_TURN_ON,
+        SERVICE_TURN_OFF,
+        SERVICE_TURN_OFF,
+    )
+    assert tuple(intent.data[ATTR_ENTITY_ID] for intent in intents) == (
+        "switch.adaptive_lighting_sleep_mode_kitchen",
+        "switch.adaptive_lighting_adapt_brightness_kitchen",
+        "switch.adaptive_lighting_adapt_color_kitchen",
+    )
+    assert tuple(intent.reason for intent in intents) == (
+        AdaptiveLightingCoordinationReason.SLEEP_ACTIVE,
+        AdaptiveLightingCoordinationReason.ACCENT_ACTIVE,
+        AdaptiveLightingCoordinationReason.ACCENT_ACTIVE,
+    )
+
+    cleared_intents = adaptive_lighting_state_coordination_intents(
+        switch_set,
+        new_states=(),
+        lost_states=("sleep", "accented"),
+    )
+
+    assert tuple(intent.service for intent in cleared_intents) == (
+        SERVICE_TURN_OFF,
+        SERVICE_TURN_ON,
+        SERVICE_TURN_ON,
+    )
+    assert tuple(intent.reason for intent in cleared_intents) == (
+        AdaptiveLightingCoordinationReason.SLEEP_CLEARED,
+        AdaptiveLightingCoordinationReason.ACCENT_CLEARED,
+        AdaptiveLightingCoordinationReason.ACCENT_CLEARED,
+    )
+
+
+def test_state_coordination_intents_ignore_stable_states() -> None:
+    """Stable current states should not produce duplicate AL service intents."""
+    assert (
+        adaptive_lighting_state_coordination_intents(
+            _switch_set(),
+            new_states=("occupied",),
+            lost_states=(),
+        )
+        == ()
     )
