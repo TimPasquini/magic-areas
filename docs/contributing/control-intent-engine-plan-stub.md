@@ -1108,6 +1108,9 @@ First implementable behavior:
   - optional associated Magic Areas role/group ID
 - [x] Add resolver tests for explicit switch-set references and complete conventional
   name candidates, without service calls.
+- [x] Add a mocked Adaptive Lighting test harness that creates the four behavior switches,
+  captures expected `adaptive_lighting.*` service calls, and can fire manual-control
+  events without importing the HACS integration.
 - [ ] Add label/area discovery only after matching rules can prove one unambiguous switch
   set.
 - [ ] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
