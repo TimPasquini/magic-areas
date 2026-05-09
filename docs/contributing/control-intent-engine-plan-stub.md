@@ -1127,8 +1127,11 @@ First implementable behavior:
 - [x] Add pure coordination intents for sleep, accent, and manual-override restoration:
   sleep toggles the AL sleep switch, accent pauses/restores AL brightness/color behavior
   switches, and manual-control restoration waits for the Magic Areas cooldown.
-- Add no runtime dependency on Adaptive Lighting services until the resolver model and
-  ownership rules are tested.
+- [x] Add a guarded light-runtime scheduler that executes Adaptive Lighting
+  state-transition intents only when a light group has an associated switch set. This
+  keeps the runtime inert until adoption/config wiring explicitly provides a target.
+- Add no unconditional runtime dependency on Adaptive Lighting services; all service
+  execution must remain behind explicit switch-set association.
 
 References:
 

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import Mock
 
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 import pytest
@@ -18,7 +19,11 @@ from custom_components.magic_areas.core.controls import ControlActionType
 from custom_components.magic_areas.light_groups import CommandEchoState
 from custom_components.magic_areas.light_groups import AreaLightGroup
 from custom_components.magic_areas.light_groups import LightAction
+from custom_components.magic_areas.light_groups import (
+    schedule_adaptive_lighting_state_coordination,
+)
 from custom_components.magic_areas.light_groups import turn_on
+from tests.unit.adaptive_lighting_testkit import setup_adaptive_lighting_harness
 
 
 def _fake_group() -> SimpleNamespace:
@@ -240,7 +245,9 @@ def test_current_control_target_state_falls_back_to_policy_entity_state() -> Non
     """Unknown native helper state should not block the legacy fallback path."""
     group = SimpleNamespace(
         hass=SimpleNamespace(
-            states=SimpleNamespace(get=lambda _entity_id: SimpleNamespace(state="unknown"))
+            states=SimpleNamespace(
+                get=lambda _entity_id: SimpleNamespace(state="unknown")
+            )
         ),
         _control_target_entity_id=Mock(
             return_value="light.magic_areas_native_living_room_overhead"
@@ -265,7 +272,9 @@ def test_light_member_suppression_members_prefers_reconciled_labels(
     )
     sleep_label = lr.async_get(hass).async_create("ma:sleep")
     for entry in (sleep_lamp, other_room_sleep_lamp):
-        entity_registry.async_update_entity(entry.entity_id, labels={sleep_label.label_id})
+        entity_registry.async_update_entity(
+            entry.entity_id, labels={sleep_label.label_id}
+        )
 
     group = SimpleNamespace(
         hass=hass,
@@ -336,3 +345,44 @@ async def test_dispatch_light_action_targets_native_helper(
     assert decision.actions[0].target_entity_ids == (
         "light.magic_areas_native_living_room_overhead",
     )
+
+
+@pytest.mark.asyncio
+async def test_adaptive_lighting_coordination_schedules_area_state_intents(
+    hass: HomeAssistant,
+) -> None:
+    """Light runtime should schedule AL side effects without changing policy actions."""
+    harness = await setup_adaptive_lighting_harness(hass)
+    group = _fake_group()
+    group.hass = hass
+    group._adaptive_lighting_switch_set = harness.switch_set
+
+    scheduled = schedule_adaptive_lighting_state_coordination(
+        group,
+        (["sleep", "accented"], [], ["occupied", "sleep", "accented"]),
+    )
+    await hass.async_block_till_done()
+
+    assert scheduled
+    assert [call.service for call in harness.calls] == [
+        "switch.turn_on",
+        "switch.turn_off",
+        "switch.turn_off",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_adaptive_lighting_coordination_is_inert_without_switch_set(
+    hass: HomeAssistant,
+) -> None:
+    """Runtime hook should do nothing until a target has opted into AL coordination."""
+    group = _fake_group()
+    group.hass = hass
+
+    scheduled = schedule_adaptive_lighting_state_coordination(
+        group,
+        (["sleep"], [], ["occupied", "sleep"]),
+    )
+    await hass.async_block_till_done()
+
+    assert not scheduled

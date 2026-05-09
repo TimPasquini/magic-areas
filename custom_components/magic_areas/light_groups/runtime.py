@@ -29,15 +29,20 @@ from custom_components.magic_areas.core.controls import (
     resolve_area_presence_states,
 )
 from custom_components.magic_areas.core.control_intents import (
+    AdaptiveLightingSwitchSet,
     ControlTargetKind,
     ControlTargetPrecision,
     ControlTargetSource,
     IntentAction,
     IntentReason,
     RoleTarget,
+    adaptive_lighting_state_coordination_intents,
+    async_execute_adaptive_lighting_intents,
 )
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.core.runtime_model.feature_ids import build_light_group_id
+from custom_components.magic_areas.core.runtime_model.feature_ids import (
+    build_light_group_id,
+)
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.light_groups.policy import CommandEchoState
 from custom_components.magic_areas.light_groups.policy import (
@@ -50,7 +55,9 @@ from custom_components.magic_areas.light_groups.intent_adapter import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
-    from custom_components.magic_areas.light_groups.policy import LightControlGroupPolicy
+    from custom_components.magic_areas.light_groups.policy import (
+        LightControlGroupPolicy,
+    )
 
 
 class _LightGroupHost(Protocol):
@@ -68,6 +75,7 @@ class _LightGroupHost(Protocol):
     _child_categories: list[str]
     _child_ids: list[str] | None
     _entity_ids: list[str]
+    _adaptive_lighting_switch_set: AdaptiveLightingSwitchSet | None
     _area_id: str
     category: str | None
     entity_id: str
@@ -105,7 +113,9 @@ class _LightGroupHost(Protocol):
     def _set_echo_state(self, state: CommandEchoState) -> None: ...
     def async_write_ha_state(self) -> None: ...
     def is_control_enabled(self) -> bool: ...
-    def track_group_listener(self, remove_listener: Callable[[], None], name: str) -> None: ...
+    def track_group_listener(
+        self, remove_listener: Callable[[], None], name: str
+    ) -> None: ...
     def area_state_changed(
         self, area_id: str, states_tuple: tuple[list[str], list[str], list[str]]
     ) -> bool: ...
@@ -262,7 +272,8 @@ def evaluate_state_change(
         if attribution_hold_required <= 0
         else (
             host._last_control_activity_monotonic is None
-            or (now - host._last_control_activity_monotonic) >= attribution_hold_required
+            or (now - host._last_control_activity_monotonic)
+            >= attribution_hold_required
         )
     )
     host._attr_extra_state_attributes["adaptive_guards"] = {
@@ -326,6 +337,7 @@ def handle_area_state_change(
     _new_states, _lost_states, current_states = states_tuple
     host._last_known_area_states = list(current_states)
     host._last_known_area_states_from_dispatcher = True
+    schedule_adaptive_lighting_state_coordination(host, states_tuple)
 
     return evaluate_state_change(
         host,
@@ -347,6 +359,30 @@ def apply_decision(host: _LightGroupHost, decision: ControlGroupDecision) -> boo
     if decision.action_type == ControlActionType.DEACTIVATE:
         return turn_off(host)
     return False
+
+
+def schedule_adaptive_lighting_state_coordination(
+    host: _LightGroupHost,
+    states_tuple: tuple[list[str], list[str], list[str]],
+) -> bool:
+    """Schedule Adaptive Lighting coordination for area-state transitions."""
+    switch_set = getattr(host, "_adaptive_lighting_switch_set", None)
+    if switch_set is None:
+        return False
+
+    new_states, lost_states, _current_states = states_tuple
+    intents = adaptive_lighting_state_coordination_intents(
+        switch_set,
+        new_states=new_states,
+        lost_states=lost_states,
+    )
+    if not intents:
+        return False
+
+    host.hass.async_create_task(
+        async_execute_adaptive_lighting_intents(host.hass, intents)
+    )
+    return True
 
 
 def apply_runtime_effect(
@@ -539,7 +575,10 @@ def _intent_dispatch_plan(
 ) -> _IntentDispatchPlan:
     """Return suppression-aware dispatch target metadata."""
     current_states = tuple(getattr(host, "_last_known_area_states", ()))
-    if AreaStates.SLEEP not in current_states and AreaStates.ACCENT not in current_states:
+    if (
+        AreaStates.SLEEP not in current_states
+        and AreaStates.ACCENT not in current_states
+    ):
         return _IntentDispatchPlan()
 
     sleep_entity_ids, accent_entity_ids = host.light_member_suppression_members()
@@ -570,7 +609,9 @@ def _intent_dispatch_plan(
 
     surviving_entity_ids = set(decision.target_entity_ids)
     suppressed_entity_ids = tuple(
-        entity_id for entity_id in source_entity_ids if entity_id not in surviving_entity_ids
+        entity_id
+        for entity_id in source_entity_ids
+        if entity_id not in surviving_entity_ids
     )
     if action is LightAction.TURN_OFF:
         return _IntentDispatchPlan(
@@ -678,7 +719,10 @@ def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
     new_state = event_data.get("new_state")
     if old_state is None or new_state is None:
         return False
-    if getattr(old_state, "state", None) != STATE_ON or getattr(new_state, "state", None) != STATE_ON:
+    if (
+        getattr(old_state, "state", None) != STATE_ON
+        or getattr(new_state, "state", None) != STATE_ON
+    ):
         return False
     old_attrs = getattr(old_state, "attributes", {})
     new_attrs = getattr(new_state, "attributes", {})

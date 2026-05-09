@@ -72,9 +72,11 @@ from custom_components.magic_areas.light_groups.config import (
 from custom_components.magic_areas.light_groups.runtime import (
     is_valid_origin_state_toggle,
     process_secondary_group_state_change,
+    schedule_adaptive_lighting_state_coordination,
     turn_off,
     turn_on,
 )
+
 __all__ = [
     "AreaLightGroup",
     "CONF_LIGHT_GROUP_BRIGHTNESS_MODE",
@@ -137,6 +139,7 @@ __all__ = [
     "MagicLightGroup",
     "build_light_group_helper_surface_unique_id",
     "process_secondary_group_state_change",
+    "schedule_adaptive_lighting_state_coordination",
     "build_light_control_group_policy",
     "light_action_to_control_group",
     "turn_off",
