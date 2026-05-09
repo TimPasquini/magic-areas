@@ -37,6 +37,16 @@ class AdaptiveLightingSwitchSet:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class AdaptiveLightingSwitchCandidate:
+    """Registry-shaped Adaptive Lighting switch candidate used for pure matching."""
+
+    entity_id: str
+    area_id: str | None = None
+    label_ids: frozenset[str] = frozenset()
+    label_names: frozenset[str] = frozenset()
+
+
 def adaptive_lighting_switch_entity_ids(name: str) -> dict[str, str]:
     """Return the conventional Adaptive Lighting switch IDs for a configuration name."""
     slug = slugify(name)
@@ -83,7 +93,58 @@ def switch_set_from_name_candidates(
     candidates = set(candidate_entity_ids)
     if not all(entity_id in candidates for entity_id in expected.values()):
         return None
-    return switch_set_from_explicit_refs(area_id=area_id, switch_refs=expected, role=role)
+    return switch_set_from_explicit_refs(
+        area_id=area_id, switch_refs=expected, role=role
+    )
+
+
+def switch_set_from_discovery_candidates(
+    *,
+    area_id: str,
+    candidates: Iterable[AdaptiveLightingSwitchCandidate],
+    role: str | None = None,
+    required_label_ids: Iterable[str] = (),
+    required_label_names: Iterable[str] = (),
+) -> AdaptiveLightingSwitchSet | None:
+    """Resolve one unambiguous switch set from area/label-filtered candidates.
+
+    This stays pure so the matching contract can be proven before binding it to HA
+    registries. A candidate must match the requested area or all required labels; this
+    prevents area-less switches from being adopted by name alone.
+    """
+    required_ids = frozenset(required_label_ids)
+    required_names = frozenset(required_label_names)
+    grouped: dict[str, dict[str, str]] = {}
+
+    for candidate in candidates:
+        if not _candidate_matches_scope(
+            candidate,
+            area_id=area_id,
+            required_label_ids=required_ids,
+            required_label_names=required_names,
+        ):
+            continue
+
+        switch_type, group_slug = _adaptive_lighting_switch_parts(candidate.entity_id)
+        if switch_type is None or group_slug is None:
+            continue
+        grouped.setdefault(group_slug, {})[switch_type] = candidate.entity_id
+
+    matches = [
+        switch_set
+        for switch_refs in grouped.values()
+        if (
+            switch_set := switch_set_from_explicit_refs(
+                area_id=area_id,
+                role=role,
+                switch_refs=switch_refs,
+            )
+        )
+        is not None
+    ]
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 def _has_required_switch_refs(switch_refs: Mapping[str, str]) -> bool:
@@ -104,13 +165,61 @@ def _is_switch_entity_id(entity_id: str) -> bool:
     return entity_id.startswith(f"{SWITCH_DOMAIN}.")
 
 
+def _candidate_matches_scope(
+    candidate: AdaptiveLightingSwitchCandidate,
+    *,
+    area_id: str,
+    required_label_ids: frozenset[str],
+    required_label_names: frozenset[str],
+) -> bool:
+    """Return whether an AL switch candidate is safely scoped to this MA target."""
+    label_ids_match = bool(required_label_ids) and required_label_ids.issubset(
+        candidate.label_ids
+    )
+    label_names_match = bool(required_label_names) and required_label_names.issubset(
+        candidate.label_names
+    )
+    if required_label_ids and not label_ids_match:
+        return False
+    if required_label_names and not label_names_match:
+        return False
+    if required_label_ids or required_label_names:
+        return True
+    return candidate.area_id == area_id
+
+
+def _adaptive_lighting_switch_parts(entity_id: str) -> tuple[str | None, str | None]:
+    """Return the Adaptive Lighting switch type and shared group slug."""
+    if not _is_switch_entity_id(entity_id):
+        return None, None
+
+    object_id = entity_id.removeprefix(f"{SWITCH_DOMAIN}.")
+    prefix = f"{ADAPTIVE_LIGHTING_PREFIX}_"
+    if not object_id.startswith(prefix):
+        return None, None
+
+    suffix = object_id.removeprefix(prefix)
+    for switch_type, switch_prefix in (
+        (SLEEP_SWITCH, "sleep_mode_"),
+        (ADAPT_BRIGHTNESS_SWITCH, "adapt_brightness_"),
+        (ADAPT_COLOR_SWITCH, "adapt_color_"),
+    ):
+        if suffix.startswith(switch_prefix):
+            group_slug = suffix.removeprefix(switch_prefix)
+            return (switch_type, group_slug) if group_slug else (None, None)
+
+    return (MAIN_SWITCH, suffix) if suffix else (None, None)
+
+
 __all__ = [
     "ADAPT_BRIGHTNESS_SWITCH",
     "ADAPT_COLOR_SWITCH",
     "MAIN_SWITCH",
     "SLEEP_SWITCH",
+    "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
     "adaptive_lighting_switch_entity_ids",
+    "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",
     "switch_set_from_name_candidates",
 ]

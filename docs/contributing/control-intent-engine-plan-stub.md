@@ -1111,8 +1111,10 @@ First implementable behavior:
 - [x] Add a mocked Adaptive Lighting test harness that creates the four behavior switches,
   captures expected `adaptive_lighting.*` service calls, and can fire manual-control
   events without importing the HACS integration.
-- [ ] Add label/area discovery only after matching rules can prove one unambiguous switch
-  set.
+- [x] Add pure area/label discovery matching that resolves only one complete,
+  unambiguous switch set and rejects incomplete or ambiguous matches.
+- [ ] Bind area/label discovery to HA registries after the pure matching rules remain
+  stable.
 - [ ] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
 - Add no runtime dependency on Adaptive Lighting services until the resolver model and
   ownership rules are tested.

@@ -5,8 +5,10 @@ from custom_components.magic_areas.core.control_intents.adaptive_lighting import
     ADAPT_COLOR_SWITCH,
     MAIN_SWITCH,
     SLEEP_SWITCH,
+    AdaptiveLightingSwitchCandidate,
     AdaptiveLightingSwitchSet,
     adaptive_lighting_switch_entity_ids,
+    switch_set_from_discovery_candidates,
     switch_set_from_explicit_refs,
     switch_set_from_name_candidates,
 )
@@ -36,6 +38,7 @@ __all__ = [
     "ADAPT_COLOR_SWITCH",
     "MAIN_SWITCH",
     "SLEEP_SWITCH",
+    "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
     "ConstraintEffect",
     "ControlIntent",
@@ -52,6 +55,7 @@ __all__ = [
     "evaluate_intent",
     "resolve_custom_control_target",
     "resolve_role_target",
+    "switch_set_from_discovery_candidates",
     "switch_set_from_explicit_refs",
     "switch_set_from_name_candidates",
 ]
