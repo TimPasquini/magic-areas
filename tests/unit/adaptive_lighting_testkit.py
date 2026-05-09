@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections.abc import Callable
 
-from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 
 from custom_components.magic_areas.core.control_intents import (
@@ -19,9 +19,12 @@ from custom_components.magic_areas.core.control_intents import (
 )
 
 ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
+SWITCH_DOMAIN = "switch"
 SERVICE_APPLY = "apply"
 SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
 SERVICE_CHANGE_SWITCH_SETTINGS = "change_switch_settings"
+SERVICE_TURN_OFF = "turn_off"
+SERVICE_TURN_ON = "turn_on"
 EVENT_MANUAL_CONTROL = "adaptive_lighting.manual_control"
 
 
@@ -65,7 +68,9 @@ class AdaptiveLightingHarness:
         """Create mocked switches and register mocked services/events."""
         self._set_switch_states()
         self._register_services()
-        self.hass.bus.async_listen(EVENT_MANUAL_CONTROL, self._record_manual_control_event)
+        self.hass.bus.async_listen(
+            EVENT_MANUAL_CONTROL, self._record_manual_control_event
+        )
         await self.hass.async_block_till_done()
 
     def fire_manual_control_event(
@@ -109,13 +114,45 @@ class AdaptiveLightingHarness:
                 service,
                 self._capture_service_call(service),
             )
+        for service in (SERVICE_TURN_OFF, SERVICE_TURN_ON):
+            if self.hass.services.has_service(SWITCH_DOMAIN, service):
+                continue
+            self.hass.services.async_register(
+                SWITCH_DOMAIN,
+                service,
+                self._capture_switch_service_call(service),
+            )
 
     def _capture_service_call(self, service: str) -> Callable[[ServiceCall], None]:
         """Return a callback that captures one mocked service call."""
 
         @callback
         def _capture(call: ServiceCall) -> None:
-            self.calls.append(AdaptiveLightingCall(service=service, data=dict(call.data)))
+            self.calls.append(
+                AdaptiveLightingCall(service=service, data=dict(call.data))
+            )
+
+        return _capture
+
+    def _capture_switch_service_call(
+        self, service: str
+    ) -> Callable[[ServiceCall], None]:
+        """Return a callback that captures and mirrors one switch service call."""
+
+        @callback
+        def _capture(call: ServiceCall) -> None:
+            data = dict(call.data)
+            entity_ids = data.get(ATTR_ENTITY_ID)
+            if isinstance(entity_ids, str):
+                entity_ids = [entity_ids]
+            if isinstance(entity_ids, list):
+                next_state = STATE_ON if service == SERVICE_TURN_ON else STATE_OFF
+                for entity_id in entity_ids:
+                    if isinstance(entity_id, str):
+                        self.hass.states.async_set(entity_id, next_state)
+            self.calls.append(
+                AdaptiveLightingCall(service=f"{SWITCH_DOMAIN}.{service}", data=data)
+            )
 
         return _capture
 
@@ -149,6 +186,9 @@ __all__ = [
     "SERVICE_APPLY",
     "SERVICE_CHANGE_SWITCH_SETTINGS",
     "SERVICE_SET_MANUAL_CONTROL",
+    "SERVICE_TURN_OFF",
+    "SERVICE_TURN_ON",
+    "SWITCH_DOMAIN",
     "AdaptiveLightingCall",
     "AdaptiveLightingHarness",
     "setup_adaptive_lighting_harness",

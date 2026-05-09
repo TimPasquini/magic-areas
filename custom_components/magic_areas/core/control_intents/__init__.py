@@ -28,6 +28,9 @@ from custom_components.magic_areas.core.control_intents.adaptive_lighting import
 from custom_components.magic_areas.core.control_intents.adaptive_lighting_registry import (
     switch_set_from_hass_registry,
 )
+from custom_components.magic_areas.core.control_intents.adaptive_lighting_executor import (
+    async_execute_adaptive_lighting_intents,
+)
 from custom_components.magic_areas.core.control_intents.engine import (
     ConstraintEffect,
     ControlIntent,
@@ -80,6 +83,7 @@ __all__ = [
     "adaptive_lighting_manual_restore_intents",
     "adaptive_lighting_sleep_switch_intents",
     "adaptive_lighting_switch_entity_ids",
+    "async_execute_adaptive_lighting_intents",
     "custom_control_label_name",
     "evaluate_intent",
     "resolve_custom_control_target",
