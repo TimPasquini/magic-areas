@@ -1,5 +1,15 @@
 """Control intent engine contracts."""
 
+from custom_components.magic_areas.core.control_intents.adaptive_lighting import (
+    ADAPT_BRIGHTNESS_SWITCH,
+    ADAPT_COLOR_SWITCH,
+    MAIN_SWITCH,
+    SLEEP_SWITCH,
+    AdaptiveLightingSwitchSet,
+    adaptive_lighting_switch_entity_ids,
+    switch_set_from_explicit_refs,
+    switch_set_from_name_candidates,
+)
 from custom_components.magic_areas.core.control_intents.engine import (
     ConstraintEffect,
     ControlIntent,
@@ -22,6 +32,11 @@ from custom_components.magic_areas.core.control_intents.targets import (
 )
 
 __all__ = [
+    "ADAPT_BRIGHTNESS_SWITCH",
+    "ADAPT_COLOR_SWITCH",
+    "MAIN_SWITCH",
+    "SLEEP_SWITCH",
+    "AdaptiveLightingSwitchSet",
     "ConstraintEffect",
     "ControlIntent",
     "ControlTargetKind",
@@ -32,8 +47,11 @@ __all__ = [
     "IntentDecision",
     "IntentReason",
     "RoleTarget",
+    "adaptive_lighting_switch_entity_ids",
     "custom_control_label_name",
     "evaluate_intent",
     "resolve_custom_control_target",
     "resolve_role_target",
+    "switch_set_from_explicit_refs",
+    "switch_set_from_name_candidates",
 ]

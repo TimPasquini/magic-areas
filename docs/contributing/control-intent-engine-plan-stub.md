@@ -1033,6 +1033,82 @@ Exit criteria:
 - Determine whether room/group/label matching can reliably find the four switches.
 - Define desired behavior for sleep, accent, and manual override cooldown interaction.
 
+Research findings:
+
+- Adaptive Lighting exposes four switch entities per configuration:
+  - main enable switch: `switch.adaptive_lighting_<name>`
+  - sleep mode switch: `switch.adaptive_lighting_sleep_mode_<name>`
+  - brightness adaptation switch: `switch.adaptive_lighting_adapt_brightness_<name>`
+  - color adaptation switch: `switch.adaptive_lighting_adapt_color_<name>`
+- The main switch attributes can expose current settings and manual-control state.
+- `adaptive_lighting.apply` can apply the current Adaptive Lighting settings to selected
+  lights, with options for brightness adaptation, color adaptation, transition, and
+  whether to turn on lights.
+- `adaptive_lighting.set_manual_control` can mark or unmark selected lights as manually
+  controlled. This is the likely bridge for resuming Adaptive Lighting after a Magic
+  Areas manual override cooldown.
+- Adaptive Lighting fires `adaptive_lighting.manual_control` when it marks a light as
+  manually controlled.
+- Adaptive Lighting manual-control semantics overlap with Magic Areas command echo/manual
+  override semantics. The first implementation must not let the two systems fight over
+  ownership.
+
+Discovery constraints:
+
+- Naming convention is predictable but not sufficient as the only resolver because user
+  configuration names may not match Magic Areas room/role names.
+- Same-room matching may work when Adaptive Lighting switch entities are assigned to the
+  same HA area, but that depends on user registry metadata.
+- Label matching is promising once Magic Areas reconciles canonical room/role labels, but
+  Adaptive Lighting switches will need explicit user labeling or an adapter-owned
+  reconciliation step.
+- Exact stored references may be necessary for v1 if automatic discovery is ambiguous.
+
+Recommended first implementation boundary:
+
+- Keep Adaptive Lighting optional and disabled unless explicitly configured.
+- Do not create or mutate Adaptive Lighting configurations in the first implementation.
+- Discover or accept references to existing Adaptive Lighting switch sets.
+- Model one Adaptive Lighting switch set as an external ambient-control target associated
+  with one Magic Areas room/role target.
+- Prefer explicit configured switch references first; add label/area discovery only when
+  the matching rules can prove a single unambiguous switch set.
+- Use Magic Areas' existing manual override state as the authority. Adaptive Lighting
+  should be paused/resumed around that state, not allowed to independently reclaim lights.
+- Treat sleep coordination as an effect of Magic Areas `sleep`: Magic Areas may turn on
+  the corresponding Adaptive Lighting sleep switch while sleep is active and turn it off
+  when sleep clears, but only for configured/adopted switch sets.
+- Treat accent coordination as a suppressive/ambient pause: when accent mode intentionally
+  creates a viewing scene, Magic Areas may pause brightness/color adaptation for affected
+  lights and restore it when accent clears.
+- Restoration should clear Adaptive Lighting manual-control state for affected lights
+  only after the Magic Areas manual override cooldown expires.
+
+First implementable behavior:
+
+- [x] Add pure models for an Adaptive Lighting switch set:
+  - main switch entity ID
+  - sleep mode switch entity ID
+  - adapt brightness switch entity ID
+  - adapt color switch entity ID
+  - associated Magic Areas area ID
+  - optional associated Magic Areas role/group ID
+- [x] Add resolver tests for explicit switch-set references and complete conventional
+  name candidates, without service calls.
+- [ ] Add label/area discovery only after matching rules can prove one unambiguous switch
+  set.
+- Add no runtime dependency on Adaptive Lighting services until the resolver model and
+  ownership rules are tested.
+
+References:
+
+- Adaptive Lighting docs: `https://adaptive-lighting.nijho.lt/`
+- Adaptive Lighting services: `https://adaptive-lighting.nijho.lt/services/`
+- Adaptive Lighting manual control:
+  `https://adaptive-lighting.nijho.lt/advanced/manual-control/`
+- Adaptive Lighting sleep mode:
+  `https://adaptive-lighting.nijho.lt/advanced/sleep-mode/`
+
 Exit criteria:
 
 - Documented integration boundary and first implementable behavior.
