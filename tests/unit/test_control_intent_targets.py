@@ -12,6 +12,8 @@ from custom_components.magic_areas.core.control_intents import (
     ControlTargetPrecision,
     ControlTargetSource,
     RoleTarget,
+    custom_control_label_name,
+    resolve_custom_control_target,
     resolve_role_target,
 )
 
@@ -229,3 +231,61 @@ def test_resolve_role_target_uses_policy_entity_as_last_compatibility_target(
     assert target.precision is ControlTargetPrecision.COMPATIBILITY
     assert target.source is ControlTargetSource.POLICY_ENTITY
     assert target.target_entity_ids == ("light.magic_areas_policy_living_room_all_lights",)
+
+
+def test_custom_control_label_name_uses_existing_label_convention() -> None:
+    """Custom control labels should have one canonical naming function."""
+    assert custom_control_label_name("control.task") == "ma:control:task"
+    assert custom_control_label_name("TV Viewing Mode") == "ma:control:tv-viewing-mode"
+    assert custom_control_label_name("") == "ma:control:custom"
+
+
+def test_resolve_custom_control_target_prefers_reconciled_label_members(
+    hass: HomeAssistant,
+) -> None:
+    """Custom controls should resolve through labels before config member fallback."""
+    entity_registry = er.async_get(hass)
+    labelled_lamp = entity_registry.async_get_or_create(
+        "light",
+        "test",
+        "labelled_lamp",
+    )
+    fallback_lamp = entity_registry.async_get_or_create(
+        "light",
+        "test",
+        "fallback_lamp",
+    )
+    label = lr.async_get(hass).async_create("ma:control:task")
+    entity_registry.async_update_entity(labelled_lamp.entity_id, labels={label.label_id})
+
+    target = resolve_custom_control_target(
+        hass,
+        area_id="living_room",
+        domain="light",
+        group_id="control.task",
+        area_entity_ids=(labelled_lamp.entity_id, fallback_lamp.entity_id),
+        fallback_entity_ids=(fallback_lamp.entity_id,),
+    )
+
+    assert target.kind is ControlTargetKind.ENTITY_SUBSET
+    assert target.source is ControlTargetSource.RECONCILED_LABEL
+    assert target.label_name == "ma:control:task"
+    assert target.entity_ids == (labelled_lamp.entity_id,)
+
+
+def test_resolve_custom_control_target_falls_back_to_config_members(
+    hass: HomeAssistant,
+) -> None:
+    """Config member lists remain a compatibility fallback during migration."""
+    target = resolve_custom_control_target(
+        hass,
+        area_id="living_room",
+        domain="switch",
+        group_id="control.vent",
+        area_entity_ids=("switch.vent", "switch.other"),
+        fallback_entity_ids=("switch.vent", "light.not_switch", "switch.not_in_area"),
+    )
+
+    assert target.kind is ControlTargetKind.ENTITY_SUBSET
+    assert target.source is ControlTargetSource.CONFIG_RECONCILIATION
+    assert target.entity_ids == ("switch.vent",)

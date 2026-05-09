@@ -944,6 +944,8 @@ Implemented Phase 6 slice:
   entity boundary.
 - [x] Resolve all-lights child policy entities by stable policy unique IDs instead of
   `GroupRegistry` category metadata.
+- [x] Add custom-control target resolution through the shared resolver: reconciled
+  `ma:control:*` labels first, config member lists as compatibility fallback.
 
 Remaining Phase 6 working checklist:
 
@@ -951,9 +953,10 @@ Remaining Phase 6 working checklist:
   command, diagnostics, or compatibility surfaces.
 - [ ] Identify any remaining light runtime paths that still read category/group
   membership as truth instead of labels/helpers/resolved subsets.
-- [ ] Decide whether custom control groups become true label-query definitions or remain
-  stored member lists that reconcile labels.
-- [ ] Route custom control runtime targets through the same target resolver where
+- [x] Decide custom control membership model for this phase: keep stored config member
+  lists as the authoring surface and reconciliation input; prefer reconciled labels for
+  runtime target resolution.
+- [x] Route custom control target resolution through the same target resolver where
   practical.
 - [x] Decide Phase 6 listener ownership: keep hidden `AreaLightGroup` policy entities as
   command-echo/manual-override/listener owners for now.
@@ -974,8 +977,9 @@ Current compatibility fallbacks:
   owner for light listener state, command echo, manual override, and debug attributes.
 - `GroupRegistry` remains available as compatibility input for current fan/media/climate
   target lookup and custom control definitions.
-- Custom control group config still stores explicit member lists even though labels are
-  reconciled from those lists.
+- Custom control group config still stores explicit member lists because those lists are
+  the guided authoring surface and reconciliation input. Runtime target resolution can
+  consume reconciled `ma:control:*` labels first and fall back to those config members.
 
 Exit criteria:
 

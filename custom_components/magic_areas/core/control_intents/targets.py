@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
+from homeassistant.util import slugify
 
 from custom_components.magic_areas.core.control_intents.models import (
     ControlTargetKind,
@@ -17,6 +18,8 @@ from custom_components.magic_areas.core.control_intents.models import (
 from custom_components.magic_areas.core.managed_surface_registry import (
     resolve_managed_surface_entity_id,
 )
+
+CUSTOM_CONTROL_LABEL_PREFIX = "ma:control:"
 
 
 def resolve_role_target(
@@ -145,6 +148,42 @@ def resolve_role_target(
     )
 
 
+def custom_control_label_name(group_id: str) -> str:
+    """Return the reconciled HA label name for a custom control group."""
+    return f"{CUSTOM_CONTROL_LABEL_PREFIX}{_custom_control_label_suffix(group_id)}"
+
+
+def resolve_custom_control_target(
+    hass: HomeAssistant,
+    *,
+    area_id: str,
+    domain: str,
+    group_id: str,
+    area_entity_ids: Iterable[str],
+    fallback_entity_ids: Iterable[str] = (),
+    allow_broad_label_target: bool = False,
+) -> RoleTarget:
+    """Resolve a custom control group target through reconciled labels first."""
+    return resolve_role_target(
+        hass,
+        area_id=area_id,
+        domain=domain,
+        role=group_id,
+        area_entity_ids=area_entity_ids,
+        label_name=custom_control_label_name(group_id),
+        allow_broad_label_target=allow_broad_label_target,
+        fallback_entity_ids=fallback_entity_ids,
+        fallback_source=ControlTargetSource.CONFIG_RECONCILIATION,
+    )
+
+
+def _custom_control_label_suffix(group_id: str) -> str:
+    """Return stable label suffix for a custom control group ID."""
+    label_source = group_id.removeprefix("control.")
+    label_suffix = slugify(label_source).replace("_", "-")
+    return label_suffix or "custom"
+
+
 def _resolve_label_id(hass: HomeAssistant, label_name: str) -> str | None:
     """Resolve a label name to an HA label ID."""
     label = lr.async_get(hass).async_get_label_by_name(label_name)
@@ -194,4 +233,8 @@ def _filter_entity_ids(
     return tuple(entity_id for entity_id in allowed_entity_ids if entity_id in requested)
 
 
-__all__ = ["resolve_role_target"]
+__all__ = [
+    "custom_control_label_name",
+    "resolve_custom_control_target",
+    "resolve_role_target",
+]

@@ -16,6 +16,8 @@ from custom_components.magic_areas.core.control_intents.models import (
     RoleTarget,
 )
 from custom_components.magic_areas.core.control_intents.targets import (
+    custom_control_label_name,
+    resolve_custom_control_target,
     resolve_role_target,
 )
 
@@ -30,6 +32,8 @@ __all__ = [
     "IntentDecision",
     "IntentReason",
     "RoleTarget",
+    "custom_control_label_name",
     "evaluate_intent",
+    "resolve_custom_control_target",
     "resolve_role_target",
 ]

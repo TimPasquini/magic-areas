@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import slugify
 
 from custom_components.magic_areas.components import MagicAreasConfigEntry
 from custom_components.magic_areas.core.config import normalize_custom_control_groups
+from custom_components.magic_areas.core.control_intents import custom_control_label_name
 from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.core.runtime_model import LabelSurface
 from custom_components.magic_areas.coordinator import MagicAreasData
@@ -87,7 +87,7 @@ def _custom_control_group_label_surfaces(
     for definition in normalize_custom_control_groups(area_config.config):
         surfaces.append(
             LabelSurface(
-                name=f"ma:control:{_custom_control_group_label_suffix(definition.group_id)}",
+                name=custom_control_label_name(definition.group_id),
                 entity_ids=definition.members,
                 prune_entity_ids=eligible_entities,
                 icon="mdi:label",
@@ -95,13 +95,6 @@ def _custom_control_group_label_surfaces(
             )
         )
     return surfaces
-
-
-def _custom_control_group_label_suffix(group_id: str) -> str:
-    """Return stable label suffix for a custom control group id."""
-    label_source = group_id.removeprefix("control.")
-    label_suffix = slugify(label_source).replace("_", "-")
-    return label_suffix or "custom"
 
 
 def collect_feature_entities(
