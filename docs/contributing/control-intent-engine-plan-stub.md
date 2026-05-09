@@ -1134,6 +1134,8 @@ First implementable behavior:
   set attaches only to its target role, incomplete refs fail closed, and area-level refs
   must use the `all_lights` role to avoid duplicated service calls from multiple group
   entities.
+- [x] Preserve hidden/internal Adaptive Lighting switch-set mappings when users edit
+  ordinary light-group options through the mode-specific options flow.
 - Add no unconditional runtime dependency on Adaptive Lighting services; all service
   execution must remain behind explicit switch-set association.
 

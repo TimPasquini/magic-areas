@@ -26,6 +26,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
@@ -163,7 +164,9 @@ async def test_options_flow_fan_groups(
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.FAN_GROUPS] == {
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.FAN_GROUPS
+    ] == {
         "required_state": "extended",
         "tracked_device_class": "temperature",
         "setpoint": 25.0,
@@ -264,12 +267,18 @@ async def test_options_flow_aggregates(
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES][
-        "aggregates_min_entities"
-    ] == 3
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES][
-        "aggregates_illuminance_threshold"
-    ] == 100
+    assert (
+        config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES][
+            "aggregates_min_entities"
+        ]
+        == 3
+    )
+    assert (
+        config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES][
+            "aggregates_illuminance_threshold"
+        ]
+        == 100
+    )
 
 
 async def test_options_flow_presence_hold(
@@ -293,9 +302,9 @@ async def test_options_flow_presence_hold(
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.PRESENCE_HOLD] == {
-        "presence_hold_timeout": 10
-    }
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.PRESENCE_HOLD
+    ] == {"presence_hold_timeout": 10}
 
 
 async def test_options_flow_ble_trackers(
@@ -328,9 +337,9 @@ async def test_options_flow_ble_trackers(
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.BLE_TRACKER] == {
-        "ble_tracker_entities": ["sensor.test_sensor"]
-    }
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.BLE_TRACKER
+    ] == {"ble_tracker_entities": ["sensor.test_sensor"]}
 
 
 async def test_options_flow_wasp_in_a_box(
@@ -357,7 +366,9 @@ async def test_options_flow_wasp_in_a_box(
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.WASP_IN_A_BOX] == {
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.WASP_IN_A_BOX
+    ] == {
         "delay": 60,
         "wasp_timeout": 5,
         "wasp_device_classes": ["motion", "occupancy"],
@@ -458,6 +469,53 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in keys
 
 
+async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Mode-specific light group edits should not drop hidden AL switch-set mappings."""
+    config_entry = init_integration
+    switch_sets = {
+        "overhead_lights": {
+            "main": "switch.adaptive_lighting_kitchen_overhead",
+            "sleep": "switch.adaptive_lighting_sleep_mode_kitchen_overhead",
+            "adapt_brightness": (
+                "switch.adaptive_lighting_adapt_brightness_kitchen_overhead"
+            ),
+            "adapt_color": "switch.adaptive_lighting_adapt_color_kitchen_overhead",
+        }
+    }
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "brightness_mode": "advisory",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: switch_sets,
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "inhibit"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert (
+        config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS
+        ]
+        == switch_sets
+    )
+
+
 async def test_options_flow_remove_feature(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -483,7 +541,10 @@ async def test_options_flow_remove_feature(
         result["flow_id"], user_input={"next_step_id": "finish"}
     )
 
-    assert MagicAreasFeatures.LIGHT_GROUPS not in config_entry.options[CONF_ENABLED_FEATURES]
+    assert (
+        MagicAreasFeatures.LIGHT_GROUPS
+        not in config_entry.options[CONF_ENABLED_FEATURES]
+    )
 
 
 async def test_options_flow_add_feature(
@@ -513,7 +574,9 @@ async def test_options_flow_add_feature(
     await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
     )
-    assert MagicAreasFeatures.LIGHT_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
+    assert (
+        MagicAreasFeatures.LIGHT_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
+    )
 
 
 async def test_options_flow_with_light_binary_sensor(

@@ -12,6 +12,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 )
 from custom_components.magic_areas.config_flows.base import (
     ConfigSubMap,
@@ -80,7 +81,9 @@ from custom_components.magic_areas.schemas import (
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.runtime_model import AreaConfig
-    from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
+    from custom_components.magic_areas.config_flows.options_flow import (
+        OptionsFlowHandler,
+    )
 
 _LOGGER = logging.getLogger(__name__)
 _EXPECTED_FEATURE_FLOW_ERRORS = (
@@ -111,6 +114,9 @@ _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS = {
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+}
+_LIGHT_GROUP_PRESERVED_HIDDEN_KEYS = {
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 }
 
 
@@ -154,12 +160,15 @@ def _filter_schema_for_keys(schema: vol.Schema, include_keys: set[str]) -> vol.S
             filtered[marker] = validator
     return vol.Schema(filtered, extra=vol.REMOVE_EXTRA)
 
+
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
     return FEATURE_REGISTRY.available_features_for_area(area_config)
 
 
-def get_configurable_features(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
+def get_configurable_features(
+    area_config: "AreaConfig | None",
+) -> list[MagicAreasFeatures]:
     """Return configurable features for area type."""
     return FEATURE_REGISTRY.configurable_features_for_area(area_config)
 
@@ -233,10 +242,17 @@ async def handle_feature_form(
         else:
             features = ensure_enabled_feature_map(flow.area_options)
             feature_key = feature_enum.value
+            validated_dict = dict(validated)
+            if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
+                existing = features.get(feature_key, {})
+                if isinstance(existing, Mapping):
+                    for key in _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS:
+                        if key in existing and key not in validated_dict:
+                            validated_dict[key] = existing[key]
             if merge_options:
-                features.setdefault(feature_key, {}).update(dict(validated))
+                features.setdefault(feature_key, {}).update(validated_dict)
             else:
-                features[feature_key] = dict(validated)
+                features[feature_key] = validated_dict
 
             if next_step:
                 step_handler: Callable[[], Awaitable[config_entries.ConfigFlowResult]]
@@ -250,7 +266,9 @@ async def handle_feature_form(
         step_id=step_id,
         data_schema=flow._build_schema_from_vol(
             schema,
-            saved_options=enabled_feature_map(flow.area_options).get(feature_enum.value, {}),
+            saved_options=enabled_feature_map(flow.area_options).get(
+                feature_enum.value, {}
+            ),
             selectors=selectors or {},
             dynamic_validators=dynamic_validators or {},
         ),
@@ -334,8 +352,8 @@ async def handle_feature_conf(
             LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
             LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
         }:
-            selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
-                flow.all_binary_entities, multiple=False
+            selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = (
+                build_selector_entity_simple(flow.all_binary_entities, multiple=False)
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = (
                 build_selector_entity_simple(flow.all_binary_entities, multiple=False)
@@ -347,17 +365,17 @@ async def handle_feature_conf(
             selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
                 min_value=0, unit_of_measurement="s"
             )
-            selectors[
-                CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS
-            ] = build_selector_number(min_value=0, unit_of_measurement="s")
+            selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = (
+                build_selector_number(min_value=0, unit_of_measurement="s")
+            )
             selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
                 build_selector_boolean()
             )
-            selectors[
-                CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS
-            ] = build_selector_number(min_value=0, unit_of_measurement="s")
-            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = (
-                build_selector_number(min_value=0, unit_of_measurement="lx")
+            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = (
+                build_selector_number(min_value=0, unit_of_measurement="s")
+            )
+            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
+                min_value=0, unit_of_measurement="lx"
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
                 options=[
@@ -369,20 +387,24 @@ async def handle_feature_conf(
                 translation_key="light_outside_context_source",
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = (
-                build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
+                build_selector_entity_simple(
+                    flow.all_illuminance_entities, multiple=False
+                )
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
                 min_value=0, unit_of_measurement="lx"
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
-                build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
+                build_selector_entity_simple(
+                    flow.all_illuminance_entities, multiple=False
+                )
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = (
                 build_selector_number(min_value=0, unit_of_measurement="lx")
             )
-            selectors[
-                CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT
-            ] = build_selector_number(min_value=0, unit_of_measurement="%")
+            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
+                build_selector_number(min_value=0, unit_of_measurement="%")
+            )
         for preset in LIGHT_GROUP_PRESETS:
             selectors[preset.category] = build_selector_entity_simple(
                 flow.all_lights, multiple=True
@@ -405,8 +427,8 @@ async def handle_feature_conf(
             )
 
     if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
-        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = build_selector_entity_simple(
-            flow.all_media_players, multiple=True
+        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = (
+            build_selector_entity_simple(flow.all_media_players, multiple=True)
         )
         selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[1]] = build_selector_select(
             options=[
@@ -442,7 +464,9 @@ async def handle_feature_conf(
         schema=schema,
         user_input=user_input,
         merge_options=(
-            True if feature_enum == MagicAreasFeatures.LIGHT_GROUPS else feature.merge_options
+            True
+            if feature_enum == MagicAreasFeatures.LIGHT_GROUPS
+            else feature.merge_options
         ),
         next_step=feature.next_step,
         selectors=selectors,
