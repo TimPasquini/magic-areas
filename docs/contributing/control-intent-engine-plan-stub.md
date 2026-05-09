@@ -478,7 +478,6 @@ Still legacy/compatibility surfaces:
   - `resolve_group_entity_ids_for_metadata_values(...)`
   - `resolve_group_member_entity_id_by_metadata(...)`
 - `GroupRegistry` remains the compatibility source for:
-  - child category lookup for the light all-group
   - current fan/media/climate policy target lookup
   - custom control definitions registered from config
 - Light suppression, brightness gating, adaptive guards, and manual override decisions
@@ -506,6 +505,19 @@ Immediate implication:
   current labels, helper surfaces, and compatibility registry data.
 - Phase 0 should produce a contract that can represent all current target surfaces
   without forcing runtime to choose one execution style prematurely.
+
+Current ownership decision:
+
+- Move target resolution toward the HA-native path now: labels for semantic membership,
+  native helper groups for exact room/role service targets, and explicit entity IDs for
+  filtered/intersection/suppression subsets.
+- Keep hidden `AreaLightGroup` entities as the light policy listener, command echo,
+  manual override, and debug owner until the intent engine has a stable target model.
+- Treat hidden policy entities as compatibility policy controllers, not durable
+  membership truth.
+- Do not attempt to eliminate hidden light policy entities in Phase 6. Revisit them only
+  after target resolution and intent dispatch are stable enough to preserve manual
+  override behavior deliberately.
 
 ## Light v1 Behavior Model
 
@@ -903,7 +915,8 @@ Established guidance:
 - Broad HA `label_id` service targets are only safe when the intended action is broad
   enough that area/domain overreach is impossible or irrelevant.
 - Hidden custom policy entities are compatibility policy surfaces, not desired final
-  membership truth.
+  membership truth. They remain the light listener/manual-override/command-echo owner
+  for now because that is the most behavior-sensitive part of the system.
 - Group entities can remain when they provide dashboard, diagnostics, command, or
   compatibility value.
 - Group entities should not remain the durable source of policy membership truth.
@@ -912,6 +925,17 @@ Established guidance:
   membership distinctions.
 - Custom control groups should move toward label/query/helper-backed desired surfaces
   while keeping the guided Magic Areas config UI as the authoring surface.
+
+Current Phase 6 direction:
+
+- Prefer Path 2 for target resolution: push runtime target lookup toward the shared
+  resolver, HA labels, native helper entities, and explicit resolved subsets.
+- Defer the more invasive listener-ownership move: hidden light policy entities stay as
+  command echo, manual override, listener, and debug owners until the intent engine can
+  replace that responsibility without changing core behavior.
+- This gives HA more responsibility for storage, display, helper ownership, and safe
+  service target expansion while keeping MA responsible for policy decisions and
+  behavior-sensitive override state.
 
 Implemented Phase 6 slice:
 
@@ -931,8 +955,10 @@ Remaining Phase 6 working checklist:
   stored member lists that reconcile labels.
 - [ ] Route custom control runtime targets through the same target resolver where
   practical.
-- [ ] Revisit listener ownership and decide whether hidden `AreaLightGroup` policy
-  entities remain the right command-echo/manual-override owner.
+- [x] Decide Phase 6 listener ownership: keep hidden `AreaLightGroup` policy entities as
+  command-echo/manual-override/listener owners for now.
+- [ ] Revisit whether hidden `AreaLightGroup` policy entities can be reduced or removed
+  after the intent engine target model is stable.
 - [ ] Decide which simple actions can safely use broad HA `label_id` targets.
 - [ ] Document explicit reasons for every compatibility surface that remains after this
   phase.
@@ -944,7 +970,8 @@ Current compatibility fallbacks:
   by the current light-group entity list. This keeps startup/reconciliation races safe
   without treating config lists as the preferred runtime truth.
 - Native light helper service targets fall back to hidden custom `AreaLightGroup`
-  entities when the helper does not exist yet.
+  entities when the helper does not exist yet. Hidden policy entities also remain the
+  owner for light listener state, command echo, manual override, and debug attributes.
 - `GroupRegistry` remains available as compatibility input for current fan/media/climate
   target lookup and custom control definitions.
 - Custom control group config still stores explicit member lists even though labels are
