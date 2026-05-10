@@ -27,6 +27,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_SETPOINT,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
@@ -48,6 +49,7 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     adaptive_lighting_pair_key,
 )
 
@@ -586,6 +588,54 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
             ADAPT_COLOR_SWITCH: refs[ADAPT_COLOR_SWITCH],
         }
     }
+
+
+async def test_options_flow_light_groups_manage_selects_managed_roles(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Manage mode should expose role selection and persist selected roles."""
+    config_entry = init_integration
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "overhead_lights": ["light.test_light"],
+        "brightness_mode": "inhibit",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+        ),
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    schema = result["data_schema"]
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES in keys
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+            ),
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [CONF_OVERHEAD_LIGHTS],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
+    ] == [CONF_OVERHEAD_LIGHTS]
 
 
 async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets(

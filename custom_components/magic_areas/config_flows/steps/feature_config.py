@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.helpers import config_validation as cv
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
@@ -13,6 +14,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 )
 from custom_components.magic_areas.core.control_intents import (
@@ -70,6 +72,7 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     LIGHT_GROUP_PRESETS,
     adaptive_lighting_pair_key,
 )
@@ -132,6 +135,7 @@ _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS = {
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
 }
 _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS = {
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 }
 _LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
@@ -189,6 +193,7 @@ def _resolve_adaptive_lighting_mode(
         if isinstance(raw, str) and raw in {
             LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
             LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
         }:
             return raw
 
@@ -200,6 +205,7 @@ def _resolve_adaptive_lighting_mode(
         if isinstance(raw, str) and raw in {
             LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
             LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
         }:
             return raw
     return LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
@@ -254,6 +260,20 @@ def _configured_adaptive_lighting_switch_sets(
         if switch_set is not None:
             switch_sets[category] = switch_set
     return switch_sets
+
+
+def _light_group_managed_role_options(
+    flow: "OptionsFlowHandler",
+    feature_config: Mapping[str, object],
+) -> list[str]:
+    """Return role options that can receive MA-managed Adaptive Lighting configs."""
+    options = list(_light_group_pairing_categories(flow, feature_config))
+    raw_roles = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
+    if isinstance(raw_roles, list):
+        for role in raw_roles:
+            if isinstance(role, str) and role not in options:
+                options.append(role)
+    return options
 
 
 def _adaptive_lighting_candidate_switch_sets(
@@ -549,6 +569,25 @@ async def handle_feature_conf(
                     multiple=False,
                     translation_key="adaptive_lighting_switch_set",
                 )
+        if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
+            role_options = _light_group_managed_role_options(flow, feature_config)
+            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
+            schema.schema[
+                vol.Optional(
+                    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
+                    default=feature_config.get(
+                        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
+                        [],
+                    ),
+                )
+            ] = vol.All(cv.ensure_list, [vol.In(role_options)])
+            selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES] = (
+                build_selector_select(
+                    options=role_options,
+                    multiple=True,
+                    translation_key="adaptive_lighting_managed_roles",
+                )
+            )
         schema = _filter_schema_for_keys(schema, include_keys)
 
         selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
@@ -564,6 +603,7 @@ async def handle_feature_conf(
             options=[
                 LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
                 LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
             ],
             multiple=False,
             translation_key="adaptive_lighting_mode",

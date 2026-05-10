@@ -1209,7 +1209,7 @@ Next `manage` implementation checklist:
   entries only.
 - [x] Resolve the resulting AL switch sets through the same runtime association path used
   by `adopt_existing`.
-- [ ] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
+- [x] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
   should receive MA-managed AL configs, without exposing the full AL tuning surface.
 - [ ] Assign managed AL switch/device registry metadata to the same HA area where
   possible, and fail closed with Repairs/log visibility if AL config-entry shape changes.
