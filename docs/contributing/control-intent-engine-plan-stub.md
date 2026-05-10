@@ -1194,7 +1194,7 @@ First implementable behavior:
 
 Next `manage` implementation checklist:
 
-- [ ] Define a pure desired managed-Adaptive-Lighting config model keyed by Magic Areas
+- [x] Define a pure desired managed-Adaptive-Lighting config model keyed by Magic Areas
   area ID and light role.
 - [ ] Define MA-owned versus AL/user-owned option keys. At minimum, MA owns identity,
   role association, ownership metadata, and `lights`; AL/user owns behavior tuning.

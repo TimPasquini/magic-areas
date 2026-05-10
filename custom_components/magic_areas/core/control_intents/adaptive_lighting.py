@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.const import ATTR_ENTITY_ID, CONF_NAME
 from homeassistant.util import slugify
 
 SWITCH_DOMAIN = "switch"
@@ -20,6 +20,7 @@ SERVICE_TURN_OFF = "turn_off"
 SERVICE_TURN_ON = "turn_on"
 ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
 SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
+MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "Magic Areas"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,72 @@ class AdaptiveLightingSwitchCandidate:
     area_id: str | None = None
     label_ids: frozenset[str] = frozenset()
     label_names: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedAdaptiveLightingConfig:
+    """Desired Magic Areas-owned Adaptive Lighting config-entry contract."""
+
+    area_id: str
+    area_name: str
+    role: str
+    name: str
+    light_entity_ids: tuple[str, ...]
+
+    @property
+    def data(self) -> dict[str, str]:
+        """Return durable config-entry data Adaptive Lighting expects."""
+        return {CONF_NAME: self.name}
+
+    @property
+    def switch_refs(self) -> dict[str, str]:
+        """Return conventional switch refs expected after Adaptive Lighting loads."""
+        return adaptive_lighting_switch_entity_ids(self.name)
+
+
+def managed_adaptive_lighting_config_name(*, area_name: str, role: str) -> str:
+    """Return the MA-owned Adaptive Lighting configuration name for one role."""
+    readable_role = role.removesuffix("_lights").replace("_", " ").strip()
+    if readable_role:
+        return f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} {area_name} {readable_role}"
+    return f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} {area_name}"
+
+
+def managed_adaptive_lighting_config(
+    *,
+    area_id: str,
+    area_name: str,
+    role: str,
+    light_entity_ids: Iterable[str],
+) -> ManagedAdaptiveLightingConfig | None:
+    """Build a desired MA-managed AL config when there are valid light members."""
+    lights = tuple(
+        dict.fromkeys(
+            entity_id
+            for entity_id in light_entity_ids
+            if entity_id.startswith("light.")
+        )
+    )
+    if not lights:
+        return None
+    return ManagedAdaptiveLightingConfig(
+        area_id=area_id,
+        area_name=area_name,
+        role=role,
+        name=managed_adaptive_lighting_config_name(area_name=area_name, role=role),
+        light_entity_ids=lights,
+    )
+
+
+def managed_adaptive_lighting_options(
+    existing_options: Mapping[str, object],
+    desired_config: ManagedAdaptiveLightingConfig,
+) -> dict[str, object]:
+    """Merge desired membership into AL options while preserving AL-owned tuning."""
+    return {
+        **existing_options,
+        ATTR_LIGHTS: list(desired_config.light_entity_ids),
+    }
 
 
 class AdaptiveLightingCoordinationReason(StrEnum):
@@ -444,6 +511,7 @@ __all__ = [
     "ATTR_LIGHTS",
     "ADAPTIVE_LIGHTING_DOMAIN",
     "MAIN_SWITCH",
+    "MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX",
     "SERVICE_SET_MANUAL_CONTROL",
     "SERVICE_TURN_OFF",
     "SERVICE_TURN_ON",
@@ -452,6 +520,7 @@ __all__ = [
     "AdaptiveLightingServiceIntent",
     "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
+    "ManagedAdaptiveLightingConfig",
     "adaptive_lighting_accent_adaptation_intents",
     "adaptive_lighting_apply_data",
     "adaptive_lighting_change_switch_settings_data",
@@ -460,6 +529,9 @@ __all__ = [
     "adaptive_lighting_sleep_switch_intents",
     "adaptive_lighting_state_coordination_intents",
     "adaptive_lighting_switch_entity_ids",
+    "managed_adaptive_lighting_config",
+    "managed_adaptive_lighting_config_name",
+    "managed_adaptive_lighting_options",
     "switch_set_from_discovery_candidates",
     "switch_sets_from_discovery_candidates",
     "switch_set_from_explicit_refs",

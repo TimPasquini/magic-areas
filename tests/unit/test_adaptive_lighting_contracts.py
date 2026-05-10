@@ -25,6 +25,9 @@ from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_sleep_switch_intents,
     adaptive_lighting_state_coordination_intents,
     adaptive_lighting_switch_entity_ids,
+    managed_adaptive_lighting_config,
+    managed_adaptive_lighting_config_name,
+    managed_adaptive_lighting_options,
     switch_set_from_discovery_candidates,
     switch_sets_from_discovery_candidates,
     switch_set_from_explicit_refs,
@@ -53,6 +56,92 @@ def test_adaptive_lighting_switch_entity_ids_follow_documented_convention() -> N
             "switch.adaptive_lighting_adapt_brightness_living_room"
         ),
         ADAPT_COLOR_SWITCH: "switch.adaptive_lighting_adapt_color_living_room",
+    }
+
+
+def test_managed_adaptive_lighting_config_names_are_role_scoped() -> None:
+    """MA-managed AL config names should identify both area and light role."""
+    assert (
+        managed_adaptive_lighting_config_name(
+            area_name="Living Room",
+            role="overhead_lights",
+        )
+        == "Magic Areas Living Room overhead"
+    )
+    assert (
+        managed_adaptive_lighting_config_name(
+            area_name="Living Room",
+            role="all_lights",
+        )
+        == "Magic Areas Living Room all"
+    )
+
+
+def test_managed_adaptive_lighting_config_normalizes_membership() -> None:
+    """Desired managed AL configs should carry only stable light members."""
+    config = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=(
+            "light.ceiling",
+            "switch.not_a_light",
+            "light.ceiling",
+            "light.lamp",
+        ),
+    )
+
+    assert config is not None
+    assert config.area_id == "living_room"
+    assert config.role == "overhead_lights"
+    assert config.name == "Magic Areas Living Room overhead"
+    assert config.data == {"name": "Magic Areas Living Room overhead"}
+    assert config.light_entity_ids == ("light.ceiling", "light.lamp")
+    assert config.switch_refs == adaptive_lighting_switch_entity_ids(
+        "Magic Areas Living Room overhead"
+    )
+
+
+def test_managed_adaptive_lighting_config_requires_light_membership() -> None:
+    """Manage mode should not create empty AL configs."""
+    assert (
+        managed_adaptive_lighting_config(
+            area_id="living_room",
+            area_name="Living Room",
+            role="overhead_lights",
+            light_entity_ids=("switch.not_a_light",),
+        )
+        is None
+    )
+
+
+def test_managed_adaptive_lighting_options_preserve_al_owned_tuning() -> None:
+    """Reconciliation should update lights without clobbering AL behavior settings."""
+    config = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling", "light.lamp"),
+    )
+    assert config is not None
+
+    options = managed_adaptive_lighting_options(
+        {
+            "min_brightness": 20,
+            "max_brightness": 80,
+            "sleep_brightness": 5,
+            "sleep_rgb_or_color_temp": "color_temp",
+            "lights": ["light.old_member"],
+        },
+        config,
+    )
+
+    assert options == {
+        "min_brightness": 20,
+        "max_brightness": 80,
+        "sleep_brightness": 5,
+        "sleep_rgb_or_color_temp": "color_temp",
+        "lights": ["light.ceiling", "light.lamp"],
     }
 
 
