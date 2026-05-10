@@ -175,6 +175,45 @@ def switch_set_from_discovery_candidates(
     return matches[0]
 
 
+def switch_sets_from_discovery_candidates(
+    *,
+    area_id: str,
+    candidates: Iterable[AdaptiveLightingSwitchCandidate],
+    required_label_ids: Iterable[str] = (),
+    required_label_names: Iterable[str] = (),
+) -> tuple[AdaptiveLightingSwitchSet, ...]:
+    """Return every complete switch set matching the requested area/label scope."""
+    required_ids = frozenset(required_label_ids)
+    required_names = frozenset(required_label_names)
+    grouped: dict[str, dict[str, str]] = {}
+
+    for candidate in candidates:
+        if not _candidate_matches_scope(
+            candidate,
+            area_id=area_id,
+            required_label_ids=required_ids,
+            required_label_names=required_names,
+        ):
+            continue
+
+        switch_type, group_slug = _adaptive_lighting_switch_parts(candidate.entity_id)
+        if switch_type is None or group_slug is None:
+            continue
+        grouped.setdefault(group_slug, {})[switch_type] = candidate.entity_id
+
+    return tuple(
+        switch_set
+        for group_slug in sorted(grouped)
+        if (
+            switch_set := switch_set_from_explicit_refs(
+                area_id=area_id,
+                switch_refs=grouped[group_slug],
+            )
+        )
+        is not None
+    )
+
+
 def adaptive_lighting_apply_data(
     switch_set: AdaptiveLightingSwitchSet,
     *,
@@ -422,6 +461,7 @@ __all__ = [
     "adaptive_lighting_state_coordination_intents",
     "adaptive_lighting_switch_entity_ids",
     "switch_set_from_discovery_candidates",
+    "switch_sets_from_discovery_candidates",
     "switch_set_from_explicit_refs",
     "switch_set_from_name_candidates",
 ]

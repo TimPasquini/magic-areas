@@ -12,6 +12,7 @@ from custom_components.magic_areas.core.control_intents.adaptive_lighting import
     AdaptiveLightingSwitchCandidate,
     AdaptiveLightingSwitchSet,
     switch_set_from_discovery_candidates,
+    switch_sets_from_discovery_candidates,
 )
 
 
@@ -45,6 +46,39 @@ def switch_set_from_hass_registry(
     return switch_set_from_discovery_candidates(
         area_id=area_id,
         role=role,
+        candidates=candidates,
+        required_label_ids=resolved_label_ids,
+    )
+
+
+def switch_sets_from_hass_registry(
+    hass: HomeAssistant,
+    *,
+    area_id: str,
+    required_label_ids: Iterable[str] = (),
+    required_label_names: Iterable[str] = (),
+) -> tuple[AdaptiveLightingSwitchSet, ...]:
+    """Return all complete Adaptive Lighting switch sets matching an HA area/label scope."""
+    entity_registry = er.async_get(hass)
+    label_registry = lr.async_get(hass)
+    resolved_label_ids = _resolve_required_label_ids(
+        label_registry,
+        required_label_ids=required_label_ids,
+        required_label_names=required_label_names,
+    )
+    if required_label_names and not resolved_label_ids:
+        return ()
+
+    candidates = [
+        _candidate_from_registry_entry(label_registry, entry)
+        for entry in _candidate_entries(
+            entity_registry,
+            area_id=area_id,
+            required_label_ids=resolved_label_ids,
+        )
+    ]
+    return switch_sets_from_discovery_candidates(
+        area_id=area_id,
         candidates=candidates,
         required_label_ids=resolved_label_ids,
     )
@@ -102,4 +136,4 @@ def _resolve_required_label_ids(
     return frozenset(resolved)
 
 
-__all__ = ["switch_set_from_hass_registry"]
+__all__ = ["switch_set_from_hass_registry", "switch_sets_from_hass_registry"]

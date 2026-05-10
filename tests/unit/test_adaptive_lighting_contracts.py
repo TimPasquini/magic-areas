@@ -26,6 +26,7 @@ from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_state_coordination_intents,
     adaptive_lighting_switch_entity_ids,
     switch_set_from_discovery_candidates,
+    switch_sets_from_discovery_candidates,
     switch_set_from_explicit_refs,
     switch_set_from_name_candidates,
 )
@@ -255,6 +256,36 @@ def test_discovery_candidates_can_require_labels() -> None:
             ),
         )
         is None
+    )
+
+
+def test_discovery_candidates_can_list_all_complete_area_switch_sets() -> None:
+    """Config flows need all same-area AL choices rather than one unambiguous match."""
+    kitchen_refs = adaptive_lighting_switch_entity_ids("Kitchen")
+    dining_refs = adaptive_lighting_switch_entity_ids("Dining")
+    bedroom_refs = adaptive_lighting_switch_entity_ids("Bedroom")
+
+    switch_sets = switch_sets_from_discovery_candidates(
+        area_id="kitchen",
+        candidates=(
+            *(
+                AdaptiveLightingSwitchCandidate(entity_id=entity_id, area_id="kitchen")
+                for entity_id in kitchen_refs.values()
+            ),
+            *(
+                AdaptiveLightingSwitchCandidate(entity_id=entity_id, area_id="kitchen")
+                for entity_id in dining_refs.values()
+            ),
+            *(
+                AdaptiveLightingSwitchCandidate(entity_id=entity_id, area_id="bedroom")
+                for entity_id in bedroom_refs.values()
+            ),
+        ),
+    )
+
+    assert tuple(switch_set.main_switch_entity_id for switch_set in switch_sets) == (
+        "switch.adaptive_lighting_dining",
+        "switch.adaptive_lighting_kitchen",
     )
 
 

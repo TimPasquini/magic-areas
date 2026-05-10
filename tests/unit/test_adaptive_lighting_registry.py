@@ -9,6 +9,7 @@ from homeassistant.helpers import label_registry as lr
 from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_switch_entity_ids,
     switch_set_from_hass_registry,
+    switch_sets_from_hass_registry,
 )
 
 
@@ -103,4 +104,20 @@ def test_hass_registry_discovery_rejects_missing_label_name(
             required_label_names=("ma:missing",),
         )
         is None
+    )
+
+
+def test_hass_registry_discovery_lists_complete_area_switch_sets(
+    hass: HomeAssistant,
+) -> None:
+    """Registry binding should list all complete same-area switch sets for config UI."""
+    kitchen_refs = _register_switch_set(hass, "Kitchen", area_id="kitchen")
+    dining_refs = _register_switch_set(hass, "Dining", area_id="kitchen")
+    _register_switch_set(hass, "Bedroom", area_id="bedroom")
+
+    switch_sets = switch_sets_from_hass_registry(hass, area_id="kitchen")
+
+    assert tuple(switch_set.entity_ids for switch_set in switch_sets) == (
+        tuple(dining_refs.values()),
+        tuple(kitchen_refs.values()),
     )
