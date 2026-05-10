@@ -1198,9 +1198,9 @@ Next `manage` implementation checklist:
   area ID and light role.
 - [x] Define MA-owned versus AL/user-owned option keys. At minimum, MA owns identity,
   role association, ownership metadata, and `lights`; AL/user owns behavior tuning.
-- [ ] Add tests proving reconciliation updates `lights` while preserving AL-owned options
+- [x] Add tests proving reconciliation updates `lights` while preserving AL-owned options
   such as brightness bounds, sleep color/temperature settings, and transition behavior.
-- [ ] Add a mocked Adaptive Lighting config-entry harness that can create/update/reload
+- [x] Add a mocked Adaptive Lighting config-entry harness that can create/update/reload
   AL-like config entries without importing the HACS integration.
 - [ ] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
   entries only.

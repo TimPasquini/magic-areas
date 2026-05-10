@@ -6,12 +6,17 @@ from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.core import State
 
+from custom_components.magic_areas.core.control_intents import (
+    managed_adaptive_lighting_config,
+    managed_adaptive_lighting_options,
+)
 from tests.unit.adaptive_lighting_testkit import (
     ADAPTIVE_LIGHTING_DOMAIN,
     EVENT_MANUAL_CONTROL,
     SERVICE_APPLY,
     SERVICE_CHANGE_SWITCH_SETTINGS,
     SERVICE_SET_MANUAL_CONTROL,
+    setup_adaptive_lighting_config_entry_harness,
     setup_adaptive_lighting_harness,
 )
 
@@ -52,6 +57,66 @@ async def test_harness_creates_behavior_switches_and_services(
         ADAPTIVE_LIGHTING_DOMAIN,
         SERVICE_CHANGE_SWITCH_SETTINGS,
     )
+
+
+async def test_config_entry_harness_creates_al_like_entry_and_switches(
+    hass: HomeAssistant,
+) -> None:
+    """Tests can create AL-like config entries without importing the integration."""
+    harness = setup_adaptive_lighting_config_entry_harness(hass)
+
+    entry = await harness.async_create_entry(
+        name="Magic Areas Living Room overhead",
+        options={
+            ATTR_LIGHTS: ["light.ceiling"],
+            "min_brightness": 20,
+        },
+    )
+
+    assert entry.domain == ADAPTIVE_LIGHTING_DOMAIN
+    assert entry.data == {"name": "Magic Areas Living Room overhead"}
+    assert entry.options["min_brightness"] == 20
+    assert harness.reload_requests == [entry.entry_id]
+    assert _state(
+        hass, "switch.adaptive_lighting_magic_areas_living_room_overhead"
+    ).attributes[ATTR_LIGHTS] == ["light.ceiling"]
+
+
+async def test_config_entry_harness_updates_options_and_preserves_al_tuning(
+    hass: HomeAssistant,
+) -> None:
+    """Managed AL tests can assert update/reload behavior around options changes."""
+    harness = setup_adaptive_lighting_config_entry_harness(hass)
+    entry = await harness.async_create_entry(
+        name="Magic Areas Living Room overhead",
+        options={
+            ATTR_LIGHTS: ["light.old_member"],
+            "min_brightness": 15,
+            "sleep_rgb_or_color_temp": "color_temp",
+        },
+    )
+    desired = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling", "light.lamp"),
+    )
+    assert desired is not None
+
+    await harness.async_update_options(
+        entry,
+        managed_adaptive_lighting_options(entry.options, desired),
+    )
+
+    assert harness.reload_requests == [entry.entry_id, entry.entry_id]
+    assert entry.options == {
+        ATTR_LIGHTS: ["light.ceiling", "light.lamp"],
+        "min_brightness": 15,
+        "sleep_rgb_or_color_temp": "color_temp",
+    }
+    assert _state(
+        hass, "switch.adaptive_lighting_magic_areas_living_room_overhead"
+    ).attributes[ATTR_LIGHTS] == ["light.ceiling", "light.lamp"]
 
 
 async def test_harness_captures_apply_service_expectation(

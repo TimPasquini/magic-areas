@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
-from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
+from homeassistant.const import ATTR_ENTITY_ID, CONF_NAME, STATE_OFF, STATE_ON
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
+    ATTR_LIGHTS,
     MAIN_SWITCH,
     SLEEP_SWITCH,
     AdaptiveLightingSwitchSet,
@@ -162,6 +164,62 @@ class AdaptiveLightingHarness:
         self.manual_control_events.append(dict(event.data))
 
 
+@dataclass(slots=True)
+class AdaptiveLightingConfigEntryHarness:
+    """Mock Adaptive Lighting config-entry/options surface for reconciler tests."""
+
+    hass: HomeAssistant
+    reload_requests: list[str] = field(default_factory=list)
+
+    async def async_create_entry(
+        self,
+        *,
+        name: str,
+        options: dict[str, object] | None = None,
+    ) -> MockConfigEntry:
+        """Create an AL-like config entry and simulate AL loading its switches."""
+        entry = MockConfigEntry(
+            domain=ADAPTIVE_LIGHTING_DOMAIN,
+            title=name,
+            unique_id=name,
+            data={CONF_NAME: name},
+            options=options or {},
+        )
+        entry.add_to_hass(self.hass)
+        await self.async_reload_entry(entry)
+        return entry
+
+    async def async_update_options(
+        self,
+        entry: MockConfigEntry,
+        options: dict[str, object],
+    ) -> None:
+        """Update AL-like options and simulate the entry reload Adaptive Lighting uses."""
+        self.hass.config_entries.async_update_entry(entry, options=options)
+        await self.async_reload_entry(entry)
+
+    async def async_reload_entry(self, entry: MockConfigEntry) -> None:
+        """Record a reload request and mirror AL's switch state side effects."""
+        self.reload_requests.append(entry.entry_id)
+        name = entry.data.get(CONF_NAME)
+        if isinstance(name, str):
+            self._set_switch_states(name=name, options=entry.options)
+        await self.hass.async_block_till_done()
+
+    def _set_switch_states(self, *, name: str, options: Mapping[str, object]) -> None:
+        """Create the four switches an Adaptive Lighting config would expose."""
+        switches = adaptive_lighting_switch_entity_ids(name)
+        lights = options.get(ATTR_LIGHTS, [])
+        self.hass.states.async_set(
+            switches[MAIN_SWITCH],
+            STATE_ON,
+            {ATTR_LIGHTS: list(lights) if isinstance(lights, list) else []},
+        )
+        self.hass.states.async_set(switches[SLEEP_SWITCH], STATE_OFF)
+        self.hass.states.async_set(switches[ADAPT_BRIGHTNESS_SWITCH], STATE_ON)
+        self.hass.states.async_set(switches[ADAPT_COLOR_SWITCH], STATE_ON)
+
+
 async def setup_adaptive_lighting_harness(
     hass: HomeAssistant,
     *,
@@ -180,6 +238,13 @@ async def setup_adaptive_lighting_harness(
     return harness
 
 
+def setup_adaptive_lighting_config_entry_harness(
+    hass: HomeAssistant,
+) -> AdaptiveLightingConfigEntryHarness:
+    """Create a mocked Adaptive Lighting config-entry harness."""
+    return AdaptiveLightingConfigEntryHarness(hass=hass)
+
+
 __all__ = [
     "ADAPTIVE_LIGHTING_DOMAIN",
     "EVENT_MANUAL_CONTROL",
@@ -190,6 +255,8 @@ __all__ = [
     "SERVICE_TURN_ON",
     "SWITCH_DOMAIN",
     "AdaptiveLightingCall",
+    "AdaptiveLightingConfigEntryHarness",
     "AdaptiveLightingHarness",
+    "setup_adaptive_lighting_config_entry_harness",
     "setup_adaptive_lighting_harness",
 ]
