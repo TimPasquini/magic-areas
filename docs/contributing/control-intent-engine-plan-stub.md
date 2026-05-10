@@ -1196,7 +1196,7 @@ Next `manage` implementation checklist:
 
 - [x] Define a pure desired managed-Adaptive-Lighting config model keyed by Magic Areas
   area ID and light role.
-- [ ] Define MA-owned versus AL/user-owned option keys. At minimum, MA owns identity,
+- [x] Define MA-owned versus AL/user-owned option keys. At minimum, MA owns identity,
   role association, ownership metadata, and `lights`; AL/user owns behavior tuning.
 - [ ] Add tests proving reconciliation updates `lights` while preserving AL-owned options
   such as brightness bounds, sleep color/temperature settings, and transition behavior.

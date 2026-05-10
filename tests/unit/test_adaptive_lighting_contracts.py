@@ -10,6 +10,8 @@ from custom_components.magic_areas.core.control_intents import (
     ADAPTIVE_LIGHTING_DOMAIN,
     ATTR_LIGHTS,
     MAIN_SWITCH,
+    MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS,
+    MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS,
     SERVICE_SET_MANUAL_CONTROL,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
@@ -25,6 +27,8 @@ from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_sleep_switch_intents,
     adaptive_lighting_state_coordination_intents,
     adaptive_lighting_switch_entity_ids,
+    is_managed_adaptive_lighting_owned_data_key,
+    is_managed_adaptive_lighting_owned_option_key,
     managed_adaptive_lighting_config,
     managed_adaptive_lighting_config_name,
     managed_adaptive_lighting_options,
@@ -113,6 +117,24 @@ def test_managed_adaptive_lighting_config_requires_light_membership() -> None:
         )
         is None
     )
+
+
+def test_managed_adaptive_lighting_owned_keys_are_limited_to_membership() -> None:
+    """MA should not claim ownership of AL behavior-tuning option keys."""
+    assert frozenset({"name"}) == MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS
+    assert frozenset({"lights"}) == MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS
+    assert is_managed_adaptive_lighting_owned_data_key("name")
+    assert is_managed_adaptive_lighting_owned_option_key("lights")
+
+    for al_owned_key in (
+        "min_brightness",
+        "max_brightness",
+        "sleep_brightness",
+        "sleep_rgb_or_color_temp",
+        "transition",
+        "take_over_control",
+    ):
+        assert not is_managed_adaptive_lighting_owned_option_key(al_owned_key)
 
 
 def test_managed_adaptive_lighting_options_preserve_al_owned_tuning() -> None:

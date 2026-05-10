@@ -21,6 +21,8 @@ SERVICE_TURN_ON = "turn_on"
 ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
 SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
 MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "Magic Areas"
+MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS = frozenset({CONF_NAME})
+MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS = frozenset({ATTR_LIGHTS})
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +121,16 @@ def managed_adaptive_lighting_options(
         **existing_options,
         ATTR_LIGHTS: list(desired_config.light_entity_ids),
     }
+
+
+def is_managed_adaptive_lighting_owned_data_key(key: str) -> bool:
+    """Return whether Magic Areas owns an AL config-entry data key."""
+    return key in MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS
+
+
+def is_managed_adaptive_lighting_owned_option_key(key: str) -> bool:
+    """Return whether Magic Areas owns an AL config-entry option key."""
+    return key in MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS
 
 
 class AdaptiveLightingCoordinationReason(StrEnum):
@@ -512,6 +524,8 @@ __all__ = [
     "ADAPTIVE_LIGHTING_DOMAIN",
     "MAIN_SWITCH",
     "MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX",
+    "MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS",
+    "MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS",
     "SERVICE_SET_MANUAL_CONTROL",
     "SERVICE_TURN_OFF",
     "SERVICE_TURN_ON",
@@ -529,6 +543,8 @@ __all__ = [
     "adaptive_lighting_sleep_switch_intents",
     "adaptive_lighting_state_coordination_intents",
     "adaptive_lighting_switch_entity_ids",
+    "is_managed_adaptive_lighting_owned_data_key",
+    "is_managed_adaptive_lighting_owned_option_key",
     "managed_adaptive_lighting_config",
     "managed_adaptive_lighting_config_name",
     "managed_adaptive_lighting_options",
