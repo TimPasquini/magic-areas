@@ -12,6 +12,7 @@ from custom_components.magic_areas.light_groups import (
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_OVERHEAD_LIGHTS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
     LIGHT_GROUP_FEATURE_SCHEMA,
     LIGHT_GROUP_PRESETS,
     adaptive_lighting_switch_set,
@@ -101,6 +102,33 @@ def test_adaptive_lighting_switch_set_fails_closed_for_incomplete_refs() -> None
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
                 CONF_OVERHEAD_LIGHTS: {
                     MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
+                }
+            },
+        },
+        area_id="kitchen",
+        category=CONF_OVERHEAD_LIGHTS,
+    )
+
+    assert switch_set is None
+
+
+def test_adaptive_lighting_switch_set_is_inert_in_ignore_mode() -> None:
+    """Stale AL switch refs should not enable coordination unless adoption is active."""
+    switch_set = adaptive_lighting_switch_set(
+        {
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+            ),
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
+                CONF_OVERHEAD_LIGHTS: {
+                    MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
+                    SLEEP_SWITCH: "switch.adaptive_lighting_sleep_mode_kitchen_overhead",
+                    ADAPT_BRIGHTNESS_SWITCH: (
+                        "switch.adaptive_lighting_adapt_brightness_kitchen_overhead"
+                    ),
+                    ADAPT_COLOR_SWITCH: (
+                        "switch.adaptive_lighting_adapt_color_kitchen_overhead"
+                    ),
                 }
             },
         },

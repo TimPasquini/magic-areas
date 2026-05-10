@@ -1161,8 +1161,9 @@ First implementable behavior:
 - [x] Add inline light-group `adopt_existing` controls that list same-area Adaptive
   Lighting switch-set candidates and persist selected role pairings as explicit switch
   references.
-- Add no unconditional runtime dependency on Adaptive Lighting services; all service
-  execution must remain behind explicit switch-set association.
+- [x] Add no unconditional runtime dependency on Adaptive Lighting services; all service
+  execution remains behind explicit switch-set association and inactive `ignore` mode
+  keeps stale switch references inert.
 
 References:
 
