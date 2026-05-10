@@ -97,6 +97,44 @@ def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> N
     assert switch_set.role == "overhead_lights"
 
 
+def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None:
+    """Manage mode should attach conventional MA-managed AL switches to that role."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_managed_roles": ["overhead_lights"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+    groups = {
+        entity.entity_id: entity
+        for entity in entities
+        if entity.entity_id.startswith("light.")
+    }
+
+    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
+    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+
+    assert getattr(all_group, "_adaptive_lighting_switch_set") is None
+    switch_set = getattr(overhead_group, "_adaptive_lighting_switch_set")
+    assert switch_set is not None
+    assert switch_set.role == "overhead_lights"
+    assert switch_set.main_switch_entity_id == (
+        "switch.adaptive_lighting_magic_areas_kitchen_overhead"
+    )
+    assert switch_set.sleep_switch_entity_id == (
+        "switch.adaptive_lighting_sleep_mode_magic_areas_kitchen_overhead"
+    )
+
+
 def test_light_groups_module_registers_default_control_groups() -> None:
     """Light module should register area-scoped default control-group definitions."""
     area_config = make_area_config()

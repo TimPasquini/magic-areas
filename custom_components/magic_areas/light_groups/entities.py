@@ -177,7 +177,9 @@ class AreaLightGroup(MagicLightGroup):
         self._adaptive_lighting_switch_set = adaptive_lighting_switch_set(
             self._feature_config,
             area_id=area_config.id,
+            area_name=area_config.name,
             category=category or LightGroupCategory.ALL,
+            light_entity_ids=entities,
         )
         self._bright_since_monotonic: float | None = None
         self._last_turn_on_monotonic: float | None = None

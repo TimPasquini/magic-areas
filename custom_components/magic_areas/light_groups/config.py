@@ -8,6 +8,7 @@ from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
@@ -17,16 +18,17 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
     CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
 )
 from custom_components.magic_areas.core.control_intents import (
     AdaptiveLightingSwitchSet,
+    managed_adaptive_lighting_config,
     switch_set_from_explicit_refs,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
@@ -58,6 +60,7 @@ LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX = "outside_lux"
 LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE = "none"
 LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE = "ignore"
 LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING = "adopt_existing"
+LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE = "manage"
 LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX = "adaptive_lighting_pair_"
 
 LIGHT_GROUP_DEFAULT_ICON = "mdi:lightbulb-group"
@@ -201,6 +204,7 @@ def adaptive_lighting_mode(feature_config: FeatureConfigDict) -> str:
     if normalized in {
         LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
         LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     }:
         return normalized
     return LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
@@ -209,6 +213,14 @@ def adaptive_lighting_mode(feature_config: FeatureConfigDict) -> str:
 def adaptive_lighting_pair_key(category: str) -> str:
     """Return transient options-flow key for pairing one role to an AL switch set."""
     return f"{LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX}{category}"
+
+
+def adaptive_lighting_managed_roles(feature_config: FeatureConfigDict) -> list[str]:
+    """Return role categories selected for MA-managed Adaptive Lighting configs."""
+    value = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES, [])
+    if not isinstance(value, list):
+        return []
+    return [str(role) for role in value if isinstance(role, str)]
 
 
 def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -> int:
@@ -336,8 +348,32 @@ def adaptive_lighting_switch_set(
     *,
     area_id: str,
     category: str,
+    area_name: str | None = None,
+    light_entity_ids: list[str] | tuple[str, ...] = (),
 ) -> AdaptiveLightingSwitchSet | None:
     """Return explicitly associated Adaptive Lighting switches for a light role."""
+    if (
+        adaptive_lighting_mode(feature_config)
+        == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+    ):
+        if category not in adaptive_lighting_managed_roles(feature_config):
+            return None
+        if area_name is None:
+            return None
+        desired = managed_adaptive_lighting_config(
+            area_id=area_id,
+            area_name=area_name,
+            role=category,
+            light_entity_ids=light_entity_ids,
+        )
+        if desired is None:
+            return None
+        return switch_set_from_explicit_refs(
+            area_id=area_id,
+            role=category,
+            switch_refs=desired.switch_refs,
+        )
+
     if (
         adaptive_lighting_mode(feature_config)
         != LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
@@ -429,6 +465,9 @@ def build_light_group_feature_schema() -> vol.Schema:
     schema[vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS, default={})] = (
         dict
     )
+    schema[
+        vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES, default=[])
+    ] = cv.ensure_list
     return vol.Schema(schema, extra=vol.REMOVE_EXTRA)
 
 

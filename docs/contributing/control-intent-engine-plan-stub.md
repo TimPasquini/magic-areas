@@ -1207,7 +1207,7 @@ Next `manage` implementation checklist:
   entries, and ignores user-created AL entries.
 - [x] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
   entries only.
-- [ ] Resolve the resulting AL switch sets through the same runtime association path used
+- [x] Resolve the resulting AL switch sets through the same runtime association path used
   by `adopt_existing`.
 - [ ] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
   should receive MA-managed AL configs, without exposing the full AL tuning surface.
