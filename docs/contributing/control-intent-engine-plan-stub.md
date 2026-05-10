@@ -1075,18 +1075,36 @@ Discovery constraints:
 Recommended first implementation boundary:
 
 - Keep Adaptive Lighting optional.
-- Offer three user modes per Magic Areas room/role target:
-  - `ignore`: Magic Areas does not coordinate Adaptive Lighting for this target.
+- Offer three user modes in the light-group configuration surface:
+  - `ignore`: Magic Areas does not coordinate Adaptive Lighting for light groups in this
+    area.
   - `adopt_existing`: the user associates existing Adaptive Lighting switch sets with
-    Magic Areas groups/roles; Magic Areas coordinates those behavior switches.
+    Magic Areas light groups/roles; Magic Areas coordinates those behavior switches.
   - `manage`: Magic Areas creates/updates Adaptive Lighting configurations and maintains
     their members from the enabled Magic Areas groups/roles.
+- Keep the Adaptive Lighting controls inline with light-group configuration rather than
+  creating a separate top-level feature. The UI should behave like an expanded/hidden
+  section:
+  - `ignore` shows no pairing controls.
+  - `adopt_existing` expands to show one pairing field for each existing Magic Areas
+    native light group/role in the area.
+  - each pairing field lists candidate Adaptive Lighting devices/switch sets assigned to
+    the same HA area.
+  - future `manage` support should require only minimal additional settings because
+    Magic Areas can derive membership from the selected native light groups/roles.
 - Model one Adaptive Lighting switch set as an external ambient-control target associated
   with one Magic Areas room/role target.
-- Prefer explicit configured switch references first for `adopt_existing`; add label/area
-  discovery only when the matching rules can prove a single unambiguous switch set.
+- Use hybrid association: enumerate Adaptive Lighting devices/switch sets assigned to the
+  same HA area, then let the user link one candidate to one Magic Areas native light group
+  role. Automatic pairing may be added only when matching rules can prove a single
+  unambiguous switch set for a role.
+- Keep association role-scoped. Whole-room coordination must use the `all_lights` role
+  rather than an area-level attachment to avoid duplicated service calls from multiple
+  group entities receiving the same area-state transition.
 - Defer `manage` mode until the Adaptive Lighting create/update surface is researched and
   tested. The intent is still to support it, but not before the adoption path is stable.
+- Fail closed with debug/log visibility when referenced or discovered Adaptive Lighting
+  switch sets are incomplete, missing, or ambiguous.
 - Use Magic Areas' existing manual override state as the authority for when to pause or
   resume Adaptive Lighting behavior switches. Adaptive Lighting owns the adaptive
   brightness/color calculations.
@@ -1096,6 +1114,10 @@ Recommended first implementation boundary:
 - Treat accent coordination as a suppressive/ambient pause: when accent mode intentionally
   creates a viewing scene, Magic Areas may pause brightness/color adaptation for affected
   lights and restore it when accent clears.
+- Treat Adaptive Lighting integration as a runtime adapter/side effect, not as a core
+  light-power intent. Adaptive Lighting switches control an external behavior system;
+  Magic Areas only coordinates that system for convenience, primarily to make sleep-light
+  and Adaptive Lighting sleep-mode behavior seamless.
 - Restoration should clear Adaptive Lighting manual-control state for affected lights
   only after the Magic Areas manual override cooldown expires.
 - Do not expand the current in-runtime ambient-rise code while adding Adaptive Lighting
