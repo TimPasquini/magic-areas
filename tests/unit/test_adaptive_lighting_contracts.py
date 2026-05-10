@@ -19,6 +19,8 @@ from custom_components.magic_areas.core.control_intents import (
     AdaptiveLightingCoordinationReason,
     AdaptiveLightingSwitchCandidate,
     AdaptiveLightingSwitchSet,
+    ExistingAdaptiveLightingConfigEntry,
+    ManagedAdaptiveLightingReconcileAction,
     adaptive_lighting_accent_adaptation_intents,
     adaptive_lighting_apply_data,
     adaptive_lighting_change_switch_settings_data,
@@ -28,10 +30,12 @@ from custom_components.magic_areas.core.control_intents import (
     adaptive_lighting_state_coordination_intents,
     adaptive_lighting_switch_entity_ids,
     is_managed_adaptive_lighting_owned_data_key,
+    is_managed_adaptive_lighting_entry,
     is_managed_adaptive_lighting_owned_option_key,
     managed_adaptive_lighting_config,
     managed_adaptive_lighting_config_name,
     managed_adaptive_lighting_options,
+    managed_adaptive_lighting_reconcile_plan,
     switch_set_from_discovery_candidates,
     switch_sets_from_discovery_candidates,
     switch_set_from_explicit_refs,
@@ -165,6 +169,147 @@ def test_managed_adaptive_lighting_options_preserve_al_owned_tuning() -> None:
         "sleep_rgb_or_color_temp": "color_temp",
         "lights": ["light.ceiling", "light.lamp"],
     }
+
+
+def test_managed_adaptive_lighting_entry_ownership_requires_prefix_and_unique_id() -> (
+    None
+):
+    """Reconciliation should not claim arbitrary user-created AL entries."""
+    managed = ExistingAdaptiveLightingConfigEntry(
+        entry_id="managed-1",
+        unique_id="Magic Areas Living Room overhead",
+        title="Magic Areas Living Room overhead",
+        data={"name": "Magic Areas Living Room overhead"},
+        options={},
+    )
+    user_named_like_ma = ExistingAdaptiveLightingConfigEntry(
+        entry_id="user-1",
+        unique_id="user-owned-id",
+        title="Magic Areas Living Room overhead",
+        data={"name": "Magic Areas Living Room overhead"},
+        options={},
+    )
+    unrelated = ExistingAdaptiveLightingConfigEntry(
+        entry_id="user-2",
+        unique_id="Living Room",
+        title="Living Room",
+        data={"name": "Living Room"},
+        options={},
+    )
+
+    assert is_managed_adaptive_lighting_entry(managed)
+    assert not is_managed_adaptive_lighting_entry(user_named_like_ma)
+    assert not is_managed_adaptive_lighting_entry(unrelated)
+
+
+def test_managed_adaptive_lighting_reconcile_plan_creates_missing_entry() -> None:
+    """Missing desired MA-owned AL configs should produce create operations."""
+    desired = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling",),
+    )
+    assert desired is not None
+
+    plan = managed_adaptive_lighting_reconcile_plan(
+        desired_configs=(desired,),
+        existing_entries=(),
+    )
+
+    assert len(plan) == 1
+    assert plan[0].action is ManagedAdaptiveLightingReconcileAction.CREATE
+    assert plan[0].data == {"name": "Magic Areas Living Room overhead"}
+    assert plan[0].options == {"lights": ["light.ceiling"]}
+
+
+def test_managed_adaptive_lighting_reconcile_plan_updates_lights_only() -> None:
+    """Updates should preserve AL/user-owned options while syncing membership."""
+    desired = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling", "light.lamp"),
+    )
+    assert desired is not None
+    existing = ExistingAdaptiveLightingConfigEntry(
+        entry_id="managed-1",
+        unique_id="Magic Areas Living Room overhead",
+        title="Magic Areas Living Room overhead",
+        data={"name": "Magic Areas Living Room overhead"},
+        options={
+            "lights": ["light.old_member"],
+            "min_brightness": 10,
+            "sleep_rgb_or_color_temp": "color_temp",
+        },
+    )
+
+    plan = managed_adaptive_lighting_reconcile_plan(
+        desired_configs=(desired,),
+        existing_entries=(existing,),
+    )
+
+    assert len(plan) == 1
+    assert plan[0].action is ManagedAdaptiveLightingReconcileAction.UPDATE
+    assert plan[0].existing_entry == existing
+    assert plan[0].options == {
+        "lights": ["light.ceiling", "light.lamp"],
+        "min_brightness": 10,
+        "sleep_rgb_or_color_temp": "color_temp",
+    }
+
+
+def test_managed_adaptive_lighting_reconcile_plan_deletes_stale_owned_entry() -> None:
+    """Stale MA-owned entries should be removed while user entries are ignored."""
+    stale = ExistingAdaptiveLightingConfigEntry(
+        entry_id="managed-stale",
+        unique_id="Magic Areas Living Room task",
+        title="Magic Areas Living Room task",
+        data={"name": "Magic Areas Living Room task"},
+        options={"lights": ["light.task"]},
+    )
+    user_entry = ExistingAdaptiveLightingConfigEntry(
+        entry_id="user-entry",
+        unique_id="Living Room",
+        title="Living Room",
+        data={"name": "Living Room"},
+        options={"lights": ["light.user"]},
+    )
+
+    plan = managed_adaptive_lighting_reconcile_plan(
+        desired_configs=(),
+        existing_entries=(stale, user_entry),
+    )
+
+    assert len(plan) == 1
+    assert plan[0].action is ManagedAdaptiveLightingReconcileAction.DELETE
+    assert plan[0].existing_entry == stale
+
+
+def test_managed_adaptive_lighting_reconcile_plan_is_noop_when_current() -> None:
+    """Current MA-owned entries should not reload churn."""
+    desired = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling",),
+    )
+    assert desired is not None
+    existing = ExistingAdaptiveLightingConfigEntry(
+        entry_id="managed-current",
+        unique_id="Magic Areas Living Room overhead",
+        title="Magic Areas Living Room overhead",
+        data={"name": "Magic Areas Living Room overhead"},
+        options={"lights": ["light.ceiling"], "min_brightness": 10},
+    )
+
+    assert (
+        managed_adaptive_lighting_reconcile_plan(
+            desired_configs=(desired,),
+            existing_entries=(existing,),
+        )
+        == ()
+    )
 
 
 def test_switch_set_from_explicit_refs_requires_complete_switch_set() -> None:

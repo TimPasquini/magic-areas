@@ -1202,6 +1202,9 @@ Next `manage` implementation checklist:
   such as brightness bounds, sleep color/temperature settings, and transition behavior.
 - [x] Add a mocked Adaptive Lighting config-entry harness that can create/update/reload
   AL-like config entries without importing the HACS integration.
+- [x] Add a pure managed-AL reconciliation planner that creates missing MA-owned entries,
+  updates stale membership while preserving AL-owned options, deletes stale MA-owned
+  entries, and ignores user-created AL entries.
 - [ ] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
   entries only.
 - [ ] Resolve the resulting AL switch sets through the same runtime association path used

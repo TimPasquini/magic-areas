@@ -78,6 +78,44 @@ class ManagedAdaptiveLightingConfig:
         return adaptive_lighting_switch_entity_ids(self.name)
 
 
+@dataclass(frozen=True, slots=True)
+class ExistingAdaptiveLightingConfigEntry:
+    """Existing AL config-entry projection used by the managed reconciler."""
+
+    entry_id: str
+    unique_id: str | None
+    title: str
+    data: Mapping[str, object]
+    options: Mapping[str, object]
+
+    @property
+    def name(self) -> str | None:
+        """Return the Adaptive Lighting config name from entry data or title."""
+        name = self.data.get(CONF_NAME)
+        if isinstance(name, str) and name:
+            return name
+        return self.title or None
+
+
+class ManagedAdaptiveLightingReconcileAction(StrEnum):
+    """Reconciliation operations for MA-managed AL config entries."""
+
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedAdaptiveLightingReconcileOperation:
+    """One desired operation for the managed AL config-entry reconciler."""
+
+    action: ManagedAdaptiveLightingReconcileAction
+    desired_config: ManagedAdaptiveLightingConfig | None = None
+    existing_entry: ExistingAdaptiveLightingConfigEntry | None = None
+    data: dict[str, str] | None = None
+    options: dict[str, object] | None = None
+
+
 def managed_adaptive_lighting_config_name(*, area_name: str, role: str) -> str:
     """Return the MA-owned Adaptive Lighting configuration name for one role."""
     readable_role = role.removesuffix("_lights").replace("_", " ").strip()
@@ -131,6 +169,72 @@ def is_managed_adaptive_lighting_owned_data_key(key: str) -> bool:
 def is_managed_adaptive_lighting_owned_option_key(key: str) -> bool:
     """Return whether Magic Areas owns an AL config-entry option key."""
     return key in MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS
+
+
+def is_managed_adaptive_lighting_entry(
+    entry: ExistingAdaptiveLightingConfigEntry,
+) -> bool:
+    """Return whether an existing AL entry is safe for MA to reconcile."""
+    name = entry.name
+    if not name:
+        return False
+    return (
+        name.startswith(f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} ")
+        and entry.unique_id == name
+    )
+
+
+def managed_adaptive_lighting_reconcile_plan(
+    *,
+    desired_configs: Iterable[ManagedAdaptiveLightingConfig],
+    existing_entries: Iterable[ExistingAdaptiveLightingConfigEntry],
+) -> tuple[ManagedAdaptiveLightingReconcileOperation, ...]:
+    """Plan create/update/delete operations for MA-owned AL config entries only."""
+    desired_by_name = {desired.name: desired for desired in desired_configs}
+    operations: list[ManagedAdaptiveLightingReconcileOperation] = []
+    matched_desired_names: set[str] = set()
+
+    for entry in existing_entries:
+        if not is_managed_adaptive_lighting_entry(entry):
+            continue
+        name = entry.name
+        if name is None:
+            continue
+        desired = desired_by_name.get(name)
+        if desired is None:
+            operations.append(
+                ManagedAdaptiveLightingReconcileOperation(
+                    action=ManagedAdaptiveLightingReconcileAction.DELETE,
+                    existing_entry=entry,
+                )
+            )
+            continue
+        matched_desired_names.add(name)
+        next_options = managed_adaptive_lighting_options(entry.options, desired)
+        if dict(entry.data) != desired.data or dict(entry.options) != next_options:
+            operations.append(
+                ManagedAdaptiveLightingReconcileOperation(
+                    action=ManagedAdaptiveLightingReconcileAction.UPDATE,
+                    desired_config=desired,
+                    existing_entry=entry,
+                    data=desired.data,
+                    options=next_options,
+                )
+            )
+
+    for name, desired in sorted(desired_by_name.items()):
+        if name in matched_desired_names:
+            continue
+        operations.append(
+            ManagedAdaptiveLightingReconcileOperation(
+                action=ManagedAdaptiveLightingReconcileAction.CREATE,
+                desired_config=desired,
+                data=desired.data,
+                options=managed_adaptive_lighting_options({}, desired),
+            )
+        )
+
+    return tuple(operations)
 
 
 class AdaptiveLightingCoordinationReason(StrEnum):
@@ -534,7 +638,10 @@ __all__ = [
     "AdaptiveLightingServiceIntent",
     "AdaptiveLightingSwitchCandidate",
     "AdaptiveLightingSwitchSet",
+    "ExistingAdaptiveLightingConfigEntry",
     "ManagedAdaptiveLightingConfig",
+    "ManagedAdaptiveLightingReconcileAction",
+    "ManagedAdaptiveLightingReconcileOperation",
     "adaptive_lighting_accent_adaptation_intents",
     "adaptive_lighting_apply_data",
     "adaptive_lighting_change_switch_settings_data",
@@ -544,10 +651,12 @@ __all__ = [
     "adaptive_lighting_state_coordination_intents",
     "adaptive_lighting_switch_entity_ids",
     "is_managed_adaptive_lighting_owned_data_key",
+    "is_managed_adaptive_lighting_entry",
     "is_managed_adaptive_lighting_owned_option_key",
     "managed_adaptive_lighting_config",
     "managed_adaptive_lighting_config_name",
     "managed_adaptive_lighting_options",
+    "managed_adaptive_lighting_reconcile_plan",
     "switch_set_from_discovery_candidates",
     "switch_sets_from_discovery_candidates",
     "switch_set_from_explicit_refs",
