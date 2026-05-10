@@ -1158,6 +1158,9 @@ First implementable behavior:
   entities.
 - [x] Preserve hidden/internal Adaptive Lighting switch-set mappings when users edit
   ordinary light-group options through the mode-specific options flow.
+- [x] Add inline light-group `adopt_existing` controls that list same-area Adaptive
+  Lighting switch-set candidates and persist selected role pairings as explicit switch
+  references.
 - Add no unconditional runtime dependency on Adaptive Lighting services; all service
   execution must remain behind explicit switch-set association.
 

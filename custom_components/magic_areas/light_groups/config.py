@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.config_keys.area import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
@@ -55,6 +56,9 @@ LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE = "adaptive"
 LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN = "sun"
 LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX = "outside_lux"
 LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE = "none"
+LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE = "ignore"
+LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING = "adopt_existing"
+LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX = "adaptive_lighting_pair_"
 
 LIGHT_GROUP_DEFAULT_ICON = "mdi:lightbulb-group"
 
@@ -185,6 +189,28 @@ def brightness_mode(feature_config: FeatureConfigDict) -> str:
     return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
 
 
+def adaptive_lighting_mode(feature_config: FeatureConfigDict) -> str:
+    """Return configured Adaptive Lighting coordination mode."""
+    value = feature_config.get(
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
+    )
+    if not isinstance(value, str):
+        return LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+    normalized = value.lower()
+    if normalized in {
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+    }:
+        return normalized
+    return LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+
+
+def adaptive_lighting_pair_key(category: str) -> str:
+    """Return transient options-flow key for pairing one role to an AL switch set."""
+    return f"{LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX}{category}"
+
+
 def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -> int:
     """Read integer option from feature config with safe fallback."""
     value = feature_config.get(key, default)
@@ -312,6 +338,12 @@ def adaptive_lighting_switch_set(
     category: str,
 ) -> AdaptiveLightingSwitchSet | None:
     """Return explicitly associated Adaptive Lighting switches for a light role."""
+    if (
+        adaptive_lighting_mode(feature_config)
+        != LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+    ):
+        return None
+
     raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
     if not isinstance(raw_switch_sets, Mapping):
         return None
@@ -347,6 +379,12 @@ def build_light_group_feature_schema() -> vol.Schema:
         vol.Optional(
             CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
             default=LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+        )
+    ] = cv.string
+    schema[
+        vol.Optional(
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+            default=LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
         )
     ] = cv.string
     schema[vol.Optional(CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS, default=0)] = vol.All(

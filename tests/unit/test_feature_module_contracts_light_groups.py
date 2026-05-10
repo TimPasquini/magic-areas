@@ -60,6 +60,7 @@ def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> N
         feature_configs={
             MagicAreasFeatures.LIGHT_GROUPS: {
                 "overhead_lights": ["light.overhead_1"],
+                "adaptive_lighting_mode": "adopt_existing",
                 "adaptive_lighting_switch_sets": {
                     "overhead_lights": {
                         MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",

@@ -8,8 +8,10 @@ from custom_components.magic_areas.core.control_intents import (
     SLEEP_SWITCH,
 )
 from custom_components.magic_areas.light_groups import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_OVERHEAD_LIGHTS,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_FEATURE_SCHEMA,
     LIGHT_GROUP_PRESETS,
     adaptive_lighting_switch_set,
@@ -34,6 +36,7 @@ def test_light_group_schema_defaults_follow_preset_defaults() -> None:
 
     assert defaults[LIGHT_GROUP_PRESETS[0].states_key] == [AreaStates.OCCUPIED]
     assert LIGHT_GROUP_PRESETS[0].category == CONF_OVERHEAD_LIGHTS
+    assert defaults[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] == "ignore"
     assert defaults[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS] == {}
 
 
@@ -52,6 +55,9 @@ def test_get_light_group_preset_returns_none_for_unknown_category() -> None:
 def test_adaptive_lighting_switch_set_reads_role_scoped_explicit_refs() -> None:
     """Explicit AL adoption should attach only to the configured light role."""
     feature_config = {
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+        ),
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
             CONF_OVERHEAD_LIGHTS: {
                 MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
@@ -63,7 +69,7 @@ def test_adaptive_lighting_switch_set_reads_role_scoped_explicit_refs() -> None:
                     "switch.adaptive_lighting_adapt_color_kitchen_overhead"
                 ),
             }
-        }
+        },
     }
 
     switch_set = adaptive_lighting_switch_set(
@@ -89,11 +95,14 @@ def test_adaptive_lighting_switch_set_fails_closed_for_incomplete_refs() -> None
     """Incomplete AL switch config should not partially enable coordination."""
     switch_set = adaptive_lighting_switch_set(
         {
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+            ),
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
                 CONF_OVERHEAD_LIGHTS: {
                     MAIN_SWITCH: "switch.adaptive_lighting_kitchen_overhead",
                 }
-            }
+            },
         },
         area_id="kitchen",
         category=CONF_OVERHEAD_LIGHTS,
