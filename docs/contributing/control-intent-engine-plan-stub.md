@@ -1060,6 +1060,11 @@ Research findings:
   service is runtime-only: changed settings are not persisted and reset on Home Assistant
   restart. It also explicitly disallows changing `entity_id`, `lights`, `name`, and
   `interval`, so it is not a durable create/update API for MA-managed configurations.
+- `manage` mode should not use Adaptive Lighting services for durable construction or
+  membership updates. The viable durable mechanism is Home Assistant config-entry/options
+  reconciliation: Magic Areas creates or updates Magic Areas-owned Adaptive Lighting
+  config entries, Adaptive Lighting consumes those entries normally, and Magic Areas then
+  discovers/coordinates the resulting switch set.
 
 Discovery constraints:
 
@@ -1092,6 +1097,26 @@ Recommended first implementation boundary:
     the same HA area.
   - future `manage` support should require only minimal additional settings because
     Magic Areas can derive membership from the selected native light groups/roles.
+- In `manage` mode, Magic Areas owns construction and membership, not Adaptive Lighting
+  behavior tuning:
+  - Magic Areas owns the managed AL config identity/name, ownership marker, area/role
+    association, and `lights` membership.
+  - Adaptive Lighting and the user own min/max brightness, sleep brightness, sleep
+    color/temperature behavior, transition behavior, take-over-control settings, and other
+    AL tuning options.
+  - Reconciliation must preserve AL-owned options and update only MA-owned fields unless
+    the user explicitly opts into future MA-managed defaults.
+  - Users should tune managed AL configs through the Adaptive Lighting UI. Magic Areas
+    should avoid duplicating the full Adaptive Lighting options surface.
+- Magic Areas `sleep_lights` membership and Adaptive Lighting sleep mode are separate
+  domains:
+  - `sleep_lights` defines which lights Magic Areas may automatically turn on/off for MA
+    sleep behavior.
+  - AL sleep mode defines how associated lights behave whenever they are on while MA sleep
+    state is active.
+  - Therefore, AL sleep switch coordination applies to every adopted/managed AL role whose
+    lights should remain soft/comfortable during MA sleep state, including overhead/task
+    roles that a user manually turns on at night.
 - Model one Adaptive Lighting switch set as an external ambient-control target associated
   with one Magic Areas room/role target.
 - Use hybrid association: enumerate Adaptive Lighting devices/switch sets assigned to the
@@ -1101,8 +1126,9 @@ Recommended first implementation boundary:
 - Keep association role-scoped. Whole-room coordination must use the `all_lights` role
   rather than an area-level attachment to avoid duplicated service calls from multiple
   group entities receiving the same area-state transition.
-- Defer `manage` mode until the Adaptive Lighting create/update surface is researched and
-  tested. The intent is still to support it, but not before the adoption path is stable.
+- Defer `manage` implementation until the config-entry/options reconciliation contract is
+  tested against a mocked Adaptive Lighting config-entry shape. The intent is still to
+  support managed construction, but only for Magic Areas-owned AL configs.
 - Fail closed with debug/log visibility when referenced or discovered Adaptive Lighting
   switch sets are incomplete, missing, or ambiguous.
 - Use Magic Areas' existing manual override state as the authority for when to pause or
@@ -1144,8 +1170,9 @@ First implementable behavior:
   the pure resolver.
 - [x] Research Adaptive Lighting create/update APIs before implementing `manage` mode.
   Current result: no documented durable service surface exists for creating/updating
-  configurations or changing member lights. `manage` mode remains deferred unless a
-  public durable config-entry/options API is identified and tested.
+  configurations or changing member lights. The practical durable path for `manage` is
+  config-entry/options reconciliation of Magic Areas-owned Adaptive Lighting configs, with
+  Magic Areas preserving user/AL-owned behavior settings.
 - [x] Add pure coordination intents for sleep, accent, and manual-override restoration:
   sleep toggles the AL sleep switch, accent pauses/restores AL brightness/color behavior
   switches, and manual-control restoration waits for the Magic Areas cooldown.
@@ -1164,6 +1191,25 @@ First implementable behavior:
 - [x] Add no unconditional runtime dependency on Adaptive Lighting services; all service
   execution remains behind explicit switch-set association and inactive `ignore` mode
   keeps stale switch references inert.
+
+Next `manage` implementation checklist:
+
+- [ ] Define a pure desired managed-Adaptive-Lighting config model keyed by Magic Areas
+  area ID and light role.
+- [ ] Define MA-owned versus AL/user-owned option keys. At minimum, MA owns identity,
+  role association, ownership metadata, and `lights`; AL/user owns behavior tuning.
+- [ ] Add tests proving reconciliation updates `lights` while preserving AL-owned options
+  such as brightness bounds, sleep color/temperature settings, and transition behavior.
+- [ ] Add a mocked Adaptive Lighting config-entry harness that can create/update/reload
+  AL-like config entries without importing the HACS integration.
+- [ ] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
+  entries only.
+- [ ] Resolve the resulting AL switch sets through the same runtime association path used
+  by `adopt_existing`.
+- [ ] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
+  should receive MA-managed AL configs, without exposing the full AL tuning surface.
+- [ ] Assign managed AL switch/device registry metadata to the same HA area where
+  possible, and fail closed with Repairs/log visibility if AL config-entry shape changes.
 
 References:
 
@@ -1266,18 +1312,22 @@ Resolved:
   state; Adaptive Lighting performs the adaptive work.
 - Adaptive Lighting v1 mode shape is three-way: ignore, adopt existing switch sets, or
   let Magic Areas manage Adaptive Lighting groups. The implementation order should start
-  with ignore/adopt existing and defer full management until the Adaptive Lighting
-  create/update surface is proven.
+  with ignore/adopt existing and then add full management through Magic Areas-owned
+  Adaptive Lighting config-entry/options reconciliation.
 - Adaptive Lighting switches are not light power switches. They control adaptation
   behavior applied to the associated lights when those lights are on.
+- Adaptive Lighting behavior tuning remains in Adaptive Lighting. Magic Areas-managed
+  Adaptive Lighting configs should preserve AL/user-owned options and update only
+  MA-owned construction/membership fields.
+- Magic Areas `sleep_lights` and Adaptive Lighting sleep mode are separate domains. MA
+  sleep state may enable AL sleep mode for every associated role so manually turned-on
+  overhead/task lights can still use soft sleep lighting.
 
 Still open:
 
-1. What exact Adaptive Lighting create/update surface supports `manage` mode, and can it
-   safely maintain members from Magic Areas groups?
-2. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
+1. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
    if so which labels are control-critical versus informational?
-3. Which native signal-helper bundle, if any, should replace or supplement the current
+2. Which native signal-helper bundle, if any, should replace or supplement the current
    in-runtime ambient-rise evidence before adaptive switching resumes?
 
 ## Initial Recommendation
