@@ -9,6 +9,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.core.control_intents import (
     ADAPTIVE_LIGHTING_DOMAIN,
     ATTR_LIGHTS,
+    MANAGED_ADAPTIVE_LIGHTING_AREA_ID,
+    MANAGED_ADAPTIVE_LIGHTING_ROLE,
     managed_adaptive_lighting_config,
 )
 from custom_components.magic_areas.coordinator import (
@@ -41,7 +43,11 @@ async def test_reconciler_creates_missing_managed_adaptive_lighting_entry(
     entry = entries[0]
     assert entry.title == "Magic Areas Living Room overhead"
     assert entry.unique_id == "Magic Areas Living Room overhead"
-    assert entry.data == {CONF_NAME: "Magic Areas Living Room overhead"}
+    assert entry.data == {
+        CONF_NAME: "Magic Areas Living Room overhead",
+        MANAGED_ADAPTIVE_LIGHTING_AREA_ID: "living_room",
+        MANAGED_ADAPTIVE_LIGHTING_ROLE: "overhead_lights",
+    }
     assert entry.options == {ATTR_LIGHTS: ["light.ceiling", "light.lamp"]}
 
 
@@ -103,3 +109,22 @@ async def test_reconciler_deletes_stale_owned_entry_but_ignores_user_entry(
 
     assert hass.config_entries.async_get_entry(stale.entry_id) is None
     assert hass.config_entries.async_get_entry(user_entry.entry_id) is user_entry
+
+
+async def test_reconciler_scopes_stale_cleanup_by_area(hass: HomeAssistant) -> None:
+    """Per-area reconciliation should not remove another area's managed AL entry."""
+    harness = setup_adaptive_lighting_config_entry_harness(hass)
+    other_area = await harness.async_create_entry(
+        name="Magic Areas Bedroom overhead",
+        area_id="bedroom",
+        role="overhead_lights",
+        options={ATTR_LIGHTS: ["light.bedroom"]},
+    )
+
+    await async_reconcile_managed_adaptive_lighting(
+        hass=hass,
+        area_id="living_room",
+        desired_configs=(),
+    )
+
+    assert hass.config_entries.async_get_entry(other_area.entry_id) is other_area

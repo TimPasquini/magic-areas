@@ -175,6 +175,8 @@ class AdaptiveLightingConfigEntryHarness:
         self,
         *,
         name: str,
+        area_id: str = "living_room",
+        role: str = "overhead_lights",
         options: dict[str, object] | None = None,
     ) -> MockConfigEntry:
         """Create an AL-like config entry and simulate AL loading its switches."""
@@ -182,7 +184,11 @@ class AdaptiveLightingConfigEntryHarness:
             domain=ADAPTIVE_LIGHTING_DOMAIN,
             title=name,
             unique_id=name,
-            data={CONF_NAME: name},
+            data={
+                CONF_NAME: name,
+                "magic_areas_area_id": area_id,
+                "magic_areas_role": role,
+            },
             options=options or {},
         )
         entry.add_to_hass(self.hass)

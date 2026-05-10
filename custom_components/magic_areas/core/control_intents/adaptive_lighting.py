@@ -21,7 +21,15 @@ SERVICE_TURN_ON = "turn_on"
 ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
 SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
 MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "Magic Areas"
-MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS = frozenset({CONF_NAME})
+MANAGED_ADAPTIVE_LIGHTING_AREA_ID = "magic_areas_area_id"
+MANAGED_ADAPTIVE_LIGHTING_ROLE = "magic_areas_role"
+MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS = frozenset(
+    {
+        CONF_NAME,
+        MANAGED_ADAPTIVE_LIGHTING_AREA_ID,
+        MANAGED_ADAPTIVE_LIGHTING_ROLE,
+    }
+)
 MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS = frozenset({ATTR_LIGHTS})
 
 
@@ -70,7 +78,11 @@ class ManagedAdaptiveLightingConfig:
     @property
     def data(self) -> dict[str, str]:
         """Return durable config-entry data Adaptive Lighting expects."""
-        return {CONF_NAME: self.name}
+        return {
+            CONF_NAME: self.name,
+            MANAGED_ADAPTIVE_LIGHTING_AREA_ID: self.area_id,
+            MANAGED_ADAPTIVE_LIGHTING_ROLE: self.role,
+        }
 
     @property
     def switch_refs(self) -> dict[str, str]:
@@ -95,6 +107,18 @@ class ExistingAdaptiveLightingConfigEntry:
         if isinstance(name, str) and name:
             return name
         return self.title or None
+
+    @property
+    def area_id(self) -> str | None:
+        """Return the owning Magic Areas area ID from entry metadata."""
+        area_id = self.data.get(MANAGED_ADAPTIVE_LIGHTING_AREA_ID)
+        return area_id if isinstance(area_id, str) and area_id else None
+
+    @property
+    def role(self) -> str | None:
+        """Return the owning Magic Areas light role from entry metadata."""
+        role = self.data.get(MANAGED_ADAPTIVE_LIGHTING_ROLE)
+        return role if isinstance(role, str) and role else None
 
 
 class ManagedAdaptiveLightingReconcileAction(StrEnum):
@@ -173,21 +197,29 @@ def is_managed_adaptive_lighting_owned_option_key(key: str) -> bool:
 
 def is_managed_adaptive_lighting_entry(
     entry: ExistingAdaptiveLightingConfigEntry,
+    *,
+    area_id: str | None = None,
 ) -> bool:
     """Return whether an existing AL entry is safe for MA to reconcile."""
     name = entry.name
     if not name:
         return False
-    return (
+    is_owned = (
         name.startswith(f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} ")
         and entry.unique_id == name
+        and entry.area_id is not None
+        and entry.role is not None
     )
+    if not is_owned:
+        return False
+    return area_id is None or entry.area_id == area_id
 
 
 def managed_adaptive_lighting_reconcile_plan(
     *,
     desired_configs: Iterable[ManagedAdaptiveLightingConfig],
     existing_entries: Iterable[ExistingAdaptiveLightingConfigEntry],
+    area_id: str | None = None,
 ) -> tuple[ManagedAdaptiveLightingReconcileOperation, ...]:
     """Plan create/update/delete operations for MA-owned AL config entries only."""
     desired_by_name = {desired.name: desired for desired in desired_configs}
@@ -195,7 +227,7 @@ def managed_adaptive_lighting_reconcile_plan(
     matched_desired_names: set[str] = set()
 
     for entry in existing_entries:
-        if not is_managed_adaptive_lighting_entry(entry):
+        if not is_managed_adaptive_lighting_entry(entry, area_id=area_id):
             continue
         name = entry.name
         if name is None:
@@ -627,9 +659,11 @@ __all__ = [
     "ATTR_LIGHTS",
     "ADAPTIVE_LIGHTING_DOMAIN",
     "MAIN_SWITCH",
+    "MANAGED_ADAPTIVE_LIGHTING_AREA_ID",
     "MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX",
     "MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS",
     "MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS",
+    "MANAGED_ADAPTIVE_LIGHTING_ROLE",
     "SERVICE_SET_MANUAL_CONTROL",
     "SERVICE_TURN_OFF",
     "SERVICE_TURN_ON",

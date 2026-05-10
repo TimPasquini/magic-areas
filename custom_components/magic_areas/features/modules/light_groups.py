@@ -20,6 +20,10 @@ from custom_components.magic_areas.core.runtime_model import (
     LabelSurface,
     ManagedSurface,
 )
+from custom_components.magic_areas.core.control_intents import (
+    ManagedAdaptiveLightingConfig,
+    managed_adaptive_lighting_config,
+)
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
 )
@@ -41,6 +45,9 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_FEATURE_SCHEMA,
     MagicLightGroup,
     LIGHT_GROUP_PRESETS,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+    adaptive_lighting_managed_roles,
+    adaptive_lighting_mode,
     build_light_group_helper_surface_unique_id,
     light_groups_feature_config,
     preset_members,
@@ -79,7 +86,9 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         registered_group_defs: list[ControlGroupDefinition] = []
 
         if LIGHT_DOMAIN not in data.entities:
-            _LOGGER.debug("%s: No %s entities for area.", area_config.name, LIGHT_DOMAIN)
+            _LOGGER.debug(
+                "%s: No %s entities for area.", area_config.name, LIGHT_DOMAIN
+            )
         else:
             if area_config.is_meta():
                 light_groups, registered_group_defs = self._build_meta_light_groups(
@@ -157,6 +166,43 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                 )
             )
         return surfaces
+
+    def desired_managed_adaptive_lighting_configs(
+        self,
+        area_config: AreaConfig,
+        data: MagicAreasData,
+    ) -> list[ManagedAdaptiveLightingConfig]:
+        """Build desired MA-managed Adaptive Lighting configs for selected roles."""
+        light_entities = [e["entity_id"] for e in data.entities.get(LIGHT_DOMAIN, [])]
+        if not light_entities:
+            return []
+
+        feature_config = light_groups_feature_config(data.feature_configs)
+        if (
+            adaptive_lighting_mode(feature_config)
+            != LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+        ):
+            return []
+
+        configs: list[ManagedAdaptiveLightingConfig] = []
+        managed_roles = set(adaptive_lighting_managed_roles(feature_config))
+        for preset in LIGHT_GROUP_PRESETS:
+            if preset.category not in managed_roles:
+                continue
+            members = preset_members(
+                feature_config,
+                preset,
+                available_entities=light_entities,
+            )
+            config = managed_adaptive_lighting_config(
+                area_id=area_config.id,
+                area_name=area_config.name,
+                role=preset.category,
+                light_entity_ids=members,
+            )
+            if config is not None:
+                configs.append(config)
+        return configs
 
     def _build_meta_light_groups(
         self,
@@ -246,7 +292,8 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                 metadata={GroupMetadataKey.CATEGORY: spec.category},
             ),
             parent_entity_factory=_build_parent_entity,
-            parent_definition_factory=lambda _parent_members, _child_categories: build_control_group_definition(
+            parent_definition_factory=lambda _parent_members,
+            _child_categories: build_control_group_definition(
                 group_id=build_light_group_id(
                     area_id=area_config.id, category=LightGroupCategory.ALL
                 ),

@@ -53,7 +53,9 @@ async def async_setup_entry(
 
         # Watch for area changes.
         if not area_config.is_meta():
-            attach_registry_listeners(hass, config_entry, area_config, tracked_listeners)
+            attach_registry_listeners(
+                hass, config_entry, area_config, tracked_listeners
+            )
 
         coordinator = MagicAreasCoordinator(hass, area_config, config_entry)
         if config_entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
@@ -67,9 +69,11 @@ async def async_setup_entry(
         )
 
         from custom_components.magic_areas.coordinator import (
+            async_reconcile_managed_adaptive_lighting,
             async_reconcile_managed_surfaces,
         )
         from custom_components.magic_areas.features.dispatch import (
+            collect_feature_managed_adaptive_lighting_configs,
             collect_feature_managed_surfaces,
         )
         from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
@@ -79,6 +83,16 @@ async def async_setup_entry(
                 hass=hass,
                 owner_entry_id=config_entry.entry_id,
                 desired_surfaces=collect_feature_managed_surfaces(
+                    registry=FEATURE_REGISTRY,
+                    data=coordinator.data,
+                    area_config=area_config,
+                    logger=_LOGGER,
+                ),
+            )
+            await async_reconcile_managed_adaptive_lighting(
+                hass=hass,
+                area_id=area_config.id,
+                desired_configs=collect_feature_managed_adaptive_lighting_configs(
                     registry=FEATURE_REGISTRY,
                     data=coordinator.data,
                     area_config=area_config,

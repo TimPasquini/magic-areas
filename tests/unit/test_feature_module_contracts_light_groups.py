@@ -135,6 +135,36 @@ def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None
     )
 
 
+def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
+    """Selected manage-mode roles should compile into desired AL configs."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "task_lights": ["light.task_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_managed_roles": ["overhead_lights"],
+            }
+        },
+        entities={
+            "light": [
+                {"entity_id": "light.overhead_1"},
+                {"entity_id": "light.task_1"},
+            ]
+        },
+    )
+    module = get_module("light_groups")
+
+    configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
+
+    assert len(configs) == 1
+    assert configs[0].name == "Magic Areas Kitchen overhead"
+    assert configs[0].role == "overhead_lights"
+    assert configs[0].light_entity_ids == ("light.overhead_1",)
+
+
 def test_light_groups_module_registers_default_control_groups() -> None:
     """Light module should register area-scoped default control-group definitions."""
     area_config = make_area_config()

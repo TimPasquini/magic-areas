@@ -20,6 +20,9 @@ from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.core.control_intents import (
+        ManagedAdaptiveLightingConfig,
+    )
     from custom_components.magic_areas.core.runtime_model import (
         ManagedSurface,
     )
@@ -69,6 +72,39 @@ def collect_feature_managed_surfaces(
         )
     )
     return surfaces
+
+
+def collect_feature_managed_adaptive_lighting_configs(
+    *,
+    registry: FeatureRegistry,
+    data: MagicAreasData,
+    area_config: AreaConfig,
+    logger: logging.Logger,
+) -> list[ManagedAdaptiveLightingConfig]:
+    """Collect desired MA-managed Adaptive Lighting configs from enabled modules."""
+    configs: list[ManagedAdaptiveLightingConfig] = []
+    enabled_features = {str(feature) for feature in data.enabled_features}
+
+    for module in registry.modules():
+        if not module.is_enabled(data):
+            continue
+        missing = {feature.value for feature in module.depends_on()} - enabled_features
+        if missing:
+            logger.warning(
+                "Feature %s missing dependencies: %s",
+                module.id,
+                ", ".join(sorted(missing)),
+            )
+            continue
+        config_builder = getattr(
+            module,
+            "desired_managed_adaptive_lighting_configs",
+            None,
+        )
+        if config_builder is None:
+            continue
+        configs.extend(config_builder(area_config, data))
+    return configs
 
 
 def _custom_control_group_label_surfaces(
@@ -192,5 +228,6 @@ async def async_setup_feature_platform(
 __all__ = [
     "async_setup_feature_platform",
     "collect_feature_entities",
+    "collect_feature_managed_adaptive_lighting_configs",
     "collect_feature_managed_surfaces",
 ]

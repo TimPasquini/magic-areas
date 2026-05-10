@@ -108,6 +108,7 @@ async def _async_apply_managed_adaptive_lighting_operation(
 async def async_reconcile_managed_adaptive_lighting(
     *,
     hass: HomeAssistant,
+    area_id: str | None = None,
     desired_configs: Iterable[ManagedAdaptiveLightingConfig],
 ) -> None:
     """Create, update, and remove Magic Areas-managed Adaptive Lighting entries."""
@@ -117,6 +118,7 @@ async def async_reconcile_managed_adaptive_lighting(
             _project_entry(entry)
             for entry in hass.config_entries.async_entries(ADAPTIVE_LIGHTING_DOMAIN)
         ],
+        area_id=area_id,
     )
 
     for operation in operations:

@@ -7,6 +7,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.core import State
 
 from custom_components.magic_areas.core.control_intents import (
+    MANAGED_ADAPTIVE_LIGHTING_AREA_ID,
+    MANAGED_ADAPTIVE_LIGHTING_ROLE,
     managed_adaptive_lighting_config,
     managed_adaptive_lighting_options,
 )
@@ -74,7 +76,11 @@ async def test_config_entry_harness_creates_al_like_entry_and_switches(
     )
 
     assert entry.domain == ADAPTIVE_LIGHTING_DOMAIN
-    assert entry.data == {"name": "Magic Areas Living Room overhead"}
+    assert entry.data == {
+        "name": "Magic Areas Living Room overhead",
+        MANAGED_ADAPTIVE_LIGHTING_AREA_ID: "living_room",
+        MANAGED_ADAPTIVE_LIGHTING_ROLE: "overhead_lights",
+    }
     assert entry.options["min_brightness"] == 20
     assert harness.reload_requests == [entry.entry_id]
     assert _state(

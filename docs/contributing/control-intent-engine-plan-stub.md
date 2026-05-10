@@ -1211,6 +1211,8 @@ Next `manage` implementation checklist:
   by `adopt_existing`.
 - [x] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
   should receive MA-managed AL configs, without exposing the full AL tuning surface.
+- [x] Compile selected manage-mode light roles into desired AL configs and reconcile them
+  during area setup with stale cleanup scoped to the current Magic Area.
 - [ ] Assign managed AL switch/device registry metadata to the same HA area where
   possible, and fail closed with Repairs/log visibility if AL config-entry shape changes.
 
