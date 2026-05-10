@@ -25,6 +25,9 @@ from custom_components.magic_areas.coordinator.managed_surfaces import (
     async_reconcile_label_surfaces,
     async_reconcile_managed_surfaces,
 )
+from custom_components.magic_areas.coordinator.adaptive_lighting import (
+    async_reconcile_managed_adaptive_lighting,
+)
 from custom_components.magic_areas.enums import MagicAreasEvents
 from custom_components.magic_areas.components import MagicAreasConfigEntry
 
@@ -42,6 +45,7 @@ __all__ = [
     "MagicAreasData",
     "async_reconcile_config_entry_helpers",
     "async_reconcile_label_surfaces",
+    "async_reconcile_managed_adaptive_lighting",
     "async_reconcile_managed_surfaces",
     "attach_registry_listeners",
 ]
@@ -67,14 +71,18 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
         self._area_config = area_config
         self._lifecycle: MetaAreaReloadManager | None = None
         self._group_registry = GroupRegistry()
-        self._last_snapshot_ready_key: tuple[str, str | None, str, str | None] | None = None
+        self._last_snapshot_ready_key: (
+            tuple[str, str | None, str, str | None] | None
+        ) = None
 
         if area_config.is_meta():
             self._lifecycle = MetaAreaReloadManager(
                 hass=hass,
                 area_config=area_config,
                 get_snapshot=lambda: self.data,
-                get_entry_id=lambda: self.config_entry.entry_id if self.config_entry else None,
+                get_entry_id=lambda: self.config_entry.entry_id
+                if self.config_entry
+                else None,
                 schedule_reload=hass.config_entries.async_schedule_reload,
             )
             self._lifecycle.start()

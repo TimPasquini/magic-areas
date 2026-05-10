@@ -1205,7 +1205,7 @@ Next `manage` implementation checklist:
 - [x] Add a pure managed-AL reconciliation planner that creates missing MA-owned entries,
   updates stale membership while preserving AL-owned options, deletes stale MA-owned
   entries, and ignores user-created AL entries.
-- [ ] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
+- [x] Add managed config-entry creation/update/delete reconciliation for MA-owned AL
   entries only.
 - [ ] Resolve the resulting AL switch sets through the same runtime association path used
   by `adopt_existing`.
