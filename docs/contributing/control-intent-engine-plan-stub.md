@@ -1149,6 +1149,9 @@ Recommended first implementation boundary:
 - Do not expand the current in-runtime ambient-rise code while adding Adaptive Lighting
   coordination. Future daylight/adaptive evidence should come from selected user helpers
   or managed native signal helpers such as trend/statistics/derivative helpers.
+- Keep the adaptive-switching boundary explicit: native helpers expose measured-condition
+  signals, while Magic Areas policy interprets those signals together with area state,
+  role membership, suppressive states, manual override, and target-resolution rules.
 
 First implementable behavior:
 
@@ -1353,8 +1356,11 @@ Resolved:
 
 Still open:
 
-1. Which native signal-helper bundle, if any, should replace or supplement the current
-   in-runtime ambient-rise evidence before adaptive switching resumes?
+1. Which native signal-helper bundle should provide the first adaptive-switching signal
+   API before adaptive switching resumes? Candidate shapes include selected user helpers,
+   trend helpers, derivative+threshold helper bundles, and statistics+threshold helper
+   bundles. The decision is about signal production, not moving room behavior policy out
+   of Magic Areas.
 
 ## Initial Recommendation
 

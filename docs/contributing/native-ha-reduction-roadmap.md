@@ -449,6 +449,10 @@ Current recommendation:
 
 - Use native signal helpers before adding any new custom rolling-window/rate-of-change
   logic.
+- Treat native signal helpers as Magic Areas' measured-condition API, not as the Magic
+  Areas policy engine. Helpers should produce visible/reusable signals; Magic Areas
+  should decide what those signals mean for area states, control roles, suppression,
+  manual override, and service targets.
 - Statistics helpers are the preferred native surface for rolling scalar summaries such as
   humidity settling, recent change, noisiness, and binary-source percentages/counts.
 - Trend helpers are the preferred native surface for direct boolean “rising/falling enough”

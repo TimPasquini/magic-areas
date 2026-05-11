@@ -504,6 +504,9 @@ Target direction:
 - Research exact helper semantics before implementing custom rate/slope math.
 - Use native helpers as generated surfaces where they express the needed signal.
 - Magic Areas policy consumes the resulting helper entities as inputs.
+- Keep the boundary explicit: helpers provide the signal/data API, while Magic Areas owns
+  interpretation, room-state policy, suppression, manual override behavior, and action
+  target selection.
 
 Expected reduction:
 

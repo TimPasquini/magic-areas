@@ -22,6 +22,31 @@ The goal is to preserve existing stability while enabling richer behavior withou
 
 ## Proposed Behavior Model
 
+### Signal Boundary
+
+Adaptive brightness should use Home Assistant entities and native helpers as a signal
+API, not as the policy engine.
+
+Home Assistant/native helpers answer measured-condition questions:
+
+- Is the room bright according to the selected in-room signal?
+- Is lux rising, falling, or stable over a configured helper window?
+- Is outside/daylight context available?
+- Is the helper warming up, unavailable, or producing a valid signal?
+
+Magic Areas answers room-policy questions:
+
+- Given the active area states, should this light role turn on, stay on, turn off, or do
+  nothing?
+- Should a bright signal be advisory, inhibiting, or adaptive-off eligible?
+- Does sleep/accent/manual override suppress or reshape the target?
+- Which role/helper/entity target should receive the command?
+
+This boundary prevents Magic Areas from rebuilding generic rolling-window, trend, and
+rate-of-change machinery while keeping the human room-behavior model inside Magic Areas.
+Native helpers produce visible, reusable signal entities; Magic Areas consumes those
+signals through policy inputs.
+
 ### 1) Modes
 
 - `inhibit`:
@@ -38,7 +63,10 @@ The goal is to preserve existing stability while enabling richer behavior withou
 - `outside_context`:
   - `sun.sun` (default fallback), optional outside lux sensor, or none.
 - `ambient_rise`:
-  - Inside lux increasing over a time window with attribution guard.
+  - Prefer a selected or Magic Areas-managed helper-backed signal, such as a trend helper
+    or derivative+threshold helper bundle, indicating inside lux is rising enough.
+  - The existing in-runtime detector is transitional compatibility only and should not be
+    expanded before helper-backed signal suitability is decided.
 
 ### 3) Adaptive Off Safeguards
 
@@ -125,7 +153,9 @@ Exit criteria:
 ### Phase 2: Adaptive guards
 
 - Add min-on-time and bright dwell safeguards.
-- Add ambient-rise detector contract and guard hooks.
+- Add ambient-rise signal contract and guard hooks.
+- Treat helper-backed ambient-rise evidence as input data; keep adaptive on/off policy in
+  Magic Areas.
 
 Exit criteria:
 - Deterministic tests for dwell/min-on-time.
@@ -164,12 +194,17 @@ Exit criteria:
 - Feedback-loop/hunting when in-room sensor is affected by controlled lights.
 - Overfitting to one sensor topology (must keep guards configurable).
 - Excessive state churn if ambient-rise thresholds are too sensitive.
+- Blurring the helper/policy boundary. Native helpers should condition generic signals;
+  Magic Areas should not delegate room-specific behavior policy to helper combinations.
 
 ## Open Questions Before Build Start
 
 - Should `adaptive` become the default after validation, or remain opt-in long-term?
 - Should we support per-light-group override vs feature-global mode in v1?
 - Do we need explicit observability attributes for debugging (mode, dwell timer, last suppression reason)?
+- Which helper-backed ambient-rise signal shape should be used first: trend helper,
+  derivative helper plus threshold, statistics helper plus threshold, or user-selected
+  helper entity?
 
 ## Initial Recommendation
 

@@ -225,6 +225,17 @@ Reconciler implication:
 - Useful for future adaptive and fan signal handling.
 - Do not implement custom rolling statistics until the helper suitability is decided.
 
+Signal/API boundary:
+
+- Statistics/trend/derivative helpers should expose measured-condition signals that Magic
+  Areas can consume.
+- They should not encode Magic Areas room behavior directly. Magic Areas remains
+  responsible for interpreting helper states alongside area state, control role,
+  suppression state, manual override, and target-resolution policy.
+- Helper warm-up, `unknown`, and `unavailable` states must be surfaced as signal quality,
+  not silently collapsed into policy decisions such as “bright enough” or “safe to turn
+  off.”
+
 Stage 10 recommendation:
 
 - Treat statistics helpers as the first choice for rolling-window scalar summaries where
