@@ -1,10 +1,14 @@
-# Lighting Adaptive Brightness Plan
+# Lighting Adaptive Switching Plan
 
 ## Problem Statement
 
 Current light-group behavior treats `BRIGHT` as a hard inhibitor unless `bright` is explicitly assigned for the group. This can suppress needed turn-on in occupied rooms with low in-room lux (for example when `dark_entity` is `sun.sun` during daytime).
 
-The goal is to preserve existing stability while enabling richer behavior without future architecture churn.
+The goal is to preserve existing stability while enabling adaptive switching based on
+brightness signals without future architecture churn. This is not brightness management:
+Magic Areas decides whether light roles should turn on/off, while other systems such as
+Adaptive Lighting may still own brightness/color temperature behavior for lights that are
+on.
 
 ## Goals
 
@@ -20,12 +24,12 @@ The goal is to preserve existing stability while enabling richer behavior withou
 - No mandatory new sensors/entities for existing users.
 - No breaking default behavior during initial rollout.
 
-## Proposed Behavior Model
+## Proposed Switching Model
 
 ### Signal Boundary
 
-Adaptive brightness should use Home Assistant entities and native helpers as a signal
-API, not as the policy engine.
+Adaptive switching should use Home Assistant entities and native helpers as a signal API,
+not as the policy engine.
 
 Home Assistant/native helpers answer measured-condition questions:
 
@@ -199,8 +203,7 @@ Exit criteria:
 Current implementation:
 
 - Light-group schema/defaults include brightness mode, adaptive guard durations,
-  inside/outside brightness sources, contrast settings, ambient-rise settings, and
-  Adaptive Lighting coordination mode.
+  inside/outside brightness sources, contrast settings, and ambient-rise settings.
 - Options flow conditionally exposes advisory/adaptive fields by selected mode.
 - Options flow tests cover mode-specific field visibility and saved option preservation.
 
@@ -236,7 +239,7 @@ Exit criteria:
 
 Current implementation:
 
-- Migration `2.2 -> 2.3` backfills adaptive-brightness keys into existing light-group
+- Migration `2.2 -> 2.3` backfills adaptive-switching keys into existing light-group
   feature options.
 - Canonical defaults preserve existing behavior with `brightness_mode = inhibit`.
 - Managed signal-helper work introduced no additional user option keys, so no new
@@ -272,6 +275,6 @@ Current implementation:
 
 ## Current Next Step
 
-The adaptive-brightness plan is ready for live validation under opt-in settings. The next
+The adaptive-switching plan is ready for live validation under opt-in settings. The next
 engineering pass should be bug-fix driven from HA runtime observations, not additional
 architecture work, unless testing shows the Trend-helper signal shape is insufficient.
