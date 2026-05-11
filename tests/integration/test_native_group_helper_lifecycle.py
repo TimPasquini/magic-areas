@@ -13,11 +13,15 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.statistics import DOMAIN as STATISTICS_DOMAIN
+from homeassistant.components.statistics.sensor import STAT_CHANGE
 from homeassistant.components.threshold.const import (
     CONF_HYSTERESIS,
     CONF_LOWER,
     CONF_UPPER,
 )
+from homeassistant.components.trend.const import DOMAIN as TREND_DOMAIN
+from homeassistant.components.derivative.const import DOMAIN as DERIVATIVE_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
@@ -27,6 +31,7 @@ from homeassistant.const import (
     CONF_NAME,
     LIGHT_LUX,
     Platform,
+    UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -52,6 +57,10 @@ from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     LabelSurface,
     ManagedSurfaceKind,
+    derivative_signal_surface,
+    duration_dict,
+    statistics_signal_surface,
+    trend_signal_surface,
     build_managed_surface_unique_id,
 )
 from tests.const import DEFAULT_MOCK_AREA
@@ -710,6 +719,171 @@ async def test_reconciler_manages_threshold_helper_lifecycle(
     await hass.async_block_till_done()
 
     assert hass.states.get(threshold_entity_id) is None
+
+
+async def test_reconciler_manages_signal_helper_lifecycle(
+    hass: HomeAssistant,
+) -> None:
+    """Signal helpers reconcile as managed native helpers with metadata/exclusion."""
+    source_sensor = MockSensor(
+        name="living_room_signal_lux",
+        unique_id="living_room_signal_lux",
+        native_value=250,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        unit_of_measurement=LIGHT_LUX,
+    )
+    await setup_mock_entities(
+        hass,
+        SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [source_sensor]},
+    )
+    owner_entry_id = "magic_area_signal_owner"
+    MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=owner_entry_id,
+        title="Living Room",
+        unique_id=DEFAULT_MOCK_AREA.value,
+    ).add_to_hass(hass)
+    device_identifier = (
+        DOMAIN,
+        f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
+    )
+    trend_surface = trend_signal_surface(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        area_name="Living Room",
+        role="ambient_rise",
+        source_entity_id=source_sensor.entity_id,
+        min_gradient=0.25,
+        sample_duration=120,
+        max_samples=8,
+        min_samples=3,
+        device_identifier=device_identifier,
+        device_name="Living Room",
+    )
+    statistics_surface = statistics_signal_surface(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        area_name="Living Room",
+        role="lux_change",
+        source_entity_id=source_sensor.entity_id,
+        state_characteristic=STAT_CHANGE,
+        max_age=duration_dict(minutes=15),
+        samples_max_buffer_size=20,
+        keep_last_sample=True,
+        precision=1,
+        device_identifier=device_identifier,
+        device_name="Living Room",
+    )
+    derivative_surface = derivative_signal_surface(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        area_name="Living Room",
+        role="lux_rate",
+        source_entity_id=source_sensor.entity_id,
+        time_window=duration_dict(minutes=5),
+        round_digits=3,
+        unit_time=UnitOfTime.MINUTES,
+        device_identifier=device_identifier,
+        device_name="Living Room",
+    )
+    surfaces = [trend_surface, statistics_surface, derivative_surface]
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=surfaces,
+    )
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
+    helper_entity_ids: set[str] = set()
+    for surface in surfaces:
+        entry = next(
+            entry
+            for entry in hass.config_entries.async_entries(surface.domain)
+            if entry.unique_id == surface.unique_id
+        )
+        assert entry.state is ConfigEntryState.LOADED
+        assert entry.options == surface.options
+        registry_entries = er.async_entries_for_config_entry(
+            entity_registry,
+            entry.entry_id,
+        )
+        assert len(registry_entries) == 1
+        registry_entry = registry_entries[0]
+        helper_entity_ids.add(registry_entry.entity_id)
+        assert registry_entry.area_id == DEFAULT_MOCK_AREA.value
+        assert registry_entry.device_id is not None
+        device = device_registry.async_get(registry_entry.device_id)
+        assert device is not None
+        assert device_identifier in device.identifiers
+        assert hass.states.get(registry_entry.entity_id) is not None
+
+    assert {
+        entry.domain
+        for entry in hass.config_entries.async_entries()
+        if entry.unique_id in {surface.unique_id for surface in surfaces}
+    } == {TREND_DOMAIN, STATISTICS_DOMAIN, DERIVATIVE_DOMAIN}
+
+    updated_trend_surface = trend_signal_surface(
+        entry_id=owner_entry_id,
+        area_id=DEFAULT_MOCK_AREA.value,
+        area_name="Living Room",
+        role="ambient_rise",
+        source_entity_id=source_sensor.entity_id,
+        min_gradient=0.5,
+        sample_duration=180,
+        max_samples=10,
+        min_samples=4,
+        device_identifier=device_identifier,
+        device_name="Living Room",
+    )
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[
+            updated_trend_surface,
+            statistics_surface,
+            derivative_surface,
+        ],
+    )
+    await hass.async_block_till_done()
+
+    trend_entry = next(
+        entry
+        for entry in hass.config_entries.async_entries(TREND_DOMAIN)
+        if entry.unique_id == trend_surface.unique_id
+    )
+    assert trend_entry.options == updated_trend_surface.options
+
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=owner_entry_id,
+        config={},
+    )
+    enumerated_sensor_ids = {
+        entity["entity_id"] for entity in entities.get(SENSOR_DOMAIN, [])
+    }
+    enumerated_binary_sensor_ids = {
+        entity["entity_id"] for entity in entities.get(BINARY_SENSOR_DOMAIN, [])
+    }
+    assert helper_entity_ids.isdisjoint(enumerated_sensor_ids)
+    assert helper_entity_ids.isdisjoint(enumerated_binary_sensor_ids)
+
+    await async_reconcile_config_entry_helpers(
+        hass=hass,
+        owner_entry_id=owner_entry_id,
+        desired_surfaces=[],
+    )
+    await hass.async_block_till_done()
+
+    for entity_id in helper_entity_ids:
+        assert hass.states.get(entity_id) is None
 
 
 async def test_reconciler_reports_and_clears_managed_surface_repair(
