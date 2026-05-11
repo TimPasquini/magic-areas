@@ -1291,6 +1291,22 @@ Adaptive Lighting research:
 9. The contract is ready for fan arbitration without implementing fan runtime support.
 10. Suppression reason codes take precedence over brightness/sensor reason codes.
 
+Current closure assessment:
+
+- Criteria 1-5 are covered by the pure control-intent engine, the light suppression
+  adapter, and runtime tests for sleep-only, accent-only, sleep+accent overlap, full
+  suppression, and unchanged whole-target dispatch.
+- Criteria 6-7 are covered by the target resolver contract: broad HA label targets are
+  representable only when explicitly allowed, exact native helper targets are preferred
+  for room/role actions, and filtered/intersection targets resolve to explicit entity IDs.
+- Criteria 8 and 10 are covered by light-group runtime observability attributes and
+  stable reason-code tests for `intent_allowed`, `target_partially_suppressed`,
+  `target_suppressed`, `control_disabled`, and `target_state_mismatch`.
+- Criterion 9 is satisfied at the contract level only. Fan runtime arbitration remains
+  intentionally out of scope for this branch, but the engine can already represent
+  suppressive constraints, target subsets, and deterministic reason codes without
+  depending on light-specific runtime code.
+
 ## Remaining Open Questions
 
 Resolved:
@@ -1328,12 +1344,16 @@ Resolved:
 - Magic Areas `sleep_lights` and Adaptive Lighting sleep mode are separate domains. MA
   sleep state may enable AL sleep mode for every associated role so manually turned-on
   overhead/task lights can still use soft sleep lighting.
+- Adaptive Lighting switch sets should not require Magic Areas-owned labels for v1
+  control. Control-critical association is explicit role pairing or MA-managed AL
+  config-entry ownership; discovery/scoping uses HA area metadata where safe. Label-based
+  AL discovery remains supported by the resolver as an optional narrowing mechanism, but
+  Magic Areas should not add mandatory AL labels unless a later user-facing workflow needs
+  them.
 
 Still open:
 
-1. Should Adaptive Lighting switch sets be reconciled with Magic Areas-owned labels, and
-   if so which labels are control-critical versus informational?
-2. Which native signal-helper bundle, if any, should replace or supplement the current
+1. Which native signal-helper bundle, if any, should replace or supplement the current
    in-runtime ambient-rise evidence before adaptive switching resumes?
 
 ## Initial Recommendation
