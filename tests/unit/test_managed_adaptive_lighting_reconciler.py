@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -15,7 +14,6 @@ from custom_components.magic_areas.core.control_intents import (
     MANAGED_ADAPTIVE_LIGHTING_ROLE,
     managed_adaptive_lighting_config,
 )
-from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator import (
     async_reconcile_managed_adaptive_lighting,
 )
@@ -136,9 +134,7 @@ async def test_reconciler_scopes_stale_cleanup_by_area(hass: HomeAssistant) -> N
 async def test_reconciler_assigns_registry_metadata_to_managed_al_entities(
     hass: HomeAssistant,
 ) -> None:
-    """Managed AL switch entities should attach to the Magic Areas area/device."""
-    owner = MockConfigEntry(domain=DOMAIN, title="Living Room")
-    owner.add_to_hass(hass)
+    """Managed AL switch entities should attach to the HA area only."""
     harness = setup_adaptive_lighting_config_entry_harness(hass)
     entry = await harness.async_create_entry(
         name="Magic Areas Living Room overhead",
@@ -165,14 +161,10 @@ async def test_reconciler_assigns_registry_metadata_to_managed_al_entities(
     await async_reconcile_managed_adaptive_lighting(
         hass=hass,
         area_id="living_room",
-        owner_entry_id=owner.entry_id,
         desired_configs=(desired,),
     )
 
     updated = entity_registry.async_get(switch_entry.entity_id)
     assert updated is not None
     assert updated.area_id == "living_room"
-    assert updated.device_id is not None
-    device = dr.async_get(hass).async_get(updated.device_id)
-    assert device is not None
-    assert device.area_id == "living_room"
+    assert updated.device_id is None

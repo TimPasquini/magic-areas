@@ -1213,8 +1213,9 @@ Next `manage` implementation checklist:
   should receive MA-managed AL configs, without exposing the full AL tuning surface.
 - [x] Compile selected manage-mode light roles into desired AL configs and reconcile them
   during area setup with stale cleanup scoped to the current Magic Area.
-- [x] Assign managed AL switch/device registry metadata to the same HA area where
-  possible, and fail closed with log visibility if AL config-entry shape changes.
+- [x] Assign managed AL switch entity area metadata to the same HA area where possible
+  without reassigning the entities to the Magic Areas device, and fail closed with log
+  visibility if AL config-entry shape changes.
 
 References:
 

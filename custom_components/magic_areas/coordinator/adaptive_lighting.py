@@ -11,11 +11,8 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
-from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.control_intents import (
     ADAPTIVE_LIGHTING_DOMAIN,
     ExistingAdaptiveLightingConfigEntry,
@@ -80,49 +77,14 @@ def _find_entry_by_unique_id(
     return None
 
 
-def _get_or_create_area_device(
-    *,
-    hass: HomeAssistant,
-    owner_entry_id: str,
-    config: ManagedAdaptiveLightingConfig,
-) -> str:
-    """Return the Magic Areas device ID used for managed AL switches."""
-    device_registry = dr.async_get(hass)
-    device = device_registry.async_get_or_create(
-        config_entry_id=owner_entry_id,
-        identifiers={(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{config.area_id}")},
-        manufacturer="Magic Areas",
-        model="Magic Area",
-        name=config.area_name,
-        suggested_area=config.area_id,
-    )
-    if device.area_id != config.area_id:
-        updated = device_registry.async_update_device(
-            device.id,
-            area_id=config.area_id,
-        )
-        return updated.id if updated else device.id
-    return device.id
-
-
 def _apply_registry_metadata(
     *,
     hass: HomeAssistant,
-    owner_entry_id: str | None,
     entry: ConfigEntry[object],
     config: ManagedAdaptiveLightingConfig,
 ) -> None:
-    """Attach managed AL entities to the owning Magic Areas area/device."""
+    """Attach managed AL entities to the owning HA area without changing device ownership."""
     entity_registry = er.async_get(hass)
-    device_id = (
-        _get_or_create_area_device(
-            hass=hass,
-            owner_entry_id=owner_entry_id,
-            config=config,
-        )
-        if owner_entry_id is not None
-        else None
-    )
     for entity_entry in er.async_entries_for_config_entry(
         entity_registry,
         entry.entry_id,
@@ -130,14 +92,12 @@ def _apply_registry_metadata(
         entity_registry.async_update_entity(
             entity_entry.entity_id,
             area_id=config.area_id,
-            device_id=device_id,
         )
 
 
 async def _async_apply_managed_adaptive_lighting_operation(
     *,
     hass: HomeAssistant,
-    owner_entry_id: str | None,
     operation: ManagedAdaptiveLightingReconcileOperation,
 ) -> None:
     """Apply one managed Adaptive Lighting config-entry reconciliation operation."""
@@ -148,7 +108,6 @@ async def _async_apply_managed_adaptive_lighting_operation(
             if entry is not None:
                 _apply_registry_metadata(
                     hass=hass,
-                    owner_entry_id=owner_entry_id,
                     entry=entry,
                     config=operation.desired_config,
                 )
@@ -184,7 +143,6 @@ async def _async_apply_managed_adaptive_lighting_operation(
             await hass.config_entries.async_reload(entry.entry_id)
         _apply_registry_metadata(
             hass=hass,
-            owner_entry_id=owner_entry_id,
             entry=entry,
             config=operation.desired_config,
         )
@@ -194,7 +152,6 @@ async def async_reconcile_managed_adaptive_lighting(
     *,
     hass: HomeAssistant,
     area_id: str | None = None,
-    owner_entry_id: str | None = None,
     desired_configs: Iterable[ManagedAdaptiveLightingConfig],
 ) -> None:
     """Create, update, and remove Magic Areas-managed Adaptive Lighting entries."""
@@ -212,7 +169,6 @@ async def async_reconcile_managed_adaptive_lighting(
         try:
             await _async_apply_managed_adaptive_lighting_operation(
                 hass=hass,
-                owner_entry_id=owner_entry_id,
                 operation=operation,
             )
         except _EXPECTED_RECONCILIATION_ERRORS:
@@ -233,7 +189,6 @@ async def async_reconcile_managed_adaptive_lighting(
         if entry is not None:
             _apply_registry_metadata(
                 hass=hass,
-                owner_entry_id=owner_entry_id,
                 entry=entry,
                 config=config,
             )
