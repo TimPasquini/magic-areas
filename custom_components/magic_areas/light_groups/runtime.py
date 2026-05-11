@@ -8,8 +8,10 @@ import logging
 from time import monotonic
 from typing import Protocol, TYPE_CHECKING
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sun.const import STATE_ABOVE_HORIZON
+from homeassistant.components.trend.const import DOMAIN as TREND_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, State
 from homeassistant.helpers import entity_registry as er
@@ -42,6 +44,9 @@ from custom_components.magic_areas.core.control_intents import (
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
+)
+from custom_components.magic_areas.core.managed_surface_registry import (
+    resolve_managed_surface_entity_id,
 )
 from custom_components.magic_areas.enums import LightGroupCategory
 from custom_components.magic_areas.light_groups.policy import CommandEchoState
@@ -76,6 +81,7 @@ class _LightGroupHost(Protocol):
     _child_ids: list[str] | None
     _entity_ids: list[str]
     _adaptive_lighting_switch_set: AdaptiveLightingSwitchSet | None
+    _ambient_rise_signal_unique_id: str | None
     _area_id: str
     category: str | None
     entity_id: str
@@ -863,6 +869,10 @@ def _ambient_rise_met(host: _LightGroupHost, now: float) -> bool:
     if not require:
         return True
 
+    managed_signal = _managed_ambient_rise_met(host)
+    if managed_signal is not None:
+        return managed_signal
+
     window = int(getattr(host.policy.policy, "ambient_rise_window_seconds", 120))
     delta_required = int(getattr(host.policy.policy, "ambient_rise_min_delta", 20))
     if window <= 0:
@@ -880,3 +890,25 @@ def _ambient_rise_met(host: _LightGroupHost, now: float) -> bool:
     start_lux = min(lux for _, lux in samples)
     end_lux = samples[-1][1]
     return (end_lux - start_lux) >= delta_required
+
+
+def _managed_ambient_rise_met(host: _LightGroupHost) -> bool | None:
+    """Return managed Trend helper state when the helper has a usable value."""
+    unique_id = getattr(host, "_ambient_rise_signal_unique_id", None)
+    if not isinstance(unique_id, str) or not unique_id:
+        return None
+
+    entity_id = resolve_managed_surface_entity_id(
+        host.hass,
+        er.async_get(host.hass),
+        unique_id=unique_id,
+        entity_domain=BINARY_SENSOR_DOMAIN,
+        config_entry_domain=TREND_DOMAIN,
+    )
+    if entity_id is None:
+        return None
+
+    state = host.hass.states.get(entity_id)
+    if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+        return None
+    return state.state == STATE_ON

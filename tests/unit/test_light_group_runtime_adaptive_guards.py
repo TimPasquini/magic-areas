@@ -2,6 +2,9 @@
 
 from types import SimpleNamespace
 
+import pytest
+
+from custom_components.magic_areas.light_groups import runtime
 from custom_components.magic_areas.light_groups.runtime import (
     _ambient_rise_met,
     _inside_bright_met,
@@ -23,6 +26,7 @@ class _FakeHost:
         self.policy = SimpleNamespace(policy=SimpleNamespace(**policy_config))
         self.hass = SimpleNamespace(states=_FakeStates(states))
         self._inside_lux_samples: list[tuple[float, float]] = []
+        self._ambient_rise_signal_unique_id: str | None = None
 
 
 def _state(value: str) -> object:
@@ -214,6 +218,64 @@ def test_ambient_rise_met_respects_require_window_and_delta() -> None:
 
     host._inside_lux_samples = [(now - 100, 100.0), (now - 10, 110.0)]
     assert _ambient_rise_met(host, now) is False
+
+
+def test_ambient_rise_met_prefers_managed_trend_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Managed Trend helper state should replace transitional in-runtime samples."""
+    now = 1000.0
+    host = _FakeHost(
+        policy_config={
+            "adaptive_require_ambient_rise": True,
+            "ambient_rise_window_seconds": 120,
+            "ambient_rise_min_delta": 20,
+        },
+        states={"binary_sensor.managed_ambient_rise": _state("on")},
+    )
+    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._inside_lux_samples = [(now - 100, 100.0), (now - 10, 101.0)]
+    monkeypatch.setattr(
+        runtime.er,
+        "async_get",
+        lambda _hass: object(),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "resolve_managed_surface_entity_id",
+        lambda *_args, **_kwargs: "binary_sensor.managed_ambient_rise",
+    )
+
+    assert _ambient_rise_met(host, now) is True
+
+
+def test_ambient_rise_met_falls_back_when_managed_trend_helper_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unavailable managed helper startup state should keep fallback behavior alive."""
+    now = 1000.0
+    host = _FakeHost(
+        policy_config={
+            "adaptive_require_ambient_rise": True,
+            "ambient_rise_window_seconds": 120,
+            "ambient_rise_min_delta": 20,
+        },
+        states={"binary_sensor.managed_ambient_rise": _state("unknown")},
+    )
+    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._inside_lux_samples = [(now - 100, 100.0), (now - 10, 130.0)]
+    monkeypatch.setattr(
+        runtime.er,
+        "async_get",
+        lambda _hass: object(),
+    )
+    monkeypatch.setattr(
+        runtime,
+        "resolve_managed_surface_entity_id",
+        lambda *_args, **_kwargs: "binary_sensor.managed_ambient_rise",
+    )
+
+    assert _ambient_rise_met(host, now) is True
 
 
 def test_update_inside_lux_tracking_adds_and_prunes_samples() -> None:

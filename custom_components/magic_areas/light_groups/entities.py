@@ -67,6 +67,9 @@ from custom_components.magic_areas.light_groups.identity import (
     LIGHT_GROUP_ROLE_LABELS,
     build_light_group_helper_surface_unique_id,
 )
+from custom_components.magic_areas.light_groups.signals import (
+    ambient_rise_signal_surface,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
@@ -160,6 +163,17 @@ class AreaLightGroup(MagicLightGroup):
                 area_id=area_config.id,
                 category=category or LightGroupCategory.ALL,
             )
+        )
+        ambient_signal_surface = ambient_rise_signal_surface(
+            entry_id=area_config.hass_config.entry_id,
+            area_id=area_config.id,
+            area_name=area_config.name,
+            feature_config=self._feature_config,
+        )
+        self._ambient_rise_signal_unique_id = (
+            ambient_signal_surface.unique_id
+            if ambient_signal_surface is not None
+            else None
         )
         self.assigned_states: list[str] = []
         self.act_on: list[str] = []

@@ -496,8 +496,12 @@ Current implementation:
   `adaptive` brightness mode, ambient-rise evidence is required, and an in-room lux
   source is configured, Magic Areas declares one managed Trend helper for
   `ambient_rise`.
-- The Trend helper is signal production only. Magic Areas policy remains responsible for
-  interpreting that signal together with area state, brightness mode, suppression,
+- Runtime prefers the managed Trend helper's binary state for `ambient_rise` when the
+  helper exists and has a valid state. Missing, `unknown`, or `unavailable` helper state
+  falls back to the transitional in-runtime sample detector so helper warm-up does not
+  create a false negative.
+- The Trend helper remains signal production only. Magic Areas policy remains responsible
+  for interpreting that signal together with area state, brightness mode, suppression,
   manual override, and target resolution.
 - Derivative/statistics bundles remain available for later fan humidity/odor and richer
   adaptive evidence, but they are not the first adaptive-lighting pilot.

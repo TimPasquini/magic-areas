@@ -1365,6 +1365,10 @@ Resolved during signal-helper preparation:
 - Magic Areas declares that helper only for explicit adaptive ambient-rise opt-in:
   `brightness_mode == adaptive`, ambient rise is required, the in-room lux source exists,
   and the configured window/delta are positive.
+- Light runtime consumes that helper as preferred signal evidence when it resolves to a
+  valid binary state. Helper warm-up, missing helper entities, `unknown`, and
+  `unavailable` states fall back to the existing rolling-sample detector during the
+  transition.
 - The helper output is a measured-condition signal. Magic Areas still owns the room
   behavior policy, including suppression, manual override, bright/advisory/adaptive
   interpretation, and target resolution.
