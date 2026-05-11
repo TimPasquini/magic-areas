@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 
-type ManagedSurfaceOptionValue = str | int | float | bool | None | list[str]
+type ManagedSurfaceOptionValue = (
+    str | int | float | bool | None | list[str] | dict[str, int]
+)
 
 MANAGED_SURFACE_UNIQUE_ID_PREFIX = "magic_areas:"
 
@@ -15,6 +17,7 @@ class ManagedSurfaceKind(StrEnum):
     """Kinds of Home Assistant surfaces managed by Magic Areas."""
 
     CONFIG_ENTRY_HELPER = "config_entry_helper"
+    SIGNAL_HELPER = "signal_helper"
 
 
 @dataclass(frozen=True, slots=True)

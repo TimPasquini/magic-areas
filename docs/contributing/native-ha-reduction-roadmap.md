@@ -472,10 +472,10 @@ Implementation implications:
 
 - Add signal helper desired-surface types before implementing helper-backed adaptive/fan
   behavior:
-  - `StatisticsSignalSurface`
-  - `TrendSignalSurface`
-  - `DerivativeSignalSurface`
-  - `ScheduleSurface`
+  - `SignalHelperSurface` with `SignalHelperKind.STATISTICS`
+  - `SignalHelperSurface` with `SignalHelperKind.TREND`
+  - `SignalHelperSurface` with `SignalHelperKind.DERIVATIVE`
+  - schedule helpers still need a separate storage-collection surface/applier
 - Config-entry-backed signal helpers can reuse the existing helper ownership model after
   direct create/update/remove probes are added for each helper type.
 - Schedule helpers must use a storage-collection applier, not the config-entry helper

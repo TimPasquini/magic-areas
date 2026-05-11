@@ -1360,7 +1360,9 @@ Still open:
    API before adaptive switching resumes? Candidate shapes include selected user helpers,
    trend helpers, derivative+threshold helper bundles, and statistics+threshold helper
    bundles. The decision is about signal production, not moving room behavior policy out
-   of Magic Areas.
+   of Magic Areas. If the user chooses a managed bundle, Magic Areas owns reconciliation
+   of those helper entities and still consumes them as signal inputs rather than policy
+   outputs.
 
 ## Initial Recommendation
 

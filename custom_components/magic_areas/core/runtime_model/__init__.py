@@ -29,6 +29,15 @@ from custom_components.magic_areas.core.runtime_model.managed_surfaces import (
     build_managed_surface_unique_id,
     is_managed_surface_unique_id,
 )
+from custom_components.magic_areas.core.runtime_model.signal_helpers import (
+    SIGNAL_HELPERS_FEATURE_ID,
+    SignalHelperKind,
+    SignalHelperSurface,
+    derivative_signal_surface,
+    duration_dict,
+    statistics_signal_surface,
+    trend_signal_surface,
+)
 from custom_components.magic_areas.core.runtime_model.migration import (
     async_migrate_unique_ids,
     compute_unique_id_from_entity_id,
@@ -55,13 +64,20 @@ __all__ = [
     "ManagedSurfaceKind",
     "ManagedSurfaceOptionValue",
     "RegisteredControlGroupView",
+    "SIGNAL_HELPERS_FEATURE_ID",
+    "SignalHelperKind",
+    "SignalHelperSurface",
     "async_migrate_unique_ids",
     "build_managed_surface_owner_prefix",
     "build_managed_surface_unique_id",
     "compute_unique_id_from_entity_id",
+    "derivative_signal_surface",
+    "duration_dict",
     "build_entity_references",
     "build_feature_unique_id",
     "build_presence_tracking_unique_id",
     "is_managed_surface_unique_id",
     "is_reserved_policy_id",
+    "statistics_signal_surface",
+    "trend_signal_surface",
 ]

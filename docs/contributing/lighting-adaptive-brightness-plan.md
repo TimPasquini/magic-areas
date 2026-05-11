@@ -65,6 +65,9 @@ signals through policy inputs.
 - `ambient_rise`:
   - Prefer a selected or Magic Areas-managed helper-backed signal, such as a trend helper
     or derivative+threshold helper bundle, indicating inside lux is rising enough.
+  - Magic Areas may reconcile the helper bundle itself when the user opts into managed
+    adaptive signals, using the same managed-helper ownership and exclusion rules as
+    native group/threshold helpers.
   - The existing in-runtime detector is transitional compatibility only and should not be
     expanded before helper-backed signal suitability is decided.
 
