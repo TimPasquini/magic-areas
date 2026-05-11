@@ -92,6 +92,7 @@ async def async_setup_entry(
             await async_reconcile_managed_adaptive_lighting(
                 hass=hass,
                 area_id=area_config.id,
+                owner_entry_id=config_entry.entry_id,
                 desired_configs=collect_feature_managed_adaptive_lighting_configs(
                     registry=FEATURE_REGISTRY,
                     data=coordinator.data,
