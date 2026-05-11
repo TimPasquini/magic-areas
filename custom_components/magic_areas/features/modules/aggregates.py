@@ -105,7 +105,7 @@ class AggregatesFeatureModule(BaseFeatureModule):
     ) -> list[ManagedSurface]:
         """Build desired native HA aggregate group helpers."""
         definitions = _aggregate_definitions(data)
-        surfaces = [
+        surfaces: list[ManagedSurface] = [
             _aggregate_surface(area_config=area_config, definition=definition)
             for definition in definitions
             if definition.kind is AggregateKind.STANDARD
@@ -165,7 +165,9 @@ def _aggregate_surface(
         device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
         device_name=area_config.name,
         device_class=(
-            definition.device_class if definition.domain == BINARY_SENSOR_DOMAIN else None
+            definition.device_class
+            if definition.domain == BINARY_SENSOR_DOMAIN
+            else None
         ),
     )
 
