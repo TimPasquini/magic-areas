@@ -8,6 +8,10 @@ from custom_components.magic_areas.light_groups.identity import (
     LIGHT_GROUP_ROLE_LABELS,
     build_light_group_helper_surface_unique_id,
 )
+from custom_components.magic_areas.light_groups.signals import (
+    AMBIENT_RISE_SIGNAL_ROLE,
+    ambient_rise_signal_surface,
+)
 from custom_components.magic_areas.light_groups.policy import (
     ActOnMode,
     CommandEchoState,
@@ -90,6 +94,7 @@ from custom_components.magic_areas.light_groups.runtime import (
 
 __all__ = [
     "AreaLightGroup",
+    "AMBIENT_RISE_SIGNAL_ROLE",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS",
@@ -135,6 +140,7 @@ __all__ = [
     "adaptive_lighting_mode",
     "adaptive_lighting_pair_key",
     "adaptive_lighting_switch_set",
+    "ambient_rise_signal_surface",
     "adaptive_require_ambient_rise",
     "ambient_rise_min_delta",
     "ambient_rise_window_seconds",

@@ -52,6 +52,7 @@ from custom_components.magic_areas.light_groups import (
     light_groups_feature_config,
     preset_members,
     preset_states,
+    ambient_rise_signal_surface,
 )
 import custom_components.magic_areas.switch as switch_platform
 
@@ -165,6 +166,16 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                     members=members,
                 )
             )
+        ambient_rise_surface = ambient_rise_signal_surface(
+            entry_id=area_config.hass_config.entry_id,
+            area_id=area_config.id,
+            area_name=area_config.name,
+            feature_config=feature_config,
+            device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
+            device_name=area_config.name,
+        )
+        if ambient_rise_surface is not None:
+            surfaces.append(ambient_rise_surface)
         return surfaces
 
     def desired_managed_adaptive_lighting_configs(

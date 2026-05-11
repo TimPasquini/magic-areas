@@ -63,8 +63,8 @@ signals through policy inputs.
 - `outside_context`:
   - `sun.sun` (default fallback), optional outside lux sensor, or none.
 - `ambient_rise`:
-  - Prefer a selected or Magic Areas-managed helper-backed signal, such as a trend helper
-    or derivative+threshold helper bundle, indicating inside lux is rising enough.
+  - Prefer a selected or Magic Areas-managed helper-backed signal, starting with a managed
+    Trend helper that indicates inside lux is rising enough.
   - Magic Areas may reconcile the helper bundle itself when the user opts into managed
     adaptive signals, using the same managed-helper ownership and exclusion rules as
     native group/threshold helpers.
@@ -214,3 +214,6 @@ Exit criteria:
 - Implement mode plumbing and guards first, defaulting to `inhibit`.
 - Ship `advisory` and `adaptive` as opt-in.
 - Add debug attributes for decision transparency before changing defaults.
+- Use the managed Trend helper as the first MA-built adaptive ambient-rise signal. Keep
+  derivative/statistics helper bundles available for later richer signal needs rather
+  than making the first adaptive pass more complex.

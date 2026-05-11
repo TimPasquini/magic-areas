@@ -483,6 +483,25 @@ Implementation implications:
 - Policies must expose warm-up/unknown/unavailable signal states in debug attributes so HA
   helper startup behavior does not look like a false low/false clear condition.
 
+Current implementation:
+
+- `SignalHelperSurface` and `SignalHelperKind` model config-entry-backed statistics,
+  trend, and derivative helpers as managed surfaces.
+- Trend/statistics/derivative helper factories use Home Assistant's native option shapes
+  and reuse the existing managed-helper ownership, update, stale cleanup, area
+  assignment, Magic Areas device attachment, and source-enumeration exclusion path.
+- Integration tests prove the shared reconciler can create, update, and remove all three
+  signal helper types through actual HA helper config entries.
+- The first adaptive signal bundle is intentionally narrow: when light groups are in
+  `adaptive` brightness mode, ambient-rise evidence is required, and an in-room lux
+  source is configured, Magic Areas declares one managed Trend helper for
+  `ambient_rise`.
+- The Trend helper is signal production only. Magic Areas policy remains responsible for
+  interpreting that signal together with area state, brightness mode, suppression,
+  manual override, and target resolution.
+- Derivative/statistics bundles remain available for later fan humidity/odor and richer
+  adaptive evidence, but they are not the first adaptive-lighting pilot.
+
 ## Branch Exit Criteria
 
 - Native helper reconciliation architecture exists.

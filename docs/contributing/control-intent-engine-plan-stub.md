@@ -1356,13 +1356,21 @@ Resolved:
 
 Still open:
 
-1. Which native signal-helper bundle should provide the first adaptive-switching signal
-   API before adaptive switching resumes? Candidate shapes include selected user helpers,
-   trend helpers, derivative+threshold helper bundles, and statistics+threshold helper
-   bundles. The decision is about signal production, not moving room behavior policy out
-   of Magic Areas. If the user chooses a managed bundle, Magic Areas owns reconciliation
-   of those helper entities and still consumes them as signal inputs rather than policy
-   outputs.
+None at the current branch scope.
+
+Resolved during signal-helper preparation:
+
+- The first native signal-helper bundle for adaptive switching is a managed Trend helper
+  that reports ambient-rise evidence from the configured in-room lux source.
+- Magic Areas declares that helper only for explicit adaptive ambient-rise opt-in:
+  `brightness_mode == adaptive`, ambient rise is required, the in-room lux source exists,
+  and the configured window/delta are positive.
+- The helper output is a measured-condition signal. Magic Areas still owns the room
+  behavior policy, including suppression, manual override, bright/advisory/adaptive
+  interpretation, and target resolution.
+- Derivative and statistics helpers remain modeled and reconciler-proven, but they are
+  reserved for future richer signal bundles such as numeric lux rate, humidity settling,
+  or fan odor/humidity triggers.
 
 ## Initial Recommendation
 

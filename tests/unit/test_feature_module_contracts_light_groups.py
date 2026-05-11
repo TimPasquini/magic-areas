@@ -12,6 +12,7 @@ from custom_components.magic_areas.core.control_intents import (
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     LabelSurface,
+    SignalHelperSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
@@ -391,6 +392,74 @@ def test_light_groups_module_declares_native_light_helper_surfaces() -> None:
     assert surfaces_by_id[
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
     ].options["entities"] == ["light.overhead_1"]
+
+
+def test_light_groups_module_declares_adaptive_ambient_rise_signal_surface() -> None:
+    """Adaptive ambient-rise opt-in should compile to a managed Trend helper."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "brightness_mode": "adaptive",
+                "adaptive_require_ambient_rise": True,
+                "ambient_rise_window_seconds": 120,
+                "ambient_rise_min_delta": 30,
+                "outside_lux_inside_entity": "sensor.kitchen_lux",
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
+
+    signal_surfaces = [
+        surface for surface in surfaces if isinstance(surface, SignalHelperSurface)
+    ]
+    assert len(signal_surfaces) == 1
+    surface = signal_surfaces[0]
+    assert surface.unique_id == (
+        "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    )
+    assert surface.domain == "trend"
+    assert surface.title == "Magic Areas Signals Kitchen Trend Ambient Rise"
+    assert surface.source_entity_id == "sensor.kitchen_lux"
+    assert surface.options == {
+        "name": "Magic Areas Signals Kitchen Trend Ambient Rise",
+        "entity_id": "sensor.kitchen_lux",
+        "invert": False,
+        "max_samples": 10,
+        "min_samples": 2,
+        "min_gradient": 0.25,
+        "sample_duration": 120,
+    }
+    assert surface.area_id == "area-1"
+    assert surface.device_identifier == ("magic_areas", "magic_area_device_area-1")
+    assert surface.device_name == "Kitchen"
+
+
+def test_light_groups_module_skips_ambient_rise_signal_without_complete_opt_in() -> None:
+    """Signal helpers should not appear unless adaptive ambient-rise has a source."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "brightness_mode": "advisory",
+                "adaptive_require_ambient_rise": True,
+                "ambient_rise_window_seconds": 120,
+                "ambient_rise_min_delta": 30,
+                "outside_lux_inside_entity": "sensor.kitchen_lux",
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
+
+    assert not any(isinstance(surface, SignalHelperSurface) for surface in surfaces)
 
 
 def test_light_groups_module_removes_native_surfaces_when_no_lights_remain() -> None:
