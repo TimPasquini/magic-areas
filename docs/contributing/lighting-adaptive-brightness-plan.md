@@ -145,6 +145,8 @@ signals through policy inputs.
 
 ### Phase 1: Policy extension (no UI changes yet)
 
+Status: implemented.
+
 - Add mode-aware policy logic in light-group policy.
 - Keep default mode = `inhibit`.
 - Add tests proving no regressions for current mode.
@@ -153,7 +155,16 @@ Exit criteria:
 - Existing tests pass unchanged under default mode.
 - New tests pass for `advisory` and `adaptive` policy behavior.
 
+Current implementation:
+
+- `LightGroupPolicy` supports `inhibit`, `advisory`, and `adaptive`.
+- Default mode remains `inhibit`.
+- Unit tests cover advisory turn-on blocking, advisory no-force-off behavior, adaptive
+  bright-off gating, and legacy/default bright behavior.
+
 ### Phase 2: Adaptive guards
+
+Status: implemented.
 
 - Add min-on-time and bright dwell safeguards.
 - Add ambient-rise signal contract and guard hooks.
@@ -164,7 +175,18 @@ Exit criteria:
 - Deterministic tests for dwell/min-on-time.
 - No bright-driven off until safeguards are satisfied.
 
+Current implementation:
+
+- Runtime derives min-on, bright-dwell, attribution-hold, outside-context,
+  inside-bright, and ambient-rise guard values before calling policy.
+- Guard values are passed through `LightPolicySignals`.
+- Runtime exposes `adaptive_guards` attributes for observability.
+- Ambient-rise now prefers the managed Trend helper when available and valid, with the
+  transitional in-runtime detector retained as fallback for helper warm-up/missing state.
+
 ### Phase 3: Config + options-flow
+
+Status: implemented.
 
 - Add mode and adaptive settings to light-group config schema.
 - Expose selectors in options flow.
@@ -174,7 +196,17 @@ Exit criteria:
 - Options form renders without serializer errors.
 - Saved options round-trip correctly.
 
+Current implementation:
+
+- Light-group schema/defaults include brightness mode, adaptive guard durations,
+  inside/outside brightness sources, contrast settings, ambient-rise settings, and
+  Adaptive Lighting coordination mode.
+- Options flow conditionally exposes advisory/adaptive fields by selected mode.
+- Options flow tests cover mode-specific field visibility and saved option preservation.
+
 ### Phase 4: Fallback tiers and outside context
+
+Status: implemented.
 
 - Add outside-context source handling (`sun|outside_lux|none`).
 - Add optional contrast gating when outside lux exists.
@@ -183,7 +215,17 @@ Exit criteria:
 - Behavior matches fallback matrix in tests.
 - No hard dependency on outside lux sensor.
 
+Current implementation:
+
+- `sun`, `outside_lux`, and `none` outside-context sources are supported.
+- Optional outside-bright binary can override source-based checks.
+- Outside-lux mode supports minimum lux, outside-inside delta, and outside/inside ratio
+  gates.
+- Tests cover sun fallback, outside-lux minimums, delta/ratio gates, and binary override.
+
 ### Phase 5: Migration and release hardening
+
+Status: implemented for current config version.
 
 - Add minor-version migration for new option keys.
 - Validate upgrade from current configs.
@@ -191,6 +233,14 @@ Exit criteria:
 Exit criteria:
 - Migration tests pass.
 - Existing configs preserve behavior unless user opts into new modes.
+
+Current implementation:
+
+- Migration `2.2 -> 2.3` backfills adaptive-brightness keys into existing light-group
+  feature options.
+- Canonical defaults preserve existing behavior with `brightness_mode = inhibit`.
+- Managed signal-helper work introduced no additional user option keys, so no new
+  migration beyond `2.3` is required for the Trend-helper pilot.
 
 ## Known Risks
 
@@ -200,14 +250,16 @@ Exit criteria:
 - Blurring the helper/policy boundary. Native helpers should condition generic signals;
   Magic Areas should not delegate room-specific behavior policy to helper combinations.
 
-## Open Questions Before Build Start
+## Resolved Questions
 
-- Should `adaptive` become the default after validation, or remain opt-in long-term?
-- Should we support per-light-group override vs feature-global mode in v1?
-- Do we need explicit observability attributes for debugging (mode, dwell timer, last suppression reason)?
-- Which helper-backed ambient-rise signal shape should be used first: trend helper,
-  derivative helper plus threshold, statistics helper plus threshold, or user-selected
-  helper entity?
+- Default mode remains `inhibit`; `advisory` and `adaptive` are opt-in.
+- V1 keeps brightness mode at the light-groups feature configuration level rather than a
+  per-role override.
+- Observability is exposed through `adaptive_guards`, `brightness_mode`, and
+  `last_policy_reason` attributes.
+- The first Magic Areas-built ambient-rise signal is a managed Trend helper.
+- Derivative/statistics helper bundles remain deferred for richer future signals, such as
+  numeric lux rate or fan humidity/odor control.
 
 ## Initial Recommendation
 
@@ -217,3 +269,9 @@ Exit criteria:
 - Use the managed Trend helper as the first MA-built adaptive ambient-rise signal. Keep
   derivative/statistics helper bundles available for later richer signal needs rather
   than making the first adaptive pass more complex.
+
+## Current Next Step
+
+The adaptive-brightness plan is ready for live validation under opt-in settings. The next
+engineering pass should be bug-fix driven from HA runtime observations, not additional
+architecture work, unless testing shows the Trend-helper signal shape is insufficient.
