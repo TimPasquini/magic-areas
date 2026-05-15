@@ -12,6 +12,9 @@ Current executable coverage:
   gates for dwell, minimum on-time, outside context, outside lux contrast, and
   ambient-rise evidence, plus attribution hold after Magic Areas-controlled
   light output.
+- `tests/scenarios/test_light_adaptive_lighting_coordination.py` covers
+  room-state-driven Adaptive Lighting switch coordination for sleep and accent
+  transitions.
 
 ## Purpose
 
@@ -252,6 +255,11 @@ First phase:
 
 - Use the existing Adaptive Lighting testkit for switch-set coordination where sufficient.
 - Verify that Magic Areas can coordinate AL switch/manual-control behavior without needing AL to actually calculate brightness.
+
+Status: partially implemented. Scenario coverage now verifies that a real
+one-room light group with an adopted Adaptive Lighting switch set schedules sleep
+and accent coordination intents when the Magic Areas light-control switch is
+enabled.
 
 Second phase:
 
