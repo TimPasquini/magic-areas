@@ -32,12 +32,21 @@ and grouped control.
    - New behavior should be integrated through module + policy + registry,
      not ad-hoc cross-imports.
 
+6. **Use HA-native primitives where they fit**
+   - Home Assistant helpers and labels should own durable storage/display/target
+     surfaces when they already model the primitive Magic Areas needs.
+   - Magic Areas should own the human abstraction layer: enumeration, guided
+     role assignment, desired-surface calculation, reconciliation, and policy.
+   - Managed HA surfaces must not become a second independent source of truth.
+
 ## Home Assistant-aligned rules
 
 - Keep event loop responsive; no blocking behavior in async paths.
 - Keep entity properties in-memory only; avoid property-time I/O.
 - Use stable unique identities and registry-driven lookups.
 - Reflect availability through coordinator/update outcomes.
+- Assign generated helper entities to the appropriate HA area and exclude them
+  from Magic Areas source enumeration.
 
 ## Refactoring principles
 
@@ -61,5 +70,6 @@ When evaluating a change, ask:
 2. Does this make ownership clearer?
 3. Does this keep policy pure and execution centralized?
 4. Can this be validated with focused contract tests?
+5. Can Home Assistant already own this storage/display/helper responsibility?
 
 If answers are mostly “no”, redesign the change before merging.

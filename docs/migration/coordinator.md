@@ -26,6 +26,8 @@ A coordinator now owns a single, typed snapshot per config entry:
 - Coordinator refresh status drives entity availability.
 - Snapshot contains data structures (`AreaConfig`, `AreaRuntime`) plus resolved
   entity/config fields used by platforms.
+- Coordinator-side reconciliation creates, updates, and removes Magic
+  Areas-managed HA helper/label surfaces declared by feature modules.
 
 ## Snapshot data model
 
@@ -45,8 +47,8 @@ A coordinator now owns a single, typed snapshot per config entry:
 ### Snapshot field sources
 
 - `entities` and `magic_entities`: collected from registry + state via
-  `coordinator/snapshot_builder.py` via `coordinator/entity_ingestion/` helpers:
-  `loader.py`, `registry_queries.py`, `filters.py`, and `snapshots.py`.
+  `coordinator/pipeline/entity_ingestion/` helpers such as `loader.py` and
+  `registry_queries.py`.
 - `presence_sensors`: computed by core presence helpers and passed into
   `binary_sensor` setup.
 - `config`: merged entry data and options so platforms read one source.
@@ -75,6 +77,31 @@ Entity availability is tied to coordinator refresh success:
 Diagnostics now read snapshot data and rely on the coordinator timestamp for
 freshness. This keeps diagnostics output consistent with what platforms see.
 
+## Managed surface reconciliation
+
+After snapshot refresh, feature modules can declare desired HA-native surfaces:
+
+- config-entry-backed helpers such as `group`, `threshold`, statistics, trend,
+  and derivative helpers
+- scoped HA label memberships
+- registry metadata for generated helper entities
+- repair issues for stale or missing managed surfaces
+
+`coordinator/managed_surfaces.py` applies these desired surfaces centrally. This
+keeps helper/label ownership out of individual platform adapters and makes
+cleanup rules consistent:
+
+- only Magic Areas-owned surfaces are updated or removed
+- unrelated user labels are preserved
+- managed helper entities are assigned to the same HA area where possible
+- generated helpers are excluded from Magic Areas source enumeration to prevent
+  recursive grouping or aggregation
+
+`coordinator/adaptive_lighting.py` applies the same ownership pattern to
+Magic Areas-managed Adaptive Lighting config entries. It updates Magic
+Areas-owned identity/membership fields and preserves Adaptive Lighting/user-owned
+behavior tuning.
+
 ## Usage pattern
 
 ```
@@ -100,3 +127,4 @@ not depend on `entry.runtime_data.area`.
 - Availability is coordinator-refresh driven.
 - Public runtime usage is coordinator-centric (`runtime_data.coordinator`), not
   area-object centric.
+- Managed helper/label reconciliation is coordinator-owned, not platform-owned.

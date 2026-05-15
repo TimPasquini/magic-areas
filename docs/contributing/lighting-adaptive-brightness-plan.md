@@ -1,5 +1,14 @@
 # Lighting Adaptive Switching Plan
 
+This file was originally named `lighting-adaptive-brightness-plan.md`, but the
+feature is adaptive **switching**, not brightness management. The filename is
+kept for continuity; the behavior described here is about deciding whether
+Magic Areas light roles should turn on/off from brightness-related signals.
+
+Status: active validation/follow-through plan. The architecture foundation it
+depends on (labels, native helpers, control-intent targets, and Adaptive
+Lighting coordination) is implemented in the current branch.
+
 ## Problem Statement
 
 Current light-group behavior treats `BRIGHT` as a hard inhibitor unless `bright` is explicitly assigned for the group. This can suppress needed turn-on in occupied rooms with low in-room lux (for example when `dark_entity` is `sun.sun` during daytime).
@@ -25,6 +34,19 @@ on.
 - No breaking default behavior during initial rollout.
 
 ## Proposed Switching Model
+
+Current foundation available to this work:
+
+- Light role membership is label-backed (`ma:overhead`, `ma:task`,
+  `ma:sleep`, `ma:accent`) with exact native helper targets where available.
+- The light intent adapter already handles member-level sleep/accent
+  suppression and explicit entity subsets.
+- Adaptive Lighting coordination is optional and separate. Adaptive Lighting may
+  manage brightness/color/sleep appearance for lights that are on; this plan
+  remains responsible only for Magic Areas on/off switching policy.
+- Managed HA signal helpers are available through the managed-surface
+  reconciler. The first adaptive-switching signal helper is a managed Trend
+  helper for ambient-rise evidence.
 
 ### Signal Boundary
 
@@ -115,9 +137,11 @@ signals through policy inputs.
 ### Lux threshold production
 
 - `custom_components/magic_areas/features/modules/aggregates.py`
-  - threshold entity creation path
-- `custom_components/magic_areas/binary_sensor/threshold.py`
-  - in-room threshold binary sensor behavior
+  - native aggregate helper and threshold helper desired-surface declaration
+- `custom_components/magic_areas/core/aggregates/runtime.py`
+  - illuminance aggregate/threshold source calculation
+- `custom_components/magic_areas/coordinator/managed_surfaces.py`
+  - managed native `threshold` helper reconciliation
 
 ### Config and schema surfaces
 
@@ -132,18 +156,25 @@ signals through policy inputs.
 - `custom_components/magic_areas/config_keys/area.py`
   - new config keys
 - `custom_components/magic_areas/migrations.py`
-  - minor-version migration for new options
+  - config-entry migration/backfill for new options
 
 ### Test surfaces
 
 - `tests/unit/test_core_light_control.py`
   - extend for mode matrix and adaptive safeguards
-- `tests/unit/test_core_presence.py`
-  - secondary-state behavior and mapping constraints
+- `tests/unit/test_light_group_runtime_adaptive_guards.py`
+  - runtime guard derivation, outside context, inside brightness, and
+    ambient-rise handling
+- `tests/unit/test_light_group_runtime_state_change_observability.py`
+  - adaptive guard/debug attribute visibility
+- `tests/unit/test_signal_helper_surfaces.py`
+  - managed ambient-rise signal helper surface construction
 - `tests/config_flow/test_config_flow_features_e2e.py`
   - options-flow persistence for new config fields
-- `tests/integration/test_error_recovery_paths.py`
-  - runtime behavior under state/event edge conditions
+- `tests/config_flow/test_config_flow_options_runtime.py`
+  - mode-specific selector/entity filtering
+- `tests/integration/test_native_group_helper_lifecycle.py`
+  - managed signal-helper lifecycle and area/registry metadata
 
 ## Implementation Phases
 
@@ -275,6 +306,8 @@ Current implementation:
 
 ## Current Next Step
 
-The adaptive-switching plan is ready for live validation under opt-in settings. The next
-engineering pass should be bug-fix driven from HA runtime observations, not additional
-architecture work, unless testing shows the Trend-helper signal shape is insufficient.
+The adaptive-switching plan is ready for live validation under opt-in settings
+on top of the current intent/label/helper foundation. The next engineering pass
+should be bug-fix driven from HA runtime observations, not additional
+architecture work, unless testing shows the Trend-helper signal shape is
+insufficient.

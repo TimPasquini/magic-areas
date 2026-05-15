@@ -25,16 +25,9 @@ Use `mcp__code_review_graph__list_graph_stats_tool` and verify:
 - Test nodes are present in substantial volume.
 - `TESTED_BY` edges are present in substantial volume.
 
-Current baseline snapshot:
-
-- files: `302`
-- nodes: `2479`
-- edges: `18321`
-- test nodes: `966`
-- `TESTED_BY` edges: `5202`
-- `last_updated`: session-dependent; verify current value before analysis
-
-If your numbers are drastically lower (especially tests/`TESTED_BY`), do not
+Do not treat historical graph counts as durable documentation. The expected
+numbers change as files, tests, and generated graph schema evolve. If the graph
+shows implausibly low counts, especially for tests or `TESTED_BY` edges, do not
 trust architecture or impact analysis until graph build/postprocess is rerun.
 
 ## Stale-Graph Guard

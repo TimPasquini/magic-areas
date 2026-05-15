@@ -16,12 +16,19 @@ Contract:
 - `custom_components/magic_areas/coordinator/__init__.py`
 - `custom_components/magic_areas/coordinator/pipeline/lifecycle.py`
 - `custom_components/magic_areas/coordinator/pipeline/snapshot.py`
+- `custom_components/magic_areas/coordinator/managed_surfaces.py`
+- `custom_components/magic_areas/coordinator/adaptive_lighting.py`
 
 Contract:
 - Coordinator owns refresh cadence and snapshot creation.
 - Lifecycle managers own:
   - meta-area reload orchestration/retry state, and
   - non-meta readiness convergence reload scheduling.
+- Managed-surface reconciliation owns Magic Areas-managed HA helper config
+  entries, scoped HA labels, registry metadata, cleanup, and stale-surface
+  repair issues.
+- Adaptive Lighting reconciliation owns Magic Areas-managed Adaptive Lighting
+  config entries and preserves Adaptive Lighting/user-owned tuning options.
 - Platforms/entities read `coordinator.data` only.
 - Snapshot model (`MagicAreasData`) is the read contract.
 
@@ -110,24 +117,55 @@ Contract:
 - Policy code is pure (no HA service execution).
 - Light category wiring is preset-driven (`light_groups/config.py`) and consumed
   by feature composition (`features/modules/light_groups.py`).
-- Parent light-group child linkage resolves through control-group metadata in
-  deterministic category order.
+- Parent light-group child linkage resolves through stable light-group policy
+  unique IDs in deterministic category order.
 - Light policy signal parsing is guarded: missing `is_primary` identity produces
   a `NOOP` decision (`invalid_light_policy_signals`) instead of evaluating a
   potentially incorrect branch; missing `control_state` alone uses deterministic
   fallback command-echo state.
+- Light sleep/accent suppression is member-aware. Runtime resolves role
+  membership from reconciled labels first, bounded by the current area light
+  entity set, and uses explicit entity IDs when suppression/intersection logic
+  narrows the target.
 
 ## 8) Execution/runtime boundary
 
 - `custom_components/magic_areas/core/controls/control_group.py`
 - `custom_components/magic_areas/core/controls/control_group_runtime.py`
 - `custom_components/magic_areas/core/runtime_model/groups.py`
+- `custom_components/magic_areas/core/runtime_model/managed_surfaces.py`
+- `custom_components/magic_areas/core/runtime_model/signal_helpers.py`
+- `custom_components/magic_areas/core/managed_surface_registry.py`
 
 Contract:
 - Executor applies runtime effects + service actions.
 - Runtime resolver performs registry-driven target lookup.
 - Group registry stores default/custom definitions and scoped resolution.
 - Registry instances are runtime-injected (no process-global singleton).
+- Managed-surface runtime models describe desired HA helper, label, and signal
+  surfaces. They do not apply HA side effects directly.
+- Managed-surface registry helpers resolve Magic Areas-owned helper entities by
+  stable ownership metadata/unique IDs.
+
+## 8a) Control intent boundary
+
+- `custom_components/magic_areas/core/control_intents/__init__.py`
+- `custom_components/magic_areas/core/control_intents/models.py`
+- `custom_components/magic_areas/core/control_intents/engine.py`
+- `custom_components/magic_areas/core/control_intents/targets.py`
+- `custom_components/magic_areas/core/control_intents/adaptive_lighting.py`
+- `custom_components/magic_areas/core/control_intents/adaptive_lighting_registry.py`
+- `custom_components/magic_areas/core/control_intents/adaptive_lighting_executor.py`
+
+Contract:
+- Pure intent models and arbitration remain HA-free.
+- Target records can represent broad HA labels, exact native helper entities,
+  explicit entity subsets, and hidden compatibility policy entities.
+- Runtime adapters gather HA state/registry data before invoking pure intent
+  logic and execute returned decisions through existing runtime/executor paths.
+- Adaptive Lighting is modeled as an external behavior system. Magic Areas
+  emits side-effect intents for switch-set coordination; Adaptive Lighting owns
+  brightness/color/sleep tuning.
 
 ## 9) Config-flow boundary
 
@@ -162,6 +200,9 @@ Not allowed:
 
 - Central modules may contain only shared generic primitives.
 - Feature-specific semantics must live in the owning feature slice.
+- Home Assistant labels and managed helper config entries are external durable
+  surfaces. Magic Areas reconciles the surfaces it owns, but feature/policy
+  code should consume them through managed-surface and target resolver APIs.
 - Import-boundary tests must block side-door imports that bypass slice entry
   points (`tests/unit/test_import_boundaries.py`).
 - A small set of explicit allowlist seams is intentional and documented:

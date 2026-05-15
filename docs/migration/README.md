@@ -19,6 +19,9 @@ and this repository, including:
 - event payload changes and state propagation
 - test coverage changes that validate the new behavior
 - repository and tooling changes that affect development
+- HA-native managed helper/label surfaces added by this fork
+- control-intent target modeling and light member-level suppression
+- optional Adaptive Lighting coordination
 
 ## Delta inventory (by category)
 
@@ -39,14 +42,47 @@ migration documents.
   normalization, presence selection, and entity grouping.
 - Legacy `base/magic.py` monolith removed; logic now owned by coordinator,
   core, and feature-module boundaries.
+- `core/control_intents/` adds pure intent/target contracts so runtime can
+  distinguish broad labels, exact helper targets, explicit entity subsets, and
+  hidden compatibility policy entities.
+- `core/runtime_model/managed_surfaces.py` and
+  `core/managed_surface_registry.py` add stable contracts for Magic
+  Areas-managed HA helper/label/signal surfaces.
 
 ### Platform adapters
 
 - `binary_sensor`, `sensor`, `light`, `fan`, `cover`, `media_player`, `switch`,
-  and `threshold` now read snapshot fields rather than deriving data locally.
+  and generated helper surfaces now read snapshot fields rather than deriving
+  data locally.
 - Climate control, media player control, and fan control now react to event
   snapshots, not cached `MagicArea` state.
 - Diagnostics now read snapshot data and updated timestamps.
+
+### HA-native managed surfaces
+
+- Magic Areas reconciles native HA helper config entries for exact group,
+  aggregate, threshold, and signal surfaces instead of duplicating all of that
+  behavior in Magic Areas-only entities.
+- Managed helpers are area-assigned and excluded from Magic Areas source
+  enumeration to prevent self-enumeration loops.
+- Magic Areas reconciles scoped HA Labels for semantic light-role and custom
+  control membership (`ma:overhead`, `ma:task`, `ma:sleep`, `ma:accent`,
+  `ma:control:*`), preserving unrelated user labels.
+- Hidden policy entities remain only where they still own listener/manual
+  override/command-echo/debug compatibility behavior.
+
+### Light control and Adaptive Lighting
+
+- Light-group membership and target selection now prefer reconciled labels and
+  native helper targets over private group-member structures.
+- Sleep/accent suppression is member-aware and can dispatch explicit entity
+  subsets when overlapping states require it.
+- Adaptive Lighting coordination is optional. Magic Areas can ignore Adaptive
+  Lighting, adopt existing switch sets, or manage selected Adaptive Lighting
+  config entries while preserving Adaptive Lighting/user-owned tuning options.
+- Adaptive Lighting remains responsible for brightness/color/sleep tuning;
+  Magic Areas coordinates behavior switches and manual-control restoration as
+  runtime side effects.
 
 ### Identity and availability
 
@@ -91,6 +127,9 @@ migration documents.
 - Availability reflects coordinator health.
 - Config flow metadata and schemas are centralized.
 - Tests map to the documented deltas.
+- Tests cover managed helper/label reconciliation, control-intent target
+  resolution, member-level light suppression, and Adaptive Lighting
+  coordination.
 - MagicArea is not exposed in `runtime_data` or `MagicAreasData`.
 - Platforms read only snapshot fields; entity constructors take
   `AreaConfig + coordinator`, not `MagicArea`.

@@ -259,8 +259,7 @@ Progress:
   - `tests/integration/test_area_state_robustness.py`
   - `tests/platforms/test_wasp_in_a_box_logic.py`
   - (reviewed and kept deterministic pattern in)
-    `tests/platforms/test_light_complex.py`,
-    `tests/platforms/test_threshold.py`
+    `tests/platforms/test_light_complex.py`
 
 Done when:
 - Flaky paths are reduced and reliability checks remain green.

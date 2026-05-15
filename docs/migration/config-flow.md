@@ -29,6 +29,9 @@ Custom feature steps still exist only when necessary:
 
 - Climate control presets use `config_flows/steps/feature_config_climate.py`
   (second step) to build selectors and validators based on the selected entity.
+- Light groups use mode-specific inline schema shaping for adaptive switching
+  and Adaptive Lighting coordination because the visible fields depend on the
+  selected mode.
 
 ## Supporting schema and config modules
 
@@ -39,6 +42,8 @@ Configuration data and constants are split into focused modules:
 - `enums.py`: typed enums for feature IDs, area states, and policy options
 - `schemas/area.py`: area-level schemas and defaults
 - `features/modules/*.py`: per-feature schema ownership and config-step definitions
+- `light_groups/config.py`: light-group preset definitions, adaptive-switching
+  settings, and Adaptive Lighting coordination settings
 - `feature_info.py`: feature metadata registry (translation keys, icons)
 - `policy.py`: internal policy tables for filtering and behavior
 
@@ -72,8 +77,15 @@ This keeps per-feature logic declarative and reduces duplication.
   routed dynamically.
 - Feature configuration and feature UI metadata are centralized and consistent
   with the runtime registry.
+- Light-group config can now express:
+  - brightness switching mode (`inhibit`, `advisory`, `adaptive`)
+  - adaptive guard settings and inside/outside signal selectors
+  - Adaptive Lighting mode (`ignore`, `adopt_existing`, `manage`)
+  - role-scoped Adaptive Lighting switch-set adoption or managed-role selection
 
 ## User-facing behavior
-UI behavior is consistent with the fork baseline. The changes are internal:
-configuration definitions are centralized, UI generation is schema-driven, and
-feature steps no longer require boilerplate handlers.
+Base UI behavior remains aligned with the fork baseline for existing defaults,
+but this fork adds opt-in configuration surfaces for adaptive switching,
+managed helper-backed signals, label-backed role membership, and Adaptive
+Lighting coordination. Configuration definitions are centralized, UI generation
+is schema-driven, and feature steps no longer require boilerplate handlers.

@@ -25,6 +25,8 @@ from the updated structure.
   - Key modules:
     - `runtime_model/area.py` — `AreaConfig` + `AreaRuntime` dataclasses
     - `runtime_model/groups.py` — control-group IDs, metadata keys, group registry
+    - `runtime_model/managed_surfaces.py` — desired HA helper/label/signal surfaces
+    - `runtime_model/signal_helpers.py` — managed statistics/trend/derivative signal helpers
     - `runtime_model/identity.py` — pure unique-id builders
     - `runtime_model/references.py` — entity reference resolution
     - `runtime_model/migration.py` — unique-id migration helpers
@@ -34,8 +36,12 @@ from the updated structure.
     - `meta_reload.py` — `evaluate_reload()` for meta-area reload throttling
     - `core/config/` — config normalization and typed access helpers
     - `controls/` — control-group contracts and runtime helper APIs
+    - `control_intents/` — source-neutral intent models, target resolution, and
+      optional Adaptive Lighting coordination helpers
+    - `managed_surface_registry.py` — registry lookup helpers for Magic
+      Areas-managed HA helper entities
     - coordinator-owned ingestion package:
-      - `coordinator/entity_ingestion/`
+      - `coordinator/pipeline/entity_ingestion/`
       - `loader.py` — area/meta-area entity load orchestration
       - `registry_queries.py` — entity/device registry queries
 
@@ -43,6 +49,16 @@ from the updated structure.
   - `MagicAreasCoordinator`: owns a private `AreaConfig`, refreshes snapshots
   - meta-area reload: subscribes to `AREA_SNAPSHOT_READY`, throttles via `evaluate_reload()`
   - builds `MagicAreasData` snapshot on every refresh
+
+- `custom_components/magic_areas/coordinator/managed_surfaces.py`
+  - reconciles Magic Areas-owned HA helper config entries and scoped HA labels
+  - assigns managed helper entity registry metadata and HA area placement
+  - removes stale owned surfaces and raises/clears stale-surface Repairs
+
+- `custom_components/magic_areas/coordinator/adaptive_lighting.py`
+  - reconciles Magic Areas-owned Adaptive Lighting config entries when enabled
+  - preserves Adaptive Lighting/user-owned tuning options while updating Magic
+    Areas-owned identity and membership fields
 
 - `custom_components/magic_areas/{platform}.py` / `{platform}/__init__.py`
   - platform setup functions are registry-driven routers
@@ -90,9 +106,16 @@ Coordinator refresh
             - active_areas   (meta only: active child area IDs)
             - config         (merged options dict)
             - enabled_features
-            - feature_configs
-            - entity_references (resolved entity IDs for cross-platform use)
-            - updated_at
+             - feature_configs
+             - entity_references (resolved entity IDs for cross-platform use)
+             - updated_at
+
+Managed surface reconciliation
+  └─ __init__.py after coordinator refresh
+       ├─ collect_feature_managed_surfaces(...) from feature modules
+       ├─ async_reconcile_config_entry_helpers(...)
+       ├─ async_reconcile_label_surfaces(...)
+       └─ async_reconcile_managed_adaptive_lighting(...)
 
 Options flow (schema-driven)
   └─ config_flows/options_flow.py
@@ -111,6 +134,28 @@ Platform setup (registry-driven)
           └─ dispatch to FeatureRegistry modules per domain
              └─ skip setup if snapshot is unavailable
 ```
+
+## Managed HA surfaces (current)
+
+The fork delegates durable storage/control surfaces back to Home Assistant where
+HA already provides a native primitive:
+
+- exact native `group` helper config entries for light roles, all-lights,
+  fan/media/cover groups, health groups, and aggregate outputs
+- native `threshold` helpers for area light-state threshold sensors
+- native signal helpers, currently a managed Trend helper for adaptive-switching
+  ambient-rise evidence
+- HA Labels for semantic role/control membership:
+  `ma:overhead`, `ma:task`, `ma:sleep`, `ma:accent`, and `ma:control:*`
+
+Magic Areas still owns the human abstraction layer: area enumeration, guided
+configuration, role assignment, desired-surface calculation, reconciliation, and
+policy decisions. Home Assistant owns durable helper/label storage, display, and
+service target surfaces.
+
+Managed helper entities are assigned to their HA area and excluded from Magic
+Areas source enumeration so generated helpers do not recursively aggregate or
+control themselves.
 
 ## Runtime data flow (fork baseline)
 
@@ -205,7 +250,7 @@ Event dispatch (presence state changes)
 Platform handlers (light, climate, fan, media)
   └─ React to event payload snapshot
      └─ Pure policy evaluation in core/ modules
-        └─ HA service calls only (no coordinator or area access)
+          └─ HA service calls only (no coordinator or area access)
 ```
 
 **Key property**: Platforms and entities consume snapshot data. They never:
@@ -220,6 +265,8 @@ Runtime feature modules are the single source of truth for:
 - platform entity construction per feature (`build_entities`)
 - feature dependencies (`depends_on`)
 - config flow steps (`config_flow_steps`)
+- desired managed HA helper/label/signal surfaces (`desired_managed_surfaces`)
+- desired managed Adaptive Lighting configs where supported
 
 ```
 FeatureRegistry (features/registry.py)
@@ -238,7 +285,27 @@ FeatureRegistry (features/registry.py)
 Platforms call FeatureRegistry.modules_for_domain(domain) and attach entities
 per module. Config flows build their per-feature menu from the same registry,
 ensuring feature metadata is defined once.
+
+Feature modules also declare desired managed surfaces. The coordinator applies
+those desired surfaces after snapshot refresh through the managed-surface
+reconciler rather than having each feature directly create/update HA helper
+config entries.
 ```
+
+## Light control and Adaptive Lighting (current)
+
+- `light_groups/` is the light-specific vertical slice for config, policy,
+  runtime, entities, identity, signals, and member-level intent adaptation.
+- Hidden `AreaLightGroup` entities remain enabled but hidden for listener
+  ownership, command echo, manual override, fallback dispatch, and diagnostics.
+- Native light helper groups are preferred exact HA-facing command/dashboard
+  targets.
+- Sleep/accent suppression resolves role labels first, bounded by the current
+  area light set, and dispatches explicit entity subsets when suppression
+  narrows the target.
+- Adaptive Lighting coordination is optional. Magic Areas may adopt existing
+  switch sets or manage selected Adaptive Lighting config entries, but Adaptive
+  Lighting remains the owner of brightness/color/sleep appearance tuning.
 
 ## Delta summary (vs fork baseline)
 
@@ -247,6 +314,11 @@ ensuring feature metadata is defined once.
 - Light behavior moved into a dedicated `light_groups/` vertical slice.
 - Built-in light categories are declaration-driven presets, consumed by the
   light feature module and shared categorized-group builders.
+- Managed HA helper/label surfaces replace Magic Areas-only copies of many
+  grouping/threshold/signal responsibilities.
+- Control-intent target models allow runtime to choose between broad label
+  targets, exact native helpers, explicit entity subsets, and hidden
+  compatibility policy entities.
 - Control decisions map through shared control-group runtime/execution contracts.
 - Event handlers consume explicit `(new, lost, current)` state payloads.
 

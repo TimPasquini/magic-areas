@@ -25,6 +25,10 @@ Compared to the fork baseline, the suite now covers:
 - platform snapshot usage across all supported domains
 - availability behavior driven by coordinator refresh
 - expanded edge cases for lights, presence, and control switches
+- managed HA helper/label reconciliation and stale cleanup
+- control-intent target modeling and member-level light suppression
+- Adaptive Lighting switch-set discovery, intent generation, execution, and
+  managed config reconciliation
 
 ## Coverage by area
 
@@ -74,7 +78,9 @@ Compared to the fork baseline, the suite now covers:
 - `tests/platforms/test_sensor.py`: aggregate sensor creation and error handling.
 - `tests/unit/test_core_aggregates.py`: aggregate logic for multiple sensors and filters.
 - `tests/platforms/test_meta_aggregates.py`: meta-area aggregate behavior.
-- `tests/platforms/test_threshold.py`: threshold sensors and edge cases.
+- `tests/integration/test_native_group_helper_lifecycle.py`: managed aggregate,
+  threshold, signal-helper, label, area assignment, stale cleanup, and repair
+  lifecycle behavior.
 
 ### Binary sensor and presence tracking
 
@@ -92,6 +98,35 @@ Compared to the fork baseline, the suite now covers:
 - `tests/platforms/test_light_edge_cases.py`: edge cases and restoration behavior.
 - `tests/platforms/test_light_meta.py`: meta-area light behavior.
 - `tests/integration/test_meta_area_state.py`: meta-area state aggregation.
+- `tests/unit/test_light_control_intent_adapter.py`: member-level suppression
+  and target-subset behavior.
+- `tests/unit/test_light_group_runtime.py`: native helper target dispatch,
+  label-backed suppression membership, Adaptive Lighting coordination, and
+  manual-control restoration hooks.
+- `tests/unit/test_light_group_runtime_adaptive_guards.py`: adaptive switching
+  guard derivation and managed ambient-rise fallback behavior.
+- `tests/unit/test_light_group_runtime_state_change_observability.py`: debug
+  attributes for policy/intent/guard decisions.
+
+### Control intents, managed surfaces, and Adaptive Lighting
+
+- `tests/unit/test_control_intent_engine.py`: pure intent arbitration.
+- `tests/unit/test_control_intent_targets.py`: label/helper/entity target
+  resolution and fallback records.
+- `tests/unit/test_managed_surface_registry.py`: managed helper lookup and
+  ownership filtering.
+- `tests/unit/test_signal_helper_surfaces.py`: managed signal-helper desired
+  surface construction.
+- `tests/unit/test_adaptive_lighting_contracts.py`: Adaptive Lighting switch-set
+  models, config reconciliation plans, and service payload contracts.
+- `tests/unit/test_adaptive_lighting_registry.py`: Adaptive Lighting switch-set
+  registry discovery and ambiguity handling.
+- `tests/unit/test_adaptive_lighting_executor.py`: service execution adapter
+  behavior.
+- `tests/unit/test_adaptive_lighting_harness.py`: mocked Adaptive Lighting test
+  harness coverage.
+- `tests/unit/test_managed_adaptive_lighting_reconciler.py`: managed Adaptive
+  Lighting config-entry create/update/delete behavior.
 
 ### Media player and audio features
 
@@ -141,11 +176,20 @@ This map ties key deltas to the tests that now cover them.
   - `tests/platforms/test_fan.py`
   - `tests/platforms/test_media_player.py`
   - `tests/platforms/test_switch.py`
-  - `tests/platforms/test_threshold.py`
+- Managed native helper/label surfaces:
+  - `tests/integration/test_native_group_helper_lifecycle.py`
+  - `tests/unit/test_managed_surface_registry.py`
+  - `tests/unit/test_signal_helper_surfaces.py`
 - Event payload updates and state-change handling:
   - `tests/platforms/test_light_complex.py`
   - `tests/platforms/test_light_edge_cases.py`
   - `tests/platforms/test_switch.py`
+- Light intent and Adaptive Lighting coordination:
+  - `tests/unit/test_control_intent_engine.py`
+  - `tests/unit/test_control_intent_targets.py`
+  - `tests/unit/test_light_control_intent_adapter.py`
+  - `tests/unit/test_adaptive_lighting_contracts.py`
+  - `tests/unit/test_managed_adaptive_lighting_reconciler.py`
 - Identity and migration changes:
   - `tests/integration/test_init.py`
   - `tests/integration/test_area_lifecycle.py`

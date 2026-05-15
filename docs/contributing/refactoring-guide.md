@@ -1,8 +1,9 @@
 # Magic Areas Refactoring Guide
 
-**Status**: Recomposition streams complete; repository reduction and
-de-duplication stream active.
-**Last Updated**: 2026-04-11
+**Status**: Core recomposition, native HA surface reduction, and light intent
+foundation are implemented. Active work is adaptive switching validation and
+follow-through.
+**Last Updated**: 2026-05-15
 
 ## Overview
 
@@ -10,8 +11,9 @@ This guide describes how to contribute safely while the integration continues to
 refactor from the fork baseline (`d7b5779`) into a cleaner architecture.
 
 The project is no longer in early decomposition. Core boundaries and ownership
-guardrails are in place. Current work is compactness and maintainability:
-reduce churn, reduce fanout, and collapse low-value indirection.
+guardrails are in place. Current work should preserve those boundaries while
+validating opt-in adaptive switching behavior and reducing any remaining
+low-value compatibility paths only when parity is proven.
 
 ## Current Architecture Status
 
@@ -45,6 +47,24 @@ High-level status:
   - Group contracts/metadata/registry live in
     `core/runtime_model/groups.py` and are consumed via
     `core.runtime_model`.
+- **Native HA managed surfaces: Implemented**
+  - Magic Areas reconciles HA helper config entries, scoped labels, registry
+    metadata, and stale-surface Repairs through coordinator-owned managed
+    surface paths.
+  - Native helper entities are preferred exact service/dashboard targets where
+    they express the desired room/domain/role surface.
+  - Generated helper entities are assigned to HA areas and excluded from source
+    enumeration to prevent recursion.
+- **Control intent foundation: Implemented for light groups**
+  - `core/control_intents/` provides source-neutral target and intent contracts.
+  - Light sleep/accent suppression is member-aware and can dispatch explicit
+    entity subsets when overlapping states narrow the target.
+  - Hidden light policy entities remain for listener ownership, command echo,
+    manual override, fallback dispatch, and diagnostics.
+- **Adaptive Lighting coordination: Implemented as optional side effects**
+  - Light groups can ignore Adaptive Lighting, adopt existing switch sets, or
+    manage selected Adaptive Lighting config entries.
+  - Adaptive Lighting remains responsible for brightness/color/sleep tuning.
 - **Constants/Enums cleanup: Implemented**
   - Source imports now use scoped key/default modules with reduced central
     constant fan-out.
@@ -94,7 +114,8 @@ uv run mypy custom_components/magic_areas tests
 uv run pytest tests -q
 ```
 
-As of this update, latest full run baseline is **966 passing tests**.
+Use the live test output as the baseline; do not hard-code a passing-test count
+in durable docs.
 
 Completed refactor streams (runtime-model packaging, snapshot/control packaging,
 and broad test hardening) are now reflected directly in:

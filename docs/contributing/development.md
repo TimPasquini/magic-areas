@@ -78,6 +78,7 @@ custom_components/magic_areas/
 ├── config_flows/         # Config/options flow steps and helpers
 ├── schemas/              # Voluptuous/schema definitions
 ├── light_groups/         # Light vertical slice (policy/events/entities)
+├── core/control_intents/ # Intent/target contracts and Adaptive Lighting helpers
 ├── binary_sensor/        # Platform adapters
 ├── sensor/               # Platform adapters
 ├── switch/               # Platform adapters
@@ -98,6 +99,21 @@ tests/
 3. Add/adjust tests for boundary/behavior contracts.
 4. Run required quality gates.
 5. Commit with descriptive, scoped message.
+
+## Working with managed HA surfaces
+
+Some Magic Areas features now reconcile Home Assistant-native helper and label
+surfaces instead of storing every control surface as a Magic Areas-only entity.
+
+- Feature modules declare desired surfaces through `desired_managed_surfaces`.
+- The coordinator applies those surfaces through managed-surface reconciliation.
+- Managed helper entities should be edited through Magic Areas configuration,
+  not by hand-editing generated HA helper config entries.
+- Generated helper entities must stay excluded from source enumeration to avoid
+  recursive grouping/aggregation.
+- Broad HA label targets are safe only for intentionally broad semantic actions.
+  Exact room/role control should prefer native helper targets or explicit entity
+  subsets.
 
 ## Commit message guidance
 
