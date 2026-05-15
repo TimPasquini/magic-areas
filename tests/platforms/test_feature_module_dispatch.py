@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys.area import CONF_CUSTOM_CONTROL_GROUPS
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.runtime_model import LabelSurface
+from custom_components.magic_areas.core.runtime_model import LabelSurface, ManagedSurface
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import FeatureConfigStep
 from custom_components.magic_areas.features.dispatch import (
@@ -68,6 +68,10 @@ class FeatureModuleDouble:
     def depends_on(self) -> set[MagicAreasFeatures]:
         """Return feature dependencies required for this module."""
         return set(self.deps)
+
+    def desired_managed_surfaces(self, *_args: object, **_kwargs: object) -> list[ManagedSurface]:
+        """Return managed surfaces for this feature."""
+        return []
 
     def config_flow_steps(self) -> list[FeatureConfigStep]:  # pragma: no cover - not used
         """Return config flow steps for this feature."""

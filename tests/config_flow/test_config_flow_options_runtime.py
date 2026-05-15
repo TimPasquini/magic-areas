@@ -108,7 +108,7 @@ async def test_options_flow_illuminance_entities_exclude_sun_and_binary(
     await setup.async_setup_component(hass, "sun", {})
     hass.states.async_set(
         "sensor.outdoor_lux",
-        1200,
+        "1200",
         {ATTR_DEVICE_CLASS: SensorDeviceClass.ILLUMINANCE},
     )
     hass.states.async_set(

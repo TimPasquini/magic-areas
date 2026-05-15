@@ -7,6 +7,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.config_keys.area import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
@@ -223,6 +224,24 @@ def adaptive_lighting_managed_roles(feature_config: FeatureConfigDict) -> list[s
     return [str(role) for role in value if isinstance(role, str)]
 
 
+def adaptive_lighting_manage_all_lights(feature_config: FeatureConfigDict) -> bool:
+    """Return whether manage mode should create a room-level AL config."""
+    value = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+    try:
+        return bool(cv.boolean(value))
+    except vol.Invalid:
+        return False
+
+
+def adaptive_lighting_manages_role(
+    feature_config: FeatureConfigDict, category: str
+) -> bool:
+    """Return whether manage mode should own one AL role config."""
+    if category == "all_lights":
+        return adaptive_lighting_manage_all_lights(feature_config)
+    return category in adaptive_lighting_managed_roles(feature_config)
+
+
 def _int_option(feature_config: FeatureConfigDict, key: str, default: int = 0) -> int:
     """Read integer option from feature config with safe fallback."""
     value = feature_config.get(key, default)
@@ -343,6 +362,73 @@ def ambient_rise_min_delta(feature_config: FeatureConfigDict) -> int:
     )
 
 
+def adaptive_lighting_diagnostics(
+    feature_config: FeatureConfigDict,
+    *,
+    area_id: str,
+    category: str,
+    area_name: str | None = None,
+    light_entity_ids: list[str] | tuple[str, ...] = (),
+) -> dict[str, object]:
+    """Return concise diagnostics for AL coordination availability."""
+    mode = adaptive_lighting_mode(feature_config)
+    base: dict[str, object] = {
+        "mode": mode,
+        "role": category,
+        "active": False,
+    }
+
+    if mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE:
+        return {**base, "reason": "mode_ignore"}
+
+    if mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
+        if not adaptive_lighting_manages_role(feature_config, category):
+            return {**base, "reason": "role_not_managed"}
+        if area_name is None:
+            return {**base, "reason": "missing_area_name"}
+        desired = managed_adaptive_lighting_config(
+            area_id=area_id,
+            area_name=area_name,
+            role=category,
+            light_entity_ids=light_entity_ids,
+        )
+        if desired is None:
+            return {**base, "reason": "no_light_members"}
+        return {
+            **base,
+            "active": True,
+            "reason": "associated",
+            "main_switch_entity_id": desired.switch_refs["main"],
+        }
+
+    raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
+    if not isinstance(raw_switch_sets, Mapping):
+        return {**base, "reason": "missing_switch_sets"}
+
+    raw_switch_refs = raw_switch_sets.get(category)
+    if not isinstance(raw_switch_refs, Mapping):
+        return {**base, "reason": "no_role_pairing"}
+
+    switch_refs = {
+        str(key): str(value)
+        for key, value in raw_switch_refs.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }
+    switch_set = switch_set_from_explicit_refs(
+        area_id=area_id,
+        role=category,
+        switch_refs=switch_refs,
+    )
+    if switch_set is None:
+        return {**base, "reason": "incomplete_switch_set"}
+    return {
+        **base,
+        "active": True,
+        "reason": "associated",
+        "main_switch_entity_id": switch_set.main_switch_entity_id,
+    }
+
+
 def adaptive_lighting_switch_set(
     feature_config: FeatureConfigDict,
     *,
@@ -356,7 +442,7 @@ def adaptive_lighting_switch_set(
         adaptive_lighting_mode(feature_config)
         == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
     ):
-        if category not in adaptive_lighting_managed_roles(feature_config):
+        if not adaptive_lighting_manages_role(feature_config, category):
             return None
         if area_name is None:
             return None
@@ -468,6 +554,9 @@ def build_light_group_feature_schema() -> vol.Schema:
     schema[
         vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES, default=[])
     ] = cv.ensure_list
+    schema[
+        vol.Optional(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL, default=False)
+    ] = cv.boolean
     return vol.Schema(schema, extra=vol.REMOVE_EXTRA)
 
 
@@ -477,6 +566,7 @@ __all__ = [
     "CONF_ACCENT_LIGHTS",
     "CONF_ACCENT_LIGHTS_ACT_ON",
     "CONF_ACCENT_LIGHTS_STATES",
+    "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS",
@@ -519,6 +609,9 @@ __all__ = [
     "LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN",
     "LIGHT_GROUP_PRESETS",
     "LightGroupPreset",
+    "adaptive_lighting_diagnostics",
+    "adaptive_lighting_manage_all_lights",
+    "adaptive_lighting_manages_role",
     "adaptive_lighting_managed_roles",
     "adaptive_lighting_mode",
     "adaptive_lighting_pair_key",

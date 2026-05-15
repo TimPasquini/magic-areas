@@ -42,6 +42,7 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups.config import (
     LIGHT_GROUP_DEFAULT_ICON,
     LightGroupPreset,
+    adaptive_lighting_diagnostics,
     adaptive_lighting_switch_set,
     adaptive_require_ambient_rise,
     ambient_rise_min_delta,
@@ -254,6 +255,15 @@ class AreaLightGroup(MagicLightGroup):
         self._attr_extra_state_attributes["controlling"] = self.controlling
         self._attr_extra_state_attributes["brightness_mode"] = (
             self.policy.policy.brightness_mode
+        )
+        self._attr_extra_state_attributes["adaptive_lighting"] = (
+            adaptive_lighting_diagnostics(
+                self._feature_config,
+                area_id=area_config.id,
+                area_name=area_config.name,
+                category=category or LightGroupCategory.ALL,
+                light_entity_ids=entities,
+            )
         )
 
         self.logger.debug(

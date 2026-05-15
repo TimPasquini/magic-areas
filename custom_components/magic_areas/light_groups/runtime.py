@@ -38,6 +38,7 @@ from custom_components.magic_areas.core.control_intents import (
     IntentAction,
     IntentReason,
     RoleTarget,
+    adaptive_lighting_manual_restore_intents,
     adaptive_lighting_state_coordination_intents,
     async_execute_adaptive_lighting_intents,
 )
@@ -391,6 +392,26 @@ def schedule_adaptive_lighting_state_coordination(
     return True
 
 
+def schedule_adaptive_lighting_manual_restore(host: _LightGroupHost) -> bool:
+    """Schedule AL manual-control restore after MA control has been reset."""
+    switch_set = getattr(host, "_adaptive_lighting_switch_set", None)
+    if switch_set is None:
+        return False
+
+    intents = adaptive_lighting_manual_restore_intents(
+        switch_set,
+        light_entity_ids=tuple(host._entity_ids),
+        cooldown_expired=True,
+    )
+    if not intents:
+        return False
+
+    host.hass.async_create_task(
+        async_execute_adaptive_lighting_intents(host.hass, intents)
+    )
+    return True
+
+
 def apply_runtime_effect(
     host: _LightGroupHost,
     effect: ControlRuntimeEffect,
@@ -402,7 +423,12 @@ def apply_runtime_effect(
         and effect.key == "state"
         and isinstance(effect.value, CommandEchoState)
     ):
+        should_restore_al_manual_control = (
+            not host._echo_state.controlling and effect.value.controlling
+        )
         host._set_echo_state(effect.value)
+        if should_restore_al_manual_control:
+            schedule_adaptive_lighting_manual_restore(host)
 
 
 def is_valid_origin_state_toggle(origin_event: object | None) -> bool:
@@ -457,6 +483,7 @@ def handle_group_state_change(
                 return False
         else:
             host._reset_control_state()
+            schedule_adaptive_lighting_manual_restore(host)
             host.logger.debug("%s: Control Reset.", host.name)
     elif host.category == LightGroupCategory.ALL:
         if host._child_ids:

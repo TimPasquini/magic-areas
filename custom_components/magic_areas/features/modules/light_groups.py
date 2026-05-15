@@ -46,6 +46,7 @@ from custom_components.magic_areas.light_groups import (
     MagicLightGroup,
     LIGHT_GROUP_PRESETS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+    adaptive_lighting_manage_all_lights,
     adaptive_lighting_managed_roles,
     adaptive_lighting_mode,
     build_light_group_helper_surface_unique_id,
@@ -197,6 +198,15 @@ class LightGroupsFeatureModule(BaseFeatureModule):
 
         configs: list[ManagedAdaptiveLightingConfig] = []
         managed_roles = set(adaptive_lighting_managed_roles(feature_config))
+        if adaptive_lighting_manage_all_lights(feature_config):
+            config = managed_adaptive_lighting_config(
+                area_id=area_config.id,
+                area_name=area_config.name,
+                role=str(LightGroupCategory.ALL),
+                light_entity_ids=light_entities,
+            )
+            if config is not None:
+                configs.append(config)
         for preset in LIGHT_GROUP_PRESETS:
             if preset.category not in managed_roles:
                 continue

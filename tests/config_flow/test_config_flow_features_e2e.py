@@ -1,5 +1,7 @@
 """End-to-end feature configuration options-flow tests."""
 
+from typing import cast
+
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.climate.const import DOMAIN as CLIMATE_DOMAIN
@@ -11,7 +13,9 @@ from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.entity_registry import async_get as async_get_er
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+import voluptuous as vol
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
@@ -27,6 +31,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_SETPOINT,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
@@ -52,6 +57,11 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     adaptive_lighting_pair_key,
 )
+
+
+def _data_schema(result: ConfigFlowResult) -> vol.Schema:
+    """Return a non-optional data schema from a form result."""
+    return cast(vol.Schema, result["data_schema"])
 
 
 def _register_adaptive_lighting_switch_set(
@@ -450,7 +460,7 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
     )
     assert result["type"] == FlowResultType.FORM
 
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in keys
     assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY not in keys
@@ -466,7 +476,7 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
         result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
     )
     assert result["type"] == FlowResultType.FORM
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
@@ -497,7 +507,7 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     )
     assert result["type"] == FlowResultType.FORM
 
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
@@ -518,7 +528,7 @@ async def test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings
     )
 
     assert result["type"] == FlowResultType.FORM
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE in keys
     assert adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS) not in keys
@@ -560,7 +570,7 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
 
     assert result["type"] == FlowResultType.FORM
     pair_key = adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS)
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert pair_key in keys
 
@@ -615,7 +625,7 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
     )
 
     assert result["type"] == FlowResultType.FORM
-    schema = result["data_schema"]
+    schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES in keys
 
@@ -636,6 +646,70 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
     ] == [CONF_OVERHEAD_LIGHTS]
+
+
+async def test_options_flow_light_groups_manage_all_lights_uses_separate_gate(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Manage mode should expose all-lights as a boolean, not a role option."""
+    config_entry = init_integration
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "overhead_lights": ["light.test_light"],
+        "brightness_mode": "inhibit",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+        ),
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    schema = _data_schema(result)
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL in keys
+    assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES in keys
+    role_marker = next(
+        marker
+        for marker in schema.schema
+        if getattr(marker, "schema", marker)
+        == CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
+    )
+    role_validator = schema.schema[role_marker]
+    assert role_validator([CONF_OVERHEAD_LIGHTS]) == [CONF_OVERHEAD_LIGHTS]
+    with pytest.raises(vol.Invalid):
+        role_validator(["all_lights"])
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+            ),
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL: True,
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [CONF_OVERHEAD_LIGHTS],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    feature_options = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ]
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] is True
+    assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES] == [
+        CONF_OVERHEAD_LIGHTS
+    ]
 
 
 async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+from typing import cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
@@ -19,6 +20,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
+from custom_components.magic_areas.core.runtime_model import (
+    ConfigEntryHelperSurface,
+    ManagedSurface,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.sensor import (
     create_aggregate_sensors_from_definitions as create_sensor_aggregates,
@@ -34,6 +39,12 @@ from .feature_module_contracts_testkit import (
     make_coordinator,
     make_snapshot,
 )
+
+
+def _helper_surfaces(surfaces: list[ManagedSurface]) -> list[ConfigEntryHelperSurface]:
+    """Return config-entry helper surfaces with runtime assertions for tests."""
+    assert all(isinstance(surface, ConfigEntryHelperSurface) for surface in surfaces)
+    return cast(list[ConfigEntryHelperSurface], surfaces)
 
 
 def test_aggregates_module_matches_legacy_sensor_entities() -> None:
@@ -71,15 +82,16 @@ def test_aggregates_module_matches_legacy_sensor_entities() -> None:
 
     assert module_entities == []
     assert len(surfaces) == 1
-    assert surfaces[0].unique_id == (
+    helper_surfaces = _helper_surfaces(surfaces)
+    assert helper_surfaces[0].unique_id == (
         "magic_areas:entry-1:area-1:aggregates:config_entry_helper:"
         "aggregate_sensor_standard_temperature"
     )
-    assert surfaces[0].domain == "group"
-    assert surfaces[0].options["group_type"] == SENSOR_DOMAIN
-    assert surfaces[0].options["entities"] == ["sensor.temp_1", "sensor.temp_2"]
-    assert surfaces[0].options["type"] == "mean"
-    assert surfaces[0].area_id == area_config.id
+    assert helper_surfaces[0].domain == "group"
+    assert helper_surfaces[0].options["group_type"] == SENSOR_DOMAIN
+    assert helper_surfaces[0].options["entities"] == ["sensor.temp_1", "sensor.temp_2"]
+    assert helper_surfaces[0].options["type"] == "mean"
+    assert helper_surfaces[0].area_id == area_config.id
 
 
 def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> None:
@@ -119,7 +131,8 @@ def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> Non
     surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
     assert module_entities == []
-    group_surfaces = [surface for surface in surfaces if surface.domain == "group"]
+    helper_surfaces = _helper_surfaces(surfaces)
+    group_surfaces = [surface for surface in helper_surfaces if surface.domain == "group"]
     assert {surface.options["group_type"] for surface in group_surfaces} == {
         BINARY_SENSOR_DOMAIN,
         SENSOR_DOMAIN,
@@ -140,7 +153,7 @@ def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> Non
     assert binary_surface.options["all"] is False
 
     threshold_surface = next(
-        surface for surface in surfaces if surface.domain == "threshold"
+        surface for surface in helper_surfaces if surface.domain == "threshold"
     )
     assert threshold_surface.unique_id == (
         "magic_areas:entry-1:area-1:threshold:config_entry_helper:"

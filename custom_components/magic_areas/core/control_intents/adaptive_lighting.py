@@ -142,7 +142,11 @@ class ManagedAdaptiveLightingReconcileOperation:
 
 def managed_adaptive_lighting_config_name(*, area_name: str, role: str) -> str:
     """Return the MA-owned Adaptive Lighting configuration name for one role."""
-    readable_role = role.removesuffix("_lights").replace("_", " ").strip()
+    readable_role = (
+        "all lights"
+        if role == "all_lights"
+        else role.removesuffix("_lights").replace("_", " ").strip()
+    )
     if readable_role:
         return f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} {area_name} {readable_role}"
     return f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} {area_name}"

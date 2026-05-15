@@ -13,6 +13,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
@@ -135,6 +136,7 @@ _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS = {
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
 }
 _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS = {
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 }
@@ -267,13 +269,32 @@ def _light_group_managed_role_options(
     feature_config: Mapping[str, object],
 ) -> list[str]:
     """Return role options that can receive MA-managed Adaptive Lighting configs."""
-    options = list(_light_group_pairing_categories(flow, feature_config))
+    options = [
+        category
+        for category in _light_group_pairing_categories(flow, feature_config)
+        if category != str(LightGroupCategory.ALL)
+    ]
     raw_roles = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
     if isinstance(raw_roles, list):
         for role in raw_roles:
-            if isinstance(role, str) and role not in options:
+            if (
+                isinstance(role, str)
+                and role != str(LightGroupCategory.ALL)
+                and role not in options
+            ):
                 options.append(role)
     return options
+
+
+def _light_group_manage_all_lights_default(
+    feature_config: Mapping[str, object],
+) -> bool:
+    """Return saved room-level manage preference."""
+    raw_value = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+    try:
+        return bool(cv.boolean(raw_value))
+    except vol.Invalid:
+        return False
 
 
 def _adaptive_lighting_candidate_switch_sets(
@@ -451,7 +472,7 @@ async def handle_feature_form(
                 existing = features.get(feature_key, {})
                 if isinstance(existing, Mapping):
                     for key in _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS:
-                        if key in existing and key not in validated_dict:
+                        if key in existing and key not in user_input:
                             validated_dict[key] = existing[key]
                 _normalize_light_group_adaptive_lighting_options(
                     flow,
@@ -571,7 +592,14 @@ async def handle_feature_conf(
                 )
         if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
             role_options = _light_group_managed_role_options(flow, feature_config)
+            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
             include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
+            schema.schema[
+                vol.Optional(
+                    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
+                    default=_light_group_manage_all_lights_default(feature_config),
+                )
+            ] = cv.boolean
             schema.schema[
                 vol.Optional(
                     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
@@ -587,6 +615,9 @@ async def handle_feature_conf(
                     multiple=True,
                     translation_key="adaptive_lighting_managed_roles",
                 )
+            )
+            selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] = (
+                build_selector_boolean()
             )
         schema = _filter_schema_for_keys(schema, include_keys)
 

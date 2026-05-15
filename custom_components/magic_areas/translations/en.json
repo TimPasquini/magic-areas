@@ -76,6 +76,7 @@
         "data": {
           "brightness_mode": "Brightness behavior mode",
           "adaptive_lighting_mode": "Adaptive Lighting coordination",
+          "adaptive_lighting_manage_all_lights": "Create room-level Adaptive Lighting group",
           "adaptive_lighting_managed_roles": "Magic Areas-managed Adaptive Lighting roles",
           "bright_min_on_seconds": "Adaptive minimum on-time",
           "bright_dwell_seconds": "Adaptive bright dwell",
@@ -107,6 +108,7 @@
         "data_description": {
           "brightness_mode": "Select how `bright` affects automation for this group: `inhibit` keeps legacy behavior (bright can block turn-on and can trigger turn-off), `advisory` ignores bright for turn-off decisions, `adaptive` allows bright-driven turn-off only when safeguards pass.",
           "adaptive_lighting_mode": "Select whether Magic Areas ignores Adaptive Lighting, adopts existing Adaptive Lighting switch sets, or manages Adaptive Lighting configs for selected light roles.",
+          "adaptive_lighting_manage_all_lights": "When enabled, Magic Areas creates a room-level Adaptive Lighting config containing all lights in the area. The all-lights switch can then coordinate that room-level Adaptive Lighting group separately from role groups.",
           "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning.",
           "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",

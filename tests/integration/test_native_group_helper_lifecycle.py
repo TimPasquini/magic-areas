@@ -71,6 +71,16 @@ GROUP_DOMAIN = "group"
 THRESHOLD_DOMAIN = "threshold"
 
 
+def _registry_entry(
+    entity_registry: er.EntityRegistry,
+    entity_id: str,
+) -> er.RegistryEntry:
+    """Return an existing entity-registry entry for lifecycle assertions."""
+    entry = entity_registry.async_get(entity_id)
+    assert entry is not None
+    return entry
+
+
 async def test_reconciler_manages_scoped_label_membership(
     hass: HomeAssistant,
 ) -> None:
@@ -109,9 +119,9 @@ async def test_reconciler_manages_scoped_label_membership(
     task_label = label_registry.async_get_label_by_name("ma:task")
     assert overhead_label is not None
     assert task_label is not None
-    assert overhead_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
-    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
-    assert user_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+    assert overhead_label.label_id in _registry_entry(entity_registry, lights[0].entity_id).labels
+    assert task_label.label_id in _registry_entry(entity_registry, lights[1].entity_id).labels
+    assert user_label.label_id in _registry_entry(entity_registry, lights[0].entity_id).labels
 
     async_reconcile_label_surfaces(
         hass=hass,
@@ -129,12 +139,10 @@ async def test_reconciler_manages_scoped_label_membership(
         ],
     )
 
-    assert overhead_label.label_id not in entity_registry.async_get(
-        lights[0].entity_id
-    ).labels
-    assert overhead_label.label_id in entity_registry.async_get(lights[2].entity_id).labels
-    assert task_label.label_id not in entity_registry.async_get(lights[1].entity_id).labels
-    assert user_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+    assert overhead_label.label_id not in _registry_entry(entity_registry, lights[0].entity_id).labels
+    assert overhead_label.label_id in _registry_entry(entity_registry, lights[2].entity_id).labels
+    assert task_label.label_id not in _registry_entry(entity_registry, lights[1].entity_id).labels
+    assert user_label.label_id in _registry_entry(entity_registry, lights[0].entity_id).labels
 
 
 async def test_reconciler_clears_deleted_owner_label_surfaces(
@@ -188,8 +196,8 @@ async def test_reconciler_clears_deleted_owner_label_surfaces(
 
     task_label = label_registry.async_get_label_by_name("ma:control:task")
     assert task_label is not None
-    assert task_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
-    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+    assert task_label.label_id in _registry_entry(entity_registry, lights[0].entity_id).labels
+    assert task_label.label_id in _registry_entry(entity_registry, lights[1].entity_id).labels
 
     async_reconcile_label_surfaces(
         hass=hass,
@@ -197,8 +205,8 @@ async def test_reconciler_clears_deleted_owner_label_surfaces(
         desired_surfaces=[],
     )
 
-    assert task_label.label_id not in entity_registry.async_get(lights[0].entity_id).labels
-    assert task_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+    assert task_label.label_id not in _registry_entry(entity_registry, lights[0].entity_id).labels
+    assert task_label.label_id in _registry_entry(entity_registry, lights[1].entity_id).labels
     assert label_registry.async_get_label_by_name("ma:control:task") is not None
     assert owner_1.data[MANAGED_LABEL_SURFACES_DATA_KEY] == {}
 
@@ -208,7 +216,7 @@ async def test_reconciler_clears_deleted_owner_label_surfaces(
         desired_surfaces=[],
     )
 
-    assert task_label.label_id not in entity_registry.async_get(lights[1].entity_id).labels
+    assert task_label.label_id not in _registry_entry(entity_registry, lights[1].entity_id).labels
     assert label_registry.async_get_label_by_name("ma:control:task") is None
     assert owner_2.data[MANAGED_LABEL_SURFACES_DATA_KEY] == {}
 
@@ -246,7 +254,7 @@ async def test_reconciler_prunes_previous_owner_members_for_retained_label(
 
     reading_label = label_registry.async_get_label_by_name("ma:control:reading")
     assert reading_label is not None
-    assert reading_label.label_id in entity_registry.async_get(lights[0].entity_id).labels
+    assert reading_label.label_id in _registry_entry(entity_registry, lights[0].entity_id).labels
 
     async_reconcile_label_surfaces(
         hass=hass,
@@ -260,10 +268,8 @@ async def test_reconciler_prunes_previous_owner_members_for_retained_label(
         ],
     )
 
-    assert reading_label.label_id not in entity_registry.async_get(
-        lights[0].entity_id
-    ).labels
-    assert reading_label.label_id in entity_registry.async_get(lights[1].entity_id).labels
+    assert reading_label.label_id not in _registry_entry(entity_registry, lights[0].entity_id).labels
+    assert reading_label.label_id in _registry_entry(entity_registry, lights[1].entity_id).labels
 
 
 def _managed_group_entry(

@@ -83,7 +83,7 @@ def test_managed_adaptive_lighting_config_names_are_role_scoped() -> None:
             area_name="Living Room",
             role="all_lights",
         )
-        == "Magic Areas Living Room all"
+        == "Magic Areas Living Room all lights"
     )
 
 

@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID
 
 from custom_components.magic_areas.config_keys.area import CONF_BLE_TRACKER_ENTITIES
+from custom_components.magic_areas.core.runtime_model import ConfigEntryHelperSurface
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from .feature_module_contracts_testkit import get_module, make_area_config, make_coordinator, make_snapshot
@@ -37,13 +38,15 @@ def test_health_module_builds_health_sensor() -> None:
 
     assert entities == []
     assert len(surfaces) == 1
-    assert surfaces[0].unique_id == (
+    surface = surfaces[0]
+    assert isinstance(surface, ConfigEntryHelperSurface)
+    assert surface.unique_id == (
         "magic_areas:entry-1:area-1:health:config_entry_helper:health_problem"
     )
-    assert surfaces[0].domain == "group"
-    assert surfaces[0].options["group_type"] == BINARY_SENSOR_DOMAIN
-    assert surfaces[0].options["entities"] == ["binary_sensor.smoke_1"]
-    assert surfaces[0].device_class == BinarySensorDeviceClass.PROBLEM
+    assert surface.domain == "group"
+    assert surface.options["group_type"] == BINARY_SENSOR_DOMAIN
+    assert surface.options["entities"] == ["binary_sensor.smoke_1"]
+    assert surface.device_class == BinarySensorDeviceClass.PROBLEM
 
 
 def test_ble_tracker_module_builds_monitor_sensor() -> None:

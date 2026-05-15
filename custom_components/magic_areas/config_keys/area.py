@@ -75,6 +75,7 @@ CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA = "ambient_rise_min_delta"
 CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE = "adaptive_lighting_mode"
 CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS = "adaptive_lighting_switch_sets"
 CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES = "adaptive_lighting_managed_roles"
+CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL = "adaptive_lighting_manage_all_lights"
 
 CONF_CLIMATE_CONTROL_ENTITY_ID = "entity_id"
 CONF_CLIMATE_CONTROL_PRESET_CLEAR = "preset_clear"

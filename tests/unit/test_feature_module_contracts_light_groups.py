@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Protocol, cast
+
+from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
     MAIN_SWITCH,
+    ManagedAdaptiveLightingConfig,
     SLEEP_SWITCH,
 )
 from custom_components.magic_areas.core.runtime_model import (
+    AreaConfig,
     ConfigEntryHelperSurface,
     LabelSurface,
     SignalHelperSurface,
@@ -22,6 +28,30 @@ from .feature_module_contracts_testkit import (
     make_coordinator,
     make_snapshot,
 )
+
+
+class _ManagedAdaptiveLightingModule(Protocol):
+    """Feature-module subset used by managed Adaptive Lighting tests."""
+
+    def desired_managed_adaptive_lighting_configs(
+        self,
+        area_config: AreaConfig,
+        data: MagicAreasData,
+    ) -> list[ManagedAdaptiveLightingConfig]:
+        """Return desired managed Adaptive Lighting configs."""
+        ...
+
+
+def _managed_adaptive_lighting_module() -> _ManagedAdaptiveLightingModule:
+    """Return light-groups module narrowed to the managed AL contract."""
+    return cast(_ManagedAdaptiveLightingModule, get_module("light_groups"))
+
+
+def _attrs(entity: object) -> Mapping[str, object]:
+    """Return non-optional extra attributes for entity assertions."""
+    attributes = getattr(entity, "extra_state_attributes")
+    assert isinstance(attributes, Mapping)
+    return attributes
 
 
 def test_light_groups_module_builds_expected_entities() -> None:
@@ -136,6 +166,76 @@ def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None
     )
 
 
+def test_light_groups_module_associates_managed_adaptive_lighting_all_lights() -> None:
+    """Manage mode should attach room-level AL switches only to all-lights group."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_manage_all_lights": True,
+                "adaptive_lighting_managed_roles": [],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+    groups = {
+        entity.entity_id: entity
+        for entity in entities
+        if entity.entity_id.startswith("light.")
+    }
+
+    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
+    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+
+    switch_set = getattr(all_group, "_adaptive_lighting_switch_set")
+    assert switch_set is not None
+    assert switch_set.role == "all_lights"
+    assert switch_set.main_switch_entity_id == (
+        "switch.adaptive_lighting_magic_areas_kitchen_all_lights"
+    )
+    assert getattr(overhead_group, "_adaptive_lighting_switch_set") is None
+
+
+def test_light_groups_module_exposes_adaptive_lighting_diagnostics_attribute() -> None:
+    """Light group attributes should explain AL association state for debugging."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_manage_all_lights": True,
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    module = get_module("light_groups")
+
+    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+    all_group = next(
+        entity
+        for entity in entities
+        if entity.entity_id == "light.magic_areas_light_groups_kitchen_all_lights"
+    )
+
+    assert _attrs(all_group)["adaptive_lighting"] == {
+        "mode": "manage",
+        "role": "all_lights",
+        "active": True,
+        "reason": "associated",
+        "main_switch_entity_id": (
+            "switch.adaptive_lighting_magic_areas_kitchen_all_lights"
+        ),
+    }
+
+
 def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
     """Selected manage-mode roles should compile into desired AL configs."""
     area_config = make_area_config()
@@ -156,7 +256,7 @@ def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
             ]
         },
     )
-    module = get_module("light_groups")
+    module = _managed_adaptive_lighting_module()
 
     configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
 
@@ -164,6 +264,70 @@ def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
     assert configs[0].name == "Magic Areas Kitchen overhead"
     assert configs[0].role == "overhead_lights"
     assert configs[0].light_entity_ids == ("light.overhead_1",)
+
+
+def test_light_groups_module_builds_managed_adaptive_lighting_all_lights_config() -> None:
+    """Opted-in all-lights management should compile a room-level AL config."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "task_lights": ["light.task_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_manage_all_lights": True,
+                "adaptive_lighting_managed_roles": [],
+            }
+        },
+        entities={
+            "light": [
+                {"entity_id": "light.overhead_1"},
+                {"entity_id": "light.task_1"},
+                {"entity_id": "light.unassigned_1"},
+            ]
+        },
+    )
+    module = _managed_adaptive_lighting_module()
+
+    configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
+
+    assert len(configs) == 1
+    assert configs[0].name == "Magic Areas Kitchen all lights"
+    assert configs[0].role == "all_lights"
+    assert configs[0].light_entity_ids == (
+        "light.overhead_1",
+        "light.task_1",
+        "light.unassigned_1",
+    )
+
+
+def test_light_groups_module_does_not_build_all_lights_adaptive_lighting_by_default() -> None:
+    """Manage mode should not create a room-level AL config without the gate."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+                "task_lights": ["light.task_1"],
+                "adaptive_lighting_mode": "manage",
+                "adaptive_lighting_managed_roles": ["task_lights"],
+            }
+        },
+        entities={
+            "light": [
+                {"entity_id": "light.overhead_1"},
+                {"entity_id": "light.task_1"},
+                {"entity_id": "light.unassigned_1"},
+            ]
+        },
+    )
+    module = _managed_adaptive_lighting_module()
+
+    configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
+
+    assert [config.role for config in configs] == ["task_lights"]
 
 
 def test_light_groups_module_registers_default_control_groups() -> None:

@@ -13,6 +13,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_CLEAR_TIMEOUT,
     CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
@@ -81,6 +82,7 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
     assert config_entry.options["secondary_states"][CONF_SLEEP_TIMEOUT] == 3
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] == {
         "brightness_mode": "inhibit",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: "ignore",
         "overhead_lights": ["light.test_light"],
         "overhead_lights_states": ["occupied"],
         "overhead_lights_act_on": ["occupancy", "state"],

@@ -15,14 +15,20 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 import pytest
 
-from custom_components.magic_areas.core.controls import ControlActionType
+from custom_components.magic_areas.core.controls import (
+    ControlActionType,
+    ControlRuntimeEffect,
+    ControlRuntimeEffectType,
+)
 from custom_components.magic_areas.light_groups import CommandEchoState
 from custom_components.magic_areas.light_groups import AreaLightGroup
 from custom_components.magic_areas.light_groups import LightAction
 from custom_components.magic_areas.light_groups import (
+    schedule_adaptive_lighting_manual_restore,
     schedule_adaptive_lighting_state_coordination,
 )
 from custom_components.magic_areas.light_groups import turn_on
+from custom_components.magic_areas.light_groups import apply_runtime_effect
 from tests.unit.adaptive_lighting_testkit import setup_adaptive_lighting_harness
 
 
@@ -128,7 +134,7 @@ def test_hide_policy_entity_preserves_existing_hidden_owner(
 
 
 def test_group_state_change_uses_clear_cache_before_presence_fallback(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Clear-state cache should prevent stale presence reads from releasing control."""
     group = _fake_group()
@@ -259,7 +265,7 @@ def test_current_control_target_state_falls_back_to_policy_entity_state() -> Non
 
 
 def test_light_member_suppression_members_prefers_reconciled_labels(
-    hass,
+    hass: HomeAssistant,
 ) -> None:
     """Sleep/accent suppression should read HA labels before config fallback."""
     entity_registry = er.async_get(hass)
@@ -286,7 +292,7 @@ def test_light_member_suppression_members_prefers_reconciled_labels(
         },
     )
     group._resolved_role_members = lambda preset: AreaLightGroup._resolved_role_members(
-        group,
+        cast(AreaLightGroup, group),
         preset,
     )
 
@@ -307,7 +313,7 @@ def test_turn_on_uses_control_target_state_for_dispatch_gate() -> None:
     group._last_turn_on_monotonic = None
     group._dispatch_light_action = Mock()
 
-    assert turn_on(group) is True  # type: ignore[arg-type]
+    assert turn_on(group) is True
     group._dispatch_light_action.assert_called_once_with(LightAction.TURN_ON)
 
 
@@ -340,6 +346,7 @@ async def test_dispatch_light_action_targets_native_helper(
     await asyncio.gather(*scheduled_tasks)
 
     execute_mock.assert_awaited_once()
+    assert execute_mock.await_args is not None
     _hass, decision = execute_mock.await_args.args
     assert decision.action_type == ControlActionType.ACTIVATE
     assert decision.actions[0].target_entity_ids == (
@@ -383,6 +390,72 @@ async def test_adaptive_lighting_coordination_is_inert_without_switch_set(
         group,
         (["sleep"], [], ["occupied", "sleep"]),
     )
+    await hass.async_block_till_done()
+
+    assert not scheduled
+
+
+@pytest.mark.asyncio
+async def test_adaptive_lighting_manual_restore_schedules_after_control_reset(
+    hass: HomeAssistant,
+) -> None:
+    """Runtime should clear AL manual-control when MA control is explicitly restored."""
+    harness = await setup_adaptive_lighting_harness(hass)
+    group = _fake_group()
+    group.hass = hass
+    group._entity_ids = ["light.lamp"]
+    group._adaptive_lighting_switch_set = harness.switch_set
+
+    scheduled = schedule_adaptive_lighting_manual_restore(group)
+    await hass.async_block_till_done()
+
+    assert scheduled
+    assert harness.calls[-1].service == "set_manual_control"
+    assert harness.calls[-1].data == {
+        "entity_id": harness.switch_set.main_switch_entity_id,
+        "lights": ("light.lamp",),
+        "manual_control": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_runtime_effect_reclaiming_control_restores_adaptive_lighting_manual_control(
+    hass: HomeAssistant,
+) -> None:
+    """Policy effects that end MA manual override should also release AL manual control."""
+    harness = await setup_adaptive_lighting_harness(hass)
+    group = _fake_group()
+    group.hass = hass
+    group._entity_ids = ["light.lamp"]
+    group._adaptive_lighting_switch_set = harness.switch_set
+    group._echo_state = CommandEchoState(controlling=False, awaiting_echo=False)
+
+    apply_runtime_effect(
+        group,
+        ControlRuntimeEffect(
+            effect_type=ControlRuntimeEffectType.SET_STATE,
+            namespace="command_echo",
+            key="state",
+            value=CommandEchoState(controlling=True, awaiting_echo=False),
+        ),
+    )
+    await hass.async_block_till_done()
+
+    assert group._echo_state.controlling is True
+    assert harness.calls[-1].service == "set_manual_control"
+
+
+@pytest.mark.asyncio
+async def test_adaptive_lighting_manual_restore_is_inert_without_switch_set(
+    hass: HomeAssistant,
+) -> None:
+    """Manual restore hook should do nothing until AL coordination is configured."""
+    group = _fake_group()
+    group.hass = hass
+    group._entity_ids = ["light.lamp"]
+    group._adaptive_lighting_switch_set = None
+
+    scheduled = schedule_adaptive_lighting_manual_restore(group)
     await hass.async_block_till_done()
 
     assert not scheduled

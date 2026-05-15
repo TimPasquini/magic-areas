@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_registry import EntityRegistry
 
 from custom_components.magic_areas.core.managed_surface_registry import (
     is_managed_surface_config_entry,
@@ -32,6 +35,21 @@ def _entry(
     )
 
 
+def _config_entry(entry: SimpleNamespace) -> ConfigEntry[object]:
+    """Cast minimal config-entry doubles to the HA type expected by helpers."""
+    return cast(ConfigEntry[object], entry)
+
+
+def _hass(value: SimpleNamespace) -> HomeAssistant:
+    """Cast minimal hass doubles to the HA type expected by helpers."""
+    return cast(HomeAssistant, value)
+
+
+def _entity_registry(value: SimpleNamespace) -> EntityRegistry:
+    """Cast minimal registry doubles to the HA type expected by helpers."""
+    return cast(EntityRegistry, value)
+
+
 def test_managed_surface_config_entry_predicate_scopes_by_owner() -> None:
     """Managed-surface entries should be matchable globally or by owner."""
     entry = _entry(
@@ -39,11 +57,11 @@ def test_managed_surface_config_entry_predicate_scopes_by_owner() -> None:
         unique_id="magic_areas:owner-1:area-1:fan_groups:config_entry_helper:fan_group",
     )
 
-    assert is_managed_surface_config_entry(entry)
-    assert is_managed_surface_config_entry(entry, owner_entry_id="owner-1")
-    assert not is_managed_surface_config_entry(entry, owner_entry_id="owner-2")
+    assert is_managed_surface_config_entry(_config_entry(entry))
+    assert is_managed_surface_config_entry(_config_entry(entry), owner_entry_id="owner-1")
+    assert not is_managed_surface_config_entry(_config_entry(entry), owner_entry_id="owner-2")
     assert not is_managed_surface_config_entry(
-        _entry(entry_id="user-helper", unique_id="fan_group")
+        _config_entry(_entry(entry_id="user-helper", unique_id="fan_group"))
     )
 
 
@@ -91,7 +109,7 @@ def test_iter_managed_surface_config_entries_filters_domain_owner_and_state() ->
 
     resolved = list(
         iter_managed_surface_config_entries(
-            hass,
+            _hass(hass),
             owner_entry_id="owner-1",
             domain="group",
             loaded_only=True,
@@ -133,8 +151,8 @@ def test_iter_managed_surface_entity_entries_and_resolver(
 
     entity_entries = list(
         iter_managed_surface_entity_entries(
-            hass,
-            SimpleNamespace(),
+            _hass(hass),
+            _entity_registry(SimpleNamespace()),
             owner_entry_id="owner-1",
             config_entry_domain="group",
             entity_domain="fan",
@@ -146,8 +164,8 @@ def test_iter_managed_surface_entity_entries_and_resolver(
     ]
     assert (
         resolve_managed_surface_entity_id(
-            hass,
-            SimpleNamespace(),
+            _hass(hass),
+            _entity_registry(SimpleNamespace()),
             unique_id=unique_id,
             entity_domain="fan",
             config_entry_domain="group",

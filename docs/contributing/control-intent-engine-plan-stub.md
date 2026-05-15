@@ -629,11 +629,11 @@ Fan implementation can wait. The v1 contract should remain compatible with fan
 arbitration, but the branch should focus on light suppression, labels, and adaptive
 lighting interaction first.
 
-## Adaptive Lighting Integration Research
+## Adaptive Lighting Integration Frame
 
 Many users pair Magic Areas with the Adaptive Lighting HACS integration. The control
-intent engine should include a research phase for room/group/label-space coordination
-with Adaptive Lighting switch entities.
+intent engine includes a coordination adapter for room/role-scoped Adaptive Lighting
+switch sets.
 
 Adaptive Lighting commonly exposes four switches for a room or group:
 
@@ -642,22 +642,26 @@ Adaptive Lighting commonly exposes four switches for a room or group:
 - combined adaptation
 - sleep settings
 
-Questions to investigate:
+Resolved questions:
 
-- Can Magic Areas discover Adaptive Lighting switches by room, group, or HA Label space?
-- Should Magic Areas suppress or restore Adaptive Lighting during manual override
-  cooldowns?
-- Should Magic Areas control Adaptive Lighting sleep switches when Magic Areas `sleep`
-  is active?
-- How should Magic Areas restore Adaptive Lighting after accent/sleep/manual override
-  states clear?
-- Should Adaptive Lighting control be modeled as its own intent, or as a constraint that
-  modifies light intents?
+- Magic Areas can discover complete switch sets by explicit refs, conventional names,
+  same-area registry metadata, and optional label narrowing when unambiguous.
+- Magic Areas can coordinate Adaptive Lighting during manual override cooldowns by using
+  Adaptive Lighting's manual-control service after the Magic Areas cooldown expires.
+- Magic Areas can mirror `sleep` state into associated Adaptive Lighting sleep switches.
+- Magic Areas can pause and restore brightness/color adaptation switches for accent mode.
+- Adaptive Lighting coordination is modeled as a runtime side-effect adapter, not as a
+  core light-power intent or brightness-policy replacement.
 
-Initial assumption:
+Implementation boundary:
 
-- Treat Adaptive Lighting as a separate integration boundary. The first pass should
-  research switch discovery and coordination semantics before runtime implementation.
+- Treat Adaptive Lighting as a separate integration boundary.
+- Require explicit opt-in through light-group config.
+- Keep `ignore` inert.
+- Support `adopt_existing` through role-scoped switch-set association.
+- Support `manage` through Magic Areas-owned Adaptive Lighting config-entry/options
+  reconciliation.
+- Preserve Adaptive Lighting/user-owned tuning options.
 
 ## Proposed File Shape
 
@@ -1027,11 +1031,16 @@ Exit criteria:
 - Compatibility fallbacks are documented and intentionally scoped.
 - Any remaining custom policy entities have an explicit reason to exist.
 
-### Phase 7: Adaptive Lighting Coordination Research
+### Phase 7: Adaptive Lighting Integration Coordination
 
-- Identify Adaptive Lighting entity naming and registry patterns.
-- Determine whether room/group/label matching can reliably find the four switches.
-- Define desired behavior for sleep, accent, and manual override cooldown interaction.
+Goal: coordinate Magic Areas light-role intent with the Adaptive Lighting HACS
+integration without making Adaptive Lighting part of core light-power policy.
+
+Adaptive Lighting remains an external behavior system. Magic Areas may associate one
+Adaptive Lighting switch set with one Magic Areas room/role target, then coordinate AL
+sleep/adaptation/manual-control side effects when Magic Areas state changes. Adaptive
+Lighting still owns brightness, color temperature, sleep-light appearance, transition,
+take-over-control, and other ambient-light tuning.
 
 Research findings:
 
@@ -1095,8 +1104,8 @@ Recommended first implementation boundary:
     native light group/role in the area.
   - each pairing field lists candidate Adaptive Lighting devices/switch sets assigned to
     the same HA area.
-  - future `manage` support should require only minimal additional settings because
-    Magic Areas can derive membership from the selected native light groups/roles.
+  - `manage` lets the user select role-level groups and separately opt into a room-level
+    `all_lights` Adaptive Lighting group.
 - In `manage` mode, Magic Areas owns construction and membership, not Adaptive Lighting
   behavior tuning:
   - Magic Areas owns the managed AL config identity/name, ownership marker, area/role
@@ -1126,9 +1135,11 @@ Recommended first implementation boundary:
 - Keep association role-scoped. Whole-room coordination must use the `all_lights` role
   rather than an area-level attachment to avoid duplicated service calls from multiple
   group entities receiving the same area-state transition.
-- Defer `manage` implementation until the config-entry/options reconciliation contract is
-  tested against a mocked Adaptive Lighting config-entry shape. The intent is still to
-  support managed construction, but only for Magic Areas-owned AL configs.
+- Treat the room-level `all_lights` managed Adaptive Lighting config as opt-in. Users may
+  prefer role-level Adaptive Lighting settings only; when enabled, the all-lights Magic
+  Areas switch coordinates the room-level AL switch set.
+- `manage` implementation uses config-entry/options reconciliation and is limited to
+  Magic Areas-owned AL configs.
 - Fail closed with debug/log visibility when referenced or discovered Adaptive Lighting
   switch sets are incomplete, missing, or ambiguous.
 - Use Magic Areas' existing manual override state as the authority for when to pause or
@@ -1146,12 +1157,30 @@ Recommended first implementation boundary:
   and Adaptive Lighting sleep-mode behavior seamless.
 - Restoration should clear Adaptive Lighting manual-control state for affected lights
   only after the Magic Areas manual override cooldown expires.
-- Do not expand the current in-runtime ambient-rise code while adding Adaptive Lighting
-  coordination. Future daylight/adaptive evidence should come from selected user helpers
-  or managed native signal helpers such as trend/statistics/derivative helpers.
-- Keep the adaptive-switching boundary explicit: native helpers expose measured-condition
-  signals, while Magic Areas policy interprets those signals together with area state,
-  role membership, suppressive states, manual override, and target-resolution rules.
+
+Current implementation state:
+
+- Pure AL switch-set, discovery, service-intent, and managed-config models live in
+  `custom_components/magic_areas/core/control_intents/adaptive_lighting.py`.
+- HA registry binding for AL switch-set discovery lives in
+  `custom_components/magic_areas/core/control_intents/adaptive_lighting_registry.py`.
+- HA service execution lives in
+  `custom_components/magic_areas/core/control_intents/adaptive_lighting_executor.py`.
+- Managed AL config-entry reconciliation lives in
+  `custom_components/magic_areas/coordinator/adaptive_lighting.py`.
+- Light-group config exposes the three modes:
+  - `ignore`
+  - `adopt_existing`
+  - `manage`
+- `adopt_existing` stores explicit role-scoped switch-set references selected from
+  same-area AL candidates.
+- `manage` compiles selected Magic Areas light roles into Magic Areas-owned Adaptive
+  Lighting configs, optionally compiles a room-level `all_lights` config when the user
+  enables that gate, updates only MA-owned construction/membership fields, preserves
+  AL/user-owned tuning options, and assigns resulting AL switch entities to the HA area
+  without assigning them to the Magic Areas device.
+- Light runtime schedules AL state-transition side effects only when a light group has an
+  associated switch set. `ignore` mode and missing/incomplete switch sets remain inert.
 
 First implementable behavior:
 
@@ -1214,6 +1243,8 @@ Next `manage` implementation checklist:
   by `adopt_existing`.
 - [x] Add UI for `manage` mode that lets the user choose which Magic Areas light roles
   should receive MA-managed AL configs, without exposing the full AL tuning surface.
+- [x] Add a separate `manage` mode gate for creating the room-level `all_lights`
+  Adaptive Lighting config so whole-room AL settings are deliberate, not automatic.
 - [x] Compile selected manage-mode light roles into desired AL configs and reconcile them
   during area setup with stale cleanup scoped to the current Magic Area.
 - [x] Assign managed AL switch entity area metadata to the same HA area where possible
@@ -1231,8 +1262,17 @@ References:
 
 Exit criteria:
 
-- Documented integration boundary and first implementable behavior.
-- No runtime dependency on Adaptive Lighting unless the user opts in.
+- [x] Documented integration boundary and first implementable behavior.
+- [x] No runtime dependency on Adaptive Lighting unless the user opts in.
+- [x] `ignore` mode leaves AL inactive even if stale refs exist.
+- [x] `adopt_existing` can associate a complete role-scoped switch set and fail closed on
+  incomplete refs.
+- [x] `manage` can create, update, and delete only Magic Areas-owned Adaptive Lighting
+  config entries.
+- [x] Managed AL reconciliation preserves AL/user-owned tuning options while updating
+  Magic Areas-owned membership.
+- [x] Managed AL switch entities are assigned to the HA area without being assigned to the
+  Magic Areas device.
 
 ## Test Matrix
 
@@ -1273,7 +1313,7 @@ Label research:
   resolver plugged into current groups
 - custom groups are evaluated as label queries or label-backed intent groups
 
-Adaptive Lighting research:
+Adaptive Lighting integration:
 
 - same-room or same-label Adaptive Lighting switches can be discovered or configured
 - manual override cooldown behavior is explicit
@@ -1358,29 +1398,8 @@ Still open:
 
 None at the current branch scope.
 
-Resolved during signal-helper preparation:
-
-- The first native signal-helper bundle for adaptive switching is a managed Trend helper
-  that reports ambient-rise evidence from the configured in-room lux source.
-- Magic Areas declares that helper only for explicit adaptive ambient-rise opt-in:
-  `brightness_mode == adaptive`, ambient rise is required, the in-room lux source exists,
-  and the configured window/delta are positive.
-- Light runtime consumes that helper as preferred signal evidence when it resolves to a
-  valid binary state. Helper warm-up, missing helper entities, `unknown`, and
-  `unavailable` states fall back to the existing rolling-sample detector during the
-  transition.
-- The helper output is a measured-condition signal. Magic Areas still owns the room
-  behavior policy, including suppression, manual override, bright/advisory/adaptive
-  interpretation, and target resolution.
-- Derivative and statistics helpers remain modeled and reconciler-proven, but they are
-  reserved for future richer signal bundles such as numeric lux rate, humidity settling,
-  or fan odor/humidity triggers.
-
 ## Initial Recommendation
 
-Do not start runtime implementation until label/native-helper reconciliation gives the
-engine a source-neutral target map. Do native helper reduction before or alongside the
-engine model to avoid building the engine around custom group entities we intend to
-remove or demote.
-Treat Adaptive Lighting as a research item before implementation, with special attention
-to sleep, accent, and manual override cooldown behavior.
+Do not build future intent work around custom group entities as membership truth. The
+current foundation is source-neutral targets, reconciled labels, native helpers, explicit
+entity subsets, and optional Adaptive Lighting side-effect coordination.

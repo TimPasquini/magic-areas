@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import hashlib
 import logging
 from types import MappingProxyType
@@ -361,7 +361,7 @@ async def async_reconcile_config_entry_helpers(
     *,
     hass: HomeAssistant,
     owner_entry_id: str,
-    desired_surfaces: list[ConfigEntryHelperSurface],
+    desired_surfaces: Sequence[ConfigEntryHelperSurface],
 ) -> None:
     """Create, update, and remove owned config-entry-backed helpers."""
     desired_by_unique_id = {surface.unique_id: surface for surface in desired_surfaces}

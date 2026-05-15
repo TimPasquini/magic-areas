@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 
 from custom_components.magic_areas.config_keys.area import CONF_CLIMATE_CONTROL_ENTITY_ID
+from custom_components.magic_areas.core.runtime_model import (
+    ConfigEntryHelperSurface,
+    ManagedSurface,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from .feature_module_contracts_testkit import get_module, make_area_config, make_coordinator, make_snapshot
+
+
+def _helper_surfaces(surfaces: list[ManagedSurface]) -> list[ConfigEntryHelperSurface]:
+    """Return config-entry helper surfaces with runtime assertions for tests."""
+    assert all(isinstance(surface, ConfigEntryHelperSurface) for surface in surfaces)
+    return cast(list[ConfigEntryHelperSurface], surfaces)
 
 
 def test_fan_groups_module_builds_group_and_control_switch() -> None:
@@ -29,12 +41,13 @@ def test_fan_groups_module_builds_group_and_control_switch() -> None:
     entity_ids = sorted(entity.entity_id for entity in entities)
     assert entity_ids == ["switch.magic_areas_fan_groups_kitchen_fan_control"]
     assert len(surfaces) == 1
-    assert surfaces[0].unique_id == (
+    helper_surfaces = _helper_surfaces(surfaces)
+    assert helper_surfaces[0].unique_id == (
         "magic_areas:entry-1:area-1:fan_groups:config_entry_helper:fan_group"
     )
-    assert surfaces[0].domain == "group"
-    assert surfaces[0].options["group_type"] == FAN_DOMAIN
-    assert surfaces[0].options["entities"] == ["fan.ceiling_1"]
+    assert helper_surfaces[0].domain == "group"
+    assert helper_surfaces[0].options["group_type"] == FAN_DOMAIN
+    assert helper_surfaces[0].options["entities"] == ["fan.ceiling_1"]
 
 
 def test_fan_groups_module_registers_default_control_group() -> None:
@@ -104,13 +117,14 @@ def test_media_player_groups_module_builds_group_and_control_switch() -> None:
     entity_ids = sorted(entity.entity_id for entity in entities)
     assert entity_ids == ["switch.magic_areas_media_player_groups_kitchen_media_player_control"]
     assert len(surfaces) == 1
-    assert surfaces[0].unique_id == (
+    helper_surfaces = _helper_surfaces(surfaces)
+    assert helper_surfaces[0].unique_id == (
         "magic_areas:entry-1:area-1:media_player_groups:config_entry_helper:"
         "media_player_group"
     )
-    assert surfaces[0].domain == "group"
-    assert surfaces[0].options["group_type"] == MEDIA_PLAYER_DOMAIN
-    assert surfaces[0].options["entities"] == ["media_player.tv"]
+    assert helper_surfaces[0].domain == "group"
+    assert helper_surfaces[0].options["group_type"] == MEDIA_PLAYER_DOMAIN
+    assert helper_surfaces[0].options["entities"] == ["media_player.tv"]
 
 
 def test_media_player_groups_module_registers_default_control_group() -> None:
@@ -185,7 +199,8 @@ def test_cover_groups_module_builds_device_class_groups() -> None:
     surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
     assert entities == []
-    assert sorted(surface.title for surface in surfaces) == [
+    helper_surfaces = _helper_surfaces(surfaces)
+    assert sorted(surface.title for surface in helper_surfaces) == [
         "Magic Areas Cover Groups Kitchen Cover Group",
         "Magic Areas Cover Groups Kitchen Cover Group Blind",
     ]

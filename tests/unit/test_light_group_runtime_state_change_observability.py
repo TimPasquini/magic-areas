@@ -1,6 +1,8 @@
 """Observability tests for light-group runtime state-change evaluation."""
 
+from collections.abc import Callable
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,9 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.light_groups import CommandEchoState
+from custom_components.magic_areas.light_groups import CommandEchoState, LightPolicySignals
 from custom_components.magic_areas.core.controls import (
     ControlActionType,
+    ControlGroupContext,
     ControlGroupDecision,
 )
 from custom_components.magic_areas.light_groups.runtime import evaluate_state_change
@@ -71,7 +74,7 @@ class _FakeSetupHost:
         self._bright_since_monotonic = None
         self._last_turn_on_monotonic = None
         self._last_control_activity_monotonic = None
-        self._inside_lux_samples = []
+        self._inside_lux_samples: list[tuple[float, float]] = []
         self._child_categories = ["sleep_lights", "overhead_lights"]
         self._child_ids = None
         self._entity_ids = ["light.sleep_lamp", "light.overhead_lamp"]
@@ -114,8 +117,11 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
     )
 
     def _fake_eval_and_exec(**kwargs: object) -> tuple[ControlGroupDecision, bool | None]:
-        context = kwargs["context"]
-        execute_decision = kwargs["execute_decision"]
+        context = cast(ControlGroupContext, kwargs["context"])
+        execute_decision = cast(
+            Callable[[ControlGroupDecision], bool | None],
+            kwargs["execute_decision"],
+        )
         decision = ControlGroupDecision(
             action_type=ControlActionType.NOOP,
             reason="unit_test_reason",
@@ -148,8 +154,8 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
     }
     assert host._attr_extra_state_attributes.get("last_policy_reason") == "unit_test_reason"
 
-    context = captured["context"]
-    signals = context.signals
+    context = cast(ControlGroupContext, captured["context"])
+    signals = cast(LightPolicySignals, context.signals)
     assert signals.bright_dwell_met is True
     assert signals.min_on_met is False
     assert signals.inside_bright_met is None

@@ -22,6 +22,7 @@ from custom_components.magic_areas.core.runtime_model import (
     AreaConfig,
     AreaRuntime,
     EntityReferences,
+    ManagedSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import FeatureConfigStep
@@ -69,6 +70,12 @@ class DummyModule:
         self, *_args: object, **_kwargs: object
     ) -> list[Entity]:
         """Build entities for this feature."""
+        return []
+
+    def desired_managed_surfaces(  # pragma: no cover
+        self, *_args: object, **_kwargs: object
+    ) -> list[ManagedSurface]:
+        """Return managed surfaces for this feature."""
         return []
 
     def attach_listeners(  # pragma: no cover
