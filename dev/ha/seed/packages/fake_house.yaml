@@ -1,0 +1,154 @@
+input_boolean:
+  living_room_occupancy:
+    name: Living Room Occupancy
+    icon: mdi:motion-sensor
+  living_room_sleep:
+    name: Living Room Sleep Mode
+    icon: mdi:sleep
+  living_room_accent:
+    name: Living Room Accent Mode
+    icon: mdi:television-ambient-light
+  living_room_overhead_power:
+    name: Living Room Overhead Power
+    icon: mdi:ceiling-light
+  living_room_lamp_power:
+    name: Living Room Lamp Power
+    icon: mdi:floor-lamp
+  bathroom_occupancy:
+    name: Bathroom Occupancy
+    icon: mdi:motion-sensor
+  bathroom_sleep:
+    name: Bathroom Sleep Mode
+    icon: mdi:sleep
+  bathroom_overhead_power:
+    name: Bathroom Overhead Power
+    icon: mdi:ceiling-light
+  bathroom_sleep_light_power:
+    name: Bathroom Sleep Light Power
+    icon: mdi:lightbulb-night
+
+input_number:
+  living_room_lux:
+    name: Living Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  bathroom_lux:
+    name: Bathroom Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  outdoor_lux:
+    name: Outdoor Lux
+    min: 0
+    max: 100000
+    step: 100
+    mode: slider
+    unit_of_measurement: lx
+
+template:
+  - binary_sensor:
+      - name: Living Room Occupancy
+        unique_id: ma_dev_living_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.living_room_occupancy', 'on') }}"
+      - name: Living Room Sleep
+        unique_id: ma_dev_living_room_sleep
+        state: "{{ is_state('input_boolean.living_room_sleep', 'on') }}"
+      - name: Living Room Accent
+        unique_id: ma_dev_living_room_accent
+        state: "{{ is_state('input_boolean.living_room_accent', 'on') }}"
+      - name: Living Room Light
+        unique_id: ma_dev_living_room_light
+        device_class: light
+        state: "{{ states('input_number.living_room_lux') | float(0) > 1000 }}"
+      - name: Bathroom Occupancy
+        unique_id: ma_dev_bathroom_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.bathroom_occupancy', 'on') }}"
+      - name: Bathroom Sleep
+        unique_id: ma_dev_bathroom_sleep
+        state: "{{ is_state('input_boolean.bathroom_sleep', 'on') }}"
+      - name: Bathroom Light
+        unique_id: ma_dev_bathroom_light
+        device_class: light
+        state: "{{ states('input_number.bathroom_lux') | float(0) > 700 }}"
+      - name: Outdoor Bright
+        unique_id: ma_dev_outdoor_bright
+        device_class: light
+        state: "{{ states('input_number.outdoor_lux') | float(0) > 5000 }}"
+  - sensor:
+      - name: Living Room Illuminance
+        unique_id: ma_dev_living_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.living_room_lux') | float(0) }}"
+      - name: Bathroom Illuminance
+        unique_id: ma_dev_bathroom_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.bathroom_lux') | float(0) }}"
+      - name: Outdoor Illuminance
+        unique_id: ma_dev_outdoor_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.outdoor_lux') | float(0) }}"
+
+light:
+  - platform: template
+    lights:
+      living_room_overhead:
+        friendly_name: Living Room Overhead
+        unique_id: ma_dev_living_room_overhead
+        value_template: "{{ is_state('input_boolean.living_room_overhead_power', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.living_room_overhead_power
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.living_room_overhead_power
+      living_room_lamp:
+        friendly_name: Living Room Lamp
+        unique_id: ma_dev_living_room_lamp
+        value_template: "{{ is_state('input_boolean.living_room_lamp_power', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.living_room_lamp_power
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.living_room_lamp_power
+      bathroom_overhead:
+        friendly_name: Bathroom Overhead
+        unique_id: ma_dev_bathroom_overhead
+        value_template: "{{ is_state('input_boolean.bathroom_overhead_power', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.bathroom_overhead_power
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.bathroom_overhead_power
+      bathroom_sleep_light:
+        friendly_name: Bathroom Sleep Light
+        unique_id: ma_dev_bathroom_sleep_light
+        value_template: "{{ is_state('input_boolean.bathroom_sleep_light_power', 'on') }}"
+        turn_on:
+          service: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.bathroom_sleep_light_power
+        turn_off:
+          service: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.bathroom_sleep_light_power

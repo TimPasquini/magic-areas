@@ -1,0 +1,9 @@
+default_config:
+
+logger:
+  default: info
+  logs:
+    custom_components.magic_areas: debug
+
+homeassistant:
+  packages: !include_dir_named packages
