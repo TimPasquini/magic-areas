@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-
 type ManagedSurfaceOptionValue = (
     str | int | float | bool | None | list[str] | dict[str, int]
 )
@@ -31,6 +30,7 @@ class ConfigEntryHelperSurface:
     area_id: str | None = None
     device_identifier: tuple[str, str] | None = None
     device_name: str | None = None
+    entity_name: str | None = None
     device_class: str | None = None
 
 

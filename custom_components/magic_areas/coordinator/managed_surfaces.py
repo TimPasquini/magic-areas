@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import hashlib
 import logging
+from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.config_entries import ConfigEntryState
-from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
@@ -18,14 +16,14 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 
 from custom_components.magic_areas.const import DOMAIN, MANAGED_LABEL_SURFACES_DATA_KEY
+from custom_components.magic_areas.core.managed_surface_registry import (
+    iter_managed_surface_config_entries,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     LabelSurface,
     ManagedSurface,
     ManagedSurfaceOptionValue,
-)
-from custom_components.magic_areas.core.managed_surface_registry import (
-    iter_managed_surface_config_entries,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -161,12 +159,14 @@ def _apply_surface_registry_metadata(
         entity_registry,
         helper_entry.entry_id,
     ):
-        entity_registry.async_update_entity(
-            entry.entity_id,
-            area_id=surface.area_id,
-            device_id=device_id,
-            device_class=surface.device_class,
-        )
+        updates: dict[str, object] = {
+            "area_id": surface.area_id,
+            "device_id": device_id,
+            "device_class": surface.device_class,
+        }
+        if surface.entity_name is not None:
+            updates["name"] = surface.entity_name
+        entity_registry.async_update_entity(entry.entity_id, **updates)
 
 
 async def async_reconcile_managed_surfaces(
@@ -379,7 +379,9 @@ async def async_reconcile_config_entry_helpers(
                 await hass.config_entries.async_add(_build_config_entry(surface))
                 entry = next(
                     current_entry
-                    for current_entry in hass.config_entries.async_entries(surface.domain)
+                    for current_entry in hass.config_entries.async_entries(
+                        surface.domain
+                    )
                     if current_entry.unique_id == unique_id
                 )
                 _apply_surface_registry_metadata(

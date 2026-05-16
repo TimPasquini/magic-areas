@@ -10,9 +10,13 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import CONF_ENTITIES, CONF_NAME
 from homeassistant.helpers.entity import Entity
 
+import custom_components.magic_areas.switch as switch_platform
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import LightGroupCategory, MagicAreasFeatures
+from custom_components.magic_areas.core.control_intents import (
+    ManagedAdaptiveLightingConfig,
+    managed_adaptive_lighting_config,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ControlGroupPolicyId,
@@ -20,13 +24,10 @@ from custom_components.magic_areas.core.runtime_model import (
     LabelSurface,
     ManagedSurface,
 )
-from custom_components.magic_areas.core.control_intents import (
-    ManagedAdaptiveLightingConfig,
-    managed_adaptive_lighting_config,
-)
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
 )
+from custom_components.magic_areas.enums import LightGroupCategory, MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     FeatureConfigDict,
@@ -40,27 +41,28 @@ from custom_components.magic_areas.features.control_builders import (
     register_area_default_groups,
 )
 from custom_components.magic_areas.light_groups import (
-    AreaLightGroup,
-    LIGHT_GROUP_ROLE_LABELS,
-    LIGHT_GROUP_FEATURE_SCHEMA,
-    MagicLightGroup,
-    LIGHT_GROUP_PRESETS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+    LIGHT_GROUP_FEATURE_SCHEMA,
+    LIGHT_GROUP_PRESETS,
+    LIGHT_GROUP_ROLE_LABELS,
+    AreaLightGroup,
+    MagicLightGroup,
     adaptive_lighting_manage_all_lights,
     adaptive_lighting_managed_roles,
     adaptive_lighting_mode,
+    ambient_rise_signal_surface,
     build_light_group_helper_surface_unique_id,
     light_groups_feature_config,
     preset_members,
     preset_states,
-    ambient_rise_signal_surface,
 )
-import custom_components.magic_areas.switch as switch_platform
 
 if TYPE_CHECKING:  # pragma: no cover
+    from custom_components.magic_areas.coordinator import (
+        MagicAreasCoordinator,
+        MagicAreasData,
+    )
     from custom_components.magic_areas.core.runtime_model import AreaConfig
-    from custom_components.magic_areas.coordinator import MagicAreasData
-    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 LIGHT_GROUPS_POLICY_ID = str(ControlGroupPolicyId.LIGHT_GROUPS)
@@ -368,9 +370,10 @@ def _light_group_surface(
     members: list[str],
 ) -> ConfigEntryHelperSurface:
     """Build one native HA light group helper surface."""
+    role_label = str(category).replace("_", " ").title()
     title = (
         f"Magic Areas Native Light Groups {area_config.name} "
-        f"{str(category).replace('_', ' ').title()}"
+        f"{role_label}"
     )
     return ConfigEntryHelperSurface(
         unique_id=_light_group_surface_unique_id(
@@ -388,6 +391,7 @@ def _light_group_surface(
         area_id=area_config.id,
         device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
         device_name=area_config.name,
+        entity_name=role_label,
     )
 
 

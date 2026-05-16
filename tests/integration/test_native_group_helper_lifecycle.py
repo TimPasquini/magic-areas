@@ -427,6 +427,7 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
                     f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
                 ),
                 device_name="Kitchen",
+                entity_name="Blinds",
             )
         ],
     )
@@ -451,6 +452,7 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     assert group_registry_entry is not None
     assert group_registry_entry.area_id == DEFAULT_MOCK_AREA.value
     assert group_registry_entry.device_id is not None
+    assert group_registry_entry.name == "Blinds"
     device = dr.async_get(hass).async_get(group_registry_entry.device_id)
     assert device is not None
     assert (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}") in device.identifiers
@@ -475,6 +477,7 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
                     f"{MAGIC_DEVICE_ID_PREFIX}{DEFAULT_MOCK_AREA.value}",
                 ),
                 device_name="Kitchen",
+                entity_name="Shades",
             )
         ],
     )
@@ -483,6 +486,9 @@ async def test_reconciler_manages_cover_group_helper_lifecycle(
     group_state = hass.states.get(group_entity_id)
     assert group_state is not None
     assert group_state.attributes[ATTR_ENTITY_ID] == [covers[2].entity_id]
+    group_registry_entry = entity_registry.async_get(group_entity_id)
+    assert group_registry_entry is not None
+    assert group_registry_entry.name == "Shades"
     entities, _magic_entities = await load_area_entities(
         hass=hass,
         area_id=DEFAULT_MOCK_AREA.value,

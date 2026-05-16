@@ -554,8 +554,14 @@ def test_light_groups_module_declares_native_light_helper_surfaces() -> None:
         "light.unassigned_1",
     ]
     assert surfaces_by_id[
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights"
+    ].entity_name == "All Lights"
+    assert surfaces_by_id[
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
     ].options["entities"] == ["light.overhead_1"]
+    assert surfaces_by_id[
+        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
+    ].entity_name == "Overhead Lights"
 
 
 def test_light_groups_module_declares_adaptive_ambient_rise_signal_surface() -> None:
