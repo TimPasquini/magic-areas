@@ -10,6 +10,7 @@ import os
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -48,6 +49,7 @@ class DevMagicArea:
     """One Magic Areas config entry to create/configure for dev."""
 
     name: str
+    flow_name: str | None = None
     options_steps: tuple[OptionsStep, ...] = ()
 
 
@@ -212,9 +214,9 @@ DEV_MAGIC_AREAS: tuple[DevMagicArea, ...] = (
             ),
         ),
     ),
-    DevMagicArea(name="Interior"),
-    DevMagicArea(name="Exterior"),
-    DevMagicArea(name="Global"),
+    DevMagicArea(name="Interior", flow_name="(Meta) Interior"),
+    DevMagicArea(name="Exterior", flow_name="(Meta) Exterior"),
+    DevMagicArea(name="Global", flow_name="(Meta) Global"),
 )
 
 INITIAL_SERVICE_CALLS: tuple[dict[str, Any], ...] = (
@@ -509,7 +511,7 @@ async def ensure_magic_area_entry(
 
     create_result = rest.post(
         f"/api/config/config_entries/flow/{_flow_id(init_result)}",
-        {"name": dev_magic_area.name},
+        {"name": dev_magic_area.flow_name or dev_magic_area.name},
     )
     if create_result.get("type") != "create_entry":
         raise RuntimeError(
@@ -618,10 +620,10 @@ async def ensure_magic_areas(
 
 async def bootstrap(args: argparse.Namespace) -> None:
     """Run bootstrap operations."""
-    token = args.token or os.environ.get("HA_TOKEN")
+    token = resolve_token(args)
     if not token:
         raise SystemExit(
-            "Set HA_TOKEN to a Home Assistant long-lived access token, or pass --token."
+            "Set HA_TOKEN, pass --token, pass --token-file, or use --token-stdin."
         )
 
     await wait_for_ha(args.url, token, args.wait)
@@ -646,12 +648,30 @@ async def bootstrap(args: argparse.Namespace) -> None:
     print("Home Assistant dev bootstrap complete")
 
 
+def resolve_token(args: argparse.Namespace) -> str:
+    """Resolve a Home Assistant token without requiring process-arg exposure."""
+    if args.token_stdin:
+        return sys.stdin.read().strip()
+    if args.token_file:
+        return Path(args.token_file).read_text(encoding="utf-8").strip()
+    return str(args.token or os.environ.get("HA_TOKEN") or "").strip()
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=DEFAULT_URL, help="HA websocket URL")
     parser.add_argument("--http-url", default=DEFAULT_HTTP_URL, help="HA HTTP URL")
     parser.add_argument("--token", help="HA long-lived access token")
+    parser.add_argument(
+        "--token-file",
+        help="Read HA long-lived access token from a local file",
+    )
+    parser.add_argument(
+        "--token-stdin",
+        action="store_true",
+        help="Read HA long-lived access token from stdin",
+    )
     parser.add_argument(
         "--wait",
         type=int,

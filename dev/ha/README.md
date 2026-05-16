@@ -59,6 +59,15 @@ Then run:
 HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh
 ```
 
+To avoid putting the token in shell history or process arguments, store it in an
+ignored runtime file and use `--token-file`:
+
+```bash
+mkdir -p dev/ha/runtime
+printf '%s' 'paste-token-here' > dev/ha/runtime/token
+./scripts/ha_dev_bootstrap.sh --token-file dev/ha/runtime/token
+```
+
 The bootstrap uses Home Assistant's real websocket and REST APIs. It creates
 these areas if missing:
 

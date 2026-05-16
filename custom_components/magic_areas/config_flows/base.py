@@ -7,11 +7,11 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 import voluptuous as vol
 
-from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
-from custom_components.magic_areas.features.base import FeatureConfigStep
-from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.components import MagicAreasConfigEntry
+from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
+from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.features.base import FeatureConfigStep
+from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 
 _LOGGER = logging.getLogger(__name__)
 _EXPECTED_OPTIONS_FLOW_ERRORS = (
@@ -30,6 +30,13 @@ DynamicValidatorMap = dict[str, object]
 SelectorMap = dict[str, object]
 ConfigOption = tuple[str, ConfigValue, object]
 SuccessCallback = Callable[[], Awaitable[object] | object]
+
+
+def _suggested_value(value: object) -> object:
+    """Return a JSON-serializable suggested value for HA flow forms."""
+    if value is vol.UNDEFINED or callable(value):
+        return None
+    return value
 
 
 class ConfigBase:
@@ -69,10 +76,12 @@ class ConfigBase:
             vol.Optional(
                 name,
                 description={
-                    "suggested_value": (
-                        saved_options.get(name)
-                        if saved_options and saved_options.get(name) is not None
-                        else default
+                    "suggested_value": _suggested_value(
+                        
+                            saved_options.get(name)
+                            if saved_options and saved_options.get(name) is not None
+                            else default
+                        
                     )
                 },
                 default=default,
@@ -124,7 +133,7 @@ class ConfigBase:
             mapped[
                 vol.Optional(
                     name,
-                    description={"suggested_value": suggested},
+                    description={"suggested_value": _suggested_value(suggested)},
                     default=default,
                 )
             ] = selectors.get(name, dynamic_validators.get(name, validator))
