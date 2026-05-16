@@ -55,10 +55,6 @@ ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
         ),
         (
             "tests/unit/test_listener_entity_write_contracts",
-            "custom_components.magic_areas.light_groups.entities",
-        ),
-        (
-            "tests/unit/test_listener_entity_write_contracts",
             "custom_components.magic_areas.light_groups.runtime",
         ),
         (

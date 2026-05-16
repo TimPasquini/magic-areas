@@ -8,7 +8,7 @@ from typing import get_type_hints
 from custom_components.magic_areas.core.controls import resolve_group_entity_id
 from custom_components.magic_areas.core.runtime_model import GroupRegistryView
 import custom_components.magic_areas.light_groups as light_groups
-from custom_components.magic_areas.light_groups import AreaLightGroup
+from custom_components.magic_areas.light_groups import LightGroupRuntimeController
 
 
 def test_resolve_group_entity_id_signature_is_registry_only() -> None:
@@ -19,8 +19,8 @@ def test_resolve_group_entity_id_signature_is_registry_only() -> None:
 
 
 def test_area_light_group_no_longer_exposes_legacy_controlled_property() -> None:
-    """Legacy controlled shim should not exist on AreaLightGroup."""
-    assert not hasattr(AreaLightGroup, "controlled")
+    """Legacy controlled shim should not exist on LightGroupRuntimeController."""
+    assert not hasattr(LightGroupRuntimeController, "controlled")
 
 
 def test_resolve_group_entity_id_uses_group_registry_protocol_annotation() -> None:
@@ -31,7 +31,7 @@ def test_resolve_group_entity_id_uses_group_registry_protocol_annotation() -> No
 
 def test_area_light_group_controlling_property_is_read_only() -> None:
     """Controlling should be a read-only runtime view backed by echo state."""
-    prop = AreaLightGroup.controlling
+    prop = LightGroupRuntimeController.controlling
     assert isinstance(prop, property)
     assert prop.fset is None
 

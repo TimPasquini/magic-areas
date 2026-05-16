@@ -14,7 +14,7 @@ from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import CommandEchoState
-from custom_components.magic_areas.light_groups.entities import AreaLightGroup
+from custom_components.magic_areas.light_groups import LightGroupRuntimeController
 from custom_components.magic_areas.light_groups.runtime import (
     handle_group_state_change,
 )
@@ -90,19 +90,16 @@ def test_wasp_apply_update_uses_immediate_write() -> None:
 
 
 def test_light_group_reset_control_uses_immediate_write() -> None:
-    """Light-group reset runs on-loop and writes immediately."""
-    group = object.__new__(AreaLightGroup)
+    """Light-group runtime reset is no longer an HA entity write path."""
+    group = object.__new__(LightGroupRuntimeController)
     group.logger = MagicMock()
-    group._attr_name = "Kitchen Overhead"
-    with (
-        patch.object(group, "_reset_control_state") as mock_reset_control_state,
-        patch.object(group, "async_write_ha_state") as mock_async_write_ha_state,
-    ):
-        reset_control = AreaLightGroup.reset_control
+    group._area_name = "Kitchen"
+    group.category = "overhead_lights"
+    with patch.object(group, "_reset_control_state") as mock_reset_control_state:
+        reset_control = LightGroupRuntimeController.reset_control
         reset_control(group)
 
     mock_reset_control_state.assert_called_once()
-    mock_async_write_ha_state.assert_called_once()
 
 
 def test_light_group_state_change_uses_immediate_write(

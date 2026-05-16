@@ -1,4 +1,4 @@
-"""Unit tests for AreaLightGroup runtime helpers."""
+"""Unit tests for LightGroupRuntimeController runtime helpers."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from custom_components.magic_areas.core.controls import (
     ControlRuntimeEffectType,
 )
 from custom_components.magic_areas.light_groups import CommandEchoState
-from custom_components.magic_areas.light_groups import AreaLightGroup
+from custom_components.magic_areas.light_groups import LightGroupRuntimeController
 from custom_components.magic_areas.light_groups import LightAction
 from custom_components.magic_areas.light_groups import (
     schedule_adaptive_lighting_manual_restore,
@@ -51,26 +51,6 @@ def _fake_group() -> SimpleNamespace:
     return group
 
 
-def test_restore_group_state_sets_on_and_control_state() -> None:
-    """AreaLightGroup restore helper should restore on/off and controlling attributes."""
-    group = _fake_group()
-    last_state = SimpleNamespace(state="on", attributes={"controlling": False})
-
-    AreaLightGroup._restore_group_state(group, last_state)  # type: ignore[arg-type]
-
-    assert group._attr_is_on is True
-    assert group._echo_state.controlling is False
-
-
-def test_restore_group_state_defaults_off_when_missing() -> None:
-    """AreaLightGroup restore helper should default group off when no state exists."""
-    group = _fake_group()
-
-    AreaLightGroup._restore_group_state(group, None)  # type: ignore[arg-type]
-
-    assert group._attr_is_on is False
-
-
 def test_is_control_enabled_defaults_true_without_coordinator_data() -> None:
     """is_control_enabled should default to enabled when data is unavailable."""
     group = SimpleNamespace(
@@ -78,59 +58,7 @@ def test_is_control_enabled_defaults_true_without_coordinator_data() -> None:
         hass=SimpleNamespace(states=SimpleNamespace(get=lambda _id: None)),
     )
 
-    assert AreaLightGroup.is_control_enabled(group) is True  # type: ignore[arg-type]
-
-
-def test_hide_policy_entity_marks_visible_registry_entry_hidden(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Custom light policy entities should be hidden but remain enabled."""
-    registry_entry = SimpleNamespace(hidden_by=None)
-    updated_entry = SimpleNamespace(hidden_by="integration")
-    entity_registry = SimpleNamespace(
-        async_get=Mock(return_value=registry_entry),
-        async_update_entity=Mock(return_value=updated_entry),
-    )
-    group = SimpleNamespace(
-        hass=object(),
-        entity_id="light.magic_areas_light_groups_living_room_overhead",
-        registry_entry=None,
-    )
-    monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.er.async_get",
-        Mock(return_value=entity_registry),
-    )
-
-    AreaLightGroup._hide_policy_entity(group)  # type: ignore[arg-type]
-
-    entity_registry.async_update_entity.assert_called_once_with(
-        group.entity_id,
-        hidden_by=er.RegistryEntryHider.INTEGRATION,
-    )
-    assert group.registry_entry is updated_entry
-
-
-def test_hide_policy_entity_preserves_existing_hidden_owner(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Existing hidden entries should not be rewritten on every setup."""
-    entity_registry = SimpleNamespace(
-        async_get=Mock(),
-        async_update_entity=Mock(),
-    )
-    group = SimpleNamespace(
-        hass=object(),
-        entity_id="light.magic_areas_light_groups_living_room_overhead",
-        registry_entry=SimpleNamespace(hidden_by="user"),
-    )
-    monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.er.async_get",
-        Mock(return_value=entity_registry),
-    )
-
-    AreaLightGroup._hide_policy_entity(group)  # type: ignore[arg-type]
-
-    entity_registry.async_update_entity.assert_not_called()
+    assert LightGroupRuntimeController.is_control_enabled(group) is True  # type: ignore[arg-type]
 
 
 def test_group_state_change_uses_clear_cache_before_presence_fallback(
@@ -165,7 +93,7 @@ def test_group_state_change_uses_clear_cache_before_presence_fallback(
         context=SimpleNamespace(origin_event=origin_event),
     )
 
-    assert AreaLightGroup.group_state_changed(group, event) is True  # type: ignore[arg-type]
+    assert LightGroupRuntimeController.group_state_changed(group, event) is True  # type: ignore[arg-type]
     reset_control.assert_called_once_with()
     group.async_write_ha_state.assert_called_once_with()
 
@@ -184,15 +112,15 @@ def test_control_target_entity_resolves_native_helper(
     async_get = Mock(return_value=registry)
     resolve = Mock(return_value="light.magic_areas_native_living_room_overhead")
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.er.async_get",
+        "custom_components.magic_areas.light_groups.controller.er.async_get",
         async_get,
     )
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.resolve_managed_surface_entity_id",
+        "custom_components.magic_areas.light_groups.controller.resolve_managed_surface_entity_id",
         resolve,
     )
 
-    target = AreaLightGroup._control_target_entity_id(group)  # type: ignore[arg-type]
+    target = LightGroupRuntimeController._control_target_entity_id(group)  # type: ignore[arg-type]
 
     assert target == "light.magic_areas_native_living_room_overhead"
     async_get.assert_called_once_with(hass)
@@ -205,27 +133,26 @@ def test_control_target_entity_resolves_native_helper(
     )
 
 
-def test_control_target_entity_falls_back_to_policy_entity(
+def test_control_target_entity_requires_native_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Light actions should still work before the native helper exists."""
+    """Runtime controllers should not recreate the old policy-entity fallback."""
     group = SimpleNamespace(
         hass=object(),
-        entity_id="light.magic_areas_light_groups_living_room_overhead",
+        name="Living Room overhead light runtime",
         _native_control_target_unique_id="missing",
     )
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.er.async_get",
+        "custom_components.magic_areas.light_groups.controller.er.async_get",
         Mock(return_value=object()),
     )
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.resolve_managed_surface_entity_id",
+        "custom_components.magic_areas.light_groups.controller.resolve_managed_surface_entity_id",
         Mock(return_value=None),
     )
 
-    target = AreaLightGroup._control_target_entity_id(group)  # type: ignore[arg-type]
-
-    assert target == "light.magic_areas_light_groups_living_room_overhead"
+    with pytest.raises(RuntimeError):
+        LightGroupRuntimeController._control_target_entity_id(group)  # type: ignore[arg-type]
 
 
 def test_current_control_target_state_prefers_native_helper() -> None:
@@ -244,11 +171,11 @@ def test_current_control_target_state_prefers_native_helper() -> None:
         is_on=False,
     )
 
-    assert AreaLightGroup.current_control_target_is_on(group) is True  # type: ignore[arg-type]
+    assert LightGroupRuntimeController.current_control_target_is_on(group) is True  # type: ignore[arg-type]
 
 
-def test_current_control_target_state_falls_back_to_policy_entity_state() -> None:
-    """Unknown native helper state should not block the legacy fallback path."""
+def test_current_control_target_state_returns_none_for_unknown_native_helper() -> None:
+    """Unknown native helper state should not fall back to a removed policy entity."""
     group = SimpleNamespace(
         hass=SimpleNamespace(
             states=SimpleNamespace(
@@ -258,10 +185,9 @@ def test_current_control_target_state_falls_back_to_policy_entity_state() -> Non
         _control_target_entity_id=Mock(
             return_value="light.magic_areas_native_living_room_overhead"
         ),
-        is_on=True,
     )
 
-    assert AreaLightGroup.current_control_target_is_on(group) is True  # type: ignore[arg-type]
+    assert LightGroupRuntimeController.current_control_target_is_on(group) is None  # type: ignore[arg-type]
 
 
 def test_light_member_suppression_members_prefers_reconciled_labels(
@@ -291,12 +217,12 @@ def test_light_member_suppression_members_prefers_reconciled_labels(
             "accent_lights": [accent_lamp.entity_id],
         },
     )
-    group._resolved_role_members = lambda preset: AreaLightGroup._resolved_role_members(
-        cast(AreaLightGroup, group),
+    group._resolved_role_members = lambda preset: LightGroupRuntimeController._resolved_role_members(
+        cast(LightGroupRuntimeController, group),
         preset,
     )
 
-    sleep_members, accent_members = AreaLightGroup.light_member_suppression_members(
+    sleep_members, accent_members = LightGroupRuntimeController.light_member_suppression_members(
         group,  # type: ignore[arg-type]
     )
 
@@ -324,7 +250,7 @@ async def test_dispatch_light_action_targets_native_helper(
     """Dispatch should execute against the native helper without moving policy ownership."""
     execute_mock = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.magic_areas.light_groups.entities.execute_control_group_decision",
+        "custom_components.magic_areas.light_groups.controller.execute_control_group_decision",
         execute_mock,
     )
     scheduled_tasks: list[asyncio.Task[None]] = []
@@ -342,7 +268,7 @@ async def test_dispatch_light_action_targets_native_helper(
         ),
     )
 
-    AreaLightGroup._dispatch_light_action(group, LightAction.TURN_ON)  # type: ignore[arg-type]
+    LightGroupRuntimeController._dispatch_light_action(group, LightAction.TURN_ON)  # type: ignore[arg-type]
     await asyncio.gather(*scheduled_tasks)
 
     execute_mock.assert_awaited_once()

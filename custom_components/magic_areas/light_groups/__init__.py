@@ -1,7 +1,6 @@
 """Public light-group configuration exports."""
 
 from custom_components.magic_areas.light_groups.entities import (
-    AreaLightGroup,
     MagicLightGroup,
 )
 from custom_components.magic_areas.light_groups.controller import (
@@ -102,7 +101,6 @@ from custom_components.magic_areas.light_groups.runtime import (
 )
 
 __all__ = [
-    "AreaLightGroup",
     "AMBIENT_RISE_SIGNAL_ROLE",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL",
     "CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE",

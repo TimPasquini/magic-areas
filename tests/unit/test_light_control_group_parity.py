@@ -119,7 +119,7 @@ def test_origin_toggle_validation_rejects_same_state_change() -> None:
     assert not is_valid_origin_state_toggle(origin_event)
 
 
-class _FakeAreaLightGroup:
+class _FakeLightGroupRuntimeHost:
     def __init__(
         self,
         *,
@@ -242,13 +242,13 @@ def test_process_secondary_group_state_change_marks_external_change() -> None:
 async def test_turn_on_uses_control_group_executor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AreaLightGroup._turn_on should delegate execution through control-group executor."""
+    """Light runtime turn_on should delegate execution through control-group executor."""
     execute_mock = AsyncMock()
     monkeypatch.setattr(
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(is_on=False)
+    group = _FakeLightGroupRuntimeHost(is_on=False)
 
     result = turn_on(cast(_LightGroupHost, group))
     assert result is True
@@ -277,7 +277,7 @@ async def test_turn_on_uses_explicit_subset_when_sleep_suppression_narrows_targe
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(
+    group = _FakeLightGroupRuntimeHost(
         is_on=False,
         area_states=("occupied", "sleep"),
         entity_states={
@@ -334,7 +334,7 @@ async def test_turn_on_uses_explicit_subset_when_accent_suppression_narrows_targ
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(
+    group = _FakeLightGroupRuntimeHost(
         is_on=False,
         area_states=("occupied", "accented"),
         entity_states={
@@ -369,7 +369,7 @@ async def test_turn_on_uses_overlap_subset_when_sleep_and_accent_active(
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(
+    group = _FakeLightGroupRuntimeHost(
         is_on=False,
         area_states=("occupied", "sleep", "accented"),
         entity_states={
@@ -401,7 +401,7 @@ async def test_turn_on_noops_when_sleep_and_accent_suppress_all_targets(
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(
+    group = _FakeLightGroupRuntimeHost(
         is_on=False,
         area_states=("occupied", "sleep", "accented"),
         entity_states={
@@ -432,13 +432,13 @@ async def test_turn_on_noops_when_sleep_and_accent_suppress_all_targets(
 async def test_turn_off_uses_control_group_executor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AreaLightGroup._turn_off should delegate execution through control-group executor."""
+    """Light runtime turn_off should delegate execution through control-group executor."""
     execute_mock = AsyncMock()
     monkeypatch.setattr(
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(is_on=True)
+    group = _FakeLightGroupRuntimeHost(is_on=True)
 
     result = turn_off(cast(_LightGroupHost, group))
     assert result is True
@@ -464,7 +464,7 @@ async def test_turn_off_uses_suppressed_subset_when_sleep_suppresses_members(
         "tests.unit.test_light_control_group_parity.execute_control_group_decision",
         execute_mock,
     )
-    group = _FakeAreaLightGroup(
+    group = _FakeLightGroupRuntimeHost(
         is_on=True,
         area_states=("occupied", "sleep"),
         entity_states={
@@ -503,7 +503,7 @@ async def test_turn_off_uses_suppressed_subset_when_sleep_suppresses_members(
 
 def test_turn_off_noop_when_not_controlling() -> None:
     """turn_off should be a no-op when group control is disabled."""
-    group = _FakeAreaLightGroup(is_on=True, controlling=False)
+    group = _FakeLightGroupRuntimeHost(is_on=True, controlling=False)
 
     result = turn_off(cast(_LightGroupHost, group))
 
@@ -515,7 +515,7 @@ def test_turn_off_noop_when_not_controlling() -> None:
 
 def test_turn_off_noop_when_already_off() -> None:
     """turn_off should be a no-op when group is already off."""
-    group = _FakeAreaLightGroup(is_on=False)
+    group = _FakeLightGroupRuntimeHost(is_on=False)
 
     result = turn_off(cast(_LightGroupHost, group))
 
