@@ -59,18 +59,32 @@ Then run:
 HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh
 ```
 
-The bootstrap uses Home Assistant's real websocket API. It creates these areas if
-missing:
+The bootstrap uses Home Assistant's real websocket and REST APIs. It creates
+these areas if missing:
 
 - Living Room
 - Bathroom
-- Outside
+- Outdoor Test
 
-It then assigns the seeded fake entities to those areas and sets deterministic
-initial fake-house states.
+It then assigns the seeded fake entities to those areas, creates the default
+Magic Areas config entries, configures the two room entries for light-group
+testing, and sets deterministic initial fake-house states.
 
 The bootstrap is idempotent. Re-running it should update missing/stale area
-assignments without destroying the rest of the dev instance.
+assignments and create missing Magic Areas entries without destroying the rest of
+the dev instance. Existing Magic Areas options are not overwritten unless you
+explicitly pass:
+
+```bash
+HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh --force-magic-area-options
+```
+
+If you only want HA area/entity assignment and fake-state reset, skip Magic Areas
+entry creation:
+
+```bash
+HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh --skip-magic-areas
+```
 
 ## What Is Seeded
 
@@ -85,9 +99,10 @@ It also creates fake entities useful for Magic Areas setup:
 - template sensors/binary sensors derived from those controls
 - template lights backed by input booleans
 
-Create HA areas from the frontend and assign these fake entities/devices to the
-areas you want to test. This keeps the dev instance close to real HA usage
-instead of depending on committed `.storage` registry internals.
+Run the bootstrap after onboarding to create HA areas, assign the fake entities,
+and install/configure the default Magic Areas rooms. This keeps the dev instance
+close to real HA usage instead of depending on committed `.storage` registry
+internals.
 
 ## Development Loop
 
@@ -95,9 +110,8 @@ instead of depending on committed `.storage` registry internals.
 2. Complete HA onboarding.
 3. Create a long-lived token.
 4. Run `./scripts/ha_dev_bootstrap.sh`.
-5. Add/configure Magic Areas through the frontend.
-6. Use the fake controls/entities to inspect behavior.
-7. Restart the container after Python code changes.
+5. Use the fake controls/entities to inspect behavior.
+6. Restart the container after Python code changes.
 
 This environment is for frontend/config-flow/manual behavior validation. Pytest
 scenario tests still cover deterministic regression cases.
