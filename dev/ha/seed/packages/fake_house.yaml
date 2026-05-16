@@ -100,55 +100,60 @@ template:
         state_class: measurement
         unit_of_measurement: lx
         state: "{{ states('input_number.outdoor_lux') | float(0) }}"
-
-light:
-  - platform: template
-    lights:
-      living_room_overhead:
-        friendly_name: Living Room Overhead
-        unique_id: ma_dev_living_room_overhead
-        value_template: "{{ is_state('input_boolean.living_room_overhead_power', 'on') }}"
+  - light:
+      - unique_id: ma_dev_living_room_overhead
+        default_entity_id: light.living_room_overhead
+        name: Living Room Overhead
+        state: "{{ is_state('input_boolean.living_room_overhead_power', 'on') }}"
         turn_on:
-          service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.living_room_overhead_power
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.living_room_overhead_power
         turn_off:
-          service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.living_room_overhead_power
-      living_room_lamp:
-        friendly_name: Living Room Lamp
-        unique_id: ma_dev_living_room_lamp
-        value_template: "{{ is_state('input_boolean.living_room_lamp_power', 'on') }}"
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.living_room_overhead_power
+      - unique_id: ma_dev_living_room_lamp
+        default_entity_id: light.living_room_lamp
+        name: Living Room Lamp
+        state: "{{ is_state('input_boolean.living_room_lamp_power', 'on') }}"
         turn_on:
-          service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.living_room_lamp_power
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.living_room_lamp_power
         turn_off:
-          service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.living_room_lamp_power
-      bathroom_overhead:
-        friendly_name: Bathroom Overhead
-        unique_id: ma_dev_bathroom_overhead
-        value_template: "{{ is_state('input_boolean.bathroom_overhead_power', 'on') }}"
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.living_room_lamp_power
+      - unique_id: ma_dev_bathroom_overhead
+        default_entity_id: light.bathroom_overhead
+        name: Bathroom Overhead
+        state: "{{ is_state('input_boolean.bathroom_overhead_power', 'on') }}"
         turn_on:
-          service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.bathroom_overhead_power
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.bathroom_overhead_power
         turn_off:
-          service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.bathroom_overhead_power
-      bathroom_sleep_light:
-        friendly_name: Bathroom Sleep Light
-        unique_id: ma_dev_bathroom_sleep_light
-        value_template: "{{ is_state('input_boolean.bathroom_sleep_light_power', 'on') }}"
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.bathroom_overhead_power
+      - unique_id: ma_dev_bathroom_sleep_light
+        default_entity_id: light.bathroom_sleep_light
+        name: Bathroom Sleep Light
+        state: "{{ is_state('input_boolean.bathroom_sleep_light_power', 'on') }}"
         turn_on:
-          service: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.bathroom_sleep_light_power
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.bathroom_sleep_light_power
         turn_off:
-          service: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.bathroom_sleep_light_power
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.bathroom_sleep_light_power
