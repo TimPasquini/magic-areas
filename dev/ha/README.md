@@ -20,14 +20,21 @@ From the repository root:
 ./scripts/ha_dev_start.sh
 ```
 
+Starting through this script always returns the HA dev instance to a clean state:
+the current container is stopped, `dev/ha/config/` is deleted, and the config is
+recreated from `dev/ha/seed/`. Treat frontend/UI changes as disposable. Any state
+needed for repeatable testing belongs in seed YAML, bootstrap code, or another
+explicit template under `dev/ha/`.
+
 Then open:
 
 ```text
 http://localhost:8123
 ```
 
-On first launch, Home Assistant will run onboarding and ask you to create a local
-user. Runtime data is written to `dev/ha/config/` and is ignored by git.
+On first launch after each clean start, Home Assistant will run onboarding and
+ask you to create a local user. Runtime data is written to `dev/ha/config/` and
+is ignored by git.
 
 ## Stop
 
@@ -37,7 +44,8 @@ user. Runtime data is written to `dev/ha/config/` and is ignored by git.
 
 ## Reset
 
-This destroys the dev HA config, including onboarding/user/config-entry state:
+This performs the same clean-state reset used by `ha_dev_start.sh` without
+leaving the container running:
 
 ```bash
 ./scripts/ha_dev_reset.sh
