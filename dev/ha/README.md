@@ -45,6 +45,33 @@ This destroys the dev HA config, including onboarding/user/config-entry state:
 
 The next start recreates `dev/ha/config/` from `dev/ha/seed/`.
 
+## Bootstrap Fake House
+
+After first onboarding, create a long-lived access token in the HA UI:
+
+```text
+User profile -> Security -> Long-lived access tokens
+```
+
+Then run:
+
+```bash
+HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh
+```
+
+The bootstrap uses Home Assistant's real websocket API. It creates these areas if
+missing:
+
+- Living Room
+- Bathroom
+- Outside
+
+It then assigns the seeded fake entities to those areas and sets deterministic
+initial fake-house states.
+
+The bootstrap is idempotent. Re-running it should update missing/stale area
+assignments without destroying the rest of the dev instance.
+
 ## What Is Seeded
 
 The seed config intentionally keeps `default_config:` enabled so the dev instance
@@ -66,10 +93,11 @@ instead of depending on committed `.storage` registry internals.
 
 1. Start the dev instance.
 2. Complete HA onboarding.
-3. Create rooms/areas in Settings.
-4. Assign fake entities to rooms.
+3. Create a long-lived token.
+4. Run `./scripts/ha_dev_bootstrap.sh`.
 5. Add/configure Magic Areas through the frontend.
-6. Restart the container after Python code changes.
+6. Use the fake controls/entities to inspect behavior.
+7. Restart the container after Python code changes.
 
 This environment is for frontend/config-flow/manual behavior validation. Pytest
 scenario tests still cover deterministic regression cases.
