@@ -77,11 +77,9 @@ class ConfigBase:
                 name,
                 description={
                     "suggested_value": _suggested_value(
-                        
-                            saved_options.get(name)
-                            if saved_options and saved_options.get(name) is not None
-                            else default
-                        
+                        saved_options.get(name)
+                        if saved_options and saved_options.get(name) is not None
+                        else default
                     )
                 },
                 default=default,

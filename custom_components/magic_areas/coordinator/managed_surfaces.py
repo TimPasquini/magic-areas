@@ -14,6 +14,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
+from homeassistant.helpers.typing import UNDEFINED
 
 from custom_components.magic_areas.const import DOMAIN, MANAGED_LABEL_SURFACES_DATA_KEY
 from custom_components.magic_areas.core.managed_surface_registry import (
@@ -159,14 +160,14 @@ def _apply_surface_registry_metadata(
         entity_registry,
         helper_entry.entry_id,
     ):
-        updates: dict[str, object] = {
-            "area_id": surface.area_id,
-            "device_id": device_id,
-            "device_class": surface.device_class,
-        }
-        if surface.entity_name is not None:
-            updates["name"] = surface.entity_name
-        entity_registry.async_update_entity(entry.entity_id, **updates)
+        name = surface.entity_name if surface.entity_name is not None else UNDEFINED
+        entity_registry.async_update_entity(
+            entry.entity_id,
+            area_id=surface.area_id,
+            device_id=device_id,
+            device_class=surface.device_class,
+            name=name,
+        )
 
 
 async def async_reconcile_managed_surfaces(

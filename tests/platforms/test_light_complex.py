@@ -79,7 +79,7 @@ async def test_light_group_state_change_logic(
     await hass.async_block_till_done()
 
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
     light_control_switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
@@ -88,7 +88,7 @@ async def test_light_group_state_change_logic(
     # Verify light group is set up correctly
     light_group_state = hass.states.get(light_group_id)
     assert light_group_state is not None
-    assert "light.overhead_1" in light_group_state.attributes["lights"]
+    assert "light.overhead_1" in light_group_state.attributes["entity_id"]
 
     # Initial state
     await wait_for_state(hass, light_group_id, STATE_OFF)

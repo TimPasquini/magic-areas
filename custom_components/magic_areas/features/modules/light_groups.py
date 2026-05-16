@@ -35,7 +35,6 @@ from custom_components.magic_areas.features.base import (
 from custom_components.magic_areas.features.control_builders import (
     CategorizedGroupSpec,
     ControlGroupDefinition,
-    build_categorized_group_entities,
     build_control_group_definition,
     build_control_switch_entities,
     register_area_default_groups,
@@ -45,7 +44,7 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_FEATURE_SCHEMA,
     LIGHT_GROUP_PRESETS,
     LIGHT_GROUP_ROLE_LABELS,
-    AreaLightGroup,
+    LightGroupRuntimeController,
     MagicLightGroup,
     adaptive_lighting_manage_all_lights,
     adaptive_lighting_managed_roles,
@@ -265,27 +264,6 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         light_entities: list[str],
         feature_config: FeatureConfigDict,
     ) -> tuple[list[Entity], list[ControlGroupDefinition]]:
-        def _build_category_entity(spec: CategorizedGroupSpec) -> Entity:
-            return AreaLightGroup(
-                area_config,
-                coordinator,
-                spec.members,
-                spec.category,
-                feature_config=feature_config,
-            )
-
-        def _build_parent_entity(
-            _parent_members: list[str], child_categories: list[str]
-        ) -> Entity:
-            return AreaLightGroup(
-                area_config,
-                coordinator,
-                light_entities,
-                category=LightGroupCategory.ALL,
-                child_categories=child_categories,
-                feature_config=feature_config,
-            )
-
         specs = [
             CategorizedGroupSpec(
                 category=preset.category,
@@ -299,24 +277,27 @@ class LightGroupsFeatureModule(BaseFeatureModule):
             for preset in LIGHT_GROUP_PRESETS
         ]
 
-        groups, definitions, child_categories = build_categorized_group_entities(
-            specs=specs,
-            category_entity_factory=_build_category_entity,
-            category_definition_factory=lambda spec: build_control_group_definition(
-                group_id=build_light_group_id(
-                    area_id=area_config.id,
-                    category=spec.category,
-                ),
-                members=spec.members,
-                trigger_states=spec.trigger_states,
-                policy_id=LIGHT_GROUPS_POLICY_ID,
-                feature_id=MagicAreasFeatures.LIGHT_GROUPS,
-                role=None,
-                metadata={GroupMetadataKey.CATEGORY: spec.category},
-            ),
-            parent_entity_factory=_build_parent_entity,
-            parent_definition_factory=lambda _parent_members,
-            _child_categories: build_control_group_definition(
+        definitions: list[ControlGroupDefinition] = []
+        for spec in specs:
+            if not spec.members:
+                continue
+            definitions.append(
+                build_control_group_definition(
+                    group_id=build_light_group_id(
+                        area_id=area_config.id,
+                        category=spec.category,
+                    ),
+                    members=spec.members,
+                    trigger_states=spec.trigger_states,
+                    policy_id=LIGHT_GROUPS_POLICY_ID,
+                    feature_id=MagicAreasFeatures.LIGHT_GROUPS,
+                    role=None,
+                    metadata={GroupMetadataKey.CATEGORY: spec.category},
+                )
+            )
+
+        definitions.append(
+            build_control_group_definition(
                 group_id=build_light_group_id(
                     area_id=area_config.id, category=LightGroupCategory.ALL
                 ),
@@ -326,12 +307,61 @@ class LightGroupsFeatureModule(BaseFeatureModule):
                 feature_id=MagicAreasFeatures.LIGHT_GROUPS,
                 role=None,
                 metadata={GroupMetadataKey.CATEGORY: LightGroupCategory.ALL},
-            ),
-            logger=_LOGGER,
-            group_label="light",
+            )
         )
 
-        return groups, definitions
+        return [], definitions
+
+    def build_runtime_controllers(
+        self,
+        area_config: AreaConfig,
+        coordinator: MagicAreasCoordinator,
+        data: MagicAreasData,
+    ) -> list[LightGroupRuntimeController]:
+        """Build non-entity light-group runtime controllers for native helpers."""
+        if area_config.is_meta():
+            return []
+
+        light_entities = [e["entity_id"] for e in data.entities.get(LIGHT_DOMAIN, [])]
+        if not light_entities:
+            return []
+
+        feature_config = light_groups_feature_config(data.feature_configs)
+        controllers: list[LightGroupRuntimeController] = []
+        child_categories: list[str] = []
+
+        for preset in LIGHT_GROUP_PRESETS:
+            members = preset_members(
+                feature_config,
+                preset,
+                available_entities=light_entities,
+            )
+            if not members:
+                continue
+            child_categories.append(preset.category)
+            controllers.append(
+                LightGroupRuntimeController(
+                    hass=coordinator.hass,
+                    area_config=area_config,
+                    coordinator=coordinator,
+                    entities=members,
+                    category=preset.category,
+                    feature_config=feature_config,
+                )
+            )
+
+        controllers.append(
+            LightGroupRuntimeController(
+                hass=coordinator.hass,
+                area_config=area_config,
+                coordinator=coordinator,
+                entities=light_entities,
+                category=LightGroupCategory.ALL,
+                child_categories=child_categories,
+                feature_config=feature_config,
+            )
+        )
+        return controllers
 
 
 def _light_group_surface_unique_id(

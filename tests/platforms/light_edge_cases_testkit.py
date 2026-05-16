@@ -5,6 +5,7 @@ from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAI
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from typing import cast
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
@@ -20,10 +21,23 @@ from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS_STATES,
     LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
+    LightGroupRuntimeController,
 )
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import setup_mock_entities
 from tests.mocks import MockBinarySensor, MockLight
+
+
+def get_light_group_runtime(
+    config_entry: MockConfigEntry,
+    category: str = CONF_OVERHEAD_LIGHTS,
+) -> LightGroupRuntimeController:
+    """Return a non-entity light-group runtime controller from a config entry."""
+    controllers = config_entry.runtime_data.runtime_controllers or []
+    for controller in controllers:
+        if getattr(controller, "category", None) == category:
+            return cast(LightGroupRuntimeController, controller)
+    raise AssertionError(f"{category} runtime controller not found")
 
 
 @pytest.fixture(name="light_edge_cases_config_entry")

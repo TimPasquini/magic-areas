@@ -86,7 +86,7 @@ async def test_light_group_basic(
     mock_light_entity_id = entities_light_one[0].entity_id
     mock_motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
     light_group_entity_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
     light_control_entity_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
@@ -154,44 +154,34 @@ async def test_light_group_canonical_policy_transition_parity(
     entities_binary_sensor_motion_one: list[MockBinarySensor],
     _setup_integration_light_groups: None,
 ) -> None:
-    """Canonical light context path preserves key transition behavior."""
+    """Native helper target preserves key transition behavior."""
     light_group_entity_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+    )
+    legacy_policy_entity_id = (
         f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
-        light_group_entity_id
+    light_control_entity_id = (
+        f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
     )
-    assert target_group is not None
-
-    # Secondary OCCUPIED transition should request turn-on behavior.
-    changed = target_group.state_change_secondary(
-        (
-            [AreaStates.OCCUPIED.value],
-            [],
-            [AreaStates.OCCUPIED.value],
-        )
+    area_sensor_entity_id = (
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_"
+        f"{DEFAULT_MOCK_AREA}_area_state"
     )
-    assert changed is True
 
-    # Secondary CLEAR transition should no-op action and clear control tracking.
-    changed = target_group.state_change_secondary(
-        (
-            [AreaStates.CLEAR.value],
-            [AreaStates.OCCUPIED.value],
-            [AreaStates.CLEAR.value],
-        )
+    assert hass.states.get(legacy_policy_entity_id) is None
+    assert hass.states.get(light_group_entity_id) is not None
+
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_ON, {ATTR_ENTITY_ID: light_control_entity_id}
     )
-    assert changed is False
-    assert target_group._echo_state.awaiting_echo is False
-
-    # Primary CLEAR transition should issue turn-off when the native target is on.
-    hass.states.async_set(target_group._control_target_entity_id(), STATE_ON)
     await hass.async_block_till_done()
-    changed = target_group.state_change_primary(
-        (
-            [AreaStates.CLEAR.value],
-            [AreaStates.OCCUPIED.value],
-            [AreaStates.CLEAR.value],
-        )
-    )
-    assert changed is True
+
+    entities_binary_sensor_motion_one[0].turn_on()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_ON)
+    await wait_for_state(hass, light_group_entity_id, STATE_ON)
+
+    entities_binary_sensor_motion_one[0].turn_off()
+    await hass.async_block_till_done()
+    await wait_for_state(hass, area_sensor_entity_id, STATE_OFF)
+    await wait_for_state(hass, light_group_entity_id, STATE_OFF)

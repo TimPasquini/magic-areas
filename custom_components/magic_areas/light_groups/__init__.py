@@ -4,6 +4,9 @@ from custom_components.magic_areas.light_groups.entities import (
     AreaLightGroup,
     MagicLightGroup,
 )
+from custom_components.magic_areas.light_groups.controller import (
+    LightGroupRuntimeController,
+)
 from custom_components.magic_areas.light_groups.identity import (
     LIGHT_GROUP_ROLE_LABELS,
     build_light_group_helper_surface_unique_id,
@@ -175,6 +178,7 @@ __all__ = [
     "LightAction",
     "LightGroupPolicy",
     "LightPolicySignals",
+    "LightGroupRuntimeController",
     "MagicLightGroup",
     "build_light_group_helper_surface_unique_id",
     "process_secondary_group_state_change",

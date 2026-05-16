@@ -11,7 +11,7 @@
     'area_id': 'kitchen',
     'enabled_features_count': 2,
     'entity_domain_count': 3,
-    'magic_entity_domain_count': 3,
+    'magic_entity_domain_count': 2,
     'presence_sensor_count': 1,
     'total_config_keys': 9,
   })
@@ -41,7 +41,6 @@
     }),
     'magic_domains': list([
       'binary_sensor',
-      'light',
       'switch',
     ]),
     'total_entities': 3,
@@ -51,33 +50,28 @@
   dict({
     'has_light_entities': True,
     'light_entity_count': 1,
-    'magic_light_count': 1,
+    'magic_light_count': 0,
   })
 # ---
 # name: test_magic_entity_structure_snapshot
   dict({
     'domain_entity_counts': dict({
       'binary_sensor': 1,
-      'light': 1,
       'switch': 1,
     }),
     'magic_domains': list([
       'binary_sensor',
-      'light',
       'switch',
     ]),
     'magic_entity_ids': dict({
       'binary_sensor': list([
         'binary_sensor.magic_areas_presence_tracking_kitchen_area_state',
       ]),
-      'light': list([
-        'light.magic_areas_light_groups_kitchen_all_lights',
-      ]),
       'switch': list([
         'switch.magic_areas_light_groups_kitchen_light_control',
       ]),
     }),
-    'total_magic_entities': 3,
+    'total_magic_entities': 2,
   })
 # ---
 # name: test_magic_sensor_structure_snapshot

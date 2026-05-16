@@ -44,12 +44,10 @@
     'is_meta': False,
     'magic_entity_counts': dict({
       'binary_sensor': 1,
-      'light': 1,
       'switch': 1,
     }),
     'magic_entity_domains': list([
       'binary_sensor',
-      'light',
       'switch',
     ]),
     'presence_device_classes': list([
@@ -81,12 +79,10 @@
   dict({
     'magic_entity_count_by_domain': dict({
       'binary_sensor': 1,
-      'light': 1,
       'switch': 1,
     }),
     'magic_entity_domains': list([
       'binary_sensor',
-      'light',
       'switch',
     ]),
     'regular_entity_counts': dict({

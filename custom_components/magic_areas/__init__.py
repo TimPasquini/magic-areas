@@ -73,6 +73,7 @@ async def async_setup_entry(
             async_reconcile_managed_surfaces,
         )
         from custom_components.magic_areas.features.dispatch import (
+            async_start_feature_runtime_controllers,
             collect_feature_managed_adaptive_lighting_configs,
             collect_feature_managed_surfaces,
         )
@@ -98,6 +99,16 @@ async def async_setup_entry(
                     area_config=area_config,
                     logger=_LOGGER,
                 ),
+            )
+            config_entry.runtime_data.runtime_controllers = (
+                await async_start_feature_runtime_controllers(
+                    registry=FEATURE_REGISTRY,
+                    data=coordinator.data,
+                    area_config=area_config,
+                    coordinator=coordinator,
+                    track_cleanup=tracked_listeners.append,
+                    logger=_LOGGER,
+                )
             )
 
         # Setup platforms (get from coordinator data after refresh)

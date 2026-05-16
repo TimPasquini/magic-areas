@@ -19,6 +19,7 @@ from tests.helpers import (
     shutdown_integration,
 )
 from tests.mocks import MockLight
+from tests.platforms.light_edge_cases_testkit import get_light_group_runtime
 
 pytest_plugins = ("tests.platforms.light_edge_cases_testkit",)
 
@@ -33,9 +34,9 @@ async def test_manual_control_detection(
     await hass.async_start()
     await hass.async_block_till_done()
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
+    target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     )
@@ -52,26 +53,20 @@ async def test_manual_control_detection(
     target_group.group_state_changed(event)
     await hass.async_block_till_done()
 
-    group_state = hass.states.get(light_group_id)
-    assert group_state is not None
-    assert group_state.attributes.get("controlling") is False
+    assert target_group.controlling is False
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
 
 
-async def test_native_helper_manual_control_releases_hidden_policy_entity(
+async def test_native_helper_manual_control_releases_runtime_controller(
     hass: HomeAssistant,
     light_edge_cases_config_entry_limited: MockConfigEntry,
     entities_light_edge_cases: list[MockLight],
 ) -> None:
-    """Manual native-helper control should still release the hidden policy entity."""
+    """Manual native-helper control should still release the runtime controller."""
     await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
@@ -89,9 +84,7 @@ async def test_native_helper_manual_control_releases_hidden_policy_entity(
     )
     await hass.async_block_till_done()
 
-    group_state = hass.states.get(light_group_id)
-    assert group_state is not None
-    assert group_state.attributes.get("controlling") is False
+    assert target_group.controlling is False
     await shutdown_integration(hass, [light_edge_cases_config_entry_limited])
 
 
@@ -105,10 +98,9 @@ async def test_owned_echo_completes_without_releasing_control(
     await hass.async_start()
     await hass.async_block_till_done()
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
@@ -146,10 +138,9 @@ async def test_external_change_releases_control_owner(
     await hass.async_start()
     await hass.async_block_till_done()
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
@@ -190,10 +181,9 @@ async def test_owned_turn_off_echo_completes_without_releasing_control(
     await hass.async_start()
     await hass.async_block_till_done()
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
@@ -202,8 +192,7 @@ async def test_owned_turn_off_echo_completes_without_releasing_control(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
     target_group._last_known_area_states = [AreaStates.OCCUPIED.value]
-    hass.states.async_set(target_group._control_target_entity_id(), STATE_ON)
-    await hass.async_block_till_done()
+    target_group.current_control_target_is_on = lambda: True  # type: ignore[method-assign]
 
     assert turn_off(target_group) is True
     assert target_group._echo_state.awaiting_echo is True

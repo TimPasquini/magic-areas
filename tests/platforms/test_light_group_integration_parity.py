@@ -60,31 +60,40 @@ async def test_light_group_entity_ids_and_count_match_contract(
     await hass.async_start()
     await hass.async_block_till_done()
 
-    magic_light_ids = {
+    native_light_ids = {
         entity_id
         for entity_id in hass.states.async_entity_ids(LIGHT_DOMAIN)
-        if entity_id.startswith(f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_")
+        if entity_id.startswith(
+            f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_"
+        )
     }
     expected_light_ids = {
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_all_lights",
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights",
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_task_lights",
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_all_lights",
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights",
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_task_lights",
     }
 
-    assert magic_light_ids == expected_light_ids
-    all_group_id = f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_all_lights"
+    assert native_light_ids == expected_light_ids
+    legacy_policy_light_ids = {
+        entity_id
+        for entity_id in hass.states.async_entity_ids(LIGHT_DOMAIN)
+        if entity_id.startswith(
+            f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_"
+        )
+    }
+    assert legacy_policy_light_ids == set()
+
+    all_group_id = (
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_all_lights"
+    )
     all_group_state = hass.states.get(all_group_id)
     assert all_group_state is not None
-    assert all_group_state.attributes.get("child_ids") == [
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights",
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_task_lights",
-    ]
 
     entity_registry = er.async_get(hass)
     for entity_id in expected_light_ids:
         registry_entry = entity_registry.async_get(entity_id)
         assert registry_entry is not None
-        assert registry_entry.hidden_by is er.RegistryEntryHider.INTEGRATION
+        assert registry_entry.hidden_by is None
 
     label_registry = lr.async_get(hass)
     overhead_label = label_registry.async_get_label_by_name("ma:overhead")

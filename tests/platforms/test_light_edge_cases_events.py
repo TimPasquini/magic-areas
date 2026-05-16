@@ -17,6 +17,7 @@ from tests.helpers import (
     shutdown_integration,
 )
 from tests.mocks import MockLight
+from tests.platforms.light_edge_cases_testkit import get_light_group_runtime
 
 pytest_plugins = ("tests.platforms.light_edge_cases_testkit",)
 
@@ -31,7 +32,7 @@ async def test_get_active_lights_missing_entity(
     await hass.async_start()
     await hass.async_block_till_done()
     light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
+        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )
 
     hass.states.async_remove("light.overhead_2")
@@ -58,11 +59,7 @@ async def test_group_state_changed_logic(
     await init_integration_helper(hass, [light_edge_cases_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry)
 
     area_sensor_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
@@ -96,11 +93,7 @@ async def test_light_group_listener_setup_idempotent(
     await init_integration_helper(hass, [light_edge_cases_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry)
     assert target_group._listener_registry.count == 2
     await target_group._setup_listeners()
     assert target_group._listener_registry.count == 2
@@ -116,11 +109,7 @@ async def test_listeners_cleaned_up_on_unload(
     await init_integration_helper(hass, [light_edge_cases_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
-    target_group = hass.data["entity_components"][LIGHT_DOMAIN].get_entity(light_group_id)
-    assert target_group is not None
+    target_group = get_light_group_runtime(light_edge_cases_config_entry)
     assert target_group._listener_registry.count == 2
     await shutdown_integration(hass, [light_edge_cases_config_entry])
     assert target_group._listener_registry.count == 0

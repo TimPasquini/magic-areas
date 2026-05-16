@@ -21,6 +21,7 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
+    from custom_components.magic_areas.features.dispatch import RuntimeController
 
 # Re-export HA domains for runtime modules/tests.
 __all__ = [
@@ -95,6 +96,7 @@ class MagicAreasRuntimeData:
 
     coordinator: "MagicAreasCoordinator"
     listeners: list[Callable[[], None]]
+    runtime_controllers: list["RuntimeController"] | None = None
 
 
 type MagicAreasConfigEntry = ConfigEntry[MagicAreasRuntimeData]

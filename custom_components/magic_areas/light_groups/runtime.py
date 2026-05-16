@@ -85,7 +85,6 @@ class _LightGroupHost(Protocol):
     _ambient_rise_signal_unique_id: str | None
     _area_id: str
     category: str | None
-    entity_id: str
     hass: HomeAssistant
     logger: logging.Logger
     policy: LightControlGroupPolicy
@@ -98,6 +97,9 @@ class _LightGroupHost(Protocol):
 
     @property
     def is_on(self) -> bool | None: ...
+
+    @property
+    def entity_id(self) -> str: ...
 
     @property
     def unique_id(self) -> str | None: ...

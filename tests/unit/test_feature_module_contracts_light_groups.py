@@ -42,20 +42,42 @@ class _ManagedAdaptiveLightingModule(Protocol):
         ...
 
 
+class _LightGroupRuntimeModule(_ManagedAdaptiveLightingModule, Protocol):
+    """Feature-module subset used by runtime-controller tests."""
+
+    def build_runtime_controllers(
+        self,
+        area_config: AreaConfig,
+        coordinator: object,
+        data: MagicAreasData,
+    ) -> list[object]:
+        """Return non-entity light-group runtime controllers."""
+        ...
+
+
 def _managed_adaptive_lighting_module() -> _ManagedAdaptiveLightingModule:
     """Return light-groups module narrowed to the managed AL contract."""
     return cast(_ManagedAdaptiveLightingModule, get_module("light_groups"))
 
 
+def _light_group_runtime_module() -> _LightGroupRuntimeModule:
+    """Return light-groups module narrowed to the runtime-controller contract."""
+    return cast(_LightGroupRuntimeModule, get_module("light_groups"))
+
+
 def _attrs(entity: object) -> Mapping[str, object]:
     """Return non-optional extra attributes for entity assertions."""
-    attributes = getattr(entity, "extra_state_attributes")
+    attributes = getattr(
+        entity,
+        "extra_state_attributes",
+        getattr(entity, "_attr_extra_state_attributes", None),
+    )
     assert isinstance(attributes, Mapping)
     return attributes
 
 
 def test_light_groups_module_builds_expected_entities() -> None:
-    """Light groups module should build overhead + all groups."""
+    """Light groups module should expose only its control switch as a MA entity."""
     area_config = make_area_config()
     entities_by_domain = {"light": [{"entity_id": "light.overhead_1"}]}
     feature_configs = {
@@ -77,8 +99,6 @@ def test_light_groups_module_builds_expected_entities() -> None:
 
     entity_ids = sorted(entity.entity_id for entity in entities)
     assert entity_ids == [
-        "light.magic_areas_light_groups_kitchen_all_lights",
-        "light.magic_areas_light_groups_kitchen_overhead_lights",
         "switch.magic_areas_light_groups_kitchen_light_control",
     ]
 
@@ -110,17 +130,17 @@ def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> N
         },
         entities={"light": [{"entity_id": "light.overhead_1"}]},
     )
-    module = get_module("light_groups")
+    module = _light_group_runtime_module()
 
-    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
-    groups = {
-        entity.entity_id: entity
-        for entity in entities
-        if entity.entity_id.startswith("light.")
+    controllers = {
+        getattr(controller, "category"): controller
+        for controller in module.build_runtime_controllers(
+            area_config, make_coordinator(snapshot), snapshot
+        )
     }
 
-    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
-    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+    all_group = controllers["all_lights"]
+    overhead_group = controllers["overhead_lights"]
 
     assert getattr(all_group, "_adaptive_lighting_switch_set") is None
     switch_set = getattr(overhead_group, "_adaptive_lighting_switch_set")
@@ -142,17 +162,17 @@ def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None
         },
         entities={"light": [{"entity_id": "light.overhead_1"}]},
     )
-    module = get_module("light_groups")
+    module = _light_group_runtime_module()
 
-    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
-    groups = {
-        entity.entity_id: entity
-        for entity in entities
-        if entity.entity_id.startswith("light.")
+    controllers = {
+        getattr(controller, "category"): controller
+        for controller in module.build_runtime_controllers(
+            area_config, make_coordinator(snapshot), snapshot
+        )
     }
 
-    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
-    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+    all_group = controllers["all_lights"]
+    overhead_group = controllers["overhead_lights"]
 
     assert getattr(all_group, "_adaptive_lighting_switch_set") is None
     switch_set = getattr(overhead_group, "_adaptive_lighting_switch_set")
@@ -181,17 +201,17 @@ def test_light_groups_module_associates_managed_adaptive_lighting_all_lights() -
         },
         entities={"light": [{"entity_id": "light.overhead_1"}]},
     )
-    module = get_module("light_groups")
+    module = _light_group_runtime_module()
 
-    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
-    groups = {
-        entity.entity_id: entity
-        for entity in entities
-        if entity.entity_id.startswith("light.")
+    controllers = {
+        getattr(controller, "category"): controller
+        for controller in module.build_runtime_controllers(
+            area_config, make_coordinator(snapshot), snapshot
+        )
     }
 
-    all_group = groups["light.magic_areas_light_groups_kitchen_all_lights"]
-    overhead_group = groups["light.magic_areas_light_groups_kitchen_overhead_lights"]
+    all_group = controllers["all_lights"]
+    overhead_group = controllers["overhead_lights"]
 
     switch_set = getattr(all_group, "_adaptive_lighting_switch_set")
     assert switch_set is not None
@@ -216,13 +236,15 @@ def test_light_groups_module_exposes_adaptive_lighting_diagnostics_attribute() -
         },
         entities={"light": [{"entity_id": "light.overhead_1"}]},
     )
-    module = get_module("light_groups")
+    module = _light_group_runtime_module()
 
-    entities = module.build_entities(area_config, make_coordinator(snapshot), snapshot)
+    controllers = module.build_runtime_controllers(
+        area_config, make_coordinator(snapshot), snapshot
+    )
     all_group = next(
-        entity
-        for entity in entities
-        if entity.entity_id == "light.magic_areas_light_groups_kitchen_all_lights"
+        controller
+        for controller in controllers
+        if getattr(controller, "category") == "all_lights"
     )
 
     assert _attrs(all_group)["adaptive_lighting"] == {

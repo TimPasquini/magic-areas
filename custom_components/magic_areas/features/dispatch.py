@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
@@ -33,6 +33,18 @@ type BaseEntitiesBuilder = Callable[
     [AreaConfig, MagicAreasCoordinator, MagicAreasData],
     list[Entity] | Awaitable[list[Entity]],
 ]
+
+
+class RuntimeController(Protocol):
+    """Minimal lifecycle contract for non-entity feature runtime controllers."""
+
+    async def async_start(self) -> None:
+        """Start runtime listeners."""
+        ...
+
+    def cleanup(self) -> None:
+        """Clean up runtime listeners."""
+        ...
 
 
 ExtraEntitiesBuilder = Callable[
@@ -105,6 +117,45 @@ def collect_feature_managed_adaptive_lighting_configs(
             continue
         configs.extend(config_builder(area_config, data))
     return configs
+
+
+async def async_start_feature_runtime_controllers(
+    *,
+    registry: FeatureRegistry,
+    data: MagicAreasData,
+    area_config: AreaConfig,
+    coordinator: MagicAreasCoordinator,
+    track_cleanup: Callable[[Callable[[], None]], None],
+    logger: logging.Logger,
+) -> list[RuntimeController]:
+    """Start non-entity runtime controllers from enabled feature modules."""
+    enabled_features = {str(feature) for feature in data.enabled_features}
+    started: list[RuntimeController] = []
+
+    for module in registry.modules():
+        if not module.is_enabled(data):
+            continue
+        missing = {feature.value for feature in module.depends_on()} - enabled_features
+        if missing:
+            logger.warning(
+                "Feature %s missing dependencies: %s",
+                module.id,
+                ", ".join(sorted(missing)),
+            )
+            continue
+        runtime_builder = getattr(module, "build_runtime_controllers", None)
+        if runtime_builder is None:
+            continue
+        controllers: list[RuntimeController] = runtime_builder(
+            area_config,
+            coordinator,
+            data,
+        )
+        for controller in controllers:
+            await controller.async_start()
+            track_cleanup(controller.cleanup)
+            started.append(controller)
+    return started
 
 
 def _custom_control_group_label_surfaces(
@@ -227,6 +278,7 @@ async def async_setup_feature_platform(
 
 __all__ = [
     "async_setup_feature_platform",
+    "async_start_feature_runtime_controllers",
     "collect_feature_entities",
     "collect_feature_managed_adaptive_lighting_configs",
     "collect_feature_managed_surfaces",

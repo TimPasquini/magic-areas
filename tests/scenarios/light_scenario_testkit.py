@@ -44,6 +44,9 @@ LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY = "advisory"
 class ScenarioLightGroup(Protocol):
     """Runtime surface used by scenario tests to emit area-state transitions."""
 
+    category: str
+    _attr_extra_state_attributes: dict[str, object]
+
     def area_state_changed(
         self,
         area_id: str,
@@ -107,9 +110,9 @@ class OneRoomLightScenario:
 
     @property
     def light_group_entity_id(self) -> str:
-        """Return the policy light-group entity id."""
+        """Return the native helper light-group entity id."""
         return (
-            f"{LIGHT_DOMAIN}.magic_areas_light_groups_"
+            f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_"
             f"{DEFAULT_MOCK_AREA}_overhead_lights"
         )
 
@@ -127,19 +130,19 @@ class OneRoomLightScenario:
 
     def adaptive_guards(self) -> dict[str, object]:
         """Return the latest adaptive guard diagnostics from the light group."""
-        light_group = self.light_group_state()
-        if light_group is None:
-            return {}
-        guards = light_group.attributes.get("adaptive_guards", {})
+        guards = self.light_group_entity()._attr_extra_state_attributes.get(
+            "adaptive_guards",
+            {},
+        )
         return dict(guards) if isinstance(guards, dict) else {}
 
     def light_group_entity(self) -> ScenarioLightGroup:
-        """Return the loaded Magic Areas policy light-group entity."""
-        target_group = self.hass.data["entity_components"][LIGHT_DOMAIN].get_entity(
-            self.light_group_entity_id
-        )
-        assert target_group is not None
-        return cast(ScenarioLightGroup, target_group)
+        """Return the loaded Magic Areas non-entity light-group runtime."""
+        controllers = self.config_entry.runtime_data.runtime_controllers or []
+        for controller in controllers:
+            if getattr(controller, "category", None) == "overhead_lights":
+                return cast(ScenarioLightGroup, controller)
+        raise AssertionError("overhead_lights runtime controller not found")
 
     async def enable_light_control(self) -> None:
         """Enable Magic Areas automatic light control for the room."""
@@ -202,6 +205,8 @@ class OneRoomLightScenario:
         """Capture current room state for assertion diagnostics."""
         area_state = self.hass.states.get(self.area_state_entity_id)
         light_group = self.hass.states.get(self.light_group_entity_id)
+        light_runtime = self.light_group_entity()
+        runtime_attrs = light_runtime._attr_extra_state_attributes
         occupancy = self.hass.states.get(self.occupancy_entity_id)
         inside_bright = self.hass.states.get(self.inside_bright_entity_id)
         control_switch = self.hass.states.get(self.light_control_entity_id)
@@ -219,13 +224,13 @@ class OneRoomLightScenario:
             light_group=light_group.state if light_group else None,
             target_light=target_light.state if target_light else None,
             controlling=(
-                bool(light_group.attributes["controlling"])
-                if light_group and "controlling" in light_group.attributes
+                bool(runtime_attrs["controlling"])
+                if "controlling" in runtime_attrs
                 else None
             ),
             last_policy_reason=(
-                str(light_group.attributes["last_policy_reason"])
-                if light_group and "last_policy_reason" in light_group.attributes
+                str(runtime_attrs["last_policy_reason"])
+                if "last_policy_reason" in runtime_attrs
                 else None
             ),
         )
