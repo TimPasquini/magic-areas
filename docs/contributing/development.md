@@ -21,31 +21,31 @@ uv sync --extra dev --extra test
 Run these before committing:
 
 ```bash
-uv run ruff check custom_components/magic_areas tests
-uv run mypy custom_components/magic_areas tests
-uv run pytest tests -q
+uv run --extra dev ruff check custom_components/magic_areas tests
+uv run --extra test mypy custom_components/magic_areas tests
+uv run --extra test pytest tests -q
 ```
 
 Optional formatting check:
 
 ```bash
-uv run ruff format --check custom_components/magic_areas tests
+uv run --extra dev ruff format --check custom_components/magic_areas tests
 ```
 
 ## Common test commands
 
 ```bash
 # Full suite
-uv run pytest tests -q
+uv run --extra test pytest tests -q
 
 # Single test file
-uv run pytest tests/unit/test_control_group_executor.py -q
+uv run --extra test pytest tests/unit/test_control_group_executor.py -q
 
 # Snapshot updates (when intentionally changing snapshots)
-uv run pytest tests/snapshots --snapshot-update
+uv run --extra test pytest tests/snapshots --snapshot-update
 
 # Slowest tests
-uv run pytest tests --durations=10
+uv run --extra test pytest tests --durations=10
 ```
 
 ## Working in Home Assistant locally

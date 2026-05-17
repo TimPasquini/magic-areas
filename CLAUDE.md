@@ -33,9 +33,9 @@ For current implementation state, use:
 Run these before commit:
 
 ```bash
-uv run ruff check custom_components/magic_areas tests
-uv run mypy custom_components/magic_areas tests
-uv run pytest tests -q
+uv run --extra dev ruff check custom_components/magic_areas tests
+uv run --extra test mypy custom_components/magic_areas tests
+uv run --extra test pytest tests -q
 ```
 
 Useful focused commands:

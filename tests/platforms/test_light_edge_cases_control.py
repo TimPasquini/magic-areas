@@ -21,8 +21,6 @@ from tests.helpers import (
 from tests.mocks import MockLight
 from tests.platforms.light_edge_cases_testkit import get_light_group_runtime
 
-pytest_plugins = ("tests.platforms.light_edge_cases_testkit",)
-
 
 async def test_manual_control_detection(
     hass: HomeAssistant,

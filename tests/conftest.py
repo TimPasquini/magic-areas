@@ -50,6 +50,8 @@ from tests.mocks import MockBinarySensor, MockLight
 
 _LOGGER = logging.getLogger(__name__)
 
+pytest_plugins = ("tests.platforms.light_edge_cases_testkit",)
+
 # ============================================================================
 # CORE FIXTURES - Applied automatically to all tests
 # ============================================================================
