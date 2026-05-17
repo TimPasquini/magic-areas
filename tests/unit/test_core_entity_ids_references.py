@@ -11,7 +11,7 @@ from tests.unit.core_entity_ids_testkit import make_registry
 
 def test_build_reference_specs_contains_all_reference_fields() -> None:
     specs = _build_reference_specs("kitchen")
-    assert len(specs) == 13
+    assert len(specs) == 14
     assert {spec.field_name for spec in specs} == {
         "area_state_sensor",
         "presence_hold_switch",
@@ -22,6 +22,7 @@ def test_build_reference_specs_contains_all_reference_fields() -> None:
         "media_player_control_switch",
         "climate_control_switch",
         "cover_group",
+        "cover_control_switch",
         "wasp_in_a_box_sensor",
         "ble_tracker_monitor",
         "threshold_sensor",
@@ -162,9 +163,19 @@ def test_build_entity_references_cover_groups() -> None:
                 "magic_areas",
                 "cover_groups_kitchen_cover_group",
             ),
+            (
+                "switch.magic_areas_cover_groups_kitchen_cover_control",
+                "switch",
+                "magic_areas",
+                "cover_groups_kitchen_cover_control",
+            ),
         ),
     )
     assert refs.cover_group == "cover.magic_areas_cover_groups_kitchen_cover_group"
+    assert (
+        refs.cover_control_switch
+        == "switch.magic_areas_cover_groups_kitchen_cover_control"
+    )
 
 
 def test_build_entity_references_wasp_in_a_box() -> None:
@@ -334,6 +345,12 @@ def test_build_entity_references_comprehensive() -> None:
                 "magic_areas",
                 "cover_groups_kitchen_cover_group",
             ),
+            (
+                "switch.magic_areas_cover_groups_kitchen_cover_control",
+                "switch",
+                "magic_areas",
+                "cover_groups_kitchen_cover_control",
+            ),
         ),
     )
     assert (
@@ -357,6 +374,10 @@ def test_build_entity_references_comprehensive() -> None:
     )
     assert refs.climate_control_switch == "switch.magic_areas_climate_control_kitchen"
     assert refs.cover_group == "cover.magic_areas_cover_groups_kitchen_cover_group"
+    assert (
+        refs.cover_control_switch
+        == "switch.magic_areas_cover_groups_kitchen_cover_control"
+    )
     assert refs.wasp_in_a_box_sensor == "binary_sensor.magic_areas_wasp_in_a_box_kitchen"
     assert (
         refs.ble_tracker_monitor

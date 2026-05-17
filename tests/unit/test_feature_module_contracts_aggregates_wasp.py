@@ -25,15 +25,11 @@ from custom_components.magic_areas.core.runtime_model import (
     ManagedSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.sensor import (
-    create_aggregate_sensors_from_definitions as create_sensor_aggregates,
-)
 from custom_components.magic_areas.binary_sensor import (
     create_wasp_in_a_box_sensor,
 )
 
 from .feature_module_contracts_testkit import (
-    build_aggregate_definitions,
     get_module,
     make_area_config,
     make_coordinator,
@@ -193,18 +189,9 @@ def test_aggregates_module_respects_min_entities_config() -> None:
         entities=entities_by_domain,
     )
     coordinator = make_coordinator(snapshot)
-    definitions = build_aggregate_definitions(snapshot)
-
-    legacy_entities = create_sensor_aggregates(
-        definitions=definitions,
-        area_config=area_config,
-        coordinator=coordinator,
-    )
-
     module = get_module("aggregates")
     module_entities = module.build_entities(area_config, coordinator, snapshot)
 
-    assert legacy_entities == []
     assert module_entities == []
     assert module.desired_managed_surfaces(area_config, snapshot) == []
 

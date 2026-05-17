@@ -22,6 +22,7 @@ from custom_components.magic_areas.switch.base import ResettableSwitchBase
 from custom_components.magic_areas.switch.climate_control import (  # noqa: F401
     ClimateControlSwitch,
 )
+from custom_components.magic_areas.switch.cover_control import CoverControlSwitch  # noqa: F401
 from custom_components.magic_areas.switch.fan_control import FanControlSwitch  # noqa: F401
 from custom_components.magic_areas.switch.media_player_control import (  # noqa: F401
     MediaPlayerControlSwitch,
@@ -37,6 +38,7 @@ PARALLEL_UPDATES = 0
 
 __all__ = [
     "ClimateControlSwitch",
+    "CoverControlSwitch",
     "FanControlSwitch",
     "LightControlSwitch",
     "MediaPlayerControlSwitch",

@@ -9,11 +9,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.magic_areas.area_state import AreaType
-from custom_components.magic_areas.core.aggregates import (
-    AggregateDefinition,
-    AggregatePolicyContext,
-    build_default_aggregate_selection_policy,
-)
 from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.enums import MagicAreasFeatures
@@ -122,18 +117,6 @@ def get_module(feature_name: str) -> FeatureModule:
     if not _is_feature_module(module):  # pragma: no cover
         pytest.fail(f"{class_name} does not implement FeatureModule contract")
     return module
-
-
-def build_aggregate_definitions(snapshot: MagicMock) -> list[AggregateDefinition]:
-    """Build aggregate definitions from snapshot using default policy."""
-    policy = build_default_aggregate_selection_policy()
-    return policy.aggregate_definitions(
-        AggregatePolicyContext(
-            entities_by_domain=snapshot.entities,
-            feature_configs=snapshot.feature_configs,
-            enabled_features=snapshot.enabled_features,
-        )
-    )
 
 
 def group_ids_for_area(snapshot: MagicMock, area_id: str) -> set[str]:

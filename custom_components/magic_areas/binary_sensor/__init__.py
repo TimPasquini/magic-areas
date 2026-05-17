@@ -11,7 +11,6 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.magic_areas.binary_sensor.aggregate_factory import (
-    create_aggregate_sensors_from_definitions,
     create_ble_tracker_sensor,
     create_wasp_in_a_box_sensor,
 )
@@ -61,7 +60,6 @@ def _build_platform_base_entities(
 
 
 __all__ = [
-    "create_aggregate_sensors_from_definitions",
     "create_ble_tracker_sensor",
     "create_wasp_in_a_box_sensor",
 ]

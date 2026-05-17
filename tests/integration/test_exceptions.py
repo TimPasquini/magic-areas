@@ -54,10 +54,6 @@ async def test_binary_sensor_setup_exceptions(
     # Patch the classes to raise exceptions
     with (
         patch(
-            "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaAggregateBinarySensor",
-            side_effect=RuntimeError("Aggregate Error"),
-        ),
-        patch(
             "custom_components.magic_areas.binary_sensor.aggregate_factory.AreaWaspInABoxBinarySensor",
             side_effect=RuntimeError("Wasp Error"),
         ),

@@ -14,6 +14,7 @@ class ControlGroupPolicyId(StrEnum):
     FAN_GROUPS = "fan_groups"
     CLIMATE_CONTROL = "climate_control"
     MEDIA_PLAYER_GROUPS = "media_player_groups"
+    COVER_GROUPS = "cover_groups"
     AGGREGATE = "aggregate"
     CUSTOM_CONTROL_GROUP = "custom_control_group"
 

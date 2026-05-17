@@ -180,7 +180,7 @@ def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
 
 
 def test_cover_groups_module_builds_device_class_groups() -> None:
-    """Cover groups module should declare native helper surfaces per device class."""
+    """Cover groups module should build a control switch and native helper surfaces."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.COVER_GROUPS},
@@ -198,12 +198,42 @@ def test_cover_groups_module_builds_device_class_groups() -> None:
     entities = module.build_entities(area_config, coordinator, snapshot)
     surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
-    assert entities == []
+    assert [entity.entity_id for entity in entities] == [
+        "switch.magic_areas_cover_groups_kitchen_cover_control"
+    ]
     helper_surfaces = _helper_surfaces(surfaces)
     assert sorted(surface.title for surface in helper_surfaces) == [
         "Magic Areas Cover Groups Kitchen Cover Group",
         "Magic Areas Cover Groups Kitchen Cover Group Blind",
     ]
+
+
+def test_cover_groups_module_registers_default_control_groups() -> None:
+    """Cover module should register area-scoped control-group definitions."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.COVER_GROUPS},
+        feature_configs={},
+        entities={
+            COVER_DOMAIN: [
+                {"entity_id": "cover.blind_1", "device_class": "blind"},
+                {"entity_id": "cover.other_1", "device_class": None},
+            ]
+        },
+    )
+    coordinator = make_coordinator(snapshot)
+    module = get_module("cover_groups")
+
+    module.build_entities(area_config, coordinator, snapshot)
+
+    group_ids = {
+        group.definition.group_id
+        for group in snapshot.group_registry.get_for_area(area_config.id)
+    }
+    assert group_ids == {
+        "magic_areas:entry-1:area-1:cover_groups:config_entry_helper:cover_group",
+        "magic_areas:entry-1:area-1:cover_groups:config_entry_helper:cover_group_blind",
+    }
 
 
 def test_presence_hold_module_builds_switch() -> None:

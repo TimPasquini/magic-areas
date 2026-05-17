@@ -15,6 +15,7 @@ from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_ble_tracker_monitor_unique_id,
     build_climate_control_switch_unique_id,
+    build_cover_control_switch_unique_id,
     build_cover_group_unique_id,
     build_fan_control_switch_unique_id,
     build_fan_group_id,
@@ -47,6 +48,7 @@ class EntityReferences:
     media_player_control_switch: str | None = None
     climate_control_switch: str | None = None
     cover_group: str | None = None
+    cover_control_switch: str | None = None
     wasp_in_a_box_sensor: str | None = None
     ble_tracker_monitor: str | None = None
     threshold_sensor: str | None = None
@@ -116,6 +118,11 @@ def _build_reference_specs(area_id: str) -> tuple[_ReferenceSpec, ...]:
             build_cover_group_unique_id(area_id=area_id),
         ),
         _ReferenceSpec(
+            "cover_control_switch",
+            SWITCH_DOMAIN,
+            build_cover_control_switch_unique_id(area_id=area_id),
+        ),
+        _ReferenceSpec(
             "wasp_in_a_box_sensor",
             BINARY_SENSOR_DOMAIN,
             build_wasp_sensor_unique_id(area_id=area_id),
@@ -152,6 +159,7 @@ def _shape_entity_references(
         media_player_control_switch=resolved_by_field.get("media_player_control_switch"),
         climate_control_switch=resolved_by_field.get("climate_control_switch"),
         cover_group=resolved_by_field.get("cover_group"),
+        cover_control_switch=resolved_by_field.get("cover_control_switch"),
         wasp_in_a_box_sensor=resolved_by_field.get("wasp_in_a_box_sensor"),
         ble_tracker_monitor=resolved_by_field.get("ble_tracker_monitor"),
         threshold_sensor=resolved_by_field.get("threshold_sensor"),

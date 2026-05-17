@@ -511,6 +511,9 @@
       },
       "fan_control": {
         "name": "Fan Control"
+      },
+      "cover_control": {
+        "name": "Cover Control"
       }
     }
   },

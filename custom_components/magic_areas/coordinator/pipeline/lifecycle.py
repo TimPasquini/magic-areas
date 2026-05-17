@@ -297,6 +297,7 @@ def _snapshot_entity_ids(snapshot: MagicAreasData) -> set[str]:
             snapshot.entity_references.media_player_control_switch,
             snapshot.entity_references.climate_control_switch,
             snapshot.entity_references.cover_group,
+            snapshot.entity_references.cover_control_switch,
             snapshot.entity_references.wasp_in_a_box_sensor,
             snapshot.entity_references.ble_tracker_monitor,
             snapshot.entity_references.threshold_sensor,

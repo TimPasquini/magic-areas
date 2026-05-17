@@ -45,6 +45,15 @@ def build_media_player_control_switch_unique_id(*, area_id: str) -> str:
     )
 
 
+def build_cover_control_switch_unique_id(*, area_id: str) -> str:
+    """Return unique_id for the cover control switch."""
+    return build_feature_unique_id(
+        feature_id="cover_groups",
+        area_id=area_id,
+        translation_key="cover_control",
+    )
+
+
 def build_climate_control_switch_unique_id(*, area_id: str) -> str:
     """Return unique_id for the climate-control switch."""
     return build_feature_unique_id(feature_id="climate_control", area_id=area_id)
@@ -107,4 +116,3 @@ def build_media_player_group_id(*, area_id: str) -> str:
     return (
         f"{ControlGroupPolicyId.MEDIA_PLAYER_GROUPS}_{area_id}_media_player_group"
     )
-

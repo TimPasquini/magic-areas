@@ -48,7 +48,11 @@ FEATURE_INFO_BY_FEATURE: dict[MagicAreasFeatures, FeatureInfo] = {
     ),
     MagicAreasFeatures.COVER_GROUPS: FeatureInfo(
         id=MagicAreasFeatures.COVER_GROUPS,
-        translation_keys={COVER_DOMAIN: "cover_group"},
+        translation_keys={
+            COVER_DOMAIN: "cover_group",
+            SWITCH_DOMAIN: "cover_control",
+        },
+        icons={SWITCH_DOMAIN: "mdi:blinds"},
     ),
     MagicAreasFeatures.FAN_GROUPS: FeatureInfo(
         id=MagicAreasFeatures.FAN_GROUPS,
