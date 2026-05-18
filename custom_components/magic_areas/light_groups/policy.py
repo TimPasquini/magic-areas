@@ -163,17 +163,70 @@ class LightGroupPolicy:
         if AreaStates.CLEAR in new_states:
             return self._decision(LightAction.NOOP, "area_clear", reset_control=True)
 
+        if not self.assigned_states:
+            return self._decision(LightAction.NOOP, "no_assigned_states")
+
+        if AreaStates.OCCUPIED not in current_state_set:
+            return self._decision(LightAction.NOOP, "not_occupied")
+
+        # Sleep is globally suppressive for regular light behaviors.
+        # Only groups explicitly assigned to SLEEP should remain active.
+        if (
+            AreaStates.SLEEP in current_state_set
+            and AreaStates.SLEEP not in self.assigned_states
+        ):
+            if AreaStates.SLEEP in new_states:
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "sleep_not_assigned",
+                    should_track_control=True,
+                )
+            return self._decision(LightAction.NOOP, "sleep_active_not_assigned")
+
+        # Accent is also suppressive for non-accent groups.
+        # Only groups explicitly assigned to ACCENT should remain active.
+        if (
+            AreaStates.ACCENT in current_state_set
+            and AreaStates.ACCENT not in self.assigned_states
+        ):
+            if AreaStates.ACCENT in new_states:
+                return self._decision(
+                    LightAction.TURN_OFF,
+                    "accent_not_assigned",
+                    should_track_control=True,
+                )
+            return self._decision(LightAction.NOOP, "accent_active_not_assigned")
+
         bright_active = (
             inside_bright_met
             if inside_bright_met is not None
             else (AreaStates.BRIGHT in current_state_set)
         )
-        if bright_active and AreaStates.BRIGHT not in self.assigned_states:
+        priority_active_and_assigned = (
+            (
+                AreaStates.SLEEP in current_state_set
+                and AreaStates.SLEEP in self.assigned_states
+            )
+            or (
+                AreaStates.ACCENT in current_state_set
+                and AreaStates.ACCENT in self.assigned_states
+            )
+        )
+        if (
+            bright_active
+            and AreaStates.BRIGHT not in self.assigned_states
+            and not priority_active_and_assigned
+        ):
             bright_transition = (
                 AreaStates.BRIGHT in new_states
                 and AreaStates.OCCUPIED not in new_states
             )
-            if bright_transition:
+            adaptive_recheck = (
+                self.brightness_mode == BrightnessMode.ADAPTIVE.value
+                and not new_states
+                and not lost_states
+            )
+            if bright_transition or adaptive_recheck:
                 if self.brightness_mode == BrightnessMode.ADVISORY.value:
                     return self._decision(LightAction.NOOP, "bright_advisory_ignore")
                 if self.brightness_mode == BrightnessMode.ADAPTIVE.value:
@@ -214,40 +267,6 @@ class LightGroupPolicy:
 
         if not new_states and not lost_states:
             return self._decision(LightAction.NOOP, "no_state_changes")
-
-        if not self.assigned_states:
-            return self._decision(LightAction.NOOP, "no_assigned_states")
-
-        if AreaStates.OCCUPIED not in current_state_set:
-            return self._decision(LightAction.NOOP, "not_occupied")
-
-        # Sleep is globally suppressive for regular light behaviors.
-        # Only groups explicitly assigned to SLEEP should remain active.
-        if (
-            AreaStates.SLEEP in current_state_set
-            and AreaStates.SLEEP not in self.assigned_states
-        ):
-            if AreaStates.SLEEP in new_states:
-                return self._decision(
-                    LightAction.TURN_OFF,
-                    "sleep_not_assigned",
-                    should_track_control=True,
-                )
-            return self._decision(LightAction.NOOP, "sleep_active_not_assigned")
-
-        # Accent is also suppressive for non-accent groups.
-        # Only groups explicitly assigned to ACCENT should remain active.
-        if (
-            AreaStates.ACCENT in current_state_set
-            and AreaStates.ACCENT not in self.assigned_states
-        ):
-            if AreaStates.ACCENT in new_states:
-                return self._decision(
-                    LightAction.TURN_OFF,
-                    "accent_not_assigned",
-                    should_track_control=True,
-                )
-            return self._decision(LightAction.NOOP, "accent_active_not_assigned")
 
         valid_states = [
             state for state in self.assigned_states if state in current_state_set

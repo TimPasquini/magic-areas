@@ -128,6 +128,63 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.TURN_OFF
         assert "bright_not_assigned" in decision.reason
 
+    def test_bright_adaptive_mode_allows_stable_recheck_after_guards_pass(self) -> None:
+        """Adaptive mode should turn off on a delayed stable bright recheck."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "bright_not_assigned" in decision.reason
+
+    def test_sleep_group_turns_on_even_when_room_is_bright(self) -> None:
+        """Sleep activation should not be blocked by bright-state gating."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.SLEEP],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="advisory",
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.SLEEP],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            inside_bright_met=True,
+        )
+        assert decision.action == LightAction.TURN_ON
+        assert "sleep" in decision.reason.lower()
+
+    def test_sleep_suppression_wins_before_bright_advisory_noop(self) -> None:
+        """Entering sleep should turn off non-sleep groups even when bright."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="advisory",
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.SLEEP],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            inside_bright_met=True,
+        )
+        assert decision.action == LightAction.TURN_OFF
+        assert "sleep_not_assigned" in decision.reason
+
     def test_bright_adaptive_mode_blocks_when_outside_context_not_ok(self) -> None:
         """Adaptive mode should not force off when outside context is blocked."""
         policy = LightGroupPolicy(

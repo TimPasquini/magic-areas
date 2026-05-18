@@ -20,7 +20,8 @@ SERVICE_TURN_OFF = "turn_off"
 SERVICE_TURN_ON = "turn_on"
 ADAPTIVE_LIGHTING_DOMAIN = "adaptive_lighting"
 SERVICE_SET_MANUAL_CONTROL = "set_manual_control"
-MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "Magic Areas"
+MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "MA"
+LEGACY_MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX = "Magic Areas"
 MANAGED_ADAPTIVE_LIGHTING_AREA_ID = "magic_areas_area_id"
 MANAGED_ADAPTIVE_LIGHTING_ROLE = "magic_areas_role"
 MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS = frozenset(
@@ -209,7 +210,10 @@ def is_managed_adaptive_lighting_entry(
     if not name:
         return False
     is_owned = (
-        name.startswith(f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} ")
+        (
+            name.startswith(f"{MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} ")
+            or name.startswith(f"{LEGACY_MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX} ")
+        )
         and entry.unique_id == name
         and entry.area_id is not None
         and entry.role is not None
@@ -640,6 +644,10 @@ def _adaptive_lighting_switch_parts(entity_id: str) -> tuple[str | None, str | N
         return None, None
 
     object_id = entity_id.removeprefix(f"{SWITCH_DOMAIN}.")
+    actual_parts = _actual_adaptive_lighting_switch_parts(object_id)
+    if actual_parts != (None, None):
+        return actual_parts
+
     prefix = f"{ADAPTIVE_LIGHTING_PREFIX}_"
     if not object_id.startswith(prefix):
         return None, None
@@ -657,6 +665,36 @@ def _adaptive_lighting_switch_parts(entity_id: str) -> tuple[str | None, str | N
     return (MAIN_SWITCH, suffix) if suffix else (None, None)
 
 
+def _actual_adaptive_lighting_switch_parts(
+    object_id: str,
+) -> tuple[str | None, str | None]:
+    """Return switch parts for AL's current generated entity-id pattern.
+
+    Adaptive Lighting composes object IDs from both the config-entry object ID and
+    each switch entity name. This yields IDs such as:
+    ``adaptive_lighting_<group>_adaptive_lighting_sleep_mode_<group>``.
+    """
+    for switch_type, marker in (
+        (SLEEP_SWITCH, f"_{ADAPTIVE_LIGHTING_PREFIX}_sleep_mode_"),
+        (ADAPT_BRIGHTNESS_SWITCH, f"_{ADAPTIVE_LIGHTING_PREFIX}_adapt_brightness_"),
+        (ADAPT_COLOR_SWITCH, f"_{ADAPTIVE_LIGHTING_PREFIX}_adapt_color_"),
+    ):
+        if marker not in object_id:
+            continue
+        prefix_slug, _, suffix_slug = object_id.partition(marker)
+        group_slug = prefix_slug.removeprefix(f"{ADAPTIVE_LIGHTING_PREFIX}_")
+        if group_slug and suffix_slug == group_slug:
+            return switch_type, group_slug
+
+    marker = f"_{ADAPTIVE_LIGHTING_PREFIX}_"
+    if marker not in object_id:
+        return None, None
+    prefix_slug, _, suffix_slug = object_id.partition(marker)
+    if prefix_slug and suffix_slug == prefix_slug:
+        return MAIN_SWITCH, prefix_slug
+    return None, None
+
+
 __all__ = [
     "ADAPT_BRIGHTNESS_SWITCH",
     "ADAPT_COLOR_SWITCH",
@@ -664,6 +702,7 @@ __all__ = [
     "ADAPTIVE_LIGHTING_DOMAIN",
     "MAIN_SWITCH",
     "MANAGED_ADAPTIVE_LIGHTING_AREA_ID",
+    "LEGACY_MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX",
     "MANAGED_ADAPTIVE_LIGHTING_NAME_PREFIX",
     "MANAGED_ADAPTIVE_LIGHTING_OWNED_DATA_KEYS",
     "MANAGED_ADAPTIVE_LIGHTING_OWNED_OPTION_KEYS",

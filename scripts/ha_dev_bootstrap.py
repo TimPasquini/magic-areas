@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Bootstrap the Magic Areas Home Assistant dev instance via HA's websocket API."""
+# ruff: noqa: D102,D105,D107,T201,TRY004
 
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
-import os
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -21,6 +20,8 @@ except ImportError as err:  # pragma: no cover - handled by shell wrapper.
     raise SystemExit(
         "Missing dependency 'websockets'. Run through ./scripts/ha_dev_bootstrap.sh."
     ) from err
+
+from ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
 
 DEFAULT_URL = "ws://localhost:8123/api/websocket"
 DEFAULT_HTTP_URL = "http://localhost:8123"
@@ -53,32 +54,304 @@ class DevMagicArea:
     options_steps: tuple[OptionsStep, ...] = ()
 
 
-DEV_AREAS: tuple[DevArea, ...] = (
-    DevArea(
-        name="Living Room",
-        aliases=("living_room", "Living room"),
-        entity_ids=(
-            "binary_sensor.living_room_occupancy",
-            "binary_sensor.living_room_sleep",
-            "binary_sensor.living_room_accent",
-            "binary_sensor.living_room_light",
-            "sensor.living_room_illuminance",
-            "light.living_room_overhead",
-            "light.living_room_lamp",
-        ),
-    ),
-    DevArea(
+@dataclass(frozen=True, slots=True)
+class DevRoom:
+    """One room in the fake-house control matrix."""
+
+    name: str
+    slug: str
+    brightness_mode: str = "inhibit"
+    dark_entity: str | None = None
+    adaptive_lighting_mode: str = "ignore"
+    adaptive_lighting_manage_all: bool = False
+    adaptive_lighting_managed_roles: tuple[str, ...] = ()
+    outside_context_source: str = "sun"
+    outside_bright_entity: str | None = None
+    outside_lux_min: int = 0
+    outside_lux_inside_delta: int = 0
+    outside_lux_inside_ratio_min_percent: int = 0
+    adaptive_require_ambient_rise: bool = False
+    ambient_rise_window_seconds: int = 120
+    ambient_rise_min_delta: int = 20
+    bright_min_on_seconds: int = 0
+    bright_dwell_seconds: int = 0
+    bright_attribution_hold_seconds: int = 0
+    initial_lux: int = 350
+    second_light_slug: str = "lamp"
+    second_light_label: str = "lamp"
+    include_accent: bool = True
+
+    @property
+    def occupancy_entity(self) -> str:
+        return f"binary_sensor.{self.slug}_occupancy"
+
+    @property
+    def sleep_entity(self) -> str:
+        return f"binary_sensor.{self.slug}_sleep"
+
+    @property
+    def accent_entity(self) -> str:
+        return f"binary_sensor.{self.slug}_accent" if self.include_accent else ""
+
+    @property
+    def light_entity(self) -> str:
+        return f"binary_sensor.{self.slug}_light"
+
+    @property
+    def illuminance_entity(self) -> str:
+        return f"sensor.{self.slug}_illuminance"
+
+    @property
+    def overhead_light(self) -> str:
+        return f"light.{self.slug}_overhead"
+
+    @property
+    def second_light(self) -> str:
+        return f"light.{self.slug}_{self.second_light_slug}"
+
+    @property
+    def resolved_dark_entity(self) -> str:
+        return self.dark_entity or self.light_entity
+
+
+DEV_ROOMS: tuple[DevRoom, ...] = (
+    DevRoom(name="Living Room", slug="living_room"),
+    DevRoom(
         name="Bathroom",
-        aliases=("bathroom",),
-        entity_ids=(
-            "binary_sensor.bathroom_occupancy",
-            "binary_sensor.bathroom_sleep",
-            "binary_sensor.bathroom_light",
-            "sensor.bathroom_illuminance",
-            "light.bathroom_overhead",
-            "light.bathroom_sleep_light",
-        ),
+        slug="bathroom",
+        initial_lux=120,
+        second_light_slug="sleep_light",
+        second_light_label="sleep_light",
+        include_accent=False,
     ),
+    DevRoom(
+        name="Classic Sun Room",
+        slug="classic_sun_room",
+        dark_entity="sun.sun",
+    ),
+    DevRoom(name="Classic Sensor Room", slug="classic_sensor_room"),
+    DevRoom(
+        name="Advisory Sun Room",
+        slug="advisory_sun_room",
+        brightness_mode="advisory",
+        dark_entity="sun.sun",
+    ),
+    DevRoom(
+        name="Advisory Sensor Room",
+        slug="advisory_sensor_room",
+        brightness_mode="advisory",
+    ),
+    DevRoom(
+        name="Adaptive Sun Room",
+        slug="adaptive_sun_room",
+        brightness_mode="adaptive",
+        bright_min_on_seconds=2,
+        bright_dwell_seconds=2,
+        bright_attribution_hold_seconds=2,
+    ),
+    DevRoom(
+        name="Adaptive Binary Room",
+        slug="adaptive_binary_room",
+        brightness_mode="adaptive",
+        outside_bright_entity="binary_sensor.outdoor_bright",
+        bright_min_on_seconds=2,
+        bright_dwell_seconds=2,
+        bright_attribution_hold_seconds=2,
+    ),
+    DevRoom(
+        name="Adaptive Lux Room",
+        slug="adaptive_lux_room",
+        brightness_mode="adaptive",
+        outside_context_source="outside_lux",
+        outside_lux_min=5000,
+        outside_lux_inside_delta=500,
+        outside_lux_inside_ratio_min_percent=150,
+        bright_min_on_seconds=2,
+        bright_dwell_seconds=2,
+        bright_attribution_hold_seconds=2,
+    ),
+    DevRoom(
+        name="Adaptive Ambient Room",
+        slug="adaptive_ambient_room",
+        brightness_mode="adaptive",
+        adaptive_require_ambient_rise=True,
+        ambient_rise_window_seconds=60,
+        ambient_rise_min_delta=100,
+        bright_min_on_seconds=2,
+        bright_dwell_seconds=2,
+        bright_attribution_hold_seconds=2,
+    ),
+    DevRoom(
+        name="Adaptive Lighting Room",
+        slug="adaptive_lighting_room",
+        brightness_mode="advisory",
+        adaptive_lighting_mode="manage",
+        adaptive_lighting_manage_all=True,
+        adaptive_lighting_managed_roles=("overhead_lights", "sleep_lights"),
+    ),
+)
+
+
+def _room_dev_area(room: DevRoom) -> DevArea:
+    """Build the HA area/entity assignment for one fake room."""
+    return DevArea(
+        name=room.name,
+        aliases=(room.slug,),
+        entity_ids=(
+            room.occupancy_entity,
+            room.sleep_entity,
+            room.light_entity,
+            room.illuminance_entity,
+            room.overhead_light,
+            room.second_light,
+            *(() if not room.include_accent else (room.accent_entity,)),
+        ),
+    )
+
+
+def _light_group_mode_options(room: DevRoom) -> dict[str, object]:
+    """Return the first-pass options needed to reveal mode-specific fields."""
+    return {
+        "brightness_mode": room.brightness_mode,
+        "adaptive_lighting_mode": room.adaptive_lighting_mode,
+        "overhead_lights": [room.overhead_light],
+        "overhead_lights_states": ["occupied"],
+        "overhead_lights_act_on": ["occupancy", "state"],
+        "sleep_lights": [room.second_light],
+        "sleep_lights_states": ["sleep"],
+        "sleep_lights_act_on": ["occupancy", "state"],
+        "accent_lights": [room.second_light] if room.include_accent else [],
+        "accent_lights_states": ["accented"] if room.include_accent else [],
+        "accent_lights_act_on": ["occupancy", "state"],
+        "task_lights": [],
+        "task_lights_states": [],
+        "task_lights_act_on": ["occupancy", "state"],
+    }
+
+
+def _needs_light_group_second_pass(room: DevRoom) -> bool:
+    """Return whether mode-specific fields require a second options pass."""
+    return room.brightness_mode != "inhibit" or room.adaptive_lighting_mode != "ignore"
+
+
+def _light_group_options(room: DevRoom) -> dict[str, object]:
+    """Return light-group options for one dev room."""
+    options: dict[str, object] = {
+        "brightness_mode": room.brightness_mode,
+        "adaptive_lighting_mode": room.adaptive_lighting_mode,
+        "overhead_lights": [room.overhead_light],
+        "overhead_lights_states": ["occupied"],
+        "overhead_lights_act_on": ["occupancy", "state"],
+        "sleep_lights": [room.second_light],
+        "sleep_lights_states": ["sleep"],
+        "sleep_lights_act_on": ["occupancy", "state"],
+        "accent_lights": [room.second_light] if room.include_accent else [],
+        "accent_lights_states": ["accented"] if room.include_accent else [],
+        "accent_lights_act_on": ["occupancy", "state"],
+        "task_lights": [],
+        "task_lights_states": [],
+        "task_lights_act_on": ["occupancy", "state"],
+    }
+    if room.brightness_mode in {"advisory", "adaptive"}:
+        options["inside_bright_entity"] = room.light_entity
+        if room.outside_bright_entity:
+            options["outside_bright_entity"] = room.outside_bright_entity
+    if room.brightness_mode == "adaptive":
+        options.update(
+            {
+                "bright_min_on_seconds": room.bright_min_on_seconds,
+                "bright_dwell_seconds": room.bright_dwell_seconds,
+                "outside_context_source": room.outside_context_source,
+                "outside_lux_entity": "sensor.outdoor_illuminance",
+                "outside_lux_min": room.outside_lux_min,
+                "outside_lux_inside_entity": room.illuminance_entity,
+                "outside_lux_inside_delta": room.outside_lux_inside_delta,
+                "outside_lux_inside_ratio_min_percent": (
+                    room.outside_lux_inside_ratio_min_percent
+                ),
+                "bright_attribution_hold_seconds": (
+                    room.bright_attribution_hold_seconds
+                ),
+                "adaptive_require_ambient_rise": room.adaptive_require_ambient_rise,
+                "ambient_rise_window_seconds": room.ambient_rise_window_seconds,
+                "ambient_rise_min_delta": room.ambient_rise_min_delta,
+            }
+        )
+    if room.adaptive_lighting_mode == "manage":
+        options.update(
+            {
+                "adaptive_lighting_manage_all_lights": room.adaptive_lighting_manage_all,
+                "adaptive_lighting_managed_roles": list(
+                    room.adaptive_lighting_managed_roles
+                ),
+            }
+        )
+    return options
+
+
+def _room_magic_area(room: DevRoom) -> DevMagicArea:
+    """Build the Magic Areas config/options flow plan for one fake room."""
+    return DevMagicArea(
+        name=room.name,
+        options_steps=(
+            OptionsStep(
+                step_id="area_config",
+                user_input={
+                    "type": "interior",
+                    "include_entities": [],
+                    "exclude_entities": [],
+                    "reload_on_registry_change": True,
+                    "ignore_diagnostic_entities": True,
+                },
+            ),
+            OptionsStep(
+                step_id="presence_tracking",
+                user_input={
+                    "presence_device_platforms": ["binary_sensor"],
+                    "presence_sensor_device_class": ["motion", "occupancy", "presence"],
+                    "keep_only_entities": [],
+                    "clear_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="secondary_states",
+                user_input={
+                    "dark_entity": room.resolved_dark_entity,
+                    "sleep_entity": room.sleep_entity,
+                    "accent_entity": room.accent_entity,
+                    "sleep_timeout": 1,
+                    "extended_time": 1,
+                    "extended_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="select_features",
+                user_input={"light_groups": True, "presence_hold": True},
+            ),
+            *(
+                (
+                    OptionsStep(
+                        step_id="feature_conf_light_groups",
+                        user_input=_light_group_mode_options(room),
+                    ),
+                )
+                if _needs_light_group_second_pass(room)
+                else ()
+            ),
+            OptionsStep(
+                step_id="feature_conf_light_groups",
+                user_input=_light_group_options(room),
+            ),
+            OptionsStep(
+                step_id="feature_conf_presence_hold",
+                user_input={"presence_hold_timeout": 0},
+            ),
+        ),
+    )
+
+
+DEV_AREAS: tuple[DevArea, ...] = (
+    *(_room_dev_area(room) for room in DEV_ROOMS),
     DevArea(
         name="Outdoor Test",
         aliases=("outdoor_test",),
@@ -90,172 +363,64 @@ DEV_AREAS: tuple[DevArea, ...] = (
 )
 
 DEV_MAGIC_AREAS: tuple[DevMagicArea, ...] = (
-    DevMagicArea(
-        name="Living Room",
-        options_steps=(
-            OptionsStep(
-                step_id="area_config",
-                user_input={
-                    "type": "interior",
-                    "include_entities": [],
-                    "exclude_entities": [],
-                    "reload_on_registry_change": True,
-                    "ignore_diagnostic_entities": True,
-                },
-            ),
-            OptionsStep(
-                step_id="presence_tracking",
-                user_input={
-                    "presence_device_platforms": ["binary_sensor"],
-                    "presence_sensor_device_class": ["motion", "occupancy", "presence"],
-                    "keep_only_entities": [],
-                    "clear_timeout": 1,
-                },
-            ),
-            OptionsStep(
-                step_id="secondary_states",
-                user_input={
-                    "dark_entity": "binary_sensor.living_room_light",
-                    "sleep_entity": "binary_sensor.living_room_sleep",
-                    "accent_entity": "binary_sensor.living_room_accent",
-                    "sleep_timeout": 1,
-                    "extended_time": 5,
-                    "extended_timeout": 10,
-                },
-            ),
-            OptionsStep(
-                step_id="select_features",
-                user_input={"light_groups": True, "presence_hold": True},
-            ),
-            OptionsStep(
-                step_id="feature_conf_light_groups",
-                user_input={
-                    "brightness_mode": "inhibit",
-                    "adaptive_lighting_mode": "ignore",
-                    "overhead_lights": ["light.living_room_overhead"],
-                    "overhead_lights_states": ["occupied"],
-                    "overhead_lights_act_on": ["occupancy", "state"],
-                    "sleep_lights": ["light.living_room_lamp"],
-                    "sleep_lights_states": ["sleep"],
-                    "sleep_lights_act_on": ["occupancy", "state"],
-                    "accent_lights": ["light.living_room_lamp"],
-                    "accent_lights_states": ["accented"],
-                    "accent_lights_act_on": ["occupancy", "state"],
-                    "task_lights": [],
-                    "task_lights_states": [],
-                    "task_lights_act_on": ["occupancy", "state"],
-                },
-            ),
-            OptionsStep(
-                step_id="feature_conf_presence_hold",
-                user_input={"presence_hold_timeout": 0},
-            ),
-        ),
-    ),
-    DevMagicArea(
-        name="Bathroom",
-        options_steps=(
-            OptionsStep(
-                step_id="area_config",
-                user_input={
-                    "type": "interior",
-                    "include_entities": [],
-                    "exclude_entities": [],
-                    "reload_on_registry_change": True,
-                    "ignore_diagnostic_entities": True,
-                },
-            ),
-            OptionsStep(
-                step_id="presence_tracking",
-                user_input={
-                    "presence_device_platforms": ["binary_sensor"],
-                    "presence_sensor_device_class": ["motion", "occupancy", "presence"],
-                    "keep_only_entities": [],
-                    "clear_timeout": 1,
-                },
-            ),
-            OptionsStep(
-                step_id="secondary_states",
-                user_input={
-                    "dark_entity": "binary_sensor.bathroom_light",
-                    "sleep_entity": "binary_sensor.bathroom_sleep",
-                    "accent_entity": "",
-                    "sleep_timeout": 1,
-                    "extended_time": 5,
-                    "extended_timeout": 10,
-                },
-            ),
-            OptionsStep(
-                step_id="select_features",
-                user_input={"light_groups": True, "presence_hold": True},
-            ),
-            OptionsStep(
-                step_id="feature_conf_light_groups",
-                user_input={
-                    "brightness_mode": "inhibit",
-                    "adaptive_lighting_mode": "ignore",
-                    "overhead_lights": ["light.bathroom_overhead"],
-                    "overhead_lights_states": ["occupied"],
-                    "overhead_lights_act_on": ["occupancy", "state"],
-                    "sleep_lights": ["light.bathroom_sleep_light"],
-                    "sleep_lights_states": ["sleep"],
-                    "sleep_lights_act_on": ["occupancy", "state"],
-                    "accent_lights": [],
-                    "accent_lights_states": [],
-                    "accent_lights_act_on": ["occupancy", "state"],
-                    "task_lights": [],
-                    "task_lights_states": [],
-                    "task_lights_act_on": ["occupancy", "state"],
-                },
-            ),
-            OptionsStep(
-                step_id="feature_conf_presence_hold",
-                user_input={"presence_hold_timeout": 0},
-            ),
-        ),
-    ),
+    *(_room_magic_area(room) for room in DEV_ROOMS),
     DevMagicArea(name="Interior", flow_name="(Meta) Interior"),
     DevMagicArea(name="Exterior", flow_name="(Meta) Exterior"),
     DevMagicArea(name="Global", flow_name="(Meta) Global"),
 )
 
-INITIAL_SERVICE_CALLS: tuple[dict[str, Any], ...] = (
-    {
-        "domain": "input_boolean",
-        "service": "turn_off",
-        "target": {
-            "entity_id": [
-                "input_boolean.living_room_occupancy",
-                "input_boolean.living_room_sleep",
-                "input_boolean.living_room_accent",
-                "input_boolean.living_room_overhead_power",
-                "input_boolean.living_room_lamp_power",
-                "input_boolean.bathroom_occupancy",
-                "input_boolean.bathroom_sleep",
-                "input_boolean.bathroom_overhead_power",
-                "input_boolean.bathroom_sleep_light_power",
+
+def _initial_boolean_entities() -> list[str]:
+    """Return fake input booleans that should reset to off."""
+    entities: list[str] = []
+    for room in DEV_ROOMS:
+        entities.extend(
+            [
+                f"input_boolean.{room.slug}_occupancy",
+                f"input_boolean.{room.slug}_sleep",
+                f"input_boolean.{room.slug}_accent",
+                f"input_boolean.{room.slug}_overhead_power",
+                (
+                    f"input_boolean.{room.slug}_sleep_light_power"
+                    if room.second_light_slug == "sleep_light"
+                    else f"input_boolean.{room.slug}_lamp_power"
+                ),
             ]
-        },
-    },
-    {
-        "domain": "input_number",
-        "service": "set_value",
-        "target": {"entity_id": "input_number.living_room_lux"},
-        "service_data": {"value": 350},
-    },
-    {
-        "domain": "input_number",
-        "service": "set_value",
-        "target": {"entity_id": "input_number.bathroom_lux"},
-        "service_data": {"value": 120},
-    },
-    {
-        "domain": "input_number",
-        "service": "set_value",
-        "target": {"entity_id": "input_number.outdoor_lux"},
-        "service_data": {"value": 12000},
-    },
-)
+        )
+    return entities
+
+
+def _initial_service_calls() -> tuple[dict[str, Any], ...]:
+    """Return deterministic fake-house reset service calls."""
+    calls: list[dict[str, Any]] = [
+        {
+            "domain": "input_boolean",
+            "service": "turn_off",
+            "target": {"entity_id": _initial_boolean_entities()},
+        }
+    ]
+    calls.extend(
+        {
+            "domain": "input_number",
+            "service": "set_value",
+            "target": {"entity_id": f"input_number.{room.slug}_lux"},
+            "service_data": {"value": room.initial_lux},
+        }
+        for room in DEV_ROOMS
+    )
+    calls.append(
+        {
+            "domain": "input_number",
+            "service": "set_value",
+            "target": {"entity_id": "input_number.outdoor_lux"},
+            "service_data": {"value": 12000},
+        }
+    )
+    return tuple(calls)
+
+
+INITIAL_SERVICE_CALLS: tuple[dict[str, Any], ...] = _initial_service_calls()
+
 
 
 class HomeAssistantWs:
@@ -265,10 +430,11 @@ class HomeAssistantWs:
         self.url = url
         self.token = token
         self._next_id = 1
+        self._call_lock = asyncio.Lock()
         self._ws: Any = None
 
     async def __aenter__(self) -> HomeAssistantWs:
-        self._ws = await websockets.connect(self.url)
+        self._ws = await websockets.connect(self.url, open_timeout=10)
         auth_required = json.loads(await self._ws.recv())
         if auth_required.get("type") != "auth_required":
             raise RuntimeError(f"Unexpected websocket greeting: {auth_required}")
@@ -286,16 +452,19 @@ class HomeAssistantWs:
         """Send one websocket command and return its result."""
         if self._ws is None:
             raise RuntimeError("websocket is not connected")
-        msg_id = self._next_id
-        self._next_id += 1
-        await self._ws.send(json.dumps({"id": msg_id, "type": msg_type, **payload}))
-        while True:
-            raw = json.loads(await self._ws.recv())
-            if raw.get("id") != msg_id:
-                continue
-            if not raw.get("success", False):
-                raise RuntimeError(f"{msg_type} failed: {raw.get('error', raw)}")
-            return raw.get("result")
+        async with self._call_lock:
+            msg_id = self._next_id
+            self._next_id += 1
+            await self._ws.send(
+                json.dumps({"id": msg_id, "type": msg_type, **payload})
+            )
+            while True:
+                raw = json.loads(await self._ws.recv())
+                if raw.get("id") != msg_id:
+                    continue
+                if not raw.get("success", False):
+                    raise RuntimeError(f"{msg_type} failed: {raw.get('error', raw)}")
+                return raw.get("result")
 
 
 class HomeAssistantRest:
@@ -620,15 +789,9 @@ async def ensure_magic_areas(
 
 async def bootstrap(args: argparse.Namespace) -> None:
     """Run bootstrap operations."""
-    token = resolve_token(args)
-    if not token:
-        raise SystemExit(
-            "Set HA_TOKEN, pass --token, pass --token-file, or use --token-stdin."
-        )
-
-    await wait_for_ha(args.url, token, args.wait)
-    rest = HomeAssistantRest(args.http_url, token)
-    async with HomeAssistantWs(args.url, token) as client:
+    await wait_for_ha(args.url, DEV_HA_LONG_LIVED_TOKEN, args.wait)
+    rest = HomeAssistantRest(args.http_url, DEV_HA_LONG_LIVED_TOKEN)
+    async with HomeAssistantWs(args.url, DEV_HA_LONG_LIVED_TOKEN) as client:
         for dev_area in DEV_AREAS:
             area_id = await ensure_area(client, dev_area)
             await assign_entities(
@@ -648,30 +811,11 @@ async def bootstrap(args: argparse.Namespace) -> None:
     print("Home Assistant dev bootstrap complete")
 
 
-def resolve_token(args: argparse.Namespace) -> str:
-    """Resolve a Home Assistant token without requiring process-arg exposure."""
-    if args.token_stdin:
-        return sys.stdin.read().strip()
-    if args.token_file:
-        return Path(args.token_file).read_text(encoding="utf-8").strip()
-    return str(args.token or os.environ.get("HA_TOKEN") or "").strip()
-
-
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=DEFAULT_URL, help="HA websocket URL")
     parser.add_argument("--http-url", default=DEFAULT_HTTP_URL, help="HA HTTP URL")
-    parser.add_argument("--token", help="HA long-lived access token")
-    parser.add_argument(
-        "--token-file",
-        help="Read HA long-lived access token from a local file",
-    )
-    parser.add_argument(
-        "--token-stdin",
-        action="store_true",
-        help="Read HA long-lived access token from stdin",
-    )
     parser.add_argument(
         "--wait",
         type=int,

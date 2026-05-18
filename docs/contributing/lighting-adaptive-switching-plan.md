@@ -1,10 +1,5 @@
 # Lighting Adaptive Switching Plan
 
-This file was originally named `lighting-adaptive-brightness-plan.md`, but the
-feature is adaptive **switching**, not brightness management. The filename is
-kept for continuity; the behavior described here is about deciding whether
-Magic Areas light roles should turn on/off from brightness-related signals.
-
 Status: active validation/follow-through plan. The architecture foundation it
 depends on (labels, native helpers, control-intent targets, and Adaptive
 Lighting coordination) is implemented in the current branch.
@@ -103,6 +98,35 @@ signals through policy inputs.
 - Bright dwell/debounce duration.
 - Optional outside-inside contrast gating (delta/ratio) when outside lux exists.
 - Attribution guard to suppress off decisions after recent controlled-light on/off or brightness/CT changes.
+
+### 4) Direct-Light Attribution
+
+Adaptive ambient-off must distinguish actual ambient/daylight gain from direct
+lighting changes that raise the in-room brightness sensor. A room becoming bright
+because Magic Areas, a user, Adaptive Lighting, or a neighboring spill-over light
+changed direct light output is not sufficient daylight evidence.
+
+Required attribution inputs:
+
+- Magic Areas-controlled room lights turning on or off.
+- Any configured in-room light changing from `off` to `on`.
+- Brightness level increases on configured in-room lights.
+- Adaptive Lighting-driven brightness/color-temperature changes on adopted or
+  Magic Areas-managed Adaptive Lighting switch sets.
+- Optional spill-over lights from adjacent rooms or shared spaces whose output can affect
+  the target room's brightness sensor.
+
+Required behavior:
+
+- If the room crosses from dark to bright immediately after direct-light output
+  increases, adaptive mode must not treat that transition as ambient/daylight evidence.
+- If direct-light output is stable and the room brightness continues to rise later,
+  adaptive mode may treat the later rise as ambient/daylight evidence, subject to the
+  configured dwell, minimum-on, outside-context, and ambient-rise guards.
+- Spill-over lights must be user-configurable because Magic Areas cannot infer which
+  neighboring lights affect a particular room's lux sensor.
+- Adaptive Lighting remains responsible for brightness/color tuning; Magic Areas only
+  observes enough AL-caused output changes to avoid misclassifying them as daylight.
 
 ## Fallback Matrix
 
@@ -279,6 +303,8 @@ Current implementation:
 ## Known Risks
 
 - Feedback-loop/hunting when in-room sensor is affected by controlled lights.
+- False ambient-rise attribution when the in-room lux increase was produced by
+  room lights, Adaptive Lighting adjustments, or configured spill-over lights.
 - Overfitting to one sensor topology (must keep guards configurable).
 - Excessive state churn if ambient-rise thresholds are too sensitive.
 - Blurring the helper/policy boundary. Native helpers should condition generic signals;
@@ -294,6 +320,9 @@ Current implementation:
 - The first Magic Areas-built ambient-rise signal is a managed Trend helper.
 - Derivative/statistics helper bundles remain deferred for richer future signals, such as
   numeric lux rate or fan humidity/odor control.
+- Direct-light attribution must be explicit. A generic Trend helper can identify rising
+  lux, but it cannot by itself prove the rise came from daylight rather than controlled,
+  manually changed, Adaptive Lighting-adjusted, or spill-over lights.
 
 ## Initial Recommendation
 
@@ -306,8 +335,7 @@ Current implementation:
 
 ## Current Next Step
 
-The adaptive-switching plan is ready for live validation under opt-in settings
-on top of the current intent/label/helper foundation. The next engineering pass
-should be bug-fix driven from HA runtime observations, not additional
-architecture work, unless testing shows the Trend-helper signal shape is
-insufficient.
+Live fake-house validation showed the Trend-helper signal shape is insufficient
+by itself for the intended adaptive ambient-off behavior. The next engineering
+pass should add explicit direct-light attribution before treating ambient-rise
+adaptive off as complete.

@@ -44,6 +44,7 @@ from custom_components.magic_areas.core.control_intents.adaptive_lighting import
     switch_set_from_name_candidates,
 )
 from custom_components.magic_areas.core.control_intents.adaptive_lighting_registry import (
+    managed_switch_set_from_hass_registry,
     switch_set_from_hass_registry,
     switch_sets_from_hass_registry,
 )
@@ -119,6 +120,7 @@ __all__ = [
     "managed_adaptive_lighting_config_name",
     "managed_adaptive_lighting_options",
     "managed_adaptive_lighting_reconcile_plan",
+    "managed_switch_set_from_hass_registry",
     "async_execute_adaptive_lighting_intents",
     "custom_control_label_name",
     "evaluate_intent",

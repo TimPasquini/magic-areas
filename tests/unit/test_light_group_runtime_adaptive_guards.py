@@ -6,7 +6,9 @@ from typing import cast
 import pytest
 from custom_components.magic_areas.light_groups.runtime import (
     _LightGroupHost,
+    _adaptive_bright_recheck_delay,
     _ambient_rise_met,
+    _direct_light_output_changed,
     _inside_bright_met,
     _outside_context_ok,
     _update_inside_lux_tracking,
@@ -27,10 +29,12 @@ class _FakeHost:
         self.hass = SimpleNamespace(states=_FakeStates(states))
         self._inside_lux_samples: list[tuple[float, float]] = []
         self._ambient_rise_signal_unique_id: str | None = None
+        self._last_direct_light_activity_monotonic: float | None = None
+        self._ambient_rise_trend_contaminated = False
 
 
-def _state(value: str) -> object:
-    return SimpleNamespace(state=value)
+def _state(value: str, attributes: dict[str, object] | None = None) -> object:
+    return SimpleNamespace(state=value, attributes=attributes or {})
 
 
 def _host(host: _FakeHost) -> _LightGroupHost:
@@ -251,6 +255,40 @@ def test_ambient_rise_met_prefers_managed_trend_helper(
     assert _ambient_rise_met(_host(host), now) is True
 
 
+def test_ambient_rise_met_blocks_contaminated_managed_trend_until_reset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Managed Trend on is invalid until a non-on state clears contamination."""
+    now = 1000.0
+    host = _FakeHost(
+        policy_config={
+            "adaptive_require_ambient_rise": True,
+            "ambient_rise_window_seconds": 120,
+            "ambient_rise_min_delta": 20,
+        },
+        states={"binary_sensor.managed_ambient_rise": _state("on")},
+    )
+    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._ambient_rise_trend_contaminated = True
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.er.async_get",
+        lambda _hass: object(),
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.resolve_managed_surface_entity_id",
+        lambda *_args, **_kwargs: "binary_sensor.managed_ambient_rise",
+    )
+
+    assert _ambient_rise_met(_host(host), now) is False
+
+    host.hass.states._mapping["binary_sensor.managed_ambient_rise"] = _state("off")
+    assert _ambient_rise_met(_host(host), now) is False
+    assert host._ambient_rise_trend_contaminated is False
+
+    host.hass.states._mapping["binary_sensor.managed_ambient_rise"] = _state("on")
+    assert _ambient_rise_met(_host(host), now) is True
+
+
 def test_ambient_rise_met_falls_back_when_managed_trend_helper_is_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -276,6 +314,60 @@ def test_ambient_rise_met_falls_back_when_managed_trend_helper_is_unknown(
     )
 
     assert _ambient_rise_met(_host(host), now) is True
+
+
+def test_adaptive_bright_recheck_polls_managed_ambient_rise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ambient-rise waits should poll managed Trend state if listener events miss."""
+    host = _FakeHost(
+        policy_config={
+            "adaptive_require_ambient_rise": True,
+            "ambient_rise_window_seconds": 120,
+            "ambient_rise_min_delta": 20,
+        },
+        states={"binary_sensor.managed_ambient_rise": _state("off")},
+    )
+    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.er.async_get",
+        lambda _hass: object(),
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.resolve_managed_surface_entity_id",
+        lambda *_args, **_kwargs: "binary_sensor.managed_ambient_rise",
+    )
+
+    assert _adaptive_bright_recheck_delay(
+        _host(host),
+        "bright_adaptive_waiting_ambient_rise",
+    ) == 1.0
+
+
+def test_direct_light_output_changed_detects_on_and_brightness_increase() -> None:
+    """Direct-light watcher should flag output increases but not decreases."""
+    assert _direct_light_output_changed(_state("off"), _state("on")) is True
+    assert (
+        _direct_light_output_changed(
+            _state("on", {"brightness": 20}),
+            _state("on", {"brightness": 90}),
+        )
+        is True
+    )
+    assert (
+        _direct_light_output_changed(
+            _state("on", {"brightness": 90}),
+            _state("on", {"brightness": 20}),
+        )
+        is False
+    )
+    assert (
+        _direct_light_output_changed(
+            _state("on", {"color_temp_kelvin": 2700}),
+            _state("on", {"color_temp_kelvin": 3000}),
+        )
+        is True
+    )
 
 
 def test_update_inside_lux_tracking_adds_and_prunes_samples() -> None:

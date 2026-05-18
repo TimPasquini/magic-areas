@@ -8,7 +8,7 @@ from types import MappingProxyType
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -58,7 +58,7 @@ def _build_config_entry(
         domain=ADAPTIVE_LIGHTING_DOMAIN,
         minor_version=1,
         options=operation.options or {},
-        source=SOURCE_IMPORT,
+        source=SOURCE_USER,
         subentries_data=(),
         title=operation.desired_config.name,
         unique_id=operation.desired_config.name,

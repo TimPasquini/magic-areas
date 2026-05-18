@@ -5,9 +5,13 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.core.control_intents import (
+    ADAPTIVE_LIGHTING_DOMAIN,
     adaptive_lighting_switch_entity_ids,
+    managed_adaptive_lighting_config,
+    managed_switch_set_from_hass_registry,
     switch_set_from_hass_registry,
     switch_sets_from_hass_registry,
 )
@@ -121,3 +125,58 @@ def test_hass_registry_discovery_lists_complete_area_switch_sets(
         tuple(dining_refs.values()),
         tuple(kitchen_refs.values()),
     )
+
+
+def test_managed_hass_registry_discovery_resolves_actual_al_switches(
+    hass: HomeAssistant,
+) -> None:
+    """Managed configs should resolve actual AL switch entities by config entry."""
+    desired = managed_adaptive_lighting_config(
+        area_id="living_room",
+        area_name="Living Room",
+        role="overhead_lights",
+        light_entity_ids=("light.ceiling",),
+    )
+    assert desired is not None
+    entry = MockConfigEntry(
+        domain=ADAPTIVE_LIGHTING_DOMAIN,
+        data=desired.data,
+        options={"lights": ["light.ceiling"]},
+        title=desired.name,
+        unique_id=desired.name,
+    )
+    entry.add_to_hass(hass)
+    entity_registry = er.async_get(hass)
+    actual_refs = {
+        "main": "switch.ma_living_room_overhead_adaptive_lighting_ma_living_room_overhead",
+        "sleep": (
+            "switch.adaptive_lighting_ma_living_room_overhead_"
+            "adaptive_lighting_sleep_mode_ma_living_room_overhead"
+        ),
+        "adapt_brightness": (
+            "switch.adaptive_lighting_ma_living_room_overhead_"
+            "adaptive_lighting_adapt_brightness_ma_living_room_overhead"
+        ),
+        "adapt_color": (
+            "switch.adaptive_lighting_ma_living_room_overhead_"
+            "adaptive_lighting_adapt_color_ma_living_room_overhead"
+        ),
+    }
+    for entity_id in actual_refs.values():
+        domain, object_id = entity_id.split(".", 1)
+        registry_entry = entity_registry.async_get_or_create(
+            domain,
+            ADAPTIVE_LIGHTING_DOMAIN,
+            object_id,
+            config_entry=entry,
+            suggested_object_id=object_id,
+        )
+        entity_registry.async_update_entity(
+            registry_entry.entity_id,
+            area_id="living_room",
+        )
+
+    switch_set = managed_switch_set_from_hass_registry(hass, desired)
+
+    assert switch_set is not None
+    assert switch_set.entity_ids == tuple(actual_refs.values())

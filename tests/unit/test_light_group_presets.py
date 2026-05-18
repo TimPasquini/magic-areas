@@ -256,6 +256,6 @@ def test_adaptive_lighting_diagnostics_explain_active_managed_all_lights() -> No
         "active": True,
         "reason": "associated",
         "main_switch_entity_id": (
-            "switch.adaptive_lighting_magic_areas_kitchen_all_lights"
+            "switch.adaptive_lighting_ma_kitchen_all_lights"
         ),
     }

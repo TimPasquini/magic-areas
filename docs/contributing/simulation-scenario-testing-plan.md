@@ -243,6 +243,8 @@ Required cases:
 - outdoor lux contrast can permit adaptive off when sufficiently strong
 - ambient/daylight rise evidence can be required
 - Magic Areas-controlled light output is not mistaken for daylight rise
+- manually controlled in-room light output is not mistaken for daylight rise
+- configured spill-over light output from adjacent rooms is not mistaken for daylight rise
 - Adaptive Lighting-driven brightness changes are not mistaken for daylight rise where the system has enough information to distinguish them
 
 The Adaptive Lighting distinction is important because Adaptive Lighting manages brightness/color behavior while Magic Areas manages room role/state intent. The simulation strategy must support observing this boundary.

@@ -11,6 +11,7 @@ directory is mounted into the container as `/config/custom_components/magic_area
 ## Requirements
 
 - Docker with the Compose plugin.
+- Git, for the dev-only Adaptive Lighting component checkout.
 
 ## Start
 
@@ -55,37 +56,41 @@ The next start recreates `dev/ha/config/` from `dev/ha/seed/`.
 
 ## Bootstrap Fake House
 
-After first onboarding, create a long-lived access token in the HA UI:
-
-```text
-User profile -> Security -> Long-lived access tokens
-```
-
-Then run:
+Bootstrap and simulation scripts use the canonical hardcoded long-lived token in
+`scripts/ha_dev_token.py`:
 
 ```bash
-HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh
+./scripts/ha_dev_bootstrap.sh
+./scripts/ha_dev_simulate.sh
 ```
 
-To avoid putting the token in shell history or process arguments, store it in an
-ignored runtime file and use `--token-file`:
-
-```bash
-mkdir -p dev/ha/runtime
-printf '%s' 'paste-token-here' > dev/ha/runtime/token
-./scripts/ha_dev_bootstrap.sh --token-file dev/ha/runtime/token
-```
+This dev environment intentionally does not use session-token generation,
+environment-token fallback, token files, or stdin token plumbing. If the local
+dev token is revoked, update `scripts/ha_dev_token.py` with the replacement
+long-lived token.
 
 The bootstrap uses Home Assistant's real websocket and REST APIs. It creates
 these areas if missing:
 
 - Living Room
 - Bathroom
+- Classic Sun Room
+- Classic Sensor Room
+- Advisory Sun Room
+- Advisory Sensor Room
+- Adaptive Sun Room
+- Adaptive Binary Room
+- Adaptive Lux Room
+- Adaptive Ambient Room
+- Adaptive Lighting Room
 - Outdoor Test
 
 It then assigns the seeded fake entities to those areas, creates the default
-Magic Areas config entries, configures the two room entries for light-group
-testing, and sets deterministic initial fake-house states.
+Magic Areas config entries, configures the room entries for light-group testing,
+and sets deterministic initial fake-house states. The room matrix intentionally
+covers classic/inhibit behavior, advisory behavior, adaptive behavior with sun,
+explicit outside binary, outside lux contrast, ambient-rise gating, and a room
+that uses Magic Areas-managed Adaptive Lighting configs.
 
 The bootstrap is idempotent. Re-running it should update missing/stale area
 assignments and create missing Magic Areas entries without destroying the rest of
@@ -93,15 +98,37 @@ the dev instance. Existing Magic Areas options are not overwritten unless you
 explicitly pass:
 
 ```bash
-HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh --force-magic-area-options
+./scripts/ha_dev_bootstrap.sh --force-magic-area-options
 ```
 
 If you only want HA area/entity assignment and fake-state reset, skip Magic Areas
 entry creation:
 
 ```bash
-HA_TOKEN="paste-token-here" ./scripts/ha_dev_bootstrap.sh --skip-magic-areas
+./scripts/ha_dev_bootstrap.sh --skip-magic-areas
 ```
+
+
+## Adaptive Lighting
+
+The dev instance installs the real Adaptive Lighting custom integration into an
+ignored vendor checkout at startup:
+
+```text
+dev/ha/vendor/adaptive-lighting/
+```
+
+`ha_dev_start.sh` and `ha_dev_reset.sh` call
+`./scripts/ha_dev_install_adaptive_lighting.sh` through `ha_dev_init.sh`. The
+component is mounted into the HA container as
+`/config/custom_components/adaptive_lighting`, alongside Magic Areas. Override
+the checkout ref with `ADAPTIVE_LIGHTING_REF` if a specific upstream commit or
+branch needs to be tested.
+
+The `Adaptive Lighting Room` is configured with Magic Areas light groups in
+Adaptive Lighting `manage` mode. Magic Areas should create/update the associated
+Adaptive Lighting config entries and keep their light membership aligned with
+the MA light roles.
 
 ## What Is Seeded
 
@@ -125,10 +152,45 @@ internals.
 
 1. Start the dev instance.
 2. Complete HA onboarding.
-3. Create a long-lived token.
-4. Run `./scripts/ha_dev_bootstrap.sh`.
-5. Use the fake controls/entities to inspect behavior.
-6. Restart the container after Python code changes.
+3. Run `./scripts/ha_dev_bootstrap.sh`.
+4. Use the fake controls/entities to inspect behavior.
+5. Restart the container after Python code changes.
 
 This environment is for frontend/config-flow/manual behavior validation. Pytest
 scenario tests still cover deterministic regression cases.
+
+## Timed Fake-House Simulation
+
+After bootstrap, run a timed simulation against the real HA dev instance:
+
+```bash
+./scripts/ha_dev_simulate.sh
+```
+
+The default `living-room-demo` scenario uses a 30-second base cycle. Lux ramps
+last 10 seconds, and each ramp midpoint is aligned to a `:00` or `:30` wall-clock
+boundary. Seeded one-minute Magic Areas timing fields such as `extended_time`
+and `extended_timeout` are treated as a two-cycle simulation period. The runner
+drives the seeded fake input helpers through real HA services and traces
+relevant fake inputs, template sensors, Magic Areas entities, native helper
+groups, and lights.
+
+Trace output is printed and also written as JSONL:
+
+```text
+dev/ha/runtime/traces/latest.jsonl
+```
+
+Useful options:
+
+```bash
+./scripts/ha_dev_simulate.sh --cycle-seconds 30 \
+  --ramp-seconds 10 \
+  --state-period-cycles 2 \
+  --include-bathroom \
+  --trace-entity binary_sensor.some_extra_entity
+```
+
+Most Magic Areas dev options that are minute-based are set to one minute by the
+bootstrap, which is the shortest practical value for those fields. That maps to
+roughly two 30-second simulation cycles.

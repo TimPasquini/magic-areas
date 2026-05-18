@@ -110,6 +110,8 @@ class LightGroupRuntimeController:
         self._bright_since_monotonic: float | None = None
         self._last_turn_on_monotonic: float | None = None
         self._last_control_activity_monotonic: float | None = None
+        self._last_direct_light_activity_monotonic: float | None = None
+        self._ambient_rise_trend_contaminated = False
         self._inside_lux_samples: list[tuple[float, float]] = []
 
         self._native_control_target_unique_id = build_light_group_helper_surface_unique_id(
@@ -176,6 +178,7 @@ class LightGroupRuntimeController:
         )
         self._adaptive_lighting_switch_set = adaptive_lighting_switch_set(
             self._feature_config,
+            hass=self.hass,
             area_id=area_config.id,
             area_name=area_config.name,
             category=category,
@@ -188,6 +191,7 @@ class LightGroupRuntimeController:
                 "brightness_mode": self.policy.policy.brightness_mode,
                 "adaptive_lighting": adaptive_lighting_diagnostics(
                     self._feature_config,
+                    hass=self.hass,
                     area_id=area_config.id,
                     area_name=area_config.name,
                     category=category,

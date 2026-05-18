@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -42,10 +43,11 @@ async def test_reconciler_creates_missing_managed_adaptive_lighting_entry(
     entries = hass.config_entries.async_entries(ADAPTIVE_LIGHTING_DOMAIN)
     assert len(entries) == 1
     entry = entries[0]
-    assert entry.title == "Magic Areas Living Room overhead"
-    assert entry.unique_id == "Magic Areas Living Room overhead"
+    assert entry.title == "MA Living Room overhead"
+    assert entry.unique_id == "MA Living Room overhead"
+    assert entry.source == SOURCE_USER
     assert entry.data == {
-        CONF_NAME: "Magic Areas Living Room overhead",
+        CONF_NAME: "MA Living Room overhead",
         MANAGED_ADAPTIVE_LIGHTING_AREA_ID: "living_room",
         MANAGED_ADAPTIVE_LIGHTING_ROLE: "overhead_lights",
     }
@@ -58,7 +60,7 @@ async def test_reconciler_updates_membership_without_clobbering_al_options(
     """Membership updates should preserve Adaptive Lighting-owned tuning options."""
     harness = setup_adaptive_lighting_config_entry_harness(hass)
     entry = await harness.async_create_entry(
-        name="Magic Areas Living Room overhead",
+        name="MA Living Room overhead",
         options={
             ATTR_LIGHTS: ["light.old_member"],
             "min_brightness": 20,
@@ -91,14 +93,14 @@ async def test_reconciler_deletes_stale_owned_entry_but_ignores_user_entry(
     """Stale MA-owned AL entries should be removed without touching user entries."""
     harness = setup_adaptive_lighting_config_entry_harness(hass)
     stale = await harness.async_create_entry(
-        name="Magic Areas Living Room overhead",
+        name="MA Living Room overhead",
         options={ATTR_LIGHTS: ["light.old_member"]},
     )
     user_entry = MockConfigEntry(
         domain=ADAPTIVE_LIGHTING_DOMAIN,
-        title="Magic Areas Living Room task",
+        title="MA Living Room task",
         unique_id="user-owned-id",
-        data={CONF_NAME: "Magic Areas Living Room task"},
+        data={CONF_NAME: "MA Living Room task"},
         options={ATTR_LIGHTS: ["light.user"]},
     )
     user_entry.add_to_hass(hass)
@@ -116,7 +118,7 @@ async def test_reconciler_scopes_stale_cleanup_by_area(hass: HomeAssistant) -> N
     """Per-area reconciliation should not remove another area's managed AL entry."""
     harness = setup_adaptive_lighting_config_entry_harness(hass)
     other_area = await harness.async_create_entry(
-        name="Magic Areas Bedroom overhead",
+        name="MA Bedroom overhead",
         area_id="bedroom",
         role="overhead_lights",
         options={ATTR_LIGHTS: ["light.bedroom"]},
@@ -137,7 +139,7 @@ async def test_reconciler_assigns_registry_metadata_to_managed_al_entities(
     """Managed AL switch entities should attach to the HA area only."""
     harness = setup_adaptive_lighting_config_entry_harness(hass)
     entry = await harness.async_create_entry(
-        name="Magic Areas Living Room overhead",
+        name="MA Living Room overhead",
         area_id="living_room",
         role="overhead_lights",
         options={ATTR_LIGHTS: ["light.ceiling"]},

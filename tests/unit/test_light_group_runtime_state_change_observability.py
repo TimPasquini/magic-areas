@@ -34,6 +34,8 @@ class _FakeHost:
         self._bright_since_monotonic: float | None = 80.0
         self._last_turn_on_monotonic: float | None = 95.0
         self._last_control_activity_monotonic: float | None = 97.0
+        self._last_direct_light_activity_monotonic: float | None = None
+        self._ambient_rise_trend_contaminated = False
         self._inside_lux_samples: list[tuple[float, float]] = [(70.0, 80.0), (90.0, 95.0)]
         self._echo_state = CommandEchoState(controlling=True, awaiting_echo=False)
         self.entity_id = "light.magic_areas_light_groups_kitchen_overhead_lights"
@@ -74,6 +76,8 @@ class _FakeSetupHost:
         self._bright_since_monotonic = None
         self._last_turn_on_monotonic = None
         self._last_control_activity_monotonic = None
+        self._last_direct_light_activity_monotonic = None
+        self._ambient_rise_trend_contaminated = False
         self._inside_lux_samples: list[tuple[float, float]] = []
         self._child_categories = ["sleep_lights", "overhead_lights"]
         self._child_ids = None
@@ -149,9 +153,10 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
         "min_on_met": False,
         "inside_bright_met": None,
         "outside_context_ok": True,
-        "attribution_hold_met": False,
-        "ambient_rise_met": True,
-    }
+            "attribution_hold_met": False,
+            "ambient_rise_met": True,
+            "ambient_rise_direct_light_blocked": False,
+        }
     assert host._attr_extra_state_attributes.get("last_policy_reason") == "unit_test_reason"
 
     context = cast(ControlGroupContext, captured["context"])

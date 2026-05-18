@@ -10,3 +10,4 @@ services:
     volumes:
       - ./config:/config
       - ../../custom_components/magic_areas:/config/custom_components/magic_areas:ro
+      - ./vendor/adaptive-lighting/custom_components/adaptive_lighting:/config/custom_components/adaptive_lighting:ro

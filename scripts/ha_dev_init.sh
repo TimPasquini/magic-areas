@@ -7,6 +7,7 @@ config_dir="$ha_dir/config"
 seed_dir="$ha_dir/seed"
 
 mkdir -p "$config_dir/custom_components"
+"$repo_root/scripts/ha_dev_install_adaptive_lighting.sh"
 
 if [[ ! -f "$config_dir/configuration.yaml" ]]; then
   cp "$seed_dir/configuration.yaml" "$config_dir/configuration.yaml"
@@ -22,4 +23,7 @@ Prepared production-like HA dev config at:
 
 Magic Areas is mounted into the HA container from:
   $repo_root/custom_components/magic_areas
+
+Adaptive Lighting is mounted into the HA container from:
+  $repo_root/dev/ha/vendor/adaptive-lighting/custom_components/adaptive_lighting
 MSG

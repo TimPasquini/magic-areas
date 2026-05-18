@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 
 import voluptuous as vol
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from custom_components.magic_areas.core.config import feature_config_slice
 from custom_components.magic_areas.config_keys.area import (
@@ -29,6 +30,7 @@ from custom_components.magic_areas.config_keys.area import (
 )
 from custom_components.magic_areas.core.control_intents import (
     AdaptiveLightingSwitchSet,
+    managed_switch_set_from_hass_registry,
     managed_adaptive_lighting_config,
     switch_set_from_explicit_refs,
 )
@@ -365,6 +367,7 @@ def ambient_rise_min_delta(feature_config: FeatureConfigDict) -> int:
 def adaptive_lighting_diagnostics(
     feature_config: FeatureConfigDict,
     *,
+    hass: HomeAssistant | None = None,
     area_id: str,
     category: str,
     area_name: str | None = None,
@@ -394,11 +397,20 @@ def adaptive_lighting_diagnostics(
         )
         if desired is None:
             return {**base, "reason": "no_light_members"}
+        switch_set = (
+            managed_switch_set_from_hass_registry(hass, desired)
+            if hass is not None
+            else None
+        )
         return {
             **base,
             "active": True,
             "reason": "associated",
-            "main_switch_entity_id": desired.switch_refs["main"],
+            "main_switch_entity_id": (
+                switch_set.main_switch_entity_id
+                if switch_set is not None
+                else desired.switch_refs["main"]
+            ),
         }
 
     raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
@@ -432,6 +444,7 @@ def adaptive_lighting_diagnostics(
 def adaptive_lighting_switch_set(
     feature_config: FeatureConfigDict,
     *,
+    hass: HomeAssistant | None = None,
     area_id: str,
     category: str,
     area_name: str | None = None,
@@ -454,6 +467,10 @@ def adaptive_lighting_switch_set(
         )
         if desired is None:
             return None
+        if hass is not None and (
+            switch_set := managed_switch_set_from_hass_registry(hass, desired)
+        ):
+            return switch_set
         return switch_set_from_explicit_refs(
             area_id=area_id,
             role=category,

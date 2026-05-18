@@ -9,8 +9,10 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 
 from custom_components.magic_areas.core.control_intents.adaptive_lighting import (
+    ADAPTIVE_LIGHTING_DOMAIN,
     AdaptiveLightingSwitchCandidate,
     AdaptiveLightingSwitchSet,
+    ManagedAdaptiveLightingConfig,
     switch_set_from_discovery_candidates,
     switch_sets_from_discovery_candidates,
 )
@@ -84,6 +86,38 @@ def switch_sets_from_hass_registry(
     )
 
 
+def managed_switch_set_from_hass_registry(
+    hass: HomeAssistant,
+    desired_config: ManagedAdaptiveLightingConfig,
+) -> AdaptiveLightingSwitchSet | None:
+    """Resolve the actual AL switches created for a MA-managed config entry."""
+    entry = next(
+        (
+            entry
+            for entry in hass.config_entries.async_entries(ADAPTIVE_LIGHTING_DOMAIN)
+            if entry.unique_id == desired_config.name
+        ),
+        None,
+    )
+    if entry is None:
+        return None
+
+    entity_registry = er.async_get(hass)
+    label_registry = lr.async_get(hass)
+    candidates = [
+        _candidate_from_registry_entry(label_registry, registry_entry)
+        for registry_entry in er.async_entries_for_config_entry(
+            entity_registry,
+            entry.entry_id,
+        )
+    ]
+    return switch_set_from_discovery_candidates(
+        area_id=desired_config.area_id,
+        role=desired_config.role,
+        candidates=candidates,
+    )
+
+
 def _candidate_entries(
     entity_registry: er.EntityRegistry,
     *,
@@ -136,4 +170,8 @@ def _resolve_required_label_ids(
     return frozenset(resolved)
 
 
-__all__ = ["switch_set_from_hass_registry", "switch_sets_from_hass_registry"]
+__all__ = [
+    "managed_switch_set_from_hass_registry",
+    "switch_set_from_hass_registry",
+    "switch_sets_from_hass_registry",
+]

@@ -16,6 +16,7 @@ from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UN
 from homeassistant.core import Event, State
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData
+from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.controls import (
@@ -77,6 +78,8 @@ class _LightGroupHost(Protocol):
     _bright_since_monotonic: float | None
     _last_turn_on_monotonic: float | None
     _last_control_activity_monotonic: float | None
+    _last_direct_light_activity_monotonic: float | None
+    _ambient_rise_trend_contaminated: bool
     _inside_lux_samples: list[tuple[float, float]]
     _child_categories: list[str]
     _child_ids: list[str] | None
@@ -214,6 +217,34 @@ def setup_listeners(host: _LightGroupHost) -> None:
         group_entity_id=host.entity_id,
         group_state_handler=host.group_state_changed,
     )
+    host.track_group_listener(
+        async_track_state_change_event(
+            host.hass,
+            tuple(host._entity_ids),
+            lambda event: handle_direct_light_state_change(host, event),
+        ),
+        "direct_light_activity",
+    )
+    ambient_rise_entity_id = _ambient_rise_signal_entity_id(host)
+    if ambient_rise_entity_id is not None:
+        host.track_group_listener(
+            async_track_state_change_event(
+                host.hass,
+                (ambient_rise_entity_id,),
+                lambda event: handle_ambient_rise_signal_state_change(host, event),
+            ),
+            "ambient_rise_signal",
+        )
+    ambient_source_entity_id = _ambient_rise_source_entity_id(host)
+    if ambient_source_entity_id is not None:
+        host.track_group_listener(
+            async_track_state_change_event(
+                host.hass,
+                (ambient_source_entity_id,),
+                lambda event: handle_ambient_rise_source_state_change(host, event),
+            ),
+            "ambient_rise_source",
+        )
     host._listeners_initialized = True
 
 
@@ -292,6 +323,9 @@ def evaluate_state_change(
         "outside_context_ok": outside_context_ok,
         "attribution_hold_met": attribution_hold_met,
         "ambient_rise_met": ambient_rise_met,
+        "ambient_rise_direct_light_blocked": _ambient_rise_direct_light_blocked(
+            host, now
+        ),
     }
 
     context = ControlGroupContext(
@@ -310,13 +344,14 @@ def evaluate_state_change(
             ambient_rise_met=ambient_rise_met,
         ),
     )
-    _decision, executed = evaluate_and_execute_control_group_policy_sync(
+    decision, executed = evaluate_and_execute_control_group_policy_sync(
         policy=host.policy,
         context=context,
         execute_decision=lambda decision: apply_decision(host, decision),
         logger=host.logger,
         actor_name=str(host.name),
     )
+    _schedule_adaptive_bright_recheck_if_needed(host, decision.reason, current_states)
     return bool(executed)
 
 
@@ -504,6 +539,69 @@ def handle_group_state_change(
     return True
 
 
+def handle_direct_light_state_change(
+    host: _LightGroupHost, event: Event[EventStateChangedData]
+) -> bool:
+    """Track direct member-light output changes that can contaminate lux trends."""
+    if not _direct_light_output_changed(
+        event.data.get("old_state"),
+        event.data.get("new_state"),
+    ):
+        return False
+
+    host._last_direct_light_activity_monotonic = monotonic()
+    host._ambient_rise_trend_contaminated = True
+    host._attr_extra_state_attributes["last_direct_light_activity_entity_id"] = (
+        event.data.get("entity_id")
+    )
+    return True
+
+
+def handle_ambient_rise_signal_state_change(
+    host: _LightGroupHost, event: Event[EventStateChangedData]
+) -> bool:
+    """Clear direct-light contamination and re-evaluate when Trend evidence changes."""
+    new_state = event.data.get("new_state")
+    if new_state is None:
+        return False
+
+    if new_state.state != STATE_ON:
+        host._ambient_rise_trend_contaminated = False
+
+    if not host.is_control_enabled():
+        return False
+
+    current_states = _current_area_states_for_group_event(host)
+    current_state_values = {str(state) for state in current_states}
+    if (
+        AreaStates.OCCUPIED.value not in current_state_values
+        or AreaStates.BRIGHT.value not in current_state_values
+    ):
+        return False
+
+    return host.area_state_changed(host._area_id, ([], [], current_states))
+
+
+def handle_ambient_rise_source_state_change(
+    host: _LightGroupHost, event: Event[EventStateChangedData]
+) -> bool:
+    """Re-evaluate adaptive bright policy when the ambient source changes."""
+    if event.data.get("new_state") is None:
+        return False
+    if not host.is_control_enabled():
+        return False
+
+    current_states = _current_area_states_for_group_event(host)
+    current_state_values = {str(state) for state in current_states}
+    if (
+        AreaStates.OCCUPIED.value not in current_state_values
+        or AreaStates.BRIGHT.value not in current_state_values
+    ):
+        return False
+
+    return host.area_state_changed(host._area_id, ([], [], current_states))
+
+
 def _current_area_states_for_group_event(host: _LightGroupHost) -> list[str]:
     """Resolve area states for group self-events without overriding fresh cache."""
     if host._last_known_area_states_from_dispatcher and host._last_known_area_states:
@@ -635,6 +733,12 @@ def _intent_dispatch_plan(
         action=_intent_action_for_light_action(action),
     )
     if decision.reason is IntentReason.INTENT_ALLOWED:
+        if action is LightAction.TURN_OFF:
+            return _IntentDispatchPlan(
+                target_entity_ids=(),
+                allowed_entity_ids=source_entity_ids,
+                reason=decision.reason.value,
+            )
         return _IntentDispatchPlan(reason=decision.reason.value)
     if decision.target_entity_ids == source_entity_ids:
         return _IntentDispatchPlan(
@@ -766,6 +870,52 @@ def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
     return any(old_attrs.get(key) != new_attrs.get(key) for key in LIGHT_ATTR_KEYS)
 
 
+def _direct_light_output_changed(old_state: object | None, new_state: object | None) -> bool:
+    """Return True when a light output change can affect in-room lux readings."""
+    if old_state is None or new_state is None:
+        return False
+    old_value = getattr(old_state, "state", None)
+    new_value = getattr(new_state, "state", None)
+    if new_value != STATE_ON:
+        return False
+    if old_value == STATE_OFF:
+        return True
+    if old_value != STATE_ON:
+        return False
+
+    old_attrs = getattr(old_state, "attributes", {})
+    new_attrs = getattr(new_state, "attributes", {})
+    if not isinstance(old_attrs, dict) or not isinstance(new_attrs, dict):
+        return False
+    old_brightness = _numeric_attr(old_attrs, "brightness")
+    new_brightness = _numeric_attr(new_attrs, "brightness")
+    if (
+        old_brightness is not None
+        and new_brightness is not None
+        and new_brightness > old_brightness
+    ):
+        return True
+
+    # Non-brightness AL updates can still change visible output. Treat these as
+    # direct-light activity so the trend window is not misclassified as daylight.
+    return any(
+        old_attrs.get(key) != new_attrs.get(key)
+        for key in LIGHT_ATTR_KEYS
+        if key != "brightness"
+    )
+
+
+def _numeric_attr(attributes: dict[str, object], key: str) -> float | None:
+    """Return a numeric state attribute when present."""
+    value = attributes.get(key)
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _update_bright_tracking(
     host: _LightGroupHost,
     new_states: list[str],
@@ -792,6 +942,85 @@ def _update_bright_tracking(
         and host._bright_since_monotonic is None
     ):
         host._bright_since_monotonic = now
+
+
+def _schedule_adaptive_bright_recheck_if_needed(
+    host: _LightGroupHost,
+    reason: str,
+    current_states: list[str],
+) -> None:
+    """Schedule a stable-state recheck when adaptive bright guards need time."""
+    ambient_poll_needed = _adaptive_ambient_poll_needed(host, current_states)
+    if not reason.startswith("bright_adaptive_waiting_") and not ambient_poll_needed:
+        return
+    if AreaStates.BRIGHT.value not in {str(state) for state in current_states}:
+        return
+
+    delay = (
+        1.0
+        if ambient_poll_needed
+        else _adaptive_bright_recheck_delay(host, reason)
+    )
+    if delay is None:
+        return
+
+    def recheck() -> None:
+        host.area_state_changed(
+            host._area_id,
+            ([], [], list(host._last_known_area_states or current_states)),
+        )
+
+    remove_listener = host.hass.loop.call_later(delay, recheck).cancel
+    host.track_group_listener(remove_listener, "adaptive_bright_recheck")
+
+
+def _adaptive_ambient_poll_needed(
+    host: _LightGroupHost,
+    current_states: list[str],
+) -> bool:
+    """Return whether managed ambient-rise evidence should be polled."""
+    current_state_values = {str(state) for state in current_states}
+    if (
+        AreaStates.OCCUPIED.value not in current_state_values
+        or AreaStates.BRIGHT.value not in current_state_values
+    ):
+        return False
+    if str(getattr(host.policy.policy, "brightness_mode", "")) != "adaptive":
+        return False
+    if not bool(getattr(host.policy.policy, "adaptive_require_ambient_rise", False)):
+        return False
+    if _ambient_rise_signal_entity_id(host) is None:
+        return False
+    return host.current_control_target_is_on() is True
+
+
+def _adaptive_bright_recheck_delay(
+    host: _LightGroupHost,
+    reason: str,
+) -> float | None:
+    """Return a bounded delay for an adaptive bright guard recheck."""
+    now = monotonic()
+    if reason == "bright_adaptive_waiting_dwell":
+        required = int(getattr(host.policy.policy, "bright_dwell_seconds", 0))
+        started = host._bright_since_monotonic
+    elif reason == "bright_adaptive_waiting_min_on":
+        required = int(getattr(host.policy.policy, "bright_min_on_seconds", 0))
+        started = host._last_turn_on_monotonic
+    elif reason == "bright_adaptive_attribution_hold":
+        required = int(
+            getattr(host.policy.policy, "bright_attribution_hold_seconds", 0)
+        )
+        started = host._last_control_activity_monotonic
+    elif reason == "bright_adaptive_waiting_ambient_rise":
+        return 1.0 if _ambient_rise_signal_entity_id(host) is not None else None
+    else:
+        return None
+
+    if required <= 0:
+        return 0.1
+    if started is None:
+        return None
+    return max(0.1, (started + required) - now + 0.1)
 
 
 def _outside_context_ok(host: _LightGroupHost) -> bool:
@@ -898,9 +1127,20 @@ def _ambient_rise_met(host: _LightGroupHost, now: float) -> bool:
     if not require:
         return True
 
-    managed_signal = _managed_ambient_rise_met(host)
-    if managed_signal is not None:
-        return managed_signal
+    managed_signal_state = _managed_ambient_rise_state(host)
+    if managed_signal_state is not None:
+        if managed_signal_state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            managed_signal_state = None
+        elif managed_signal_state != STATE_ON:
+            host._ambient_rise_trend_contaminated = False
+            return False
+        else:
+            return not host._ambient_rise_trend_contaminated
+
+    if managed_signal_state is None and _direct_light_activity_blocks_ambient_rise(
+        host, now
+    ):
+        return False
 
     window = int(getattr(host.policy.policy, "ambient_rise_window_seconds", 120))
     delta_required = int(getattr(host.policy.policy, "ambient_rise_min_delta", 20))
@@ -921,8 +1161,39 @@ def _ambient_rise_met(host: _LightGroupHost, now: float) -> bool:
     return (end_lux - start_lux) >= delta_required
 
 
-def _managed_ambient_rise_met(host: _LightGroupHost) -> bool | None:
-    """Return managed Trend helper state when the helper has a usable value."""
+def _ambient_rise_direct_light_blocked(host: _LightGroupHost, now: float) -> bool:
+    """Return whether direct-light contamination is actively blocking ambient rise."""
+    managed_signal_state = _managed_ambient_rise_state(host)
+    if managed_signal_state is not None:
+        if managed_signal_state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            return _direct_light_activity_blocks_ambient_rise(host, now)
+        if managed_signal_state != STATE_ON:
+            return False
+        return bool(host._ambient_rise_trend_contaminated)
+    return _direct_light_activity_blocks_ambient_rise(host, now)
+
+
+def _direct_light_activity_blocks_ambient_rise(
+    host: _LightGroupHost,
+    now: float,
+) -> bool:
+    """Return whether direct-light activity contaminates the ambient trend window."""
+    last_activity = getattr(host, "_last_direct_light_activity_monotonic", None)
+    if (
+        last_activity is None
+        or isinstance(last_activity, bool)
+        or not isinstance(last_activity, int | float)
+    ):
+        return False
+
+    window = int(getattr(host.policy.policy, "ambient_rise_window_seconds", 120))
+    if window <= 0:
+        return False
+    return bool((now - last_activity) < window)
+
+
+def _ambient_rise_signal_entity_id(host: _LightGroupHost) -> str | None:
+    """Return the managed Trend helper entity id when registered."""
     unique_id = getattr(host, "_ambient_rise_signal_unique_id", None)
     if not isinstance(unique_id, str) or not unique_id:
         return None
@@ -934,10 +1205,35 @@ def _managed_ambient_rise_met(host: _LightGroupHost) -> bool | None:
         entity_domain=BINARY_SENSOR_DOMAIN,
         config_entry_domain=TREND_DOMAIN,
     )
+    return entity_id
+
+
+def _ambient_rise_source_entity_id(host: _LightGroupHost) -> str | None:
+    """Return the configured in-room lux source for ambient-rise triggering."""
+    if str(getattr(host.policy.policy, "brightness_mode", "")) != "adaptive":
+        return None
+    if not bool(getattr(host.policy.policy, "adaptive_require_ambient_rise", False)):
+        return None
+    entity_id = getattr(host.policy.policy, "outside_lux_inside_entity", None)
+    return entity_id if isinstance(entity_id, str) and entity_id else None
+
+
+def _managed_ambient_rise_state(host: _LightGroupHost) -> str | None:
+    """Return managed Trend helper state when the helper exists."""
+    entity_id = _ambient_rise_signal_entity_id(host)
     if entity_id is None:
         return None
 
     state = host.hass.states.get(entity_id)
-    if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+    if state is None:
         return None
-    return state.state == STATE_ON
+    state_value = getattr(state, "state", None)
+    return state_value if isinstance(state_value, str) else None
+
+
+def _managed_ambient_rise_met(host: _LightGroupHost) -> bool | None:
+    """Return managed Trend helper state when the helper has a usable value."""
+    state = _managed_ambient_rise_state(host)
+    if state is None or state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+        return None
+    return state == STATE_ON
