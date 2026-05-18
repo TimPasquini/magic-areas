@@ -276,8 +276,8 @@ Magic Areas should not take over Adaptive Lighting’s brightness/color algorith
 
 ## Current Interactive Fake-House Coverage
 
-The live HA fake-house script currently provides a `control-matrix` scenario
-through `scripts/ha_dev_simulate.py`.
+The live HA fake-house script currently provides `control-matrix` and
+`manual-override` scenarios through `scripts/ha_dev_simulate.py`.
 
 Covered cases:
 
@@ -308,13 +308,16 @@ Covered cases:
 - Native HA light helper groups are asserted along with member lights.
 - A real Adaptive Lighting integration instance is present, and Magic Areas
   sleep state is asserted to turn on the managed all-lights AL sleep-mode switch.
+- Manual light turn-off while occupied is asserted to release Magic Areas
+  control and block automatic reacquire during bright/dark state churn.
+- Clear followed by re-occupancy is asserted to reset manual override and allow
+  Magic Areas to reclaim control.
 
 Known live-simulation gaps:
 
 - Presence hold behavior is not directly asserted.
 - Extended-state behavior is incidental rather than directly asserted.
-- Manual override behavior is not covered.
-- Manual override timeout and Magic Areas reclaiming control are not covered.
+- Manual override timeout without room clear is not covered.
 - Adaptive Lighting manual-control release is not covered in the live simulation.
 - Adaptive Lighting role-scoped managed groups are created, but live assertions
   currently check only the all-lights sleep-mode switch.
@@ -337,10 +340,10 @@ Known live-simulation gaps:
 
 Immediate live-simulation TODO:
 
-1. Add manual override and reclaim-control cases.
-2. Add adaptive outside-context negative cases.
-3. Add presence-hold-specific assertions separate from ordinary clear timing.
-4. Add Adaptive Lighting manual-control release coverage.
+1. Add adaptive outside-context negative cases.
+2. Add presence-hold-specific assertions separate from ordinary clear timing.
+3. Add Adaptive Lighting manual-control release coverage.
+4. Add manual override timeout coverage without requiring room clear.
 
 ## Future Cross-Domain Simulation
 

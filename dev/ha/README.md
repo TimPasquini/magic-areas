@@ -192,6 +192,18 @@ Useful options:
   --trace-entity binary_sensor.some_extra_entity
 ```
 
+Additional scenarios:
+
+```bash
+./scripts/ha_dev_simulate.sh --scenario control-matrix
+./scripts/ha_dev_simulate.sh --scenario manual-override
+```
+
+`control-matrix` exercises the multi-room brightness/sleep/accent/adaptive
+matrix. `manual-override` verifies that a manual light turn-off blocks automatic
+reacquire while occupied, then allows Magic Areas to reclaim control after the
+room clears and becomes occupied again.
+
 Most Magic Areas dev options that are minute-based are set to one minute by the
 bootstrap, which is the shortest practical value for those fields. That maps to
 roughly two 30-second simulation cycles.

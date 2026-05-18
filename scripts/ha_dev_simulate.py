@@ -461,6 +461,20 @@ async def set_switch(
     )
 
 
+async def set_light(
+    client: HomeAssistantWs,
+    entity_id: str | list[str],
+    enabled: bool,
+) -> None:
+    """Set a light state through HA's light services."""
+    await call_service(
+        client,
+        "light",
+        "turn_on" if enabled else "turn_off",
+        entity_id=entity_id,
+    )
+
+
 async def wait_for_state(
     client: HomeAssistantWs,
     entity_id: str,
@@ -1003,6 +1017,105 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
     evaluation.write()
 
 
+async def manual_override(client: HomeAssistantWs, args: argparse.Namespace) -> None:
+    """Run a live manual-override and clear/reclaim scenario."""
+    evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
+    evaluation = ScenarioEvaluation(output_path=evaluation_path)
+    area_state = "binary_sensor.magic_areas_presence_tracking_living_room_area_state"
+
+    await reset_fake_house(client)
+    if args.enable_controls:
+        await set_switch(
+            client,
+            "switch.magic_areas_light_groups_living_room_light_control",
+            True,
+        )
+    await asyncio.sleep(args.setup_settle_seconds)
+
+    print("event: manual override occupied while dark", flush=True)
+    await set_input_boolean(client, "input_boolean.living_room_occupancy", True)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="occupied dark controlled",
+        expectations=(
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState("light.living_room_overhead", state="on"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="on",
+            ),
+        ),
+    )
+
+    print("event: manual override user turns overhead off", flush=True)
+    await set_light(client, "light.living_room_overhead", False)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="manual off held",
+        expectations=(
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState("light.living_room_overhead", state="off"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="off",
+            ),
+        ),
+    )
+
+    print("event: manual override bright/dark churn while occupied", flush=True)
+    await set_input_number(client, "input_number.living_room_lux", 1300)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await set_input_number(client, "input_number.living_room_lux", 350)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="manual override blocks automatic reacquire",
+        expectations=(
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState("light.living_room_overhead", state="off"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="off",
+            ),
+        ),
+    )
+
+    print("event: manual override clear and settle", flush=True)
+    await set_input_boolean(client, "input_boolean.living_room_occupancy", False)
+    await asyncio.sleep((args.cycle_seconds * 2) + args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="manual override clear resets",
+        expectations=(
+            ExpectedState(area_state, state="off", states_contains=("clear",)),
+            ExpectedState("light.living_room_overhead", state="off"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="off",
+            ),
+        ),
+    )
+
+    print("event: manual override reoccupied after clear", flush=True)
+    await set_input_boolean(client, "input_boolean.living_room_occupancy", True)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="reoccupied after clear reacquires",
+        expectations=(
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState("light.living_room_overhead", state="on"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="on",
+            ),
+        ),
+    )
+    evaluation.write()
+
+
 async def living_room_demo(client: HomeAssistantWs, args: argparse.Namespace) -> None:
     """Run a living-room state and lux simulation."""
     await reset_fake_house(client)
@@ -1074,6 +1187,8 @@ def trace_entities(args: argparse.Namespace) -> tuple[str, ...]:
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.scenario == "control-matrix":
         entity_ids.extend(control_matrix_trace_entities())
+    if args.scenario == "manual-override":
+        entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.include_bathroom:
         entity_ids.extend(BATHROOM_TRACE_ENTITIES)
     entity_ids.extend(args.trace_entity)
@@ -1097,6 +1212,8 @@ async def simulate(args: argparse.Namespace) -> None:
                 await living_room_demo(client, args)
             elif args.scenario == "control-matrix":
                 await control_matrix(client, args)
+            elif args.scenario == "manual-override":
+                await manual_override(client, args)
             else:  # pragma: no cover - argparse choices guard this path.
                 raise RuntimeError(f"Unknown scenario: {args.scenario}")
         finally:
@@ -1118,7 +1235,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--scenario",
-        choices=("living-room-demo", "control-matrix"),
+        choices=("living-room-demo", "control-matrix", "manual-override"),
         default="living-room-demo",
         help="Simulation scenario to run",
     )
