@@ -511,6 +511,38 @@ async def wait_for_state(
     raise RuntimeError(msg)
 
 
+async def wait_for_states(
+    client: HomeAssistantWs,
+    expectations: Iterable[ExpectedState],
+    *,
+    timeout_seconds: float,
+    poll_seconds: float = 1.0,
+) -> None:
+    """Wait until all expected states are true at the same poll point."""
+    expected = tuple(expectations)
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        states = await get_states(client, [item.entity_id for item in expected])
+        failures = [
+            item
+            for item in expected
+            if not _expected_state_matches(item, states.get(item.entity_id))[0]
+        ]
+        if not failures:
+            return
+        await asyncio.sleep(poll_seconds)
+
+    states = await get_states(client, [item.entity_id for item in expected])
+    details = []
+    for item in expected:
+        actual = states.get(item.entity_id)
+        passed, detail = _expected_state_matches(item, actual)
+        if not passed:
+            actual_state = actual.state if actual is not None else "<missing>"
+            details.append(f"{item.entity_id} actual={actual_state} {detail}")
+    raise RuntimeError("Timed out waiting for states: " + "; ".join(details[:5]))
+
+
 async def wait_for_service_call_event(
     args: argparse.Namespace,
     *,
@@ -918,24 +950,24 @@ def _clear_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
 async def _adaptive_lighting_sleep_expectations(
     client: HomeAssistantWs,
 ) -> list[ExpectedState]:
-    """Return expectations for the real AL all-lights switch set in HA."""
+    """Return expectations for real AL sleep switches in the managed test room."""
     states = await client.call("get_states")
     if not isinstance(states, list):
         return []
 
-    adaptive_lighting_room_switches = sorted(
+    adaptive_lighting_room_sleep_switches = sorted(
         str(item.get("entity_id"))
         for item in states
         if isinstance(item, Mapping)
         and isinstance(item.get("entity_id"), str)
         and str(item["entity_id"]).startswith("switch.adaptive_lighting")
-        and "adaptive_lighting_room_all_lights" in str(item["entity_id"])
+        and "_sleep_mode_" in str(item["entity_id"])
+        and "adaptive_lighting_room" in str(item["entity_id"])
     )
-    expectations: list[ExpectedState] = []
-    for entity_id in adaptive_lighting_room_switches:
-        if "_sleep_mode_" in entity_id:
-            expectations.append(ExpectedState(entity_id, state="on"))
-    return expectations
+    return [
+        ExpectedState(entity_id, state="on")
+        for entity_id in adaptive_lighting_room_sleep_switches
+    ]
 
 
 async def reset_control_matrix(client: HomeAssistantWs) -> None:
@@ -980,6 +1012,11 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
     evaluation = ScenarioEvaluation(output_path=evaluation_path)
 
     await reset_control_matrix(client)
+    await wait_for_states(
+        client,
+        _clear_expectations(rooms),
+        timeout_seconds=(args.cycle_seconds * 2) + args.checkpoint_settle_seconds,
+    )
     if args.enable_controls:
         await set_switch(client, _control_switches(rooms), True)
     await asyncio.sleep(args.setup_settle_seconds)

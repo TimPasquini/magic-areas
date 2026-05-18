@@ -240,7 +240,8 @@ Current live-simulation coverage:
   turn off and configured clear timing settles.
 - Native HA light helper groups are asserted along with member lights.
 - A real Adaptive Lighting integration instance is present, and Magic Areas sleep
-  state is asserted to turn on the managed all-lights AL sleep-mode switch.
+  state is asserted to turn on managed Adaptive Lighting sleep-mode switches for
+  the fake room's all-lights and role-scoped groups.
 - Manual light turn-off while occupied releases Magic Areas control and blocks
   automatic reacquire during bright/dark state churn.
 - Clear followed by re-occupancy resets manual override and allows Magic Areas
@@ -263,8 +264,6 @@ Current high-value gaps:
 - Manual override release without room clear is not covered because the current
   light runtime does not implement a standalone manual-override timer; current
   live coverage verifies clear/reclaim release paths.
-- Adaptive Lighting role-scoped managed groups are created, but live assertions
-  currently check only the all-lights sleep-mode switch.
 - Adaptive Lighting `adopt_existing` mode is not covered live.
 - Startup `unknown`/`unavailable` sensor behavior is not covered live.
 - Disabled Magic Areas light-control switch behavior is not asserted live.
