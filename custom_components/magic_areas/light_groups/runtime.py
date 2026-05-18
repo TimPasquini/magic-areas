@@ -125,6 +125,7 @@ class _LightGroupHost(Protocol):
     def _set_echo_state(self, state: CommandEchoState) -> None: ...
     def async_write_ha_state(self) -> None: ...
     def is_control_enabled(self) -> bool: ...
+    def adaptive_lighting_switch_set(self) -> AdaptiveLightingSwitchSet | None: ...
     def track_group_listener(
         self, remove_listener: Callable[[], None], name: str
     ) -> None: ...
@@ -410,7 +411,7 @@ def schedule_adaptive_lighting_state_coordination(
     states_tuple: tuple[list[str], list[str], list[str]],
 ) -> bool:
     """Schedule Adaptive Lighting coordination for area-state transitions."""
-    switch_set = getattr(host, "_adaptive_lighting_switch_set", None)
+    switch_set = _current_adaptive_lighting_switch_set(host)
     if switch_set is None:
         return False
 
@@ -431,7 +432,7 @@ def schedule_adaptive_lighting_state_coordination(
 
 def schedule_adaptive_lighting_manual_restore(host: _LightGroupHost) -> bool:
     """Schedule AL manual-control restore after MA control has been reset."""
-    switch_set = getattr(host, "_adaptive_lighting_switch_set", None)
+    switch_set = _current_adaptive_lighting_switch_set(host)
     if switch_set is None:
         return False
 
@@ -447,6 +448,16 @@ def schedule_adaptive_lighting_manual_restore(host: _LightGroupHost) -> bool:
         async_execute_adaptive_lighting_intents(host.hass, intents)
     )
     return True
+
+
+def _current_adaptive_lighting_switch_set(
+    host: _LightGroupHost,
+) -> AdaptiveLightingSwitchSet | None:
+    """Resolve the current AL switch set, allowing late AL entity availability."""
+    resolver = getattr(host, "adaptive_lighting_switch_set", None)
+    if callable(resolver):
+        return resolver()
+    return getattr(host, "_adaptive_lighting_switch_set", None)
 
 
 def apply_runtime_effect(
@@ -567,11 +578,10 @@ def handle_ambient_rise_signal_state_change(
 
     if new_state.state != STATE_ON:
         host._ambient_rise_trend_contaminated = False
-
     if not host.is_control_enabled():
         return False
 
-    current_states = _current_area_states_for_group_event(host)
+    current_states = read_area_presence_states(host.hass, host._area_id)
     current_state_values = {str(state) for state in current_states}
     if (
         AreaStates.OCCUPIED.value not in current_state_values
@@ -591,7 +601,7 @@ def handle_ambient_rise_source_state_change(
     if not host.is_control_enabled():
         return False
 
-    current_states = _current_area_states_for_group_event(host)
+    current_states = read_area_presence_states(host.hass, host._area_id)
     current_state_values = {str(state) for state in current_states}
     if (
         AreaStates.OCCUPIED.value not in current_state_values
@@ -664,13 +674,22 @@ def _dispatch_controlled_action(
         if target_entity_ids is not None
         else host.current_control_target_is_on()
     )
-    if target_is_on != when_is_on:
+    if target_entity_ids == ():
         _set_last_intent_attributes(
             host,
             action=action,
-            reason=dispatch_plan.reason
-            if target_entity_ids == ()
-            else "target_state_mismatch",
+            reason=dispatch_plan.reason,
+            executed=False,
+            target_entity_ids=(),
+            allowed_entity_ids=dispatch_plan.allowed_entity_ids,
+            suppressed_entity_ids=dispatch_plan.suppressed_entity_ids,
+        )
+        return False
+    if target_is_on is not None and target_is_on != when_is_on:
+        _set_last_intent_attributes(
+            host,
+            action=action,
+            reason="target_state_mismatch",
             executed=False,
             target_entity_ids=target_entity_ids or (),
             allowed_entity_ids=dispatch_plan.allowed_entity_ids,
@@ -965,9 +984,11 @@ def _schedule_adaptive_bright_recheck_if_needed(
         return
 
     def recheck() -> None:
+        live_states = read_area_presence_states(host.hass, host._area_id)
+        recheck_states = list(live_states or host._last_known_area_states or current_states)
         host.area_state_changed(
             host._area_id,
-            ([], [], list(host._last_known_area_states or current_states)),
+            ([], [], recheck_states),
         )
 
     remove_listener = host.hass.loop.call_later(delay, recheck).cancel

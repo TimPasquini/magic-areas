@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData
 
 from custom_components.magic_areas.core.control_intents import (
+    AdaptiveLightingSwitchSet,
     ControlTargetSource,
     resolve_role_target,
 )
@@ -299,6 +300,17 @@ class LightGroupRuntimeController:
                 self.hass,
                 light_action_to_control_group(action, target_entity_ids),
             )
+        )
+
+    def adaptive_lighting_switch_set(self) -> AdaptiveLightingSwitchSet | None:
+        """Return current AL switches; managed AL entities may appear after startup."""
+        return adaptive_lighting_switch_set(
+            self._feature_config,
+            hass=self.hass,
+            area_id=self._area_id,
+            area_name=self._area_name,
+            category=str(self.category),
+            light_entity_ids=self._entity_ids,
         )
 
     def light_member_suppression_members(

@@ -123,7 +123,7 @@ class _FakeLightGroupRuntimeHost:
     def __init__(
         self,
         *,
-        is_on: bool,
+        is_on: bool | None,
         controlling: bool = True,
         area_states: tuple[str, ...] = (),
         entity_states: dict[str, str] | None = None,
@@ -163,7 +163,7 @@ class _FakeLightGroupRuntimeHost:
     def _set_echo_state(self, state: CommandEchoState) -> None:
         self._echo_state = state
 
-    def current_control_target_is_on(self) -> bool:
+    def current_control_target_is_on(self) -> bool | None:
         return self.is_on
 
     def _async_create_task(self, coro: object) -> asyncio.Task[None]:
@@ -265,6 +265,27 @@ async def test_turn_on_uses_control_group_executor(
     assert group._attr_extra_state_attributes["last_intent_reason"] == "intent_allowed"
     assert group._attr_extra_state_attributes["last_intent_executed"] is True
     assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == ()
+
+
+@pytest.mark.asyncio
+async def test_turn_on_dispatches_when_target_state_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unknown native-helper state should not suppress idempotent turn-on commands."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeLightGroupRuntimeHost(is_on=None)
+
+    result = turn_on(cast(_LightGroupHost, group))
+    assert result is True
+
+    await asyncio.gather(*group.scheduled_tasks)
+    execute_mock.assert_awaited_once()
+    assert group._attr_extra_state_attributes["last_intent_executed"] is True
+    assert "last_intent_target_is_on" not in group._attr_extra_state_attributes
 
 
 @pytest.mark.asyncio

@@ -174,6 +174,7 @@ DEV_ROOMS: tuple[DevRoom, ...] = (
         name="Adaptive Ambient Room",
         slug="adaptive_ambient_room",
         brightness_mode="adaptive",
+        outside_bright_entity="binary_sensor.outdoor_bright",
         adaptive_require_ambient_rise=True,
         ambient_rise_window_seconds=60,
         ambient_rise_min_delta=100,

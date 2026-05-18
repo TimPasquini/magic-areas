@@ -719,8 +719,6 @@ async def _adaptive_lighting_sleep_expectations(
     for entity_id in adaptive_lighting_room_switches:
         if "_sleep_mode_" in entity_id:
             expectations.append(ExpectedState(entity_id, state="on"))
-        elif "_adapt_brightness_" in entity_id or "_adapt_color_" in entity_id:
-            expectations.append(ExpectedState(entity_id, state="off"))
     return expectations
 
 

@@ -689,9 +689,13 @@ def _actual_adaptive_lighting_switch_parts(
     marker = f"_{ADAPTIVE_LIGHTING_PREFIX}_"
     if marker not in object_id:
         return None, None
-    prefix_slug, _, suffix_slug = object_id.partition(marker)
-    if prefix_slug and suffix_slug == prefix_slug:
-        return MAIN_SWITCH, prefix_slug
+    start = 0
+    while (index := object_id.find(marker, start)) != -1:
+        prefix_slug = object_id[:index]
+        suffix_slug = object_id[index + len(marker) :]
+        if prefix_slug and suffix_slug == prefix_slug:
+            return MAIN_SWITCH, prefix_slug
+        start = index + 1
     return None, None
 
 

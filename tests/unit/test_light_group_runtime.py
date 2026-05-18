@@ -305,6 +305,28 @@ async def test_adaptive_lighting_coordination_schedules_area_state_intents(
 
 
 @pytest.mark.asyncio
+async def test_adaptive_lighting_coordination_resolves_late_switch_set(
+    hass: HomeAssistant,
+) -> None:
+    """Runtime should resolve managed AL switches when they appear after startup."""
+    harness = await setup_adaptive_lighting_harness(hass)
+    group = _fake_group()
+    group.hass = hass
+    group._adaptive_lighting_switch_set = None
+    group.adaptive_lighting_switch_set = Mock(return_value=harness.switch_set)
+
+    scheduled = schedule_adaptive_lighting_state_coordination(
+        group,
+        (["sleep"], [], ["occupied", "sleep"]),
+    )
+    await hass.async_block_till_done()
+
+    assert scheduled
+    group.adaptive_lighting_switch_set.assert_called_once_with()
+    assert [call.service for call in harness.calls] == ["switch.turn_on"]
+
+
+@pytest.mark.asyncio
 async def test_adaptive_lighting_coordination_is_inert_without_switch_set(
     hass: HomeAssistant,
 ) -> None:

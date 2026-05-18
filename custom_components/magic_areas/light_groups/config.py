@@ -467,10 +467,8 @@ def adaptive_lighting_switch_set(
         )
         if desired is None:
             return None
-        if hass is not None and (
-            switch_set := managed_switch_set_from_hass_registry(hass, desired)
-        ):
-            return switch_set
+        if hass is not None:
+            return managed_switch_set_from_hass_registry(hass, desired)
         return switch_set_from_explicit_refs(
             area_id=area_id,
             role=category,

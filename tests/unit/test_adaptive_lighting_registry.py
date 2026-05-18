@@ -180,3 +180,61 @@ def test_managed_hass_registry_discovery_resolves_actual_al_switches(
 
     assert switch_set is not None
     assert switch_set.entity_ids == tuple(actual_refs.values())
+
+
+def test_managed_hass_registry_discovery_handles_ma_adaptive_lighting_names(
+    hass: HomeAssistant,
+) -> None:
+    """Managed discovery should handle AL's verbose IDs for MA Adaptive Lighting rooms."""
+    desired = managed_adaptive_lighting_config(
+        area_id="adaptive_lighting_room",
+        area_name="Adaptive Lighting Room",
+        role="all_lights",
+        light_entity_ids=("light.overhead", "light.lamp"),
+    )
+    assert desired is not None
+    entry = MockConfigEntry(
+        domain=ADAPTIVE_LIGHTING_DOMAIN,
+        data=desired.data,
+        options={"lights": ["light.overhead", "light.lamp"]},
+        title=desired.name,
+        unique_id=desired.name,
+    )
+    entry.add_to_hass(hass)
+    entity_registry = er.async_get(hass)
+    actual_refs = {
+        "main": (
+            "switch.ma_adaptive_lighting_room_all_lights_"
+            "adaptive_lighting_ma_adaptive_lighting_room_all_lights"
+        ),
+        "sleep": (
+            "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+            "adaptive_lighting_sleep_mode_ma_adaptive_lighting_room_all_lights"
+        ),
+        "adapt_brightness": (
+            "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+            "adaptive_lighting_adapt_brightness_ma_adaptive_lighting_room_all_lights"
+        ),
+        "adapt_color": (
+            "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+            "adaptive_lighting_adapt_color_ma_adaptive_lighting_room_all_lights"
+        ),
+    }
+    for entity_id in actual_refs.values():
+        domain, object_id = entity_id.split(".", 1)
+        registry_entry = entity_registry.async_get_or_create(
+            domain,
+            ADAPTIVE_LIGHTING_DOMAIN,
+            object_id,
+            config_entry=entry,
+            suggested_object_id=object_id,
+        )
+        entity_registry.async_update_entity(
+            registry_entry.entity_id,
+            area_id="adaptive_lighting_room",
+        )
+
+    switch_set = managed_switch_set_from_hass_registry(hass, desired)
+
+    assert switch_set is not None
+    assert switch_set.entity_ids == tuple(actual_refs.values())

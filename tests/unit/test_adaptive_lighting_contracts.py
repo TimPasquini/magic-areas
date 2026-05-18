@@ -871,6 +871,23 @@ def test_state_coordination_intents_track_sleep_and_accent_transitions() -> None
     )
 
 
+def test_state_coordination_intents_leave_adaptation_on_for_sleep_only() -> None:
+    """Sleep mode should not disable AL brightness/color adaptation by itself."""
+    intents = adaptive_lighting_state_coordination_intents(
+        _switch_set(),
+        new_states=("sleep",),
+        lost_states=(),
+    )
+
+    assert tuple(intent.service for intent in intents) == (SERVICE_TURN_ON,)
+    assert tuple(intent.data[ATTR_ENTITY_ID] for intent in intents) == (
+        "switch.adaptive_lighting_sleep_mode_kitchen",
+    )
+    assert tuple(intent.reason for intent in intents) == (
+        AdaptiveLightingCoordinationReason.SLEEP_ACTIVE,
+    )
+
+
 def test_state_coordination_intents_ignore_stable_states() -> None:
     """Stable current states should not produce duplicate AL service intents."""
     assert (
