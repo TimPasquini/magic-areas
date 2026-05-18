@@ -26,6 +26,7 @@ For current implementation state, use:
 - `docs/contributing/architecture.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/development.md`
+- `docs/contributing/dev-simulation-guidance.md`
 - `docs/contributing/refactoring-guide.md`
 
 ## Required commands
@@ -37,6 +38,12 @@ uv run --extra dev ruff check custom_components/magic_areas tests
 uv run --extra test mypy custom_components/magic_areas tests
 uv run --extra test pytest tests -q
 ```
+
+If a change affects room-control behavior, fake-house simulation, scenario
+scripts, Adaptive Lighting coordination, native helper reconciliation, or the
+expected interpretation of simulation results, update
+`docs/contributing/dev-simulation-guidance.md` before committing. Treat that
+documentation update with the same importance as tests, `mypy`, and `ruff`.
 
 Useful focused commands:
 

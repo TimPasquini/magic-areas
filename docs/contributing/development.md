@@ -26,6 +26,12 @@ uv run --extra test mypy custom_components/magic_areas tests
 uv run --extra test pytest tests -q
 ```
 
+Also review `docs/contributing/dev-simulation-guidance.md` before committing
+changes that affect room-control behavior, fake-house simulation, scenario
+scripts, Adaptive Lighting coordination, native helper reconciliation, or the
+expected interpretation of simulation results. Updating that guidance is part of
+the quality gate for this class of work, not optional cleanup.
+
 Optional formatting check:
 
 ```bash
@@ -37,6 +43,9 @@ uv run --extra dev ruff format --check custom_components/magic_areas tests
 ```bash
 # Full suite
 uv run --extra test pytest tests -q
+
+# Scenario behavior suite
+uv run --extra dev pytest tests/scenarios -q
 
 # Single test file
 uv run --extra test pytest tests/unit/test_control_group_executor.py -q
@@ -155,6 +164,7 @@ inspect them as needed, but do not commit generated diagram files.
 
 - `CLAUDE.md` (repo workflow + standards)
 - `docs/contributing/architecture.md`
+- `docs/contributing/dev-simulation-guidance.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/refactoring-guide.md`
 - `docs/contributing/repository-control-contract.md`
