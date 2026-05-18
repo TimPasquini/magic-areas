@@ -213,6 +213,7 @@ Current scenarios:
 ./scripts/ha_dev_simulate.sh --scenario control-matrix
 ./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
+./scripts/ha_dev_simulate.sh --scenario presence-hold
 ```
 
 Current live-simulation coverage:
@@ -243,6 +244,9 @@ Current live-simulation coverage:
   automatic reacquire during bright/dark state churn.
 - Clear followed by re-occupancy resets manual override and allows Magic Areas
   to reclaim control.
+- Presence hold is asserted as an independent occupancy source while the fake
+  occupancy sensor is off, and the room is asserted to clear after the
+  presence-hold switch turns off.
 
 ## Coverage Gaps
 
@@ -251,7 +255,6 @@ section above.
 
 Current high-value gaps:
 
-- Presence hold behavior is not directly asserted in live simulation.
 - Extended-state behavior is incidental rather than directly asserted.
 - Manual override timeout without room clear is not covered.
 - Adaptive Lighting manual-control release is not covered live.

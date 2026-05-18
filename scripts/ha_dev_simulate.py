@@ -1116,6 +1116,66 @@ async def manual_override(client: HomeAssistantWs, args: argparse.Namespace) -> 
     evaluation.write()
 
 
+async def presence_hold(client: HomeAssistantWs, args: argparse.Namespace) -> None:
+    """Run a live presence-hold occupancy scenario."""
+    evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
+    evaluation = ScenarioEvaluation(output_path=evaluation_path)
+    area_state = "binary_sensor.magic_areas_presence_tracking_living_room_area_state"
+    presence_hold_switch = "switch.magic_areas_presence_hold_living_room"
+
+    await reset_fake_house(client)
+    await set_switch(client, presence_hold_switch, False)
+    if args.enable_controls:
+        await set_switch(
+            client,
+            "switch.magic_areas_light_groups_living_room_light_control",
+            True,
+        )
+    await wait_for_state(
+        client,
+        area_state,
+        "off",
+        timeout_seconds=(args.cycle_seconds * 2) + args.checkpoint_settle_seconds,
+    )
+    await asyncio.sleep(args.setup_settle_seconds)
+
+    print("event: presence hold on with occupancy input off", flush=True)
+    await set_switch(client, presence_hold_switch, True)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="presence hold occupies room",
+        expectations=(
+            ExpectedState("binary_sensor.living_room_occupancy", state="off"),
+            ExpectedState(presence_hold_switch, state="on"),
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState("light.living_room_overhead", state="on"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="on",
+            ),
+        ),
+    )
+
+    print("event: presence hold off and clear", flush=True)
+    await set_switch(client, presence_hold_switch, False)
+    await asyncio.sleep((args.cycle_seconds * 2) + args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="presence hold clears room",
+        expectations=(
+            ExpectedState(presence_hold_switch, state="off"),
+            ExpectedState(area_state, state="off", states_contains=("clear",)),
+            ExpectedState("light.living_room_overhead", state="off"),
+            ExpectedState(
+                "light.magic_areas_native_light_groups_living_room_overhead_lights",
+                state="off",
+            ),
+        ),
+    )
+    evaluation.write()
+
+
 async def adaptive_negative_context(
     client: HomeAssistantWs, args: argparse.Namespace
 ) -> None:
@@ -1278,6 +1338,8 @@ def trace_entities(args: argparse.Namespace) -> tuple[str, ...]:
         entity_ids.extend(control_matrix_trace_entities())
     if args.scenario == "manual-override":
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
+    if args.scenario == "presence-hold":
+        entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.include_bathroom:
         entity_ids.extend(BATHROOM_TRACE_ENTITIES)
     entity_ids.extend(args.trace_entity)
@@ -1305,6 +1367,8 @@ async def simulate(args: argparse.Namespace) -> None:
                 await adaptive_negative_context(client, args)
             elif args.scenario == "manual-override":
                 await manual_override(client, args)
+            elif args.scenario == "presence-hold":
+                await presence_hold(client, args)
             else:  # pragma: no cover - argparse choices guard this path.
                 raise RuntimeError(f"Unknown scenario: {args.scenario}")
         finally:
@@ -1331,6 +1395,7 @@ def parse_args() -> argparse.Namespace:
             "control-matrix",
             "adaptive-negative-context",
             "manual-override",
+            "presence-hold",
         ),
         default="living-room-demo",
         help="Simulation scenario to run",

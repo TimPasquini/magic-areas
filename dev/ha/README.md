@@ -223,6 +223,7 @@ Additional scenarios:
 ./scripts/ha_dev_simulate.sh --scenario control-matrix
 ./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
+./scripts/ha_dev_simulate.sh --scenario presence-hold
 ```
 
 `control-matrix` exercises the multi-room brightness/sleep/accent/adaptive
@@ -230,7 +231,9 @@ matrix. `adaptive-negative-context` verifies that adaptive bright-off remains
 blocked when outside binary/lux context is insufficient. `manual-override`
 verifies that a manual light turn-off blocks automatic reacquire while occupied,
 then allows Magic Areas to reclaim control after the room clears and becomes
-occupied again.
+occupied again. `presence-hold` verifies that the Magic Areas presence-hold
+switch itself can drive occupied behavior while the fake occupancy sensor is off,
+then releases cleanly after the hold switch turns off.
 
 Most Magic Areas dev options that are minute-based are set to one minute by the
 bootstrap, which is the shortest practical value for those fields. That maps to
