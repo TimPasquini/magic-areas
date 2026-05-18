@@ -22,10 +22,11 @@ From the repository root:
 ```
 
 Starting through this script always returns the HA dev instance to a clean state:
-the current container is stopped, `dev/ha/config/` is deleted, and the config is
-recreated from `dev/ha/seed/`. Treat frontend/UI changes as disposable. Any state
-needed for repeatable testing belongs in seed YAML, bootstrap code, or another
-explicit template under `dev/ha/`.
+the current container is stopped, generated HA config state is cleaned, and the
+config is recreated from `dev/ha/seed/`. Treat frontend/UI changes as disposable
+unless they are intentionally captured in the nested dev-state repo described
+below. Any state needed for repeatable testing belongs in seed YAML, bootstrap
+code, or another explicit template under `dev/ha/`.
 
 Then open:
 
@@ -36,6 +37,30 @@ http://localhost:8123
 On first launch after each clean start, Home Assistant will run onboarding and
 ask you to create a local user. Runtime data is written to `dev/ha/config/` and
 is ignored by git.
+
+## Local Dev-State Tracking
+
+`dev/ha/config/` is ignored by the main Magic Areas repository, but it contains
+its own nested git repository for local tracking of the disposable HA dev
+instance state:
+
+```bash
+git -C dev/ha/config status
+git -C dev/ha/config commit -am "Describe local HA state change"
+```
+
+This nested repo is intentionally local-only. It lets us diff and roll back the
+configured fake HA instance without adding `.storage` registry state, databases,
+or logs to the Magic Areas project history.
+
+The nested repo tracks deterministic state such as HA area/entity/label
+registries, Magic Areas config entries, `configuration.yaml`, packages, and
+blueprints. It ignores runtime churn such as logs, recorder databases, restore
+state, trace storage, caches, and local auth files.
+
+`ha_dev_start.sh` and `ha_dev_reset.sh` preserve `dev/ha/config/.git` and
+`dev/ha/config/.gitignore` while rebuilding the clean HA config from seed files,
+so local snapshots survive normal clean starts.
 
 ## Stop
 

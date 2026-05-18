@@ -9,9 +9,12 @@ mkdir -p config/custom_components
 
 docker compose run --rm --entrypoint /bin/sh homeassistant -c '
   # Keep auth/onboarding identity so existing local dev tokens survive resets.
+  # Keep the nested dev-state git repo so local HA snapshots survive clean starts.
   find /config -mindepth 1 -maxdepth 1 \
     ! -name custom_components \
     ! -name .storage \
+    ! -name .git \
+    ! -name .gitignore \
     -exec rm -rf {} +
 
   mkdir -p /config/.storage
