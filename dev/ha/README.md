@@ -196,13 +196,16 @@ Additional scenarios:
 
 ```bash
 ./scripts/ha_dev_simulate.sh --scenario control-matrix
+./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
 ```
 
 `control-matrix` exercises the multi-room brightness/sleep/accent/adaptive
-matrix. `manual-override` verifies that a manual light turn-off blocks automatic
-reacquire while occupied, then allows Magic Areas to reclaim control after the
-room clears and becomes occupied again.
+matrix. `adaptive-negative-context` verifies that adaptive bright-off remains
+blocked when outside binary/lux context is insufficient. `manual-override`
+verifies that a manual light turn-off blocks automatic reacquire while occupied,
+then allows Magic Areas to reclaim control after the room clears and becomes
+occupied again.
 
 Most Magic Areas dev options that are minute-based are set to one minute by the
 bootstrap, which is the shortest practical value for those fields. That maps to

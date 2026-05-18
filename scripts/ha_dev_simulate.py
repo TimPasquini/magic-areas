@@ -1116,6 +1116,93 @@ async def manual_override(client: HomeAssistantWs, args: argparse.Namespace) -> 
     evaluation.write()
 
 
+async def adaptive_negative_context(
+    client: HomeAssistantWs, args: argparse.Namespace
+) -> None:
+    """Run adaptive bright-off negative outside-context scenarios."""
+    evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
+    evaluation = ScenarioEvaluation(output_path=evaluation_path)
+    binary_room = _room_by_slug()["adaptive_binary_room"]
+    lux_room = _room_by_slug()["adaptive_lux_room"]
+    rooms = (binary_room, lux_room)
+
+    await reset_control_matrix(client)
+    await set_input_number(client, "input_number.outdoor_lux", 100)
+    await asyncio.gather(
+        *(
+            wait_for_state(
+                client,
+                f"binary_sensor.magic_areas_presence_tracking_{getattr(room, 'slug')}_area_state",
+                "off",
+                timeout_seconds=(args.cycle_seconds * 2) + args.checkpoint_settle_seconds,
+            )
+            for room in rooms
+        )
+    )
+    if args.enable_controls:
+        await set_switch(client, _control_switches(rooms), True)
+    await asyncio.sleep(args.setup_settle_seconds)
+
+    print("event: adaptive negative context occupied while dark", flush=True)
+    await set_input_boolean(
+        client,
+        [f"input_boolean.{getattr(room, 'slug')}_occupancy" for room in rooms],
+        True,
+    )
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="adaptive negative occupied dark",
+        expectations=_dark_occupied_expectations(rooms),
+    )
+
+    print("event: adaptive negative outside not bright / lux below minimum", flush=True)
+    for room in rooms:
+        await set_input_number(client, f"input_number.{getattr(room, 'slug')}_lux", 1300)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="adaptive negative outside context blocks off",
+        expectations=(
+            ExpectedState("binary_sensor.outdoor_bright", state="off"),
+            ExpectedState("sensor.outdoor_illuminance", state="100.0"),
+            ExpectedState(
+                "binary_sensor.magic_areas_presence_tracking_adaptive_binary_room_area_state",
+                state="on",
+                states_contains=("occupied", "bright"),
+            ),
+            ExpectedState("light.adaptive_binary_room_overhead", state="on"),
+            ExpectedState(
+                "binary_sensor.magic_areas_presence_tracking_adaptive_lux_room_area_state",
+                state="on",
+                states_contains=("occupied", "bright"),
+            ),
+            ExpectedState("light.adaptive_lux_room_overhead", state="on"),
+        ),
+    )
+
+    print("event: adaptive negative outside lux insufficient contrast", flush=True)
+    await set_input_number(client, "input_number.adaptive_lux_room_lux", 350)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await set_input_number(client, "input_number.outdoor_lux", 1400)
+    await set_input_number(client, "input_number.adaptive_lux_room_lux", 1300)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="adaptive negative outside lux contrast blocks off",
+        expectations=(
+            ExpectedState("sensor.outdoor_illuminance", state="1400.0"),
+            ExpectedState(
+                "binary_sensor.magic_areas_presence_tracking_adaptive_lux_room_area_state",
+                state="on",
+                states_contains=("occupied", "bright"),
+            ),
+            ExpectedState("light.adaptive_lux_room_overhead", state="on"),
+        ),
+    )
+    evaluation.write()
+
+
 async def living_room_demo(client: HomeAssistantWs, args: argparse.Namespace) -> None:
     """Run a living-room state and lux simulation."""
     await reset_fake_house(client)
@@ -1187,6 +1274,8 @@ def trace_entities(args: argparse.Namespace) -> tuple[str, ...]:
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.scenario == "control-matrix":
         entity_ids.extend(control_matrix_trace_entities())
+    if args.scenario == "adaptive-negative-context":
+        entity_ids.extend(control_matrix_trace_entities())
     if args.scenario == "manual-override":
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.include_bathroom:
@@ -1212,6 +1301,8 @@ async def simulate(args: argparse.Namespace) -> None:
                 await living_room_demo(client, args)
             elif args.scenario == "control-matrix":
                 await control_matrix(client, args)
+            elif args.scenario == "adaptive-negative-context":
+                await adaptive_negative_context(client, args)
             elif args.scenario == "manual-override":
                 await manual_override(client, args)
             else:  # pragma: no cover - argparse choices guard this path.
@@ -1235,7 +1326,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--scenario",
-        choices=("living-room-demo", "control-matrix", "manual-override"),
+        choices=(
+            "living-room-demo",
+            "control-matrix",
+            "adaptive-negative-context",
+            "manual-override",
+        ),
         default="living-room-demo",
         help="Simulation scenario to run",
     )

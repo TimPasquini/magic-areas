@@ -276,8 +276,9 @@ Magic Areas should not take over Adaptive Lighting’s brightness/color algorith
 
 ## Current Interactive Fake-House Coverage
 
-The live HA fake-house script currently provides `control-matrix` and
-`manual-override` scenarios through `scripts/ha_dev_simulate.py`.
+The live HA fake-house script currently provides `control-matrix`,
+`adaptive-negative-context`, and `manual-override` scenarios through
+`scripts/ha_dev_simulate.py`.
 
 Covered cases:
 
@@ -289,6 +290,9 @@ Covered cases:
   context and timing gates are satisfied.
 - Adaptive outside-context variants are represented for outside binary context
   and outside lux contrast.
+- Adaptive outside-context negative behavior is asserted for outside binary not
+  bright, outside lux below the configured minimum, and outside lux with
+  insufficient inside/outside contrast.
 - Sun/daylight-style area-light context is represented through deterministic
   `binary_sensor.outdoor_bright`, not real `sun.sun`, so live results do not
   depend on wall-clock time of day.
@@ -324,9 +328,6 @@ Known live-simulation gaps:
 - Adaptive Lighting `adopt_existing` mode is not covered live.
 - Startup `unknown`/`unavailable` sensor behavior is not covered live.
 - Disabled Magic Areas light-control switch behavior is not asserted.
-- Adaptive outside-context negative cases are not covered, including outside
-  not bright, outside lux too low, insufficient outside/inside delta, and
-  insufficient outside/inside ratio.
 - Ambient-rise false positives from Adaptive Lighting brightness changes are not
   covered.
 - Ambient-rise false positives from neighboring/spill-over lights are not
@@ -340,10 +341,9 @@ Known live-simulation gaps:
 
 Immediate live-simulation TODO:
 
-1. Add adaptive outside-context negative cases.
-2. Add presence-hold-specific assertions separate from ordinary clear timing.
-3. Add Adaptive Lighting manual-control release coverage.
-4. Add manual override timeout coverage without requiring room clear.
+1. Add presence-hold-specific assertions separate from ordinary clear timing.
+2. Add Adaptive Lighting manual-control release coverage.
+3. Add manual override timeout coverage without requiring room clear.
 
 ## Future Cross-Domain Simulation
 
