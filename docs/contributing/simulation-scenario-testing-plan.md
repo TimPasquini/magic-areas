@@ -274,6 +274,71 @@ Third phase, if useful:
 
 Magic Areas should not take over Adaptive Lighting’s brightness/color algorithm. The point is to coordinate with it and avoid misinterpreting its effects.
 
+## Current Interactive Fake-House Coverage
+
+The live HA fake-house script currently provides a `control-matrix` scenario
+through `scripts/ha_dev_simulate.py`.
+
+Covered cases:
+
+- Dark occupied rooms turn configured overhead lights on.
+- Classic brightness behavior turns overhead lights off when the room becomes bright.
+- Advisory brightness behavior does not force overhead lights off when the room
+  becomes bright.
+- Adaptive brightness behavior turns overhead lights off when configured outside
+  context and timing gates are satisfied.
+- Adaptive outside-context variants are represented for outside binary context
+  and outside lux contrast.
+- Adaptive ambient-rise behavior rejects the artificial rise caused by in-room
+  light output, then accepts a later daylight-style rise after the attribution
+  window clears.
+- Accent state suppresses overhead lights and turns accent-role lights on.
+- Sleep state suppresses overhead lights and turns sleep-role lights on.
+- Sleep plus accent overlap preserves lights that belong to both suppressive
+  roles.
+- Clear/empty behavior is asserted after occupancy, sleep, and accent inputs
+  turn off and the configured clear timing settles.
+- Native HA light helper groups are asserted along with member lights.
+- A real Adaptive Lighting integration instance is present, and Magic Areas
+  sleep state is asserted to turn on the managed all-lights AL sleep-mode switch.
+
+Known live-simulation gaps:
+
+- `classic_sun_room`, `advisory_sun_room`, and `adaptive_sun_room` are traced
+  but not yet part of strict control-matrix assertions.
+- Presence hold behavior is not directly asserted.
+- Extended-state behavior is incidental rather than directly asserted.
+- Manual override behavior is not covered.
+- Manual override timeout and Magic Areas reclaiming control are not covered.
+- Adaptive Lighting manual-control release is not covered in the live simulation.
+- Adaptive Lighting role-scoped managed groups are created, but live assertions
+  currently check only the all-lights sleep-mode switch.
+- Adaptive Lighting `adopt_existing` mode is not covered live.
+- Startup `unknown`/`unavailable` sensor behavior is not covered live.
+- Disabled Magic Areas light-control switch behavior is not asserted.
+- Adaptive outside-context negative cases are not covered, including outside
+  not bright, outside lux too low, insufficient outside/inside delta, and
+  insufficient outside/inside ratio.
+- Ambient-rise false positives from Adaptive Lighting brightness changes are not
+  covered.
+- Ambient-rise false positives from neighboring/spill-over lights are not
+  covered.
+- Cover, fan, media, and other future control-domain overlap cases are not
+  covered.
+- Config flow and frontend behavior are not covered by the fake-house
+  simulation.
+- Reconciliation behavior after entity/helper/group membership changes is not
+  covered by the fake-house simulation.
+
+Immediate live-simulation TODO:
+
+1. Add manual override and reclaim-control cases.
+2. Add strict assertions for the sun-context rooms already present in the fake
+   house.
+3. Add adaptive outside-context negative cases.
+4. Add presence-hold-specific assertions separate from ordinary clear timing.
+5. Add Adaptive Lighting manual-control release coverage.
+
 ## Future Cross-Domain Simulation
 
 The scenario/simulation model should remain extensible beyond lights.

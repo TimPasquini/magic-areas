@@ -522,6 +522,38 @@ async def test_turn_off_uses_suppressed_subset_when_sleep_suppresses_members(
     )
 
 
+@pytest.mark.asyncio
+async def test_turn_off_noops_when_sleep_and_accent_overlap_preserves_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Runtime should not turn off a member that survives sleep/accent overlap."""
+    execute_mock = AsyncMock()
+    monkeypatch.setattr(
+        "tests.unit.test_light_control_group_parity.execute_control_group_decision",
+        execute_mock,
+    )
+    group = _FakeLightGroupRuntimeHost(
+        is_on=True,
+        area_states=("occupied", "sleep", "accented"),
+        entity_states={"light.sleep_accent_lamp": "on"},
+        sleep_members=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_members=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+    group._entity_ids = ["light.sleep_accent_lamp"]
+
+    result = turn_off(cast(_LightGroupHost, group))
+
+    assert result is False
+    execute_mock.assert_not_awaited()
+    assert group._echo_state.awaiting_echo is False
+    assert group._attr_extra_state_attributes["last_intent_reason"] == "intent_allowed"
+    assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == ()
+    assert group._attr_extra_state_attributes["last_intent_allowed_entity_ids"] == (
+        "light.sleep_accent_lamp",
+    )
+    assert group._attr_extra_state_attributes["last_intent_suppressed_entity_ids"] == ()
+
+
 def test_turn_off_noop_when_not_controlling() -> None:
     """turn_off should be a no-op when group control is disabled."""
     group = _FakeLightGroupRuntimeHost(is_on=True, controlling=False)

@@ -367,12 +367,13 @@ async def get_states(
     """Return selected HA states keyed by entity id."""
     wanted = set(entity_ids)
     raw_states = await client.call("get_states")
+    state_records = raw_states if isinstance(raw_states, list) else []
     states = {
         item["entity_id"]: TraceState(
             state=str(item.get("state")),
             states_attribute=_format_states_attribute(item.get("attributes", {})),
         )
-        for item in raw_states
+        for item in state_records
         if isinstance(item, Mapping)
         and isinstance(item.get("entity_id"), str)
         and item["entity_id"] in wanted
@@ -699,6 +700,64 @@ def _sleep_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
     return expectations
 
 
+def _accent_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
+    """Return expected runtime state after accent mode becomes active."""
+    expectations: list[ExpectedState] = []
+    for room in rooms:
+        if not bool(getattr(room, "include_accent")):
+            continue
+        slug = str(getattr(room, "slug"))
+        second_slug = str(getattr(room, "second_light_slug"))
+        expectations.extend(
+            [
+                ExpectedState(
+                    f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state",
+                    state="on",
+                    states_contains=("occupied", "accented"),
+                ),
+                ExpectedState(f"light.{slug}_overhead", state="off"),
+                ExpectedState(f"light.{slug}_{second_slug}", state="on"),
+                ExpectedState(
+                    f"light.magic_areas_native_light_groups_{slug}_accent_lights",
+                    state="on",
+                ),
+            ]
+        )
+    return expectations
+
+
+def _clear_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
+    """Return expected runtime state after occupancy clears and state timers settle."""
+    expectations: list[ExpectedState] = []
+    for room in rooms:
+        slug = str(getattr(room, "slug"))
+        second_slug = str(getattr(room, "second_light_slug"))
+        expectations.extend(
+            [
+                ExpectedState(
+                    f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state",
+                    state="off",
+                    states_contains=("clear",),
+                ),
+                ExpectedState(f"light.{slug}_overhead", state="off"),
+                ExpectedState(f"light.{slug}_{second_slug}", state="off"),
+                ExpectedState(
+                    f"light.magic_areas_native_light_groups_{slug}_overhead_lights",
+                    state="off",
+                ),
+                ExpectedState(
+                    f"light.magic_areas_native_light_groups_{slug}_sleep_lights",
+                    state="off",
+                ),
+                ExpectedState(
+                    f"light.magic_areas_native_light_groups_{slug}_all_lights",
+                    state="off",
+                ),
+            ]
+        )
+    return expectations
+
+
 async def _adaptive_lighting_sleep_expectations(
     client: HomeAssistantWs,
 ) -> list[ExpectedState]:
@@ -838,6 +897,17 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
             expectations=_ambient_rise_bright_expectations(ambient_room),
         )
 
+    print("event: control matrix accent active", flush=True)
+    await set_input_boolean(
+        client, [f"input_boolean.{getattr(room, 'slug')}_accent" for room in rooms], True
+    )
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="accent active",
+        expectations=_accent_expectations(rooms),
+    )
+
     print("event: control matrix sleep active", flush=True)
     await set_input_boolean(
         client, [f"input_boolean.{getattr(room, 'slug')}_sleep" for room in rooms], True
@@ -854,9 +924,24 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
 
     print("event: control matrix clear", flush=True)
     await set_input_boolean(
-        client, [f"input_boolean.{getattr(room, 'slug')}_occupancy" for room in rooms], False
+        client,
+        [
+            entity_id
+            for room in rooms
+            for entity_id in (
+                f"input_boolean.{getattr(room, 'slug')}_occupancy",
+                f"input_boolean.{getattr(room, 'slug')}_sleep",
+                f"input_boolean.{getattr(room, 'slug')}_accent",
+            )
+        ],
+        False,
     )
-    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await asyncio.sleep((args.cycle_seconds * 2) + args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="clear settled",
+        expectations=_clear_expectations(rooms),
+    )
     evaluation.write()
 
 

@@ -92,9 +92,9 @@ async def test_light_group_listener_setup_idempotent(
     await hass.async_start()
     await hass.async_block_till_done()
     target_group = get_light_group_runtime(light_edge_cases_config_entry)
-    assert target_group._listener_registry.count == 2
+    assert target_group._listener_registry.count == 3
     await target_group._setup_listeners()
-    assert target_group._listener_registry.count == 2
+    assert target_group._listener_registry.count == 3
     await shutdown_integration(hass, [light_edge_cases_config_entry])
 
 
@@ -108,6 +108,6 @@ async def test_listeners_cleaned_up_on_unload(
     await hass.async_start()
     await hass.async_block_till_done()
     target_group = get_light_group_runtime(light_edge_cases_config_entry)
-    assert target_group._listener_registry.count == 2
+    assert target_group._listener_registry.count == 3
     await shutdown_integration(hass, [light_edge_cases_config_entry])
     assert target_group._listener_registry.count == 0

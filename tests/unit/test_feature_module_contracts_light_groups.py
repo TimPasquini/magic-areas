@@ -148,8 +148,8 @@ def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> N
     assert switch_set.role == "overhead_lights"
 
 
-def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None:
-    """Manage mode should attach conventional MA-managed AL switches to that role."""
+def test_light_groups_module_defers_managed_adaptive_lighting_role_until_registry() -> None:
+    """Manage mode should defer runtime switch binding until AL creates registry entries."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.LIGHT_GROUPS},
@@ -176,18 +176,18 @@ def test_light_groups_module_associates_managed_adaptive_lighting_role() -> None
 
     assert getattr(all_group, "_adaptive_lighting_switch_set") is None
     switch_set = getattr(overhead_group, "_adaptive_lighting_switch_set")
-    assert switch_set is not None
-    assert switch_set.role == "overhead_lights"
-    assert switch_set.main_switch_entity_id == (
-        "switch.adaptive_lighting_magic_areas_kitchen_overhead"
-    )
-    assert switch_set.sleep_switch_entity_id == (
-        "switch.adaptive_lighting_sleep_mode_magic_areas_kitchen_overhead"
-    )
+    assert switch_set is None
+    assert _attrs(overhead_group)["adaptive_lighting"] == {
+        "mode": "manage",
+        "role": "overhead_lights",
+        "active": True,
+        "reason": "associated",
+        "main_switch_entity_id": "switch.adaptive_lighting_ma_kitchen_overhead",
+    }
 
 
-def test_light_groups_module_associates_managed_adaptive_lighting_all_lights() -> None:
-    """Manage mode should attach room-level AL switches only to all-lights group."""
+def test_light_groups_module_defers_managed_adaptive_lighting_all_lights_until_registry() -> None:
+    """Manage mode should defer room-level switch binding until AL creates entries."""
     area_config = make_area_config()
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.LIGHT_GROUPS},
@@ -214,11 +214,14 @@ def test_light_groups_module_associates_managed_adaptive_lighting_all_lights() -
     overhead_group = controllers["overhead_lights"]
 
     switch_set = getattr(all_group, "_adaptive_lighting_switch_set")
-    assert switch_set is not None
-    assert switch_set.role == "all_lights"
-    assert switch_set.main_switch_entity_id == (
-        "switch.adaptive_lighting_magic_areas_kitchen_all_lights"
-    )
+    assert switch_set is None
+    assert _attrs(all_group)["adaptive_lighting"] == {
+        "mode": "manage",
+        "role": "all_lights",
+        "active": True,
+        "reason": "associated",
+        "main_switch_entity_id": "switch.adaptive_lighting_ma_kitchen_all_lights",
+    }
     assert getattr(overhead_group, "_adaptive_lighting_switch_set") is None
 
 
@@ -252,9 +255,7 @@ def test_light_groups_module_exposes_adaptive_lighting_diagnostics_attribute() -
         "role": "all_lights",
         "active": True,
         "reason": "associated",
-        "main_switch_entity_id": (
-            "switch.adaptive_lighting_magic_areas_kitchen_all_lights"
-        ),
+        "main_switch_entity_id": "switch.adaptive_lighting_ma_kitchen_all_lights",
     }
 
 
@@ -283,7 +284,7 @@ def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
     configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
 
     assert len(configs) == 1
-    assert configs[0].name == "Magic Areas Kitchen overhead"
+    assert configs[0].name == "MA Kitchen overhead"
     assert configs[0].role == "overhead_lights"
     assert configs[0].light_entity_ids == ("light.overhead_1",)
 
@@ -315,7 +316,7 @@ def test_light_groups_module_builds_managed_adaptive_lighting_all_lights_config(
     configs = module.desired_managed_adaptive_lighting_configs(area_config, snapshot)
 
     assert len(configs) == 1
-    assert configs[0].name == "Magic Areas Kitchen all lights"
+    assert configs[0].name == "MA Kitchen all lights"
     assert configs[0].role == "all_lights"
     assert configs[0].light_entity_ids == (
         "light.overhead_1",

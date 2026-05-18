@@ -456,8 +456,10 @@ def _current_adaptive_lighting_switch_set(
     """Resolve the current AL switch set, allowing late AL entity availability."""
     resolver = getattr(host, "adaptive_lighting_switch_set", None)
     if callable(resolver):
-        return resolver()
-    return getattr(host, "_adaptive_lighting_switch_set", None)
+        switch_set = resolver()
+    else:
+        switch_set = getattr(host, "_adaptive_lighting_switch_set", None)
+    return switch_set if isinstance(switch_set, AdaptiveLightingSwitchSet) else None
 
 
 def apply_runtime_effect(

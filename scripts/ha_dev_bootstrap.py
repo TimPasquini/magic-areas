@@ -10,12 +10,12 @@ import json
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Protocol, cast
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 try:
-    import websockets
+    import websockets  # type: ignore[import-not-found]
 except ImportError as err:  # pragma: no cover - handled by shell wrapper.
     raise SystemExit(
         "Missing dependency 'websockets'. Run through ./scripts/ha_dev_bootstrap.sh."
@@ -26,6 +26,22 @@ from ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
 DEFAULT_URL = "ws://localhost:8123/api/websocket"
 DEFAULT_HTTP_URL = "http://localhost:8123"
 DOMAIN = "magic_areas"
+
+
+class _WebSocketClient(Protocol):
+    """Small websocket protocol surface used by the bootstrap client."""
+
+    async def recv(self) -> str:
+        """Receive a websocket message."""
+        ...
+
+    async def send(self, message: str) -> None:
+        """Send a websocket message."""
+        ...
+
+    async def close(self) -> None:
+        """Close the websocket connection."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,9 +407,9 @@ def _initial_boolean_entities() -> list[str]:
     return entities
 
 
-def _initial_service_calls() -> tuple[dict[str, Any], ...]:
+def _initial_service_calls() -> tuple[dict[str, object], ...]:
     """Return deterministic fake-house reset service calls."""
-    calls: list[dict[str, Any]] = [
+    calls: list[dict[str, object]] = [
         {
             "domain": "input_boolean",
             "service": "turn_off",
@@ -420,7 +436,7 @@ def _initial_service_calls() -> tuple[dict[str, Any], ...]:
     return tuple(calls)
 
 
-INITIAL_SERVICE_CALLS: tuple[dict[str, Any], ...] = _initial_service_calls()
+INITIAL_SERVICE_CALLS: tuple[dict[str, object], ...] = _initial_service_calls()
 
 
 
@@ -432,10 +448,13 @@ class HomeAssistantWs:
         self.token = token
         self._next_id = 1
         self._call_lock = asyncio.Lock()
-        self._ws: Any = None
+        self._ws: _WebSocketClient | None = None
 
     async def __aenter__(self) -> HomeAssistantWs:
-        self._ws = await websockets.connect(self.url, open_timeout=10)
+        self._ws = cast(
+            _WebSocketClient,
+            await websockets.connect(self.url, open_timeout=10),
+        )
         auth_required = json.loads(await self._ws.recv())
         if auth_required.get("type") != "auth_required":
             raise RuntimeError(f"Unexpected websocket greeting: {auth_required}")
@@ -449,7 +468,7 @@ class HomeAssistantWs:
         if self._ws is not None:
             await self._ws.close()
 
-    async def call(self, msg_type: str, **payload: object) -> Any:
+    async def call(self, msg_type: str, **payload: object) -> object:
         """Send one websocket command and return its result."""
         if self._ws is None:
             raise RuntimeError("websocket is not connected")
@@ -528,6 +547,13 @@ def _area_lookup(areas: list[Mapping[str, object]]) -> dict[str, Mapping[str, ob
     return lookup
 
 
+def _mapping_list(value: object) -> list[Mapping[str, object]]:
+    """Return list items that are mapping-shaped API records."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, Mapping)]
+
+
 def _entity_lookup(
     entities: list[Mapping[str, object]],
 ) -> dict[str, Mapping[str, object]]:
@@ -542,7 +568,7 @@ def _entity_lookup(
 async def ensure_area(client: HomeAssistantWs, dev_area: DevArea) -> str:
     """Create a dev area if missing and return its area_id."""
     areas = await client.call("config/area_registry/list")
-    lookup = _area_lookup(areas)
+    lookup = _area_lookup(_mapping_list(areas))
     for key in (dev_area.name, *dev_area.aliases):
         existing = lookup.get(key.lower())
         if existing and isinstance(existing.get("area_id"), str):
@@ -564,7 +590,7 @@ async def assign_entities(
 ) -> None:
     """Assign registry-backed entities to an area."""
     entities = await client.call("config/entity_registry/list")
-    lookup = _entity_lookup(entities)
+    lookup = _entity_lookup(_mapping_list(entities))
     for entity_id in entity_ids:
         registry_entry = lookup.get(entity_id)
         if registry_entry is None:

@@ -262,6 +262,8 @@ class LightGroupPolicy:
                 )
             if self.brightness_mode == BrightnessMode.ADVISORY.value:
                 return self._decision(LightAction.NOOP, "bright_advisory_inhibit_turn_on")
+            if self.brightness_mode == BrightnessMode.ADAPTIVE.value:
+                return self._decision(LightAction.NOOP, "bright_adaptive_inhibit_turn_on")
             if self.brightness_mode == BrightnessMode.INHIBIT.value:
                 return self._decision(LightAction.NOOP, "bright_active_but_stable")
 

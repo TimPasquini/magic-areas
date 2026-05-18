@@ -102,32 +102,36 @@ def evaluate_light_member_suppression(
     constraints: list[IntentConstraint] = []
 
     if AreaStates.SLEEP in current_states:
-        constraints.append(
-            IntentConstraint(
-                constraint_id="sleep_suppression",
-                effect=ConstraintEffect.SUPPRESS,
-                reason="not_sleep_member",
-                target_entity_ids=_entities_not_in_membership(
-                    target_entity_ids,
-                    sleep_entity_ids,
-                ),
-                priority=20,
-            )
+        sleep_suppressed_entity_ids = _entities_not_in_membership(
+            target_entity_ids,
+            sleep_entity_ids,
         )
+        if sleep_suppressed_entity_ids:
+            constraints.append(
+                IntentConstraint(
+                    constraint_id="sleep_suppression",
+                    effect=ConstraintEffect.SUPPRESS,
+                    reason="not_sleep_member",
+                    target_entity_ids=sleep_suppressed_entity_ids,
+                    priority=20,
+                )
+            )
 
     if AreaStates.ACCENT in current_states:
-        constraints.append(
-            IntentConstraint(
-                constraint_id="accent_suppression",
-                effect=ConstraintEffect.SUPPRESS,
-                reason="not_accent_member",
-                target_entity_ids=_entities_not_in_membership(
-                    target_entity_ids,
-                    accent_entity_ids,
-                ),
-                priority=10,
-            )
+        accent_suppressed_entity_ids = _entities_not_in_membership(
+            target_entity_ids,
+            accent_entity_ids,
         )
+        if accent_suppressed_entity_ids:
+            constraints.append(
+                IntentConstraint(
+                    constraint_id="accent_suppression",
+                    effect=ConstraintEffect.SUPPRESS,
+                    reason="not_accent_member",
+                    target_entity_ids=accent_suppressed_entity_ids,
+                    priority=10,
+                )
+            )
 
     return evaluate_intent(
         ControlIntent(

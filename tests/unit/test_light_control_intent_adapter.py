@@ -162,6 +162,27 @@ def test_adapter_preserves_brightness_noop() -> None:
     assert intent_decision is None
 
 
+def test_adaptive_brightness_blocks_stable_bright_turn_on() -> None:
+    """Adaptive mode should not re-enable lights on state changes while already bright."""
+    light_decision, intent_decision = evaluate_light_policy_with_intent_engine(
+        LightGroupPolicy(
+            assigned_states=[AreaStates.OCCUPIED, AreaStates.EXTENDED],
+            act_on_modes=[ActOnMode.OCCUPANCY_CHANGE, ActOnMode.STATE_CHANGE],
+            brightness_mode="adaptive",
+        ),
+        target=_target(),
+        new_states=[AreaStates.EXTENDED],
+        lost_states=[],
+        current_states=[AreaStates.OCCUPIED, AreaStates.EXTENDED, AreaStates.BRIGHT],
+        control_state=CommandEchoState(controlling=True),
+        is_primary=False,
+    )
+
+    assert light_decision.action is LightAction.NOOP
+    assert light_decision.reason == "bright_adaptive_inhibit_turn_on"
+    assert intent_decision is None
+
+
 def test_light_decision_from_intent_decision_preserves_legacy_reason() -> None:
     """Adapter should round-trip allowed intent reasons into light decisions."""
     _light_decision, intent_decision = evaluate_light_policy_with_intent_engine(
@@ -240,6 +261,31 @@ def test_member_suppression_sleep_and_accent_allows_only_overlap() -> None:
         "sleep_suppression",
         "accent_suppression",
     )
+
+
+def test_member_suppression_allows_target_already_in_overlap() -> None:
+    """A target already in all active suppressive roles should remain allowed."""
+    target = RoleTarget(
+        role="sleep_accent",
+        domain="light",
+        area_id="living_room",
+        kind=ControlTargetKind.ENTITY_SUBSET,
+        precision=ControlTargetPrecision.FILTERED,
+        source=ControlTargetSource.CONFIG_RECONCILIATION,
+        entity_ids=("light.sleep_accent_lamp",),
+    )
+
+    decision = evaluate_light_member_suppression(
+        target=target,
+        current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP, AreaStates.ACCENT],
+        sleep_entity_ids=("light.sleep_accent_lamp", "light.sleep_lamp"),
+        accent_entity_ids=("light.sleep_accent_lamp", "light.accent_lamp"),
+    )
+
+    assert decision.action is IntentAction.ACTIVATE
+    assert decision.reason is IntentReason.INTENT_ALLOWED
+    assert decision.target_entity_ids == ("light.sleep_accent_lamp",)
+    assert decision.applied_constraints == ()
 
 
 def test_member_suppression_noops_when_no_target_members_survive() -> None:
