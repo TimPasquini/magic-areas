@@ -214,6 +214,7 @@ Current scenarios:
 ./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
 ./scripts/ha_dev_simulate.sh --scenario presence-hold
+./scripts/ha_dev_simulate.sh --scenario adaptive-lighting-manual-release
 ```
 
 Current live-simulation coverage:
@@ -247,6 +248,9 @@ Current live-simulation coverage:
 - Presence hold is asserted as an independent occupancy source while the fake
   occupancy sensor is off, and the room is asserted to clear after the
   presence-hold switch turns off.
+- Adaptive Lighting manual-control release is asserted by observing the real HA
+  `call_service` event for `adaptive_lighting.set_manual_control` with
+  `manual_control: false` after Magic Areas control resets.
 
 ## Coverage Gaps
 
@@ -256,8 +260,9 @@ section above.
 Current high-value gaps:
 
 - Extended-state behavior is incidental rather than directly asserted.
-- Manual override timeout without room clear is not covered.
-- Adaptive Lighting manual-control release is not covered live.
+- Manual override release without room clear is not covered because the current
+  light runtime does not implement a standalone manual-override timer; current
+  live coverage verifies clear/reclaim release paths.
 - Adaptive Lighting role-scoped managed groups are created, but live assertions
   currently check only the all-lights sleep-mode switch.
 - Adaptive Lighting `adopt_existing` mode is not covered live.

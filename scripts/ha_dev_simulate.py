@@ -11,7 +11,7 @@ import math
 import sys
 import time
 from contextlib import suppress
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -28,6 +28,18 @@ DEFAULT_RAMP_SECONDS = 10.0
 DEFAULT_SAMPLE_SECONDS = 0.5
 DEFAULT_STATE_PERIOD_CYCLES = 2.0
 DEFAULT_TRACE_PATH = "dev/ha/runtime/traces/latest.jsonl"
+ADAPTIVE_LIGHTING_ALL_LIGHTS_SLEEP_SWITCH = (
+    "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+    "adaptive_lighting_sleep_mode_ma_adaptive_lighting_room_all_lights"
+)
+ADAPTIVE_LIGHTING_ALL_LIGHTS_ADAPT_BRIGHTNESS_SWITCH = (
+    "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+    "adaptive_lighting_adapt_brightness_ma_adaptive_lighting_room_all_lights"
+)
+ADAPTIVE_LIGHTING_ALL_LIGHTS_ADAPT_COLOR_SWITCH = (
+    "switch.adaptive_lighting_ma_adaptive_lighting_room_all_lights_"
+    "adaptive_lighting_adapt_color_ma_adaptive_lighting_room_all_lights"
+)
 
 LIVING_ROOM_TRACE_ENTITIES: tuple[str, ...] = (
     "input_boolean.living_room_occupancy",
@@ -173,6 +185,9 @@ def control_matrix_trace_entities() -> tuple[str, ...]:
             "switch.adaptive_lighting_sleep_mode_magic_areas_adaptive_lighting_room_all_lights",
             "switch.adaptive_lighting_adapt_brightness_magic_areas_adaptive_lighting_room_all_lights",
             "switch.adaptive_lighting_adapt_color_magic_areas_adaptive_lighting_room_all_lights",
+            ADAPTIVE_LIGHTING_ALL_LIGHTS_SLEEP_SWITCH,
+            ADAPTIVE_LIGHTING_ALL_LIGHTS_ADAPT_BRIGHTNESS_SWITCH,
+            ADAPTIVE_LIGHTING_ALL_LIGHTS_ADAPT_COLOR_SWITCH,
             "switch.adaptive_lighting_magic_areas_adaptive_lighting_room_overhead",
             "switch.adaptive_lighting_sleep_mode_magic_areas_adaptive_lighting_room_overhead",
             "switch.adaptive_lighting_magic_areas_adaptive_lighting_room_sleep",
@@ -493,6 +508,86 @@ async def wait_for_state(
     state = (await get_states(client, [entity_id])).get(entity_id)
     actual = state.state if state is not None else "<missing>"
     msg = f"{entity_id} did not reach {expected_state}; actual={actual}"
+    raise RuntimeError(msg)
+
+
+async def wait_for_service_call_event(
+    args: argparse.Namespace,
+    *,
+    domain: str,
+    service: str,
+    trigger: Callable[[], object],
+    expected_lights: Iterable[str] = (),
+    expected_manual_control: bool | None = None,
+    timeout_seconds: float = 10.0,
+) -> Mapping[str, object]:
+    """Run a trigger and wait for a matching HA call_service event."""
+    async with HomeAssistantWs(args.url, DEV_HA_LONG_LIVED_TOKEN) as listener:
+        await listener.call("subscribe_events", event_type="call_service")
+        wait_task = asyncio.create_task(
+            _wait_for_matching_service_call_event(
+                listener,
+                domain=domain,
+                service=service,
+                expected_lights=tuple(expected_lights),
+                expected_manual_control=expected_manual_control,
+                timeout_seconds=timeout_seconds,
+            )
+        )
+        try:
+            result = trigger()
+            if asyncio.iscoroutine(result):
+                await result
+            return await wait_task
+        finally:
+            if not wait_task.done():
+                wait_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await wait_task
+
+
+async def _wait_for_matching_service_call_event(
+    listener: HomeAssistantWs,
+    *,
+    domain: str,
+    service: str,
+    expected_lights: tuple[str, ...],
+    expected_manual_control: bool | None,
+    timeout_seconds: float,
+) -> Mapping[str, object]:
+    """Wait for one matching call_service event on an existing listener."""
+    if listener._ws is None:
+        raise RuntimeError("websocket is not connected")
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        timeout = max(0.1, deadline - time.monotonic())
+        raw = json.loads(await asyncio.wait_for(listener._ws.recv(), timeout=timeout))
+        if raw.get("type") != "event":
+            continue
+        event = raw.get("event")
+        if not isinstance(event, Mapping):
+            continue
+        data = event.get("data")
+        if not isinstance(data, Mapping):
+            continue
+        if data.get("domain") != domain or data.get("service") != service:
+            continue
+        service_data = data.get("service_data")
+        if not isinstance(service_data, Mapping):
+            continue
+        if expected_manual_control is not None and (
+            service_data.get("manual_control") is not expected_manual_control
+        ):
+            continue
+        if expected_lights:
+            raw_lights = service_data.get("lights", [])
+            lights = set(raw_lights if isinstance(raw_lights, list) else [])
+            if not set(expected_lights).issubset(lights):
+                continue
+        return service_data
+
+    msg = f"Timed out waiting for {domain}.{service} call_service event"
     raise RuntimeError(msg)
 
 
@@ -1176,6 +1271,83 @@ async def presence_hold(client: HomeAssistantWs, args: argparse.Namespace) -> No
     evaluation.write()
 
 
+async def adaptive_lighting_manual_release(
+    client: HomeAssistantWs, args: argparse.Namespace
+) -> None:
+    """Run a live AL manual-control release scenario."""
+    evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
+    evaluation = ScenarioEvaluation(output_path=evaluation_path)
+    slug = "adaptive_lighting_room"
+    area_state = f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state"
+    overhead = f"light.{slug}_overhead"
+    lamp = f"light.{slug}_lamp"
+    control_switch = f"switch.magic_areas_light_groups_{slug}_light_control"
+    overhead_group = f"light.magic_areas_native_light_groups_{slug}_overhead_lights"
+
+    await reset_control_matrix(client)
+    await set_switch(client, control_switch, True)
+    await asyncio.sleep(args.setup_settle_seconds)
+
+    print("event: adaptive lighting manual release occupied while dark", flush=True)
+    await set_input_boolean(client, f"input_boolean.{slug}_occupancy", True)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+    await evaluation.evaluate(
+        client,
+        checkpoint="adaptive lighting room controlled on",
+        expectations=(
+            ExpectedState(area_state, state="on", states_contains=("occupied", "dark")),
+            ExpectedState(overhead, state="on"),
+            ExpectedState(overhead_group, state="on"),
+        ),
+    )
+
+    print("event: adaptive lighting marks room lights manual", flush=True)
+    await call_service(
+        client,
+        "adaptive_lighting",
+        "set_manual_control",
+        entity_id=ADAPTIVE_LIGHTING_ALL_LIGHTS_SLEEP_SWITCH,
+        service_data={
+            "lights": [overhead, lamp],
+            "manual_control": True,
+        },
+    )
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+
+    print("event: manual off then clear should release AL manual control", flush=True)
+    await set_light(client, overhead, False)
+    await asyncio.sleep(args.checkpoint_settle_seconds)
+
+    async def clear_room() -> None:
+        await set_input_boolean(client, f"input_boolean.{slug}_occupancy", False)
+        await asyncio.sleep((args.cycle_seconds * 2) + args.checkpoint_settle_seconds)
+
+    service_data = await wait_for_service_call_event(
+        args,
+        domain="adaptive_lighting",
+        service="set_manual_control",
+        trigger=clear_room,
+        expected_lights=(overhead,),
+        expected_manual_control=False,
+        timeout_seconds=(args.cycle_seconds * 2) + args.checkpoint_settle_seconds + 10,
+    )
+    print(
+        "event: observed adaptive_lighting.set_manual_control release "
+        f"{dict(service_data)}",
+        flush=True,
+    )
+    await evaluation.evaluate(
+        client,
+        checkpoint="adaptive lighting manual release clear settled",
+        expectations=(
+            ExpectedState(area_state, state="off", states_contains=("clear",)),
+            ExpectedState(overhead, state="off"),
+            ExpectedState(overhead_group, state="off"),
+        ),
+    )
+    evaluation.write()
+
+
 async def adaptive_negative_context(
     client: HomeAssistantWs, args: argparse.Namespace
 ) -> None:
@@ -1340,6 +1512,8 @@ def trace_entities(args: argparse.Namespace) -> tuple[str, ...]:
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
     if args.scenario == "presence-hold":
         entity_ids.extend(LIVING_ROOM_TRACE_ENTITIES)
+    if args.scenario == "adaptive-lighting-manual-release":
+        entity_ids.extend(control_matrix_trace_entities())
     if args.include_bathroom:
         entity_ids.extend(BATHROOM_TRACE_ENTITIES)
     entity_ids.extend(args.trace_entity)
@@ -1369,6 +1543,8 @@ async def simulate(args: argparse.Namespace) -> None:
                 await manual_override(client, args)
             elif args.scenario == "presence-hold":
                 await presence_hold(client, args)
+            elif args.scenario == "adaptive-lighting-manual-release":
+                await adaptive_lighting_manual_release(client, args)
             else:  # pragma: no cover - argparse choices guard this path.
                 raise RuntimeError(f"Unknown scenario: {args.scenario}")
         finally:
@@ -1396,6 +1572,7 @@ def parse_args() -> argparse.Namespace:
             "adaptive-negative-context",
             "manual-override",
             "presence-hold",
+            "adaptive-lighting-manual-release",
         ),
         default="living-room-demo",
         help="Simulation scenario to run",

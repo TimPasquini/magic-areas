@@ -385,7 +385,7 @@ def switch_set_from_discovery_candidates(
         switch_set
         for switch_refs in grouped.values()
         if (
-            switch_set := switch_set_from_explicit_refs(
+            switch_set := _switch_set_from_discovered_refs(
                 area_id=area_id,
                 role=role,
                 switch_refs=switch_refs,
@@ -428,12 +428,36 @@ def switch_sets_from_discovery_candidates(
         switch_set
         for group_slug in sorted(grouped)
         if (
-            switch_set := switch_set_from_explicit_refs(
+            switch_set := _switch_set_from_discovered_refs(
                 area_id=area_id,
                 switch_refs=grouped[group_slug],
             )
         )
         is not None
+    )
+
+
+def _switch_set_from_discovered_refs(
+    *,
+    area_id: str,
+    switch_refs: Mapping[str, str],
+    role: str | None = None,
+) -> AdaptiveLightingSwitchSet | None:
+    """Build a switch set from discovered AL entities.
+
+    Current Adaptive Lighting versions expose behavior switches but may not expose
+    a separate main switch entity. Its services still accept one of the behavior
+    switch entity IDs as the target for config-scoped service calls.
+    """
+    discovered_refs = dict(switch_refs)
+    if MAIN_SWITCH not in discovered_refs and _has_behavior_switch_refs(
+        discovered_refs
+    ):
+        discovered_refs[MAIN_SWITCH] = discovered_refs[SLEEP_SWITCH]
+    return switch_set_from_explicit_refs(
+        area_id=area_id,
+        role=role,
+        switch_refs=discovered_refs,
     )
 
 
@@ -603,6 +627,18 @@ def _has_required_switch_refs(switch_refs: Mapping[str, str]) -> bool:
         _is_switch_entity_id(switch_refs.get(key, ""))
         for key in (
             MAIN_SWITCH,
+            SLEEP_SWITCH,
+            ADAPT_BRIGHTNESS_SWITCH,
+            ADAPT_COLOR_SWITCH,
+        )
+    )
+
+
+def _has_behavior_switch_refs(switch_refs: Mapping[str, str]) -> bool:
+    """Return whether refs include AL's exposed behavior switches."""
+    return all(
+        _is_switch_entity_id(switch_refs.get(key, ""))
+        for key in (
             SLEEP_SWITCH,
             ADAPT_BRIGHTNESS_SWITCH,
             ADAPT_COLOR_SWITCH,

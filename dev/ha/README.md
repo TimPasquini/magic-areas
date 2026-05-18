@@ -224,6 +224,7 @@ Additional scenarios:
 ./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
 ./scripts/ha_dev_simulate.sh --scenario presence-hold
+./scripts/ha_dev_simulate.sh --scenario adaptive-lighting-manual-release
 ```
 
 `control-matrix` exercises the multi-room brightness/sleep/accent/adaptive
@@ -234,6 +235,8 @@ then allows Magic Areas to reclaim control after the room clears and becomes
 occupied again. `presence-hold` verifies that the Magic Areas presence-hold
 switch itself can drive occupied behavior while the fake occupancy sensor is off,
 then releases cleanly after the hold switch turns off.
+`adaptive-lighting-manual-release` verifies that Magic Areas clears Adaptive
+Lighting manual-control state after MA control is released and the room clears.
 
 Most Magic Areas dev options that are minute-based are set to one minute by the
 bootstrap, which is the shortest practical value for those fields. That maps to

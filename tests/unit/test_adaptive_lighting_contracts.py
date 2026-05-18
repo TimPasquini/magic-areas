@@ -675,6 +675,49 @@ def test_discovery_candidates_resolve_actual_adaptive_lighting_entity_ids() -> N
     )
 
 
+def test_discovery_candidates_resolve_actual_three_switch_adaptive_lighting_ids() -> None:
+    """Discovery should support AL versions without a separate main switch entity."""
+    sleep_switch = (
+        "switch.adaptive_lighting_ma_living_room_overhead_"
+        "adaptive_lighting_sleep_mode_ma_living_room_overhead"
+    )
+    switch_set = switch_set_from_discovery_candidates(
+        area_id="living_room",
+        candidates=(
+            AdaptiveLightingSwitchCandidate(
+                entity_id=sleep_switch,
+                area_id="living_room",
+            ),
+            AdaptiveLightingSwitchCandidate(
+                entity_id=(
+                    "switch.adaptive_lighting_ma_living_room_overhead_"
+                    "adaptive_lighting_adapt_brightness_ma_living_room_overhead"
+                ),
+                area_id="living_room",
+            ),
+            AdaptiveLightingSwitchCandidate(
+                entity_id=(
+                    "switch.adaptive_lighting_ma_living_room_overhead_"
+                    "adaptive_lighting_adapt_color_ma_living_room_overhead"
+                ),
+                area_id="living_room",
+            ),
+        ),
+    )
+
+    assert switch_set is not None
+    assert switch_set.main_switch_entity_id == sleep_switch
+    assert switch_set.sleep_switch_entity_id == sleep_switch
+    assert switch_set.adapt_brightness_switch_entity_id == (
+        "switch.adaptive_lighting_ma_living_room_overhead_"
+        "adaptive_lighting_adapt_brightness_ma_living_room_overhead"
+    )
+    assert switch_set.adapt_color_switch_entity_id == (
+        "switch.adaptive_lighting_ma_living_room_overhead_"
+        "adaptive_lighting_adapt_color_ma_living_room_overhead"
+    )
+
+
 def test_adaptive_lighting_apply_data_uses_documented_service_shape() -> None:
     """Apply service data should use entity_id for AL switch and lights for targets."""
     switch_set = _switch_set()
