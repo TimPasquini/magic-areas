@@ -78,8 +78,11 @@ BATHROOM_TRACE_ENTITIES: tuple[str, ...] = (
 )
 
 CONTROL_MATRIX_ROOM_SLUGS: tuple[str, ...] = (
+    "classic_sun_room",
     "classic_sensor_room",
+    "advisory_sun_room",
     "advisory_sensor_room",
+    "adaptive_sun_room",
     "adaptive_binary_room",
     "adaptive_lux_room",
     "adaptive_ambient_room",
@@ -99,6 +102,9 @@ CONTROL_MATRIX_TRACE_SLUGS: tuple[str, ...] = (
 )
 
 AMBIENT_RISE_ROOM_SLUG = "adaptive_ambient_room"
+DAYLIGHT_AREA_LIGHT_ROOM_SLUGS = frozenset(
+    {"classic_sun_room", "advisory_sun_room"}
+)
 AMBIENT_RISE_SIGNAL_ENTITY = (
     "binary_sensor.magic_areas_signals_adaptive_ambient_room_trend_ambient_rise"
 )
@@ -586,6 +592,24 @@ def _control_matrix_rooms() -> tuple[object, ...]:
     return tuple(rooms[slug] for slug in CONTROL_MATRIX_ROOM_SLUGS if slug in rooms)
 
 
+def _daylight_area_light_rooms(rooms: Iterable[object]) -> tuple[object, ...]:
+    """Return rooms whose bright/dark state is sourced from fake outdoor daylight."""
+    return tuple(
+        room
+        for room in rooms
+        if str(getattr(room, "slug")) in DAYLIGHT_AREA_LIGHT_ROOM_SLUGS
+    )
+
+
+def _non_daylight_area_light_rooms(rooms: Iterable[object]) -> tuple[object, ...]:
+    """Return rooms whose bright/dark state is sourced from in-room fake sensors."""
+    return tuple(
+        room
+        for room in rooms
+        if str(getattr(room, "slug")) not in DAYLIGHT_AREA_LIGHT_ROOM_SLUGS
+    )
+
+
 def _control_switches(rooms: Iterable[object]) -> list[str]:
     """Return Magic Areas light-control switches for rooms."""
     return [
@@ -610,6 +634,30 @@ def _dark_occupied_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
                 ExpectedState(
                     f"light.magic_areas_native_light_groups_{slug}_overhead_lights",
                     state="on",
+                ),
+            ]
+        )
+    return expectations
+
+
+def _daylight_occupied_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
+    """Return expected state for rooms whose area light sensor is fake daylight."""
+    expectations: list[ExpectedState] = []
+    for room in rooms:
+        slug = str(getattr(room, "slug"))
+        mode = str(getattr(room, "brightness_mode"))
+        expected_overhead = "on" if mode == "advisory" else "off"
+        expectations.extend(
+            [
+                ExpectedState(
+                    f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state",
+                    state="on",
+                    states_contains=("occupied", "bright"),
+                ),
+                ExpectedState(f"light.{slug}_overhead", state=expected_overhead),
+                ExpectedState(
+                    f"light.magic_areas_native_light_groups_{slug}_overhead_lights",
+                    state=expected_overhead,
                 ),
             ]
         )
@@ -805,12 +853,19 @@ async def reset_control_matrix(client: HomeAssistantWs) -> None:
 async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> None:
     """Run the multi-room control matrix and evaluate expected outcomes."""
     rooms = _control_matrix_rooms()
+    daylight_area_light_rooms = _daylight_area_light_rooms(rooms)
+    non_daylight_area_light_rooms = _non_daylight_area_light_rooms(rooms)
     ambient_room = next(
         (room for room in rooms if getattr(room, "slug") == AMBIENT_RISE_ROOM_SLUG),
         None,
     )
     non_ambient_rooms = tuple(
         room for room in rooms if getattr(room, "slug") != AMBIENT_RISE_ROOM_SLUG
+    )
+    non_ambient_sensor_rooms = tuple(
+        room
+        for room in non_daylight_area_light_rooms
+        if getattr(room, "slug") != AMBIENT_RISE_ROOM_SLUG
     )
     evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
     evaluation = ScenarioEvaluation(output_path=evaluation_path)
@@ -828,11 +883,14 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
     await evaluation.evaluate(
         client,
         checkpoint="dark occupied",
-        expectations=_dark_occupied_expectations(rooms),
+        expectations=(
+            *_dark_occupied_expectations(non_daylight_area_light_rooms),
+            *_daylight_occupied_expectations(daylight_area_light_rooms),
+        ),
     )
 
     print("event: control matrix fake lux bright", flush=True)
-    for room in non_ambient_rooms:
+    for room in non_ambient_sensor_rooms:
         await set_input_number(client, f"input_number.{getattr(room, 'slug')}_lux", 1300)
     await asyncio.sleep(args.checkpoint_settle_seconds)
     await evaluation.evaluate(

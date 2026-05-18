@@ -289,6 +289,13 @@ Covered cases:
   context and timing gates are satisfied.
 - Adaptive outside-context variants are represented for outside binary context
   and outside lux contrast.
+- Sun/daylight-style area-light context is represented through deterministic
+  `binary_sensor.outdoor_bright`, not real `sun.sun`, so live results do not
+  depend on wall-clock time of day.
+- Classic daylight-context behavior is asserted to suppress occupancy-on
+  overhead lighting when the area is already bright.
+- Advisory daylight-context behavior is asserted to still allow occupancy-on
+  overhead lighting when the advisory in-room brightness signal is not bright.
 - Adaptive ambient-rise behavior rejects the artificial rise caused by in-room
   light output, then accepts a later daylight-style rise after the attribution
   window clears.
@@ -304,8 +311,6 @@ Covered cases:
 
 Known live-simulation gaps:
 
-- `classic_sun_room`, `advisory_sun_room`, and `adaptive_sun_room` are traced
-  but not yet part of strict control-matrix assertions.
 - Presence hold behavior is not directly asserted.
 - Extended-state behavior is incidental rather than directly asserted.
 - Manual override behavior is not covered.
@@ -333,11 +338,9 @@ Known live-simulation gaps:
 Immediate live-simulation TODO:
 
 1. Add manual override and reclaim-control cases.
-2. Add strict assertions for the sun-context rooms already present in the fake
-   house.
-3. Add adaptive outside-context negative cases.
-4. Add presence-hold-specific assertions separate from ordinary clear timing.
-5. Add Adaptive Lighting manual-control release coverage.
+2. Add adaptive outside-context negative cases.
+3. Add presence-hold-specific assertions separate from ordinary clear timing.
+4. Add Adaptive Lighting manual-control release coverage.
 
 ## Future Cross-Domain Simulation
 

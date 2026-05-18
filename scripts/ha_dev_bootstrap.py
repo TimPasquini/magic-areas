@@ -143,14 +143,14 @@ DEV_ROOMS: tuple[DevRoom, ...] = (
     DevRoom(
         name="Classic Sun Room",
         slug="classic_sun_room",
-        dark_entity="sun.sun",
+        dark_entity="binary_sensor.outdoor_bright",
     ),
     DevRoom(name="Classic Sensor Room", slug="classic_sensor_room"),
     DevRoom(
         name="Advisory Sun Room",
         slug="advisory_sun_room",
         brightness_mode="advisory",
-        dark_entity="sun.sun",
+        dark_entity="binary_sensor.outdoor_bright",
     ),
     DevRoom(
         name="Advisory Sensor Room",
