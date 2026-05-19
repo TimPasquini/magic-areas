@@ -186,6 +186,7 @@ Current room matrix:
 - Classic Sensor Room
 - Advisory Sun Room
 - Advisory Sensor Room
+- Startup Unknown Room
 - Adaptive Sun Room
 - Adaptive Binary Room
 - Adaptive Lux Room
@@ -226,6 +227,9 @@ Current live-simulation coverage:
   becomes bright.
 - Advisory daylight-context behavior still allows occupancy-on overhead lighting
   when the advisory in-room brightness signal is not bright.
+- Startup/unavailable in-room brightness behavior is covered on the main
+  control matrix: an advisory room with an unavailable light-state binary still
+  follows occupied lighting cues instead of suppressing turn-on.
 - Adaptive brightness behavior turns overhead lights off when configured outside
   context and timing gates are satisfied.
 - Adaptive outside-context negative cases are asserted for outside binary not
@@ -265,7 +269,8 @@ Current high-value gaps:
   light runtime does not implement a standalone manual-override timer; current
   live coverage verifies clear/reclaim release paths.
 - Adaptive Lighting `adopt_existing` mode is not covered live.
-- Startup `unknown`/`unavailable` sensor behavior is not covered live.
+- Startup `unknown` sensor behavior is not covered live; unavailable in-room
+  light-state behavior has baseline control-matrix coverage.
 - Disabled Magic Areas light-control switch behavior is not asserted live.
 - Ambient-rise false positives from Adaptive Lighting brightness changes are not
   covered.

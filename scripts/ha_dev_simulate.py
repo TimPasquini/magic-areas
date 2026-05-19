@@ -94,6 +94,7 @@ CONTROL_MATRIX_ROOM_SLUGS: tuple[str, ...] = (
     "classic_sensor_room",
     "advisory_sun_room",
     "advisory_sensor_room",
+    "startup_unknown_room",
     "adaptive_sun_room",
     "adaptive_binary_room",
     "adaptive_lux_room",
@@ -106,6 +107,7 @@ CONTROL_MATRIX_TRACE_SLUGS: tuple[str, ...] = (
     "classic_sensor_room",
     "advisory_sun_room",
     "advisory_sensor_room",
+    "startup_unknown_room",
     "adaptive_sun_room",
     "adaptive_binary_room",
     "adaptive_lux_room",
@@ -114,6 +116,7 @@ CONTROL_MATRIX_TRACE_SLUGS: tuple[str, ...] = (
 )
 
 AMBIENT_RISE_ROOM_SLUG = "adaptive_ambient_room"
+STARTUP_UNKNOWN_ROOM_SLUG = "startup_unknown_room"
 DAYLIGHT_AREA_LIGHT_ROOM_SLUGS = frozenset(
     {"classic_sun_room", "advisory_sun_room"}
 )
@@ -462,6 +465,21 @@ async def set_input_boolean(
     )
 
 
+async def set_input_select(
+    client: HomeAssistantWs,
+    entity_id: str,
+    option: str,
+) -> None:
+    """Set an input_select option."""
+    await call_service(
+        client,
+        "input_select",
+        "select_option",
+        entity_id=entity_id,
+        service_data={"option": option},
+    )
+
+
 async def set_switch(
     client: HomeAssistantWs,
     entity_id: str | list[str],
@@ -781,6 +799,24 @@ def _dark_occupied_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
     return expectations
 
 
+def _startup_unavailable_expectations(room: object) -> list[ExpectedState]:
+    """Return expected state when the in-room bright binary is unavailable."""
+    slug = str(getattr(room, "slug"))
+    return [
+        ExpectedState(
+            f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state",
+            state="on",
+            states_contains=("occupied",),
+        ),
+        ExpectedState(f"binary_sensor.{slug}_light", state="unavailable"),
+        ExpectedState(f"light.{slug}_overhead", state="on"),
+        ExpectedState(
+            f"light.magic_areas_native_light_groups_{slug}_overhead_lights",
+            state="on",
+        ),
+    ]
+
+
 def _daylight_occupied_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
     """Return expected state for rooms whose area light sensor is fake daylight."""
     expectations: list[ExpectedState] = []
@@ -986,6 +1022,11 @@ async def reset_control_matrix(client: HomeAssistantWs) -> None:
             ]
         )
     await set_input_boolean(client, boolean_entities, False)
+    await set_input_select(
+        client,
+        f"input_select.{STARTUP_UNKNOWN_ROOM_SLUG}_light_availability",
+        "available",
+    )
     for room in rooms:
         await set_input_number(client, f"input_number.{getattr(room, 'slug')}_lux", 350)
     await set_input_number(client, "input_number.outdoor_lux", 12000)
@@ -1000,8 +1041,15 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
         (room for room in rooms if getattr(room, "slug") == AMBIENT_RISE_ROOM_SLUG),
         None,
     )
+    startup_unknown_room = next(
+        (room for room in rooms if getattr(room, "slug") == STARTUP_UNKNOWN_ROOM_SLUG),
+        None,
+    )
     non_ambient_rooms = tuple(
         room for room in rooms if getattr(room, "slug") != AMBIENT_RISE_ROOM_SLUG
+    )
+    standard_dark_rooms = tuple(
+        room for room in non_daylight_area_light_rooms if room is not startup_unknown_room
     )
     non_ambient_sensor_rooms = tuple(
         room
@@ -1022,6 +1070,12 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
     await asyncio.sleep(args.setup_settle_seconds)
 
     print("event: control matrix occupied while dark", flush=True)
+    if startup_unknown_room is not None:
+        await set_input_select(
+            client,
+            f"input_select.{STARTUP_UNKNOWN_ROOM_SLUG}_light_availability",
+            "unavailable",
+        )
     await set_input_boolean(
         client, [f"input_boolean.{getattr(room, 'slug')}_occupancy" for room in rooms], True
     )
@@ -1030,12 +1084,23 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
         client,
         checkpoint="dark occupied",
         expectations=(
-            *_dark_occupied_expectations(non_daylight_area_light_rooms),
+            *_dark_occupied_expectations(standard_dark_rooms),
+            *(
+                _startup_unavailable_expectations(startup_unknown_room)
+                if startup_unknown_room is not None
+                else []
+            ),
             *_daylight_occupied_expectations(daylight_area_light_rooms),
         ),
     )
 
     print("event: control matrix fake lux bright", flush=True)
+    if startup_unknown_room is not None:
+        await set_input_select(
+            client,
+            f"input_select.{STARTUP_UNKNOWN_ROOM_SLUG}_light_availability",
+            "available",
+        )
     for room in non_ambient_sensor_rooms:
         await set_input_number(client, f"input_number.{getattr(room, 'slug')}_lux", 1300)
     await asyncio.sleep(args.checkpoint_settle_seconds)

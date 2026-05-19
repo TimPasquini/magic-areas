@@ -164,6 +164,30 @@ input_boolean:
   adaptive_lighting_room_lamp_power:
     name: Adaptive Lighting Room Lamp Power
     icon: mdi:floor-lamp
+  startup_unknown_room_occupancy:
+    name: Startup Unknown Room Occupancy
+    icon: mdi:motion-sensor
+  startup_unknown_room_sleep:
+    name: Startup Unknown Room Sleep Mode
+    icon: mdi:sleep
+  startup_unknown_room_accent:
+    name: Startup Unknown Room Accent Mode
+    icon: mdi:television-ambient-light
+  startup_unknown_room_overhead_power:
+    name: Startup Unknown Room Overhead Power
+    icon: mdi:ceiling-light
+  startup_unknown_room_lamp_power:
+    name: Startup Unknown Room Lamp Power
+    icon: mdi:floor-lamp
+
+input_select:
+  startup_unknown_room_light_availability:
+    name: Startup Unknown Room Light Availability
+    options:
+      - available
+      - unavailable
+      - unknown
+    initial: available
 
 input_number:
   living_room_lux:
@@ -238,6 +262,13 @@ input_number:
     unit_of_measurement: lx
   adaptive_lighting_room_lux:
     name: Adaptive Lighting Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  startup_unknown_room_lux:
+    name: Startup Unknown Room Lux
     min: 0
     max: 3000
     step: 10
@@ -407,6 +438,26 @@ template:
         unique_id: ma_dev_adaptive_lighting_room_light
         device_class: light
         state: "{{ states('input_number.adaptive_lighting_room_lux') | float(0) > 900 }}"
+      - name: Startup Unknown Room Occupancy
+        unique_id: ma_dev_startup_unknown_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.startup_unknown_room_occupancy', 'on') }}"
+      - name: Startup Unknown Room Sleep
+        unique_id: ma_dev_startup_unknown_room_sleep
+        state: "{{ is_state('input_boolean.startup_unknown_room_sleep', 'on') }}"
+      - name: Startup Unknown Room Accent
+        unique_id: ma_dev_startup_unknown_room_accent
+        state: "{{ is_state('input_boolean.startup_unknown_room_accent', 'on') }}"
+      - name: Startup Unknown Room Light
+        unique_id: ma_dev_startup_unknown_room_light
+        device_class: light
+        availability: "{{ not is_state('input_select.startup_unknown_room_light_availability', 'unavailable') }}"
+        state: >
+          {% if is_state('input_select.startup_unknown_room_light_availability', 'unknown') %}
+            {{ states('sensor.startup_unknown_room_missing_light_state') }}
+          {% else %}
+            {{ states('input_number.startup_unknown_room_lux') | float(0) > 900 }}
+          {% endif %}
       - name: Outdoor Bright
         unique_id: ma_dev_outdoor_bright
         device_class: light
@@ -478,6 +529,12 @@ template:
         state_class: measurement
         unit_of_measurement: lx
         state: "{{ states('input_number.adaptive_lighting_room_lux') | float(0) }}"
+      - name: Startup Unknown Room Illuminance
+        unique_id: ma_dev_startup_unknown_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.startup_unknown_room_lux') | float(0) }}"
       - name: Outdoor Illuminance
         unique_id: ma_dev_outdoor_illuminance
         device_class: illuminance
@@ -793,3 +850,31 @@ template:
             target:
               entity_id:
                 - input_boolean.adaptive_lighting_room_lamp_power
+      - unique_id: ma_dev_startup_unknown_room_overhead
+        default_entity_id: light.startup_unknown_room_overhead
+        name: Startup Unknown Room Overhead
+        state: "{{ is_state('input_boolean.startup_unknown_room_overhead_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.startup_unknown_room_overhead_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.startup_unknown_room_overhead_power
+      - unique_id: ma_dev_startup_unknown_room_lamp
+        default_entity_id: light.startup_unknown_room_lamp
+        name: Startup Unknown Room Lamp
+        state: "{{ is_state('input_boolean.startup_unknown_room_lamp_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.startup_unknown_room_lamp_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.startup_unknown_room_lamp_power
