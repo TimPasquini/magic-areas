@@ -104,6 +104,7 @@ these areas if missing:
 - Advisory Sun Room
 - Advisory Sensor Room
 - Startup Unknown Room
+- Startup Unavailable Room
 - Adaptive Sun Room
 - Adaptive Binary Room
 - Adaptive Lux Room
@@ -116,8 +117,8 @@ Magic Areas config entries, configures the room entries for light-group testing,
 and sets deterministic initial fake-house states. The room matrix intentionally
 covers classic/inhibit behavior, advisory behavior, adaptive behavior with
 deterministic fake daylight, explicit outside binary, outside lux contrast,
-startup unavailable light-state fallback, ambient-rise gating, and a room that
-uses Magic Areas-managed Adaptive Lighting configs.
+startup unknown/unavailable light-state fallback, ambient-rise gating, and a
+room that uses Magic Areas-managed Adaptive Lighting configs.
 
 The bootstrap is idempotent. Re-running it should update missing/stale area
 assignments and create missing Magic Areas entries without destroying the rest of

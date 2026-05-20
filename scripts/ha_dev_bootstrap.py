@@ -163,6 +163,11 @@ DEV_ROOMS: tuple[DevRoom, ...] = (
         brightness_mode="advisory",
     ),
     DevRoom(
+        name="Startup Unavailable Room",
+        slug="startup_unavailable_room",
+        brightness_mode="advisory",
+    ),
+    DevRoom(
         name="Adaptive Sun Room",
         slug="adaptive_sun_room",
         brightness_mode="adaptive",
@@ -445,6 +450,16 @@ def _initial_service_calls() -> tuple[dict[str, object], ...]:
             "service": "select_option",
             "target": {
                 "entity_id": "input_select.startup_unknown_room_light_availability"
+            },
+            "service_data": {"option": "available"},
+        }
+    )
+    calls.append(
+        {
+            "domain": "input_select",
+            "service": "select_option",
+            "target": {
+                "entity_id": "input_select.startup_unavailable_room_light_availability"
             },
             "service_data": {"option": "available"},
         }
