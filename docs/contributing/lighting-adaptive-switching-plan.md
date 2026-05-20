@@ -323,6 +323,10 @@ Current implementation:
 - Direct-light attribution must be explicit. A generic Trend helper can identify rising
   lux, but it cannot by itself prove the rise came from daylight rather than controlled,
   manually changed, Adaptive Lighting-adjusted, or spill-over lights.
+- Configured in-room light on/off attribution now includes all light-group roles in the
+  room, not only the specific role currently evaluating policy. This covers the manual
+  lamp-on case where a sleep/accent/task light raises the room lux while the overhead
+  role is deciding whether ambient-rise evidence is trustworthy.
 
 ## Initial Recommendation
 
@@ -335,7 +339,11 @@ Current implementation:
 
 ## Current Next Step
 
-Live fake-house validation showed the Trend-helper signal shape is insufficient
-by itself for the intended adaptive ambient-off behavior. The next engineering
-pass should add explicit direct-light attribution before treating ambient-rise
-adaptive off as complete.
+Live fake-house validation now covers contaminated and clean ambient-rise
+evidence. Initial rise after Magic Areas turns a light on does not immediately
+turn that light back off, manual configured room-light output does not turn the
+overhead off, and a later clean daylight-style rise does turn adaptive overhead
+lighting off after attribution clears. Remaining direct-light attribution work
+should focus on brightness-level increases, Adaptive Lighting-driven output
+changes, and future user-configured spill-over lights before treating
+ambient-rise adaptive off as complete.

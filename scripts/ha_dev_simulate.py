@@ -100,6 +100,7 @@ CONTROL_MATRIX_ROOM_SLUGS: tuple[str, ...] = (
     "adaptive_binary_room",
     "adaptive_lux_room",
     "adaptive_ambient_room",
+    "adaptive_manual_light_room",
     "adaptive_lighting_room",
 )
 
@@ -114,19 +115,32 @@ CONTROL_MATRIX_TRACE_SLUGS: tuple[str, ...] = (
     "adaptive_binary_room",
     "adaptive_lux_room",
     "adaptive_ambient_room",
+    "adaptive_manual_light_room",
     "adaptive_lighting_room",
 )
 
 AMBIENT_RISE_ROOM_SLUG = "adaptive_ambient_room"
+MANUAL_DIRECT_LIGHT_ROOM_SLUG = "adaptive_manual_light_room"
+AMBIENT_RISE_ROOM_SLUGS = frozenset(
+    {AMBIENT_RISE_ROOM_SLUG, MANUAL_DIRECT_LIGHT_ROOM_SLUG}
+)
 STARTUP_UNKNOWN_ROOM_SLUG = "startup_unknown_room"
 STARTUP_UNAVAILABLE_ROOM_SLUG = "startup_unavailable_room"
 DAYLIGHT_AREA_LIGHT_ROOM_SLUGS = frozenset(
     {"classic_sun_room", "advisory_sun_room"}
 )
-AMBIENT_RISE_SIGNAL_ENTITY = (
-    "binary_sensor.magic_areas_signals_adaptive_ambient_room_trend_ambient_rise"
+
+
+def _ambient_rise_signal_entity(slug: str) -> str:
+    """Return the managed ambient-rise Trend helper entity id for a room slug."""
+    return f"binary_sensor.magic_areas_signals_{slug}_trend_ambient_rise"
+
+
+AMBIENT_RISE_SIGNAL_ENTITY = _ambient_rise_signal_entity(AMBIENT_RISE_ROOM_SLUG)
+MANUAL_DIRECT_LIGHT_RISE_SIGNAL_ENTITY = _ambient_rise_signal_entity(
+    MANUAL_DIRECT_LIGHT_ROOM_SLUG
 )
-AMBIENT_ARTIFICIAL_LIGHT_LUX = 950
+AMBIENT_BRIGHT_THRESHOLD_LUX = 950
 AMBIENT_DAYLIGHT_LUX = 1300
 DEFAULT_LUX_JITTER = 1.0
 
@@ -187,6 +201,7 @@ def control_matrix_trace_entities() -> tuple[str, ...]:
     entity_ids.extend(
         [
             AMBIENT_RISE_SIGNAL_ENTITY,
+            MANUAL_DIRECT_LIGHT_RISE_SIGNAL_ENTITY,
             "switch.adaptive_lighting_magic_areas_adaptive_lighting_room_all_lights",
             "switch.adaptive_lighting_sleep_mode_magic_areas_adaptive_lighting_room_all_lights",
             "switch.adaptive_lighting_adapt_brightness_magic_areas_adaptive_lighting_room_all_lights",
@@ -883,7 +898,7 @@ def _bright_expectations(rooms: Iterable[object]) -> list[ExpectedState]:
 
 
 def _ambient_dark_waiting_expectations(room: object) -> list[ExpectedState]:
-    """Return expected state before artificial light spill is simulated."""
+    """Return expected state before ambient-rise behavior is simulated."""
     slug = str(getattr(room, "slug"))
     return [
         ExpectedState(
@@ -895,8 +910,26 @@ def _ambient_dark_waiting_expectations(room: object) -> list[ExpectedState]:
     ]
 
 
-def _ambient_artificial_light_expectations(room: object) -> list[ExpectedState]:
-    """Return expected state after in-room lighting makes the sensor bright."""
+def _ma_output_contaminated_initial_rise_expectations(
+    room: object,
+) -> list[ExpectedState]:
+    """Return expected state when recent MA output contaminates first rise evidence."""
+    slug = str(getattr(room, "slug"))
+    return [
+        ExpectedState(
+            f"binary_sensor.magic_areas_presence_tracking_{slug}_area_state",
+            state="on",
+            states_contains=("occupied", "bright"),
+        ),
+        ExpectedState(_ambient_rise_signal_entity(slug), state="on"),
+        ExpectedState(f"light.{slug}_overhead", state="on"),
+    ]
+
+
+def _manual_direct_light_contamination_expectations(
+    room: object,
+) -> list[ExpectedState]:
+    """Return expected state after manual room light output makes the sensor bright."""
     slug = str(getattr(room, "slug"))
     return [
         ExpectedState(
@@ -905,6 +938,7 @@ def _ambient_artificial_light_expectations(room: object) -> list[ExpectedState]:
             states_contains=("occupied", "bright"),
         ),
         ExpectedState(f"light.{slug}_overhead", state="on"),
+        ExpectedState(_ambient_rise_signal_entity(slug), state="on"),
     ]
 
 
@@ -917,7 +951,7 @@ def _ambient_rise_bright_expectations(room: object) -> list[ExpectedState]:
             state="on",
             states_contains=("occupied", "bright"),
         ),
-        ExpectedState(AMBIENT_RISE_SIGNAL_ENTITY, state="on"),
+        ExpectedState(_ambient_rise_signal_entity(slug), state="on"),
         ExpectedState(f"light.{slug}_overhead", state="off"),
     ]
 
@@ -1067,6 +1101,14 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
         (room for room in rooms if getattr(room, "slug") == AMBIENT_RISE_ROOM_SLUG),
         None,
     )
+    manual_direct_room = next(
+        (
+            room
+            for room in rooms
+            if getattr(room, "slug") == MANUAL_DIRECT_LIGHT_ROOM_SLUG
+        ),
+        None,
+    )
     startup_unknown_room = next(
         (room for room in rooms if getattr(room, "slug") == STARTUP_UNKNOWN_ROOM_SLUG),
         None,
@@ -1080,7 +1122,7 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
         None,
     )
     non_ambient_rooms = tuple(
-        room for room in rooms if getattr(room, "slug") != AMBIENT_RISE_ROOM_SLUG
+        room for room in rooms if getattr(room, "slug") not in AMBIENT_RISE_ROOM_SLUGS
     )
     standard_dark_rooms = tuple(
         room
@@ -1090,7 +1132,10 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
     non_ambient_sensor_rooms = tuple(
         room
         for room in non_daylight_area_light_rooms
-        if getattr(room, "slug") != AMBIENT_RISE_ROOM_SLUG
+        if getattr(room, "slug") not in AMBIENT_RISE_ROOM_SLUGS
+    )
+    ambient_rooms = tuple(
+        room for room in (ambient_room, manual_direct_room) if room is not None
     )
     evaluation_path = None if args.no_evaluation_file else Path(args.evaluation_file)
     evaluation = ScenarioEvaluation(output_path=evaluation_path)
@@ -1162,62 +1207,109 @@ async def control_matrix(client: HomeAssistantWs, args: argparse.Namespace) -> N
         checkpoint="bright occupied",
         expectations=_bright_expectations(non_ambient_rooms),
     )
-    if ambient_room is not None:
+    for ambient_room_item in ambient_rooms:
         await evaluation.evaluate(
             client,
             checkpoint="ambient dark waiting",
-            expectations=_ambient_dark_waiting_expectations(ambient_room),
+            expectations=_ambient_dark_waiting_expectations(ambient_room_item),
         )
 
-        print("event: control matrix adaptive ambient artificial light bright", flush=True)
+    if ambient_room is not None:
+        print(
+            "event: control matrix adaptive MA-output contaminated initial rise",
+            flush=True,
+        )
         await set_input_number(
             client,
             f"input_number.{AMBIENT_RISE_ROOM_SLUG}_lux",
-            AMBIENT_ARTIFICIAL_LIGHT_LUX,
+            AMBIENT_BRIGHT_THRESHOLD_LUX,
         )
-        await asyncio.sleep(args.checkpoint_settle_seconds)
-        await evaluation.evaluate(
+    if manual_direct_room is not None:
+        print("event: control matrix adaptive manual light contamination", flush=True)
+        await set_input_boolean(
             client,
-            checkpoint="ambient artificial light bright",
-            expectations=_ambient_artificial_light_expectations(ambient_room),
+            _second_power_entity(manual_direct_room),
+            True,
         )
+        await set_input_number(
+            client,
+            f"input_number.{MANUAL_DIRECT_LIGHT_ROOM_SLUG}_lux",
+            AMBIENT_BRIGHT_THRESHOLD_LUX,
+        )
+    if ambient_rooms:
+        await asyncio.sleep(args.checkpoint_settle_seconds)
+        if ambient_room is not None:
+            await evaluation.evaluate(
+                client,
+                checkpoint="MA-output contaminated initial rise",
+                expectations=_ma_output_contaminated_initial_rise_expectations(
+                    ambient_room
+                ),
+            )
+        if manual_direct_room is not None:
+            await evaluation.evaluate(
+                client,
+                checkpoint="manual direct-light contamination bright",
+                expectations=_manual_direct_light_contamination_expectations(
+                    manual_direct_room
+                ),
+            )
 
         direct_light_window = float(
-            getattr(ambient_room, "ambient_rise_window_seconds", 60)
+            max(
+                getattr(ambient_room_item, "ambient_rise_window_seconds", 60)
+                for ambient_room_item in ambient_rooms
+            )
         )
         print(
             "event: control matrix adaptive ambient direct-light attribution "
             f"window jitter settle ({direct_light_window:.0f}s)",
             flush=True,
         )
-        await jitter_input_number(
-            client,
-            entity_id=f"input_number.{AMBIENT_RISE_ROOM_SLUG}_lux",
-            center=AMBIENT_ARTIFICIAL_LIGHT_LUX,
-            seconds=direct_light_window,
-            amplitude=DEFAULT_LUX_JITTER,
+        await asyncio.gather(
+            *(
+                jitter_input_number(
+                    client,
+                    entity_id=f"input_number.{getattr(ambient_room_item, 'slug')}_lux",
+                    center=AMBIENT_BRIGHT_THRESHOLD_LUX,
+                    seconds=direct_light_window,
+                    amplitude=DEFAULT_LUX_JITTER,
+                )
+                for ambient_room_item in ambient_rooms
+            )
         )
 
         print("event: control matrix adaptive ambient daylight ramp", flush=True)
-        await ramp_input_number(
-            client,
-            entity_id=f"input_number.{AMBIENT_RISE_ROOM_SLUG}_lux",
-            start=AMBIENT_ARTIFICIAL_LIGHT_LUX,
-            end=AMBIENT_DAYLIGHT_LUX,
-            seconds=args.ramp_seconds,
+        await asyncio.gather(
+            *(
+                ramp_input_number(
+                    client,
+                    entity_id=f"input_number.{getattr(ambient_room_item, 'slug')}_lux",
+                    start=AMBIENT_BRIGHT_THRESHOLD_LUX,
+                    end=AMBIENT_DAYLIGHT_LUX,
+                    seconds=args.ramp_seconds,
+                )
+                for ambient_room_item in ambient_rooms
+            )
         )
-        await jitter_input_number(
-            client,
-            entity_id=f"input_number.{AMBIENT_RISE_ROOM_SLUG}_lux",
-            center=AMBIENT_DAYLIGHT_LUX,
-            seconds=args.checkpoint_settle_seconds,
-            amplitude=DEFAULT_LUX_JITTER,
+        await asyncio.gather(
+            *(
+                jitter_input_number(
+                    client,
+                    entity_id=f"input_number.{getattr(ambient_room_item, 'slug')}_lux",
+                    center=AMBIENT_DAYLIGHT_LUX,
+                    seconds=args.checkpoint_settle_seconds,
+                    amplitude=DEFAULT_LUX_JITTER,
+                )
+                for ambient_room_item in ambient_rooms
+            )
         )
-        await evaluation.evaluate(
-            client,
-            checkpoint="ambient rise bright",
-            expectations=_ambient_rise_bright_expectations(ambient_room),
-        )
+        for ambient_room_item in ambient_rooms:
+            await evaluation.evaluate(
+                client,
+                checkpoint="ambient rise bright",
+                expectations=_ambient_rise_bright_expectations(ambient_room_item),
+            )
 
     print("event: control matrix accent active", flush=True)
     await set_input_boolean(

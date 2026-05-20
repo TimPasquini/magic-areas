@@ -143,7 +143,7 @@ Current executable scenario coverage includes:
 - `tests/scenarios/test_light_adaptive_switching.py`
   - adaptive bright-off gates for dwell, minimum on-time, outside context,
     outside lux contrast, ambient-rise evidence, and attribution hold after
-    Magic Areas-controlled light output
+    Magic Areas-controlled or manually activated configured room-light output
 - `tests/scenarios/test_light_adaptive_lighting_coordination.py`
   - room-state-driven Adaptive Lighting switch coordination for sleep and accent
     transitions
@@ -192,6 +192,7 @@ Current room matrix:
 - Adaptive Binary Room
 - Adaptive Lux Room
 - Adaptive Ambient Room
+- Adaptive Manual Light Room
 - Adaptive Lighting Room
 - Outdoor Test
 
@@ -235,8 +236,11 @@ Current live-simulation coverage:
   context and timing gates are satisfied.
 - Adaptive outside-context negative cases are asserted for outside binary not
   bright, outside lux below minimum, and outside lux with insufficient contrast.
-- Adaptive ambient-rise behavior rejects artificial rise caused by in-room light
-  output, then accepts a later daylight-style rise after attribution clears.
+- Adaptive ambient-rise behavior covers both contaminated and clean evidence:
+  initial rise after Magic Areas turns a light on does not turn the light back
+  off, manually activated configured room-light output does not turn the overhead
+  off, and a later clean daylight-style rise does turn adaptive overhead lighting
+  off after attribution clears.
 - Accent state suppresses overhead lights and turns accent-role lights on.
 - Sleep state suppresses overhead lights and turns sleep-role lights on.
 - Sleep plus accent overlap preserves lights that belong to both suppressive

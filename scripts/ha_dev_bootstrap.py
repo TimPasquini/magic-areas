@@ -210,6 +210,18 @@ DEV_ROOMS: tuple[DevRoom, ...] = (
         bright_attribution_hold_seconds=2,
     ),
     DevRoom(
+        name="Adaptive Manual Light Room",
+        slug="adaptive_manual_light_room",
+        brightness_mode="adaptive",
+        outside_bright_entity="binary_sensor.outdoor_bright",
+        adaptive_require_ambient_rise=True,
+        ambient_rise_window_seconds=60,
+        ambient_rise_min_delta=100,
+        bright_min_on_seconds=2,
+        bright_dwell_seconds=2,
+        bright_attribution_hold_seconds=2,
+    ),
+    DevRoom(
         name="Adaptive Lighting Room",
         slug="adaptive_lighting_room",
         brightness_mode="advisory",

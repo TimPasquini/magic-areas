@@ -109,6 +109,7 @@ these areas if missing:
 - Adaptive Binary Room
 - Adaptive Lux Room
 - Adaptive Ambient Room
+- Adaptive Manual Light Room
 - Adaptive Lighting Room
 - Outdoor Test
 
@@ -118,7 +119,8 @@ and sets deterministic initial fake-house states. The room matrix intentionally
 covers classic/inhibit behavior, advisory behavior, adaptive behavior with
 deterministic fake daylight, explicit outside binary, outside lux contrast,
 startup unknown/unavailable light-state fallback, ambient-rise gating, and a
-room that uses Magic Areas-managed Adaptive Lighting configs.
+manual in-room light contamination case before a room that uses Magic
+Areas-managed Adaptive Lighting configs.
 
 The bootstrap is idempotent. Re-running it should update missing/stale area
 assignments and create missing Magic Areas entries without destroying the rest of

@@ -149,6 +149,21 @@ input_boolean:
   adaptive_ambient_room_lamp_power:
     name: Adaptive Ambient Room Lamp Power
     icon: mdi:floor-lamp
+  adaptive_manual_light_room_occupancy:
+    name: Adaptive Manual Light Room Occupancy
+    icon: mdi:motion-sensor
+  adaptive_manual_light_room_sleep:
+    name: Adaptive Manual Light Room Sleep Mode
+    icon: mdi:sleep
+  adaptive_manual_light_room_accent:
+    name: Adaptive Manual Light Room Accent Mode
+    icon: mdi:television-ambient-light
+  adaptive_manual_light_room_overhead_power:
+    name: Adaptive Manual Light Room Overhead Power
+    icon: mdi:ceiling-light
+  adaptive_manual_light_room_lamp_power:
+    name: Adaptive Manual Light Room Lamp Power
+    icon: mdi:floor-lamp
   adaptive_lighting_room_occupancy:
     name: Adaptive Lighting Room Occupancy
     icon: mdi:motion-sensor
@@ -277,6 +292,13 @@ input_number:
     unit_of_measurement: lx
   adaptive_ambient_room_lux:
     name: Adaptive Ambient Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  adaptive_manual_light_room_lux:
+    name: Adaptive Manual Light Room Lux
     min: 0
     max: 3000
     step: 10
@@ -453,6 +475,20 @@ template:
         unique_id: ma_dev_adaptive_ambient_room_light
         device_class: light
         state: "{{ states('input_number.adaptive_ambient_room_lux') | float(0) > 900 }}"
+      - name: Adaptive Manual Light Room Occupancy
+        unique_id: ma_dev_adaptive_manual_light_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.adaptive_manual_light_room_occupancy', 'on') }}"
+      - name: Adaptive Manual Light Room Sleep
+        unique_id: ma_dev_adaptive_manual_light_room_sleep
+        state: "{{ is_state('input_boolean.adaptive_manual_light_room_sleep', 'on') }}"
+      - name: Adaptive Manual Light Room Accent
+        unique_id: ma_dev_adaptive_manual_light_room_accent
+        state: "{{ is_state('input_boolean.adaptive_manual_light_room_accent', 'on') }}"
+      - name: Adaptive Manual Light Room Light
+        unique_id: ma_dev_adaptive_manual_light_room_light
+        device_class: light
+        state: "{{ states('input_number.adaptive_manual_light_room_lux') | float(0) > 900 }}"
       - name: Adaptive Lighting Room Occupancy
         unique_id: ma_dev_adaptive_lighting_room_occupancy
         device_class: occupancy
@@ -572,6 +608,12 @@ template:
         state_class: measurement
         unit_of_measurement: lx
         state: "{{ states('input_number.adaptive_ambient_room_lux') | float(0) }}"
+      - name: Adaptive Manual Light Room Illuminance
+        unique_id: ma_dev_adaptive_manual_light_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.adaptive_manual_light_room_lux') | float(0) }}"
       - name: Adaptive Lighting Room Illuminance
         unique_id: ma_dev_adaptive_lighting_room_illuminance
         device_class: illuminance
@@ -877,6 +919,34 @@ template:
             target:
               entity_id:
                 - input_boolean.adaptive_ambient_room_lamp_power
+      - unique_id: ma_dev_adaptive_manual_light_room_overhead
+        default_entity_id: light.adaptive_manual_light_room_overhead
+        name: Adaptive Manual Light Room Overhead
+        state: "{{ is_state('input_boolean.adaptive_manual_light_room_overhead_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.adaptive_manual_light_room_overhead_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.adaptive_manual_light_room_overhead_power
+      - unique_id: ma_dev_adaptive_manual_light_room_lamp
+        default_entity_id: light.adaptive_manual_light_room_lamp
+        name: Adaptive Manual Light Room Lamp
+        state: "{{ is_state('input_boolean.adaptive_manual_light_room_lamp_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.adaptive_manual_light_room_lamp_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.adaptive_manual_light_room_lamp_power
       - unique_id: ma_dev_adaptive_lighting_room_overhead
         default_entity_id: light.adaptive_lighting_room_overhead
         name: Adaptive Lighting Room Overhead

@@ -59,6 +59,10 @@ from custom_components.magic_areas.light_groups.policy import (
 from custom_components.magic_areas.light_groups.intent_adapter import (
     evaluate_light_member_suppression,
 )
+from custom_components.magic_areas.light_groups.config import (
+    LIGHT_GROUP_PRESETS,
+    feature_string_list,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import HomeAssistant
@@ -84,6 +88,7 @@ class _LightGroupHost(Protocol):
     _child_categories: list[str]
     _child_ids: list[str] | None
     _entity_ids: list[str]
+    _feature_config: dict[str, object]
     _adaptive_lighting_switch_set: AdaptiveLightingSwitchSet | None
     _ambient_rise_signal_unique_id: str | None
     _area_id: str
@@ -221,7 +226,7 @@ def setup_listeners(host: _LightGroupHost) -> None:
     host.track_group_listener(
         async_track_state_change_event(
             host.hass,
-            tuple(host._entity_ids),
+            tuple(_direct_light_activity_entity_ids(host)),
             lambda event: handle_direct_light_state_change(host, event),
         ),
         "direct_light_activity",
@@ -568,6 +573,16 @@ def handle_direct_light_state_change(
         event.data.get("entity_id")
     )
     return True
+
+
+def _direct_light_activity_entity_ids(host: _LightGroupHost) -> tuple[str, ...]:
+    """Return configured room lights whose output can contaminate lux trends."""
+    entity_ids: list[str] = [str(entity_id) for entity_id in host._entity_ids]
+    feature_config = getattr(host, "_feature_config", {})
+    if isinstance(feature_config, dict):
+        for preset in LIGHT_GROUP_PRESETS:
+            entity_ids.extend(feature_string_list(feature_config, preset.category))
+    return tuple(dict.fromkeys(entity_ids))
 
 
 def handle_ambient_rise_signal_state_change(

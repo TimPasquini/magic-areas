@@ -80,6 +80,7 @@ class OneRoomLightScenario:
     occupancy_sensor: MockBinarySensor
     inside_bright_sensor: MockBinarySensor
     target_light: MockLight
+    secondary_light: MockLight | None = None
     trace: list[LightScenarioSnapshot] = field(default_factory=list)
 
     @property
@@ -99,6 +100,13 @@ class OneRoomLightScenario:
         """Return the controlled light entity id."""
         assert self.target_light.entity_id is not None
         return self.target_light.entity_id
+
+    @property
+    def secondary_light_entity_id(self) -> str:
+        """Return the secondary room light entity id."""
+        assert self.secondary_light is not None
+        assert self.secondary_light.entity_id is not None
+        return self.secondary_light.entity_id
 
     @property
     def area_state_entity_id(self) -> str:
@@ -241,6 +249,7 @@ class OneRoomLightScenario:
 async def setup_one_room_advisory_light_scenario(
     hass: HomeAssistant,
     *,
+    include_secondary_light_as: str | None = None,
     light_group_config_overrides: dict[str, object] | None = None,
 ) -> OneRoomLightScenario:
     """Set up one real Magic Areas room configured for advisory brightness."""
@@ -248,6 +257,11 @@ async def setup_one_room_advisory_light_scenario(
         name="scenario_overhead_light",
         state=STATE_OFF,
         unique_id="scenario_overhead_light",
+    )
+    secondary_light = MockLight(
+        name="scenario_secondary_light",
+        state=STATE_OFF,
+        unique_id="scenario_secondary_light",
     )
     occupancy_sensor = MockBinarySensor(
         name="scenario_occupancy",
@@ -260,7 +274,11 @@ async def setup_one_room_advisory_light_scenario(
         device_class=BinarySensorDeviceClass.LIGHT,
     )
 
-    await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: [target_light]})
+    await setup_mock_entities(
+        hass,
+        LIGHT_DOMAIN,
+        {DEFAULT_MOCK_AREA: [target_light, secondary_light]},
+    )
     await setup_mock_entities(
         hass,
         BINARY_SENSOR_DOMAIN,
@@ -268,6 +286,7 @@ async def setup_one_room_advisory_light_scenario(
     )
 
     assert target_light.entity_id is not None
+    assert secondary_light.entity_id is not None
     assert inside_bright_sensor.entity_id is not None
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
@@ -299,6 +318,8 @@ async def setup_one_room_advisory_light_scenario(
             LIGHT_GROUP_ACT_ON_STATE_CHANGE,
         ],
     }
+    if include_secondary_light_as:
+        light_group_config[include_secondary_light_as] = [secondary_light.entity_id]
     if light_group_config_overrides:
         light_group_config.update(light_group_config_overrides)
 
@@ -322,6 +343,7 @@ async def setup_one_room_advisory_light_scenario(
         occupancy_sensor=occupancy_sensor,
         inside_bright_sensor=inside_bright_sensor,
         target_light=target_light,
+        secondary_light=secondary_light,
     )
     scenario.snapshot("initial setup")
     return scenario
