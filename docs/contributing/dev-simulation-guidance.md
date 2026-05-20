@@ -261,6 +261,8 @@ Current live-simulation coverage:
 - Adaptive Lighting manual-control release is asserted by observing the real HA
   `call_service` event for `adaptive_lighting.set_manual_control` with
   `manual_control: false` after Magic Areas control resets.
+- Pytest scenario coverage asserts that configured in-room light brightness
+  increases block ambient-rise adaptive off decisions.
 
 ## Coverage Gaps
 

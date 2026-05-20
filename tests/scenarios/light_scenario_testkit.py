@@ -250,6 +250,8 @@ async def setup_one_room_advisory_light_scenario(
     hass: HomeAssistant,
     *,
     include_secondary_light_as: str | None = None,
+    secondary_light_initial_state: str = STATE_OFF,
+    secondary_light_initial_brightness: int | None = None,
     light_group_config_overrides: dict[str, object] | None = None,
 ) -> OneRoomLightScenario:
     """Set up one real Magic Areas room configured for advisory brightness."""
@@ -260,9 +262,12 @@ async def setup_one_room_advisory_light_scenario(
     )
     secondary_light = MockLight(
         name="scenario_secondary_light",
-        state=STATE_OFF,
+        state=secondary_light_initial_state,
         unique_id="scenario_secondary_light",
+        dimmable=secondary_light_initial_brightness is not None,
     )
+    if secondary_light_initial_brightness is not None:
+        secondary_light.brightness = secondary_light_initial_brightness
     occupancy_sensor = MockBinarySensor(
         name="scenario_occupancy",
         unique_id="scenario_occupancy",
