@@ -29,7 +29,8 @@ async def test_options_flow_select_features_initializes_enabled_features(
     flow.hass = hass
     coordinator = config_entry.runtime_data.coordinator
     coordinator_data = coordinator.data
-    flow._area_config = coordinator_data.area_config if coordinator_data else None
+    assert coordinator_data is not None
+    flow._area_config = coordinator_data.area_config
     flow._coordinator_data = coordinator_data
     flow.area_options = {}
 

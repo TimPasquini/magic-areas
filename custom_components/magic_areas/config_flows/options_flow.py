@@ -2,7 +2,6 @@
 
 from collections.abc import Mapping
 import logging
-from typing import cast
 from homeassistant import config_entries
 
 from custom_components.magic_areas.config_flows.base import ConfigBase
@@ -28,7 +27,7 @@ from custom_components.magic_areas.schemas import (
     REGULAR_AREA_SCHEMA,
 )
 from custom_components.magic_areas.config_flows.base import MutableConfigMap
-from custom_components.magic_areas.coordinator.pipeline import MagicAreasData
+from custom_components.magic_areas.coordinator import MagicAreasData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +42,8 @@ def _coordinator_data_from_entry(
     coordinator = getattr(runtime_data, "coordinator", None)
     if coordinator is None:
         return None
-    return cast("MagicAreasData | None", coordinator.data)
+    data = coordinator.data
+    return data if isinstance(data, MagicAreasData) else None
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
@@ -109,10 +109,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             )
             return self.async_abort(reason="entry_not_loaded")
 
-        self._area_config = coordinator_data.area_config if coordinator_data else None
+        self._area_config = coordinator_data.area_config
         self._coordinator_data = coordinator_data
 
-        area_name = self._area_config.name if self._area_config else "Unknown"
+        area_name = self._area_config.name
         _LOGGER.debug(
             "OptionsFlow: Initializing options flow for area %s", area_name
         )
@@ -123,7 +123,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         )
 
         # Gather all entities using helper class
-        entities_by_domain = coordinator_data.entities if coordinator_data else {}
+        entities_by_domain = coordinator_data.entities
         gatherer = ConfigFlowEntityGatherer(
             hass=self.hass,
             entities_by_domain=entities_by_domain,
