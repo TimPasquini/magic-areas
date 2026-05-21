@@ -1,8 +1,8 @@
 # Lighting Adaptive Switching Plan
 
-Status: active validation/follow-through plan. The architecture foundation it
-depends on (labels, native helpers, control-intent targets, and Adaptive
-Lighting coordination) is implemented in the current branch.
+Status: primary implementation complete. The architecture foundation it depends on
+(labels, native helpers, control-intent targets, and Adaptive Lighting coordination) is
+implemented, and live fake-house validation covers the primary adaptive-switching path.
 
 ## Problem Statement
 
@@ -338,7 +338,7 @@ Current implementation:
   derivative/statistics helper bundles available for later richer signal needs rather
   than making the first adaptive pass more complex.
 
-## Current Next Step
+## Closeout State
 
 Live fake-house validation now covers contaminated and clean ambient-rise
 evidence. Initial rise after Magic Areas turns a light on does not immediately
@@ -350,3 +350,13 @@ daylight-style rise does turn adaptive overhead lighting off after attribution
 clears. Remaining direct-light attribution work is future user-configured
 spill-over lights; that is intentionally deferred and is not a blocker for the
 primary adaptive-switching path.
+
+Branch closeout criteria:
+
+- Policy, runtime guard derivation, config/options flow, fallback tiers, and current
+  migration defaults are implemented.
+- Unit, config-flow, scenario, and live fake-house validation cover the primary behavior
+  matrix.
+- Ruff, pytest, and mypy gates pass at closeout.
+- User-configured spill-over light attribution remains a later enhancement, not a merge
+  blocker for the completed primary path.
