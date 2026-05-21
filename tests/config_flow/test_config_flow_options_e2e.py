@@ -132,6 +132,34 @@ async def test_options_flow_custom_control_groups_step(
     assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.task"
 
 
+async def test_options_flow_custom_control_groups_uses_guided_selector(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Custom control groups should expose a structured object editor."""
+    config_entry = init_integration
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "custom_control_groups")
+
+    schema = result["data_schema"]
+    assert schema is not None
+    selector = next(iter(schema.schema.values()))
+
+    assert selector.config["multiple"] is True
+    assert selector.config["label_field"] == "group_id"
+    assert selector.config["description_field"] == "policy_id"
+    fields = selector.config["fields"]
+    assert set(fields) == {
+        "group_id",
+        "members",
+        "trigger_states",
+        "policy_id",
+        "metadata",
+    }
+    assert fields["group_id"]["required"] is True
+    assert fields["members"]["required"] is True
+
+
 async def test_options_flow_custom_control_groups_applies_templates_by_default(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -167,9 +195,17 @@ async def test_options_flow_custom_control_groups_rejects_invalid_payload(
         {
             CONF_CUSTOM_CONTROL_GROUPS: [
                 {
+                    "group_id": "control.duplicate",
                     "members": ["light.test_light"],
                     "trigger_states": ["occupied"],
-                }
+                    "policy_id": "custom_control_group",
+                },
+                {
+                    "group_id": "control.duplicate",
+                    "members": ["light.other"],
+                    "trigger_states": ["sleep"],
+                    "policy_id": "custom_control_group",
+                },
             ]
         },
     )

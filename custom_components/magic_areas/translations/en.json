@@ -532,7 +532,10 @@
         "clear": "Clear",
         "occupied": "Occupied",
         "extended": "Extended",
-        "sleep": "Sleep"
+        "sleep": "Sleep",
+        "dark": "Dark",
+        "bright": "Bright",
+        "accented": "Accented"
       }
     },
     "control_on": {

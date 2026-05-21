@@ -25,6 +25,9 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
     ObjectSelector,
     ObjectSelectorConfig,
+    ObjectSelectorField,
+    TextSelector,
+    TextSelectorConfig,
 )
 
 from custom_components.magic_areas.enums import SelectorTranslationKeys
@@ -114,6 +117,11 @@ def build_selector_entity_simple(
     )
 
 
+def build_selector_entity_any(*, multiple: bool = False) -> EntitySelector:
+    """Build an unrestricted entity selector."""
+    return EntitySelector(EntitySelectorConfig(multiple=multiple))
+
+
 def build_selector_number(
     *,
     min_value: float = 0,
@@ -146,9 +154,32 @@ def build_selector_number(
     )
 
 
-def build_selector_object() -> ObjectSelector:
+def build_selector_object(
+    *,
+    fields: dict[str, ObjectSelectorField] | None = None,
+    multiple: bool = False,
+    label_field: str = "",
+    description_field: str = "",
+    translation_key: str = "",
+) -> ObjectSelector:
     """Build a generic object selector for structured JSON-style payloads."""
-    return ObjectSelector(ObjectSelectorConfig())
+    config = ObjectSelectorConfig()
+    if fields is not None:
+        config["fields"] = fields
+    if multiple:
+        config["multiple"] = True
+    if label_field:
+        config["label_field"] = label_field
+    if description_field:
+        config["description_field"] = description_field
+    if translation_key:
+        config["translation_key"] = translation_key
+    return ObjectSelector(config)
+
+
+def build_selector_text() -> TextSelector:
+    """Build a single-line text selector."""
+    return TextSelector(TextSelectorConfig())
 
 
 class ClimatePresetBuilderError(Exception):

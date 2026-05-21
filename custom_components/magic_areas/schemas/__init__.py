@@ -24,10 +24,12 @@ from custom_components.magic_areas.schemas.selectors import (
     NoPresetSupportError,
     build_climate_preset_selectors_and_validators,
     build_selector_boolean,
+    build_selector_entity_any,
     build_selector_entity_simple,
     build_selector_number,
     build_selector_object,
     build_selector_select,
+    build_selector_text,
 )
 
 __all__ = [
@@ -48,8 +50,10 @@ __all__ = [
     "SECONDARY_STATES_SCHEMA",
     "build_climate_preset_selectors_and_validators",
     "build_selector_boolean",
+    "build_selector_entity_any",
     "build_selector_entity_simple",
     "build_selector_number",
     "build_selector_object",
     "build_selector_select",
+    "build_selector_text",
 ]

@@ -4,10 +4,11 @@ Handles basic area settings, presence tracking configuration, and secondary stat
 """
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.helpers.selector import ObjectSelectorField
 
 from custom_components.magic_areas.config_keys.area import (
     CONF_ACCENT_ENTITY,
@@ -45,7 +46,7 @@ from custom_components.magic_areas.config_keys.area import (
 from custom_components.magic_areas.defaults import (
     ALL_PRESENCE_DEVICE_PLATFORMS,
 )
-from custom_components.magic_areas.area_state import AreaType
+from custom_components.magic_areas.area_state import AreaStates, AreaType
 from custom_components.magic_areas.enums import CalculationMode, SelectorTranslationKeys
 from custom_components.magic_areas.policy import ALL_BINARY_SENSOR_DEVICE_CLASSES
 from custom_components.magic_areas.schemas import (
@@ -61,10 +62,12 @@ from custom_components.magic_areas.schemas import (
 )
 from custom_components.magic_areas.config_flows.selector_builders import (
     build_selector_boolean,
+    build_selector_entity_any,
     build_selector_entity_simple,
     build_selector_number,
     build_selector_object,
     build_selector_select,
+    build_selector_text,
 )
 from custom_components.magic_areas.core.controls import get_custom_control_group_templates
 
@@ -72,6 +75,74 @@ if TYPE_CHECKING:
     from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
 
 EMPTY_ENTRY = [""]
+
+
+class _SerializableSelector(Protocol):
+    """Selector object that can expose HA's serialized selector config."""
+
+    def serialize(self) -> Mapping[str, object]:
+        """Return HA selector serialization."""
+        ...
+
+CUSTOM_CONTROL_GROUP_TRIGGER_STATES = [
+    str(AreaStates.OCCUPIED),
+    str(AreaStates.EXTENDED),
+    str(AreaStates.SLEEP),
+    str(AreaStates.DARK),
+    str(AreaStates.BRIGHT),
+    str(AreaStates.ACCENT),
+]
+
+
+def _custom_control_group_selector() -> object:
+    """Build a guided object selector for custom control groups."""
+    return build_selector_object(
+        fields={
+            "group_id": ObjectSelectorField(
+                label="Group ID",
+                required=True,
+                selector=_field_selector(build_selector_text()),
+            ),
+            "members": ObjectSelectorField(
+                label="Members",
+                required=True,
+                selector=_field_selector(build_selector_entity_any(multiple=True)),
+            ),
+            "trigger_states": ObjectSelectorField(
+                label="Trigger states",
+                required=False,
+                selector=_field_selector(
+                    build_selector_select(
+                        options=CUSTOM_CONTROL_GROUP_TRIGGER_STATES,
+                        multiple=True,
+                        translation_key=SelectorTranslationKeys.AREA_STATES,
+                    )
+                ),
+            ),
+            "policy_id": ObjectSelectorField(
+                label="Policy ID",
+                required=False,
+                selector=_field_selector(build_selector_text()),
+            ),
+            "metadata": ObjectSelectorField(
+                label="Metadata",
+                required=False,
+                selector=_field_selector(build_selector_object()),
+            ),
+        },
+        multiple=True,
+        label_field="group_id",
+        description_field="policy_id",
+        translation_key="custom_control_groups",
+    )
+
+
+def _field_selector(selector_obj: _SerializableSelector) -> dict[str, object]:
+    """Return the serialized selector config ObjectSelector fields expect."""
+    selector_config = selector_obj.serialize().get("selector")
+    if not isinstance(selector_config, dict):
+        raise TypeError("Object selector field requires a serialized selector config")
+    return selector_config
 
 
 async def handle_area_config(
@@ -285,7 +356,7 @@ async def handle_custom_control_groups(
             schema,
             saved_options=flow.area_options,
             selectors={
-                CONF_CUSTOM_CONTROL_GROUPS: build_selector_object(),
+                CONF_CUSTOM_CONTROL_GROUPS: _custom_control_group_selector(),
             },
         ),
         errors=errors,

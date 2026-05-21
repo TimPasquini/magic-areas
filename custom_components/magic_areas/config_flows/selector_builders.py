@@ -9,10 +9,12 @@ build_climate_preset_selectors_and_validators = (
     _selectors.build_climate_preset_selectors_and_validators
 )
 build_selector_boolean = _selectors.build_selector_boolean
+build_selector_entity_any = _selectors.build_selector_entity_any
 build_selector_entity_simple = _selectors.build_selector_entity_simple
 build_selector_number = _selectors.build_selector_number
 build_selector_object = _selectors.build_selector_object
 build_selector_select = _selectors.build_selector_select
+build_selector_text = _selectors.build_selector_text
 
 __all__ = [
     "InvalidEntityError",
@@ -20,8 +22,10 @@ __all__ = [
     "NoPresetSupportError",
     "build_climate_preset_selectors_and_validators",
     "build_selector_boolean",
+    "build_selector_entity_any",
     "build_selector_entity_simple",
     "build_selector_number",
     "build_selector_object",
     "build_selector_select",
+    "build_selector_text",
 ]
