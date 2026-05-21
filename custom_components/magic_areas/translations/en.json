@@ -112,7 +112,7 @@
           "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning.",
           "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
-          "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action.",
+          "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action or a configured room light increases output.",
           "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
           "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
           "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
@@ -244,7 +244,7 @@
           "calculation_mode": "Secondary state calculation mode"
         },
         "data_description": {
-          "dark_entity": "The area's light sensor will be used to track an area `bright`/`dark` status which is used by features such as Light groups to turn on/off your lights according to the room brightness state.\n\n**Avoid using a `light` sensor in the same area as it may cause a feedback loop.** It is recommended to use either `sun.sun` or an exterior `light` sensor that won't be affected by the lights being controlled.",
+          "dark_entity": "The area's light sensor provides a coarse `bright`/`dark` area state. Use `sun.sun` or an exterior light sensor here when you want daylight-style context that is not affected by the room lights.\n\nFor Light groups, `advisory` and `adaptive` brightness modes can use separate in-room brightness entities in the Light groups configuration. Avoid using an in-room light sensor as the area's light sensor unless you understand the feedback-loop risk.",
           "sleep_entity": "Entity used to track area sleep state",
           "sleep_timeout": "How long area will wait before clearing the state when on sleep state",
           "accent_entity": "Entity used to track area Accented state",
