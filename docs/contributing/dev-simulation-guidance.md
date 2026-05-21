@@ -263,6 +263,9 @@ Current live-simulation coverage:
   `manual_control: false` after Magic Areas control resets.
 - Pytest scenario coverage asserts that configured in-room light brightness
   increases block ambient-rise adaptive off decisions.
+- Pytest scenario coverage asserts that adopted Adaptive Lighting brightness
+  increases block ambient-rise adaptive off decisions through the actual
+  controlled light entity.
 
 ## Coverage Gaps
 
@@ -277,8 +280,8 @@ Current high-value gaps:
   live coverage verifies clear/reclaim release paths.
 - Adaptive Lighting `adopt_existing` mode is not covered live.
 - Disabled Magic Areas light-control switch behavior is not asserted live.
-- Ambient-rise false positives from Adaptive Lighting brightness changes are not
-  covered.
+- Ambient-rise false positives from Adaptive Lighting brightness changes are
+  covered in pytest scenarios but not yet in the live fake-house script.
 - Ambient-rise false positives from neighboring/spill-over lights are not
   covered.
 - Cover, fan, media, and other future control-domain overlap cases are not

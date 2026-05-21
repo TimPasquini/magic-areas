@@ -6,6 +6,8 @@ from pytest import MonkeyPatch
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
+    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
     CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
     CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
     CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
@@ -19,11 +21,16 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
 )
+from custom_components.magic_areas.light_groups import (
+    CONF_OVERHEAD_LIGHTS,
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+)
 from tests.helpers import wait_for_state
 from tests.scenarios.light_scenario_testkit import (
     OneRoomLightScenario,
     setup_one_room_advisory_light_scenario,
 )
+from tests.unit.adaptive_lighting_testkit import setup_adaptive_lighting_harness
 
 
 def _set_runtime_time(monkeypatch: MonkeyPatch, now: float) -> None:
@@ -42,6 +49,7 @@ async def _setup_adaptive_room(
     dwell_seconds: int = 0,
     min_on_seconds: int = 0,
     outside_source: str = "sun",
+    target_light_initial_brightness: int | None = None,
     include_secondary_light_as: str | None = None,
     secondary_light_initial_state: str = STATE_OFF,
     secondary_light_initial_brightness: int | None = None,
@@ -59,6 +67,7 @@ async def _setup_adaptive_room(
         config_overrides.update(light_group_config_overrides)
     scenario = await setup_one_room_advisory_light_scenario(
         hass,
+        target_light_initial_brightness=target_light_initial_brightness,
         include_secondary_light_as=include_secondary_light_as,
         secondary_light_initial_state=secondary_light_initial_state,
         secondary_light_initial_brightness=secondary_light_initial_brightness,
@@ -375,6 +384,66 @@ async def test_adaptive_ambient_rise_blocks_after_room_light_brightness_increase
             "last_direct_light_activity_entity_id"
         ]
         == scenario.secondary_light_entity_id
+    )
+
+
+async def test_adaptive_ambient_rise_blocks_after_adaptive_lighting_brightness_increase(
+    hass: HomeAssistant,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Adaptive ambient rise should not treat AL-driven brightening as daylight."""
+    adaptive_lighting = await setup_adaptive_lighting_harness(
+        hass,
+        name="Scenario Overhead",
+        area_id="kitchen",
+        role=CONF_OVERHEAD_LIGHTS,
+    )
+    scenario = await _setup_adaptive_room(
+        hass,
+        monkeypatch,
+        now=0.0,
+        target_light_initial_brightness=20,
+        light_group_config_overrides={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+            ),
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
+                CONF_OVERHEAD_LIGHTS: adaptive_lighting.switch_entity_ids,
+            },
+            CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE: True,
+            CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS: 120,
+            CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA: 50,
+            CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY: "sensor.scenario_inside_lux",
+        },
+    )
+    hass.states.async_set("sensor.scenario_inside_lux", "400")
+    await scenario.hass.async_block_till_done()
+    await scenario.emit_area_state_transition(
+        new_states=[],
+        current_states=[AreaStates.OCCUPIED],
+        step="ambient baseline before adaptive lighting brightness increase",
+    )
+
+    scenario.target_light.turn_on(brightness=150)
+    await scenario.hass.async_block_till_done()
+    hass.states.async_set("sensor.scenario_inside_lux", "475")
+    await scenario.hass.async_block_till_done()
+    await scenario.set_inside_bright(STATE_ON)
+    _set_runtime_time(monkeypatch, 30.0)
+    await scenario.emit_area_state_transition(
+        new_states=[AreaStates.BRIGHT],
+        current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+        step="bright transition after adaptive lighting brightness increase",
+    )
+
+    assert scenario.trace[-1].target_light == STATE_ON, scenario.trace
+    assert scenario.adaptive_guards()["ambient_rise_met"] is False
+    assert scenario.adaptive_guards()["ambient_rise_direct_light_blocked"] is True
+    assert (
+        scenario.light_group_entity()._attr_extra_state_attributes[
+            "last_direct_light_activity_entity_id"
+        ]
+        == scenario.target_light_entity_id
     )
 
 

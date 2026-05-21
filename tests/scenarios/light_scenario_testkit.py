@@ -249,6 +249,7 @@ class OneRoomLightScenario:
 async def setup_one_room_advisory_light_scenario(
     hass: HomeAssistant,
     *,
+    target_light_initial_brightness: int | None = None,
     include_secondary_light_as: str | None = None,
     secondary_light_initial_state: str = STATE_OFF,
     secondary_light_initial_brightness: int | None = None,
@@ -259,7 +260,10 @@ async def setup_one_room_advisory_light_scenario(
         name="scenario_overhead_light",
         state=STATE_OFF,
         unique_id="scenario_overhead_light",
+        dimmable=target_light_initial_brightness is not None,
     )
+    if target_light_initial_brightness is not None:
+        target_light.brightness = target_light_initial_brightness
     secondary_light = MockLight(
         name="scenario_secondary_light",
         state=secondary_light_initial_state,

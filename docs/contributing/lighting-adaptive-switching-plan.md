@@ -344,8 +344,9 @@ Live fake-house validation now covers contaminated and clean ambient-rise
 evidence. Initial rise after Magic Areas turns a light on does not immediately
 turn that light back off, manual configured room-light output does not turn the
 overhead off, configured room-light brightness increases are scenario-covered as
-direct-light contamination, and a later clean daylight-style rise does turn
-adaptive overhead lighting off after attribution clears. Remaining direct-light
-attribution work should focus on Adaptive Lighting-driven output changes and
-future user-configured spill-over lights before treating ambient-rise adaptive
-off as complete.
+direct-light contamination, adopted Adaptive Lighting brightness increases are
+scenario-covered through the actual controlled light entity, and a later clean
+daylight-style rise does turn adaptive overhead lighting off after attribution
+clears. Remaining direct-light attribution work is future user-configured
+spill-over lights; that is intentionally deferred and is not a blocker for the
+primary adaptive-switching path.
