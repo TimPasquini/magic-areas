@@ -54,6 +54,8 @@ from custom_components.magic_areas.core.control_intents import (
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
+    CONF_OVERHEAD_LIGHTS_ACT_ON,
+    CONF_OVERHEAD_LIGHTS_STATES,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     LIGHT_GROUP_FEATURE_SCHEMA,
@@ -483,6 +485,35 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
     assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in keys
+
+
+async def test_options_flow_light_groups_uses_translated_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Light-group selectors should show translated state and trigger labels."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    schema = _data_schema(result)
+    selectors = {
+        getattr(marker, "schema", marker): selector
+        for marker, selector in schema.schema.items()
+    }
+
+    assert (
+        selectors[CONF_OVERHEAD_LIGHTS_STATES].config["translation_key"]
+        == "area_states"
+    )
+    assert (
+        selectors[CONF_OVERHEAD_LIGHTS_ACT_ON].config["translation_key"]
+        == "control_on"
+    )
 
 
 async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(

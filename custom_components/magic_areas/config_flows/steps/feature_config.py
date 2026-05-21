@@ -35,7 +35,7 @@ from custom_components.magic_areas.config_flows.base import (
     get_feature_config_steps,
     invalid_input_error,
 )
-from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.enums import MagicAreasFeatures, SelectorTranslationKeys
 from custom_components.magic_areas.features.config.readers import (
     AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS,
     BLE_TRACKER_OPTION_KEYS,
@@ -726,6 +726,7 @@ async def handle_feature_conf(
                     AreaStates.ACCENT.value,
                 ],
                 multiple=True,
+                translation_key=SelectorTranslationKeys.AREA_STATES,
             )
             selectors[preset.act_on_key] = build_selector_select(
                 options=[
@@ -733,6 +734,7 @@ async def handle_feature_conf(
                     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
                 ],
                 multiple=True,
+                translation_key=SelectorTranslationKeys.CONTROL_ON,
             )
 
     if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
@@ -746,6 +748,7 @@ async def handle_feature_conf(
                 AreaStates.SLEEP.value,
             ],
             multiple=True,
+            translation_key=SelectorTranslationKeys.AREA_STATES,
         )
 
     if feature_enum == MagicAreasFeatures.BLE_TRACKER:
