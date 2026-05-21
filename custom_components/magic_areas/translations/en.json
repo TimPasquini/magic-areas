@@ -24,6 +24,9 @@
     }
   },
   "options": {
+    "abort": {
+      "entry_not_loaded": "Magic Areas is still loading or is not currently loaded. Reload the integration and try again."
+    },
     "step": {
       "select_features": {
         "title": "Feature selection",

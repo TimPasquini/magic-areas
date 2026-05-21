@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 import logging
+from typing import cast
 from homeassistant import config_entries
 
 from custom_components.magic_areas.config_flows.base import ConfigBase
@@ -27,8 +28,22 @@ from custom_components.magic_areas.schemas import (
     REGULAR_AREA_SCHEMA,
 )
 from custom_components.magic_areas.config_flows.base import MutableConfigMap
+from custom_components.magic_areas.coordinator.pipeline import MagicAreasData
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _coordinator_data_from_entry(
+    config_entry: MagicAreasConfigEntry,
+) -> MagicAreasData | None:
+    """Return loaded coordinator data for an options-flow entry."""
+    runtime_data = getattr(config_entry, "runtime_data", None)
+    if runtime_data is None:
+        return None
+    coordinator = getattr(runtime_data, "coordinator", None)
+    if coordinator is None:
+        return None
+    return cast("MagicAreasData | None", coordinator.data)
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
@@ -83,8 +98,17 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         """Initialize the options flow."""
         del user_input
 
-        # Cache area_config and coordinator data for use throughout the flow
-        coordinator_data = self.config_entry.runtime_data.coordinator.data
+        # Cache area_config and coordinator data for use throughout the flow.
+        # Options forms depend on runtime entity catalogs; abort cleanly when the
+        # entry is not loaded instead of raising an attribute error in the UI.
+        coordinator_data = _coordinator_data_from_entry(self.config_entry)
+        if coordinator_data is None:
+            _LOGGER.warning(
+                "OptionsFlow: Cannot initialize options flow for unloaded entry %s",
+                self.config_entry.entry_id,
+            )
+            return self.async_abort(reason="entry_not_loaded")
+
         self._area_config = coordinator_data.area_config if coordinator_data else None
         self._coordinator_data = coordinator_data
 

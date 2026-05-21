@@ -16,6 +16,7 @@ from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.config_flow import OptionsFlowHandler
 from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.config_flows import ADDITIONAL_LIGHT_TRACKING_ENTITIES
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
@@ -38,6 +39,26 @@ async def test_options_flow_select_features_initializes_enabled_features(
 
     assert result["type"] == FlowResultType.MENU
     assert CONF_ENABLED_FEATURES in flow.area_options
+
+
+async def test_options_flow_init_aborts_when_entry_runtime_data_unavailable(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow should fail cleanly while the config entry is not loaded."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"id": "kitchen", "name": "Kitchen", "type": "interior"},
+        unique_id="kitchen",
+    )
+    config_entry.add_to_hass(hass)
+
+    flow = OptionsFlowHandler(cast(ConfigEntry[MagicAreasRuntimeData], config_entry))
+    flow.hass = hass
+
+    result = await flow.async_step_init()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "entry_not_loaded"
 
 
 async def test_options_flow_init_skips_missing_light_tracking_state(
