@@ -38,6 +38,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
     CONF_NOTIFICATION_DEVICES,
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_WASP_IN_A_BOX_DELAY,
@@ -515,6 +516,40 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in keys
 
 
+async def test_options_flow_light_groups_adaptive_lux_accepts_bright_outdoor_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Adaptive outside-lux threshold should allow realistic daylight values."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "adaptive"},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    schema = _data_schema(result)
+    marker = next(
+        marker
+        for marker in schema.schema
+        if getattr(marker, "schema", marker) == CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN
+    )
+    validator = schema.schema[marker]
+
+    assert validator(12000) == 12000.0
+
+
 async def test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -532,6 +567,59 @@ async def test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE in keys
     assert adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS) not in keys
+
+
+async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Dynamic AL pairing fields should not leak after switching back to ignore."""
+    config_entry = init_integration
+    _register_adaptive_lighting_switch_set(
+        hass,
+        "Kitchen Overhead",
+        area_id="kitchen",
+    )
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "overhead_lights": ["light.test_light"],
+        "brightness_mode": "inhibit",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+        ),
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    pair_key = adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS)
+    schema = _data_schema(result)
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert pair_key in keys
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: "ignore",
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    schema = _data_schema(result)
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert pair_key not in keys
 
 
 async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(

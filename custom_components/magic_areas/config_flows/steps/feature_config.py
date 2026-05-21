@@ -143,6 +143,7 @@ _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS = {
 _LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
     LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX
 )
+_LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
 
 
 def _resolve_light_groups_mode(
@@ -666,7 +667,9 @@ async def handle_feature_conf(
                 build_selector_number(min_value=0, unit_of_measurement="s")
             )
             selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
-                min_value=0, unit_of_measurement="lx"
+                min_value=0,
+                max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+                unit_of_measurement="lx",
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
                 options=[
@@ -683,7 +686,9 @@ async def handle_feature_conf(
                 )
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
-                min_value=0, unit_of_measurement="lx"
+                min_value=0,
+                max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+                unit_of_measurement="lx",
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
                 build_selector_entity_simple(
@@ -691,7 +696,11 @@ async def handle_feature_conf(
                 )
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = (
-                build_selector_number(min_value=0, unit_of_measurement="lx")
+                build_selector_number(
+                    min_value=0,
+                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+                    unit_of_measurement="lx",
+                )
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
                 build_selector_number(min_value=0, unit_of_measurement="%")

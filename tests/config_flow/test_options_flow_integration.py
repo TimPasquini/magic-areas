@@ -79,6 +79,45 @@ async def test_options_flow_select_features_then_configure() -> None:
 
 
 @pytest.mark.asyncio
+async def test_options_flow_select_features_returns_refreshed_menu() -> None:
+    """Newly enabled configurable features should appear in the returned menu."""
+    config_entry = MagicMock()
+    config_entry.entry_id = "test_entry"
+    config_entry.options = {}
+
+    coordinator_data = MagicMock()
+    coordinator_data.area_config = MagicMock()
+    coordinator_data.area_config.name = "kitchen"
+    coordinator_data.area_config.is_meta.return_value = False
+    coordinator_data.area_config.config = {}
+    coordinator_data.area_config.id = "kitchen"
+    coordinator_data.entities = {}
+
+    config_entry.runtime_data.coordinator.data = coordinator_data
+
+    flow = OptionsFlowHandler(config_entry)
+    flow.hass = MagicMock()
+    flow._area_config = coordinator_data.area_config
+    flow.area_options = {}
+
+    from custom_components.magic_areas.config_flows.steps import (
+        handle_feature_selection,
+    )
+
+    result = await handle_feature_selection(
+        flow,
+        user_input={
+            str(MagicAreasFeatures.LIGHT_GROUPS): True,
+            str(MagicAreasFeatures.CLIMATE_CONTROL): False,
+        },
+    )
+
+    assert result["type"] == FlowResultType.MENU
+    assert "feature_conf_light_groups" in result["menu_options"]
+    assert "feature_conf_climate_control" not in result["menu_options"]
+
+
+@pytest.mark.asyncio
 async def test_options_flow_persists_configuration_across_steps() -> None:
     """Test that configuration persists when navigating through steps."""
     config_entry = MagicMock()
