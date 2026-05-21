@@ -255,16 +255,6 @@ def setup_listeners(host: _LightGroupHost) -> None:
 
 
 ON_OFF_STATES = (STATE_ON, STATE_OFF)
-LIGHT_ATTR_KEYS = (
-    "brightness",
-    "color_temp",
-    "color_temp_kelvin",
-    "hs_color",
-    "rgb_color",
-    "rgbw_color",
-    "rgbww_color",
-    "xy_color",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -880,7 +870,7 @@ def _origin_new_state(origin_event: object | None) -> str | None:
 
 
 def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
-    """Return True when origin event reflects on->on light attribute updates."""
+    """Return True when origin event reflects on->on brightness updates."""
     if not origin_event:
         return False
     event_type = getattr(origin_event, "event_type", None)
@@ -903,7 +893,9 @@ def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
     new_attrs = getattr(new_state, "attributes", {})
     if not isinstance(old_attrs, dict) or not isinstance(new_attrs, dict):
         return False
-    return any(old_attrs.get(key) != new_attrs.get(key) for key in LIGHT_ATTR_KEYS)
+    return _numeric_attr(old_attrs, "brightness") != _numeric_attr(
+        new_attrs, "brightness"
+    )
 
 
 def _direct_light_output_changed(old_state: object | None, new_state: object | None) -> bool:
@@ -932,13 +924,7 @@ def _direct_light_output_changed(old_state: object | None, new_state: object | N
     ):
         return True
 
-    # Non-brightness AL updates can still change visible output. Treat these as
-    # direct-light activity so the trend window is not misclassified as daylight.
-    return any(
-        old_attrs.get(key) != new_attrs.get(key)
-        for key in LIGHT_ATTR_KEYS
-        if key != "brightness"
-    )
+    return False
 
 
 def _numeric_attr(attributes: dict[str, object], key: str) -> float | None:

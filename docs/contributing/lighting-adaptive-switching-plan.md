@@ -97,7 +97,8 @@ signals through policy inputs.
 - Minimum on-time before bright-driven off.
 - Bright dwell/debounce duration.
 - Optional outside-inside contrast gating (delta/ratio) when outside lux exists.
-- Attribution guard to suppress off decisions after recent controlled-light on/off or brightness/CT changes.
+- Attribution guard to suppress off decisions after recent controlled-light on/off
+  or brightness increases.
 
 ### 4) Direct-Light Attribution
 
@@ -111,8 +112,8 @@ Required attribution inputs:
 - Magic Areas-controlled room lights turning on or off.
 - Any configured in-room light changing from `off` to `on`.
 - Brightness level increases on configured in-room lights.
-- Adaptive Lighting-driven brightness/color-temperature changes on adopted or
-  Magic Areas-managed Adaptive Lighting switch sets.
+- Adaptive Lighting-driven brightness increases on adopted or Magic Areas-managed
+  Adaptive Lighting switch sets.
 - Optional spill-over lights from adjacent rooms or shared spaces whose output can affect
   the target room's brightness sensor.
 
@@ -126,7 +127,7 @@ Required behavior:
 - Spill-over lights must be user-configurable because Magic Areas cannot infer which
   neighboring lights affect a particular room's lux sensor.
 - Adaptive Lighting remains responsible for brightness/color tuning; Magic Areas only
-  observes enough AL-caused output changes to avoid misclassifying them as daylight.
+  observes enough AL-caused brightness changes to avoid misclassifying them as daylight.
 
 ## Fallback Matrix
 

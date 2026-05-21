@@ -345,7 +345,7 @@ def test_adaptive_bright_recheck_polls_managed_ambient_rise(
 
 
 def test_direct_light_output_changed_detects_on_and_brightness_increase() -> None:
-    """Direct-light watcher should flag output increases but not decreases."""
+    """Direct-light watcher should flag brightness increases but not color changes."""
     assert _direct_light_output_changed(_state("off"), _state("on")) is True
     assert (
         _direct_light_output_changed(
@@ -366,7 +366,7 @@ def test_direct_light_output_changed_detects_on_and_brightness_increase() -> Non
             _state("on", {"color_temp_kelvin": 2700}),
             _state("on", {"color_temp_kelvin": 3000}),
         )
-        is True
+        is False
     )
 
 
