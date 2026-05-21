@@ -56,6 +56,7 @@ from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+    LIGHT_GROUP_FEATURE_SCHEMA,
     adaptive_lighting_pair_key,
 )
 
@@ -620,6 +621,53 @@ async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
     schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert pair_key not in keys
+
+
+async def test_options_flow_dynamic_pairings_do_not_mutate_light_group_schema(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Dynamic AL pairing fields should not be added to the canonical schema."""
+    config_entry = init_integration
+    _register_adaptive_lighting_switch_set(
+        hass,
+        "Kitchen Overhead",
+        area_id="kitchen",
+    )
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "overhead_lights": ["light.test_light"],
+        "brightness_mode": "inhibit",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+        ),
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    pair_key = adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS)
+    before_keys = {
+        getattr(marker, "schema", marker) for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
+    }
+    assert pair_key not in before_keys
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    rendered_keys = {
+        getattr(marker, "schema", marker)
+        for marker in _data_schema(result).schema
+    }
+    assert pair_key in rendered_keys
+    after_keys = {
+        getattr(marker, "schema", marker) for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
+    }
+    assert pair_key not in after_keys
 
 
 async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(

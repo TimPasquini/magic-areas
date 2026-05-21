@@ -146,6 +146,14 @@ _LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
 _LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
 
 
+def _copy_schema(schema: vol.Schema) -> vol.Schema:
+    """Return a shallow copy so dynamic flow fields do not mutate registry schemas."""
+    raw_schema = schema.schema
+    if not isinstance(raw_schema, dict):
+        return schema
+    return vol.Schema(dict(raw_schema), extra=schema.extra)
+
+
 def _resolve_light_groups_mode(
     flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None
 ) -> str:
@@ -529,6 +537,7 @@ async def handle_feature_conf(
     if schema is None:
         # noinspection PyTypeChecker
         return flow.async_abort(reason="unknown_feature")
+    schema = _copy_schema(schema)
 
     selectors: SelectorMap = {}
 
