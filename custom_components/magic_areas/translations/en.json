@@ -106,7 +106,7 @@
           "task_lights_act_on": "When should task lights be controlled?"
         },
         "data_description": {
-          "brightness_mode": "Select how `bright` affects automation for this group: `inhibit` keeps legacy behavior (bright can block turn-on and can trigger turn-off), `advisory` ignores bright for turn-off decisions, `adaptive` allows bright-driven turn-off only when safeguards pass.",
+          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass.",
           "adaptive_lighting_mode": "Select whether Magic Areas ignores Adaptive Lighting, adopts existing Adaptive Lighting switch sets, or manages Adaptive Lighting configs for selected light roles.",
           "adaptive_lighting_manage_all_lights": "When enabled, Magic Areas creates a room-level Adaptive Lighting config containing all lights in the area. The all-lights switch can then coordinate that room-level Adaptive Lighting group separately from role groups.",
           "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning.",
@@ -540,7 +540,7 @@
     },
     "light_brightness_mode": {
       "options": {
-        "inhibit": "Inhibit: bright may block on and turn off",
+        "inhibit": "Classic: bright may block on and turn off",
         "advisory": "Advisory: bright never turns off",
         "adaptive": "Adaptive: bright turns off only with safeguards"
       }

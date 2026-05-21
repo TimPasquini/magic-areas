@@ -53,3 +53,16 @@ def test_options_flow_root_menu_explains_save_behavior() -> None:
 
     assert isinstance(description, str)
     assert "not saved until you select `Save & Exit`" in description
+
+
+def test_light_group_brightness_mode_uses_classic_label() -> None:
+    """Keep the legacy inhibit token hidden behind clearer UI copy."""
+    translations = json.loads(TRANSLATIONS_PATH.read_text(encoding="utf-8"))
+    selector_options = translations["selector"]["light_brightness_mode"]["options"]
+    light_group_step = _options_step("feature_conf_light_groups")
+    descriptions = light_group_step["data_description"]
+
+    assert selector_options["inhibit"] == "Classic: bright may block on and turn off"
+    assert isinstance(descriptions, dict)
+    assert "Classic keeps legacy behavior" in descriptions["brightness_mode"]
+    assert "inhibit" not in descriptions["brightness_mode"]
