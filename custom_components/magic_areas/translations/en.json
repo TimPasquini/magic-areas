@@ -27,7 +27,7 @@
     "step": {
       "select_features": {
         "title": "Feature selection",
-        "description": "Select the features you want to enable for this area. A new menu option will show up for configuring the feature if there are configurations options for that feature.",
+        "description": "Select the features you want to enable for this area. A new menu option will show up for configuring each enabled feature if that feature has settings.",
         "data": {
           "fan_groups": "Create fan groups",
           "climate_control": "Create climate controller",
@@ -44,23 +44,23 @@
       },
       "show_menu": {
         "title": "Magic Areas Options",
-        "description": "Magic Areas does basic presence detection by default but you can unleash its full power by configuring advanced state tracking, tune in your presence tracking parameters and enabling our magic features! Options are not saved unless you select `Save & Exit`.",
+        "description": "Choose what to configure for this area. Changes are staged inside this flow and are not saved until you select `Save & Exit`.",
         "menu_options": {
-          "area_config": "Basic area options",
-          "secondary_states": "Advanced area state tracking",
-          "presence_tracking": "Presence tracking options",
-          "select_features": "Feature selection",
-          "custom_control_groups": "Configure custom control groups",
+          "area_config": "Area behavior",
+          "secondary_states": "Area states",
+          "presence_tracking": "Presence tracking",
+          "select_features": "Features",
+          "custom_control_groups": "Custom control groups",
           "finish": "Save & Exit",
-          "feature_conf_health": "Configure health sensor",
-          "feature_conf_fan_groups": "Configure fan groups",
-          "feature_conf_climate_control": "Configure climate control",
-          "feature_conf_light_groups": "Configure light groups",
-          "feature_conf_area_aware_media_player": "Configure area-aware media player",
-          "feature_conf_aggregates": "Configure aggregate sensors",
-          "feature_conf_presence_hold": "Configure presence hold switch",
-          "feature_conf_ble_trackers": "Configure BLE Tracker monitoring",
-          "feature_conf_wasp_in_a_box": "Configure Wasp in a Box"
+          "feature_conf_health": "Health sensors",
+          "feature_conf_fan_groups": "Fan automation",
+          "feature_conf_climate_control": "Climate automation",
+          "feature_conf_light_groups": "Light roles and automation",
+          "feature_conf_area_aware_media_player": "Area-aware media player",
+          "feature_conf_aggregates": "Aggregate sensors",
+          "feature_conf_presence_hold": "Presence hold",
+          "feature_conf_ble_trackers": "Bluetooth tracker monitoring",
+          "feature_conf_wasp_in_a_box": "Wasp in a Box"
         }
       },
       "feature_conf_health": {
