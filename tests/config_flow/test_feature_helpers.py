@@ -15,6 +15,23 @@ from custom_components.magic_areas.schemas.features import (
     NON_CONFIGURABLE_FEATURES_META,
 )
 
+EXPECTED_FEATURE_ORDER_PREFIX = (
+    MagicAreasFeatures.LIGHT_GROUPS,
+    MagicAreasFeatures.FAN_GROUPS,
+    MagicAreasFeatures.COVER_GROUPS,
+    MagicAreasFeatures.CLIMATE_CONTROL,
+)
+
+
+def _assert_same_features_in_task_order(
+    result: list[MagicAreasFeatures],
+    expected: list[MagicAreasFeatures],
+) -> None:
+    """Assert helper preserves feature membership while applying UI order."""
+    assert set(result) == set(expected)
+    ordered_prefix = [feature for feature in EXPECTED_FEATURE_ORDER_PREFIX if feature in expected]
+    assert result[: len(ordered_prefix)] == ordered_prefix
+
 
 class TestGetFeatureList:
     """Tests for get_feature_list() helper function."""
@@ -23,7 +40,10 @@ class TestGetFeatureList:
         """Test that default feature list is returned when area_config is None."""
         result = get_feature_list(None)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(None)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(None),
+        )
         assert len(result) > 0
         assert all(isinstance(f, MagicAreasFeatures) for f in result)
 
@@ -35,7 +55,10 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(area_config),
+        )
         assert MagicAreasFeatures.LIGHT_GROUPS in result
         assert MagicAreasFeatures.PRESENCE_HOLD in result
 
@@ -47,7 +70,10 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(area_config),
+        )
         assert MagicAreasFeatures.LIGHT_GROUPS in result
         # PRESENCE_HOLD should not be in meta list
         assert MagicAreasFeatures.PRESENCE_HOLD not in result
@@ -60,7 +86,10 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(area_config),
+        )
         assert MagicAreasFeatures.LIGHT_GROUPS in result
 
     def test_returns_meta_list_for_non_global_meta_areas(self) -> None:
@@ -71,7 +100,10 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(area_config),
+        )
 
     def test_handles_empty_config_dict(self) -> None:
         """Test that default list is used when config dict is empty."""
@@ -81,7 +113,10 @@ class TestGetFeatureList:
 
         result = get_feature_list(area_config)
 
-        assert result == FEATURE_REGISTRY.available_features_for_area(area_config)
+        _assert_same_features_in_task_order(
+            result,
+            FEATURE_REGISTRY.available_features_for_area(area_config),
+        )
 
     def test_feature_list_contains_only_enum_members(self) -> None:
         """Test that returned feature lists contain only enum members."""
@@ -103,7 +138,7 @@ class TestGetFeatureList:
 
         for area_config, expected_list in lists_to_check:
             result = get_feature_list(area_config)
-            assert result == expected_list
+            _assert_same_features_in_task_order(result, expected_list)
             assert all(isinstance(f, MagicAreasFeatures) for f in result)
 
 
