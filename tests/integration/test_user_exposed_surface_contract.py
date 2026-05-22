@@ -41,6 +41,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
+    CONF_HEALTH_SENSOR_DEVICE_CLASSES,
 )
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import (
@@ -54,7 +55,14 @@ from tests.helpers import (
     setup_mock_entities,
     shutdown_integration,
 )
-from tests.mocks import MockCover, MockFan, MockLight, MockMediaPlayer, MockSensor
+from tests.mocks import (
+    MockBinarySensor,
+    MockCover,
+    MockFan,
+    MockLight,
+    MockMediaPlayer,
+    MockSensor,
+)
 
 GROUP_DOMAIN = "group"
 CONF_ACCENT_LIGHTS = "accent_lights"
@@ -397,5 +405,81 @@ async def test_aggregate_features_expose_expected_user_surfaces(
         assert entity_id not in {
             entity["entity_id"] for entity in entities.get(SENSOR_DOMAIN, [])
         }
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_health_feature_exposes_expected_user_surfaces(
+    hass: HomeAssistant,
+) -> None:
+    """Health feature should expose a native problem helper surface."""
+    problem_sensor = MockBinarySensor(
+        name="contract_problem",
+        unique_id="contract_problem",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+    )
+    smoke_sensor = MockBinarySensor(
+        name="contract_smoke",
+        unique_id="contract_smoke",
+        device_class=BinarySensorDeviceClass.SMOKE,
+    )
+    motion_sensor = MockBinarySensor(
+        name="contract_motion",
+        unique_id="contract_motion",
+        device_class=BinarySensorDeviceClass.MOTION,
+    )
+
+    await setup_mock_entities(
+        hass,
+        BINARY_SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [problem_sensor, smoke_sensor, motion_sensor]},
+    )
+
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                MagicAreasFeatures.HEALTH: {
+                    CONF_HEALTH_SENSOR_DEVICE_CLASSES: [
+                        BinarySensorDeviceClass.PROBLEM,
+                        BinarySensorDeviceClass.SMOKE,
+                    ]
+                },
+            }
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+
+    await init_integration(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    health_entity_id = _helper_entity_id(
+        domain=BINARY_SENSOR_DOMAIN,
+        title=f"Magic Areas Health {data[ATTR_NAME]} Health Problem",
+    )
+    _assert_visible_area_device_surface(
+        hass=hass,
+        entity_registry=entity_registry,
+        entity_id=health_entity_id,
+    )
+    health_entry = _registry_entry(entity_registry, health_entity_id)
+    assert health_entry.device_class == BinarySensorDeviceClass.PROBLEM
+    _assert_group_members(
+        hass,
+        health_entity_id,
+        [problem_sensor.entity_id, smoke_sensor.entity_id],
+    )
+
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=config_entry.entry_id,
+        config=data,
+    )
+    assert health_entity_id not in {
+        entity["entity_id"] for entity in entities.get(BINARY_SENSOR_DOMAIN, [])
+    }
 
     await shutdown_integration(hass, [config_entry])
