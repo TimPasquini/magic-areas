@@ -15,6 +15,13 @@ Home Assistant provides enough native flow primitives to improve this without
 building a custom frontend: menus, multi-step flows, selectors, translations,
 `data_description`, and single-level collapsible sections.
 
+This repair also needs a user-exposed surface census. The options flow is only
+one half of the user experience: every feature that creates controls, helpers,
+labels, or diagnostics needs an explicit contract for what appears in Home
+Assistant and where it appears. A feature can later delete or replace one of
+those surfaces, but the current branch should make the expected exposed surface
+set intentional and test-enforced.
+
 ## Goals
 
 - Make complex option surfaces easier to understand in the HA frontend.
@@ -41,6 +48,10 @@ building a custom frontend: menus, multi-step flows, selectors, translations,
 - Use sections for related field groups when a step contains multiple concepts.
 - Dynamically show or hide options by rebuilding the schema before rendering the next form;
   do not rely on the frontend to conditionally hide fields live.
+- Treat radio/list-style selectors as input controls, not live section controllers. Home
+  Assistant config flows can render select choices as list/radio-like controls and can
+  render collapsible sections, but the supported dynamic pattern is submit-and-rerender:
+  select the mode, submit, then render the schema/section for that mode.
 - Use translated menu option descriptions so the root options menu explains where each
   path leads before the user enters it.
 - Use translated label/value select options so user-facing labels describe behavior while
@@ -58,6 +69,22 @@ Preferred direction: substeps for major decision branches, with sections only in
 substep when several always-relevant fields belong together. Sections alone are probably
 not enough because Home Assistant config flows do not provide live conditional frontend
 field hiding; mode changes are expressed by submitting and rendering the next schema.
+
+The desired light-group experience is:
+
+- Common controls remain visible before mode-specific decisions:
+  - role membership or links to role membership
+  - role state triggers
+  - role act-on triggers
+  - current brightness behavior mode
+  - current Adaptive Lighting coordination mode
+- `Classic`, `Advisory`, and `Adaptive` are presented as user-facing behavior choices.
+  Use a translated select/list presentation where it reads well in the frontend.
+- Only the selected behavior's fields are rendered after submit/re-render. Do not attempt
+  to make radio choices live-open sections in the same frontend form.
+- Adaptive Lighting coordination remains visually separate from brightness switching
+  behavior because it controls another integration's adaptation switches, not Magic
+  Areas on/off policy itself.
 
 Candidate substeps:
 
@@ -129,7 +156,87 @@ Known cleanup targets:
   Structured `ObjectSelector` with `fields`, `label_field`, `description_field`, and
   `multiple` may be a useful interim improvement before full add/edit/delete subflows.
 
-### 4) Dynamic Schema Safety
+Selector audit output should be concrete. For each user-exposed configuration field,
+record:
+
+- Feature and field name.
+- Current selector/input primitive.
+- Proposed selector/input primitive.
+- Where it appears in the flow.
+- Whether it is common, advanced, mode-specific, or integration-specific.
+- Whether hidden values are durable and must be preserved when not visible.
+- Whether submitted values are transient and should be discarded when the mode changes.
+
+This audit should include at least:
+
+- Area behavior and type.
+- Presence tracking devices/classes/timeouts.
+- Secondary states.
+- Feature selection.
+- Light roles, role states, role act-on triggers, brightness behavior, adaptive guards,
+  ambient-rise controls, and Adaptive Lighting coordination.
+- Fan group trigger inputs.
+- Climate preset controls.
+- Media notification/area-aware controls.
+- Cover group controls.
+- Aggregates, thresholds, health surfaces, and any exposed helper/signal settings.
+- Custom control groups.
+
+### 4) User-Exposed Surface Census
+
+Build and maintain a feature-by-feature census of user-exposed Home Assistant surfaces.
+This is separate from the options-flow field audit: it describes what the user sees after
+configuration is saved and the integration reconciles runtime/native surfaces.
+
+For each feature, record:
+
+- Expected control switches.
+- Expected native helper entities.
+- Expected labels.
+- Expected sensors/binary sensors.
+- Expected Adaptive Lighting switch/config links, if any.
+- Expected device and area attachment.
+- Expected hidden/visible status.
+- Whether the surface should be excluded from Magic Areas self-enumeration.
+- Whether the surface should be cleaned up when the feature/config/group is removed.
+
+Initial census targets:
+
+- Light groups:
+  - Native helper light groups for all-lights and configured roles.
+  - Global role labels such as `ma:overhead`, `ma:task`, `ma:sleep`, `ma:accent` only
+    when applicable.
+  - Light control switch.
+  - Ambient-rise helper/signal surfaces when adaptive mode requires them.
+  - Managed/adopted Adaptive Lighting switch associations.
+- Fan groups:
+  - Native fan group helper.
+  - Fan control switch.
+  - Trigger sensor/setpoint options in the options flow.
+- Cover groups:
+  - Native cover group helpers by device class/role.
+  - Cover control switch.
+- Media player groups:
+  - Native media/player helper surfaces where implemented.
+  - Media player control switch.
+  - Area-aware media player surface, if enabled.
+- Climate control:
+  - Climate control switch.
+  - Preset mapping options.
+- Aggregates and thresholds:
+  - Native aggregate/threshold helpers.
+  - Correct device class/unit metadata.
+  - Exclusion from self-enumeration.
+- Health:
+  - Health helper/sensor surfaces.
+- Presence hold and BLE:
+  - First-class Magic Areas entities that are intentionally not handed off to native
+    helpers.
+- Custom control groups:
+  - Scoped `ma:control:*` labels.
+  - Cleanup of labels/memberships when the custom group is deleted.
+
+### 5) Dynamic Schema Safety
 
 Dynamic fields must be added to a copied schema, not by mutating a shared feature schema
 from the registry.
@@ -140,7 +247,7 @@ Acceptance criteria:
 - Reopening the options flow after changing modes shows only expected fields.
 - Tests cover repeated open/edit cycles for light groups.
 
-### 5) Feature Selection Menu Refresh
+### 6) Feature Selection Menu Refresh
 
 Selecting features should not require saving and exiting the entire options flow before
 newly selected configurable features become reachable from the root menu.
@@ -159,7 +266,7 @@ If HA frontend menu refresh behavior prevents this from working reliably in one 
 the feature-selection step should route directly to a "configure newly enabled features"
 subflow or show an explicit message telling the user what changed.
 
-### 6) Runtime-Data Dependency
+### 7) Runtime-Data Dependency
 
 Options flow initialization currently depends on loaded coordinator runtime data for area
 config and entity lists. That is useful, but the UI should fail cleanly if runtime data is
@@ -171,7 +278,7 @@ Expected behavior:
   safe fallback for registry-derived entity lists or abort with a clear translated reason.
 - It should not crash with an attribute error or produce a broken frontend form.
 
-### 7) Custom Control Groups
+### 8) Custom Control Groups
 
 The current object editor is functional but not user-friendly.
 
@@ -189,7 +296,7 @@ Future cleanup direction:
 - Ensure deletion semantics remain explicit: deleting a custom group removes its managed
   labels/helper surfaces during reconciliation.
 
-### 8) Root Menu UX
+### 9) Root Menu UX
 
 The root options menu should read like user tasks, not implementation modules.
 
@@ -211,6 +318,12 @@ advanced/custom grouping before selecting it.
 
 Automated tests should cover:
 
+- A consolidated user-exposed surface contract:
+  - required surfaces exist for each enabled feature
+  - expected surfaces are attached to the correct area and Magic Areas device
+  - helper/control surfaces are visible unless intentionally hidden
+  - helper/control surfaces are excluded from Magic Areas self-enumeration where needed
+  - feature/group deletion removes the corresponding managed surfaces
 - Light-group field visibility for `classic`, `advisory`, and `adaptive`.
 - Adaptive Lighting field visibility for `ignore`, `adopt_existing`, and `manage`.
 - Hidden durable settings are preserved across unrelated edits.
@@ -230,10 +343,14 @@ Manual HA-dev validation should cover:
 - Mode changes reveal the expected fields after submit/reopen.
 - Adaptive Lighting adopt/manage setup is clear in the frontend.
 - Custom control group editing is still possible after the cleanup.
+- The HA device/entity pages show the expected controls/helpers for representative
+  features, without duplicate legacy Magic Areas entities beside native helpers.
 
 ## Exit Criteria
 
 - All config-flow tests pass.
+- The user-exposed surface census is documented or encoded in tests closely enough that
+  deleting/renaming a user-facing surface fails a targeted test.
 - Full test suite, ruff, and mypy pass.
 - The HA dev instance can open and complete the relevant options-flow paths.
 - No frontend serializer errors appear for any feature config step.

@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -138,6 +139,20 @@ class MagicEntity(RestoreEntity):
     def should_poll(self) -> bool:
         """If entity should be polled."""
         return False
+
+    async def async_added_to_hass(self) -> None:
+        """Attach Magic Areas entities to their owning HA area by default."""
+        await super().async_added_to_hass()
+        if self._is_meta or self.hass is None:
+            return
+
+        entity_registry = er.async_get(self.hass)
+        registry_entry = entity_registry.async_get(self.entity_id)
+        if registry_entry is not None and registry_entry.area_id is None:
+            entity_registry.async_update_entity(
+                self.entity_id,
+                area_id=self._area_id,
+            )
 
     @property
     def available(self) -> bool:
