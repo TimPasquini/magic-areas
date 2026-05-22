@@ -92,6 +92,9 @@ set intentional and test-enforced.
 - Feature-selection translation guidance now distinguishes enabling a feature from
   whether that feature adds a follow-up configuration page, so helper-only/default
   behavior does not look like a missing menu item.
+- Feature-selection E2E coverage now verifies newly enabled configurable features appear
+  in the returned root menu immediately, while enabled helper-only/default features do
+  not create dead configuration menu paths.
 - Light-group brightness mode reopen-cycle coverage now verifies that saved `adaptive`
   mode fields appear when reopening the substep, and that switching to `advisory`
   removes adaptive-only fields on the next reopen.
