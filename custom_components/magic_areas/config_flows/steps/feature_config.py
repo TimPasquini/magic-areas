@@ -609,7 +609,9 @@ async def handle_feature_conf(
                     min_value=1, unit_of_measurement=""
                 ),
                 CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: build_selector_number(
-                    min_value=0, unit_of_measurement="lx"
+                    min_value=0,
+                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+                    unit_of_measurement="lx",
                 ),
                 CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS: (
                     build_selector_number(min_value=0, unit_of_measurement="%")

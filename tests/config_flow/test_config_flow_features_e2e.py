@@ -358,6 +358,27 @@ async def test_options_flow_aggregates(
     )
 
 
+async def test_options_flow_aggregates_illuminance_threshold_allows_daylight_lux(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Aggregate illuminance threshold selector should allow realistic daylight values."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AGGREGATES,
+        "feature_conf_aggregates",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    selectors = _schema_selectors(result)
+    threshold_selector = selectors[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD]
+
+    assert threshold_selector.config["mode"] == "box"
+    assert threshold_selector.config["unit_of_measurement"] == "lx"
+    assert threshold_selector.config["max"] == 120000
+
+
 async def test_options_flow_presence_hold(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
