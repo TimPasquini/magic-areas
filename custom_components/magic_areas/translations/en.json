@@ -30,7 +30,7 @@
     "step": {
       "select_features": {
         "title": "Feature selection",
-        "description": "Select the features you want to enable for this area. A new menu option will show up for configuring each enabled feature if that feature has settings.",
+        "description": "Select the features you want to enable for this area. Features with settings add a configuration menu after submit; helper-only features are enabled with sensible defaults without extra menu pages.",
         "data": {
           "fan_groups": "Create fan groups",
           "climate_control": "Create climate controller",
@@ -43,6 +43,19 @@
           "presence_hold": "Create presence hold switch",
           "ble_trackers": "Monitor Bluetooth tracker sensors",
           "wasp_in_a_box": "Create a Wasp in a Box sensor"
+        },
+        "data_description": {
+          "fan_groups": "Creates a native fan helper group and adds a configuration menu for trigger state and setpoint behavior.",
+          "climate_control": "Adds a configuration menu for choosing the climate entity and presets used for room states.",
+          "media_player_groups": "Creates a native media-player helper group using default grouping and does not add a configuration menu.",
+          "light_groups": "Creates native light helper groups and adds a configuration menu for roles, brightness behavior, and Adaptive Lighting coordination.",
+          "cover_groups": "Creates native cover helper groups by device class using default grouping and does not add a configuration menu.",
+          "area_aware_media_player": "Adds a configuration menu for notification targets and states used by the area-aware media player.",
+          "aggregates": "Creates native aggregate helpers and adds a configuration menu for device classes, thresholds, and minimum entity counts.",
+          "health": "Creates a native health helper and adds a configuration menu for monitored binary-sensor device classes.",
+          "presence_hold": "Creates a presence hold switch and adds a configuration menu for the hold timeout.",
+          "ble_trackers": "Creates a BLE tracker monitor and adds a configuration menu for the tracker entities to watch.",
+          "wasp_in_a_box": "Creates a Wasp in a Box sensor and adds a configuration menu for delay, timeout, and sensor classes."
         }
       },
       "show_menu": {

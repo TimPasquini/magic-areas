@@ -55,6 +55,24 @@ def test_options_flow_root_menu_explains_save_behavior() -> None:
     assert "not saved until you select `Save & Exit`" in description
 
 
+def test_feature_selection_distinguishes_configurable_features() -> None:
+    """Feature selection should explain which choices add follow-up menu pages."""
+    select_features = _options_step("select_features")
+    description = select_features["description"]
+    data_description = select_features["data_description"]
+
+    assert isinstance(description, str)
+    assert "without extra menu pages" in description
+    assert isinstance(data_description, dict)
+    assert "adds a configuration menu" in data_description["light_groups"]
+    assert "using default grouping and does not add a configuration menu" in (
+        data_description["cover_groups"]
+    )
+    assert "using default grouping and does not add a configuration menu" in (
+        data_description["media_player_groups"]
+    )
+
+
 def test_light_group_brightness_mode_uses_classic_label() -> None:
     """Keep the legacy inhibit token hidden behind clearer UI copy."""
     translations = json.loads(TRANSLATIONS_PATH.read_text(encoding="utf-8"))
