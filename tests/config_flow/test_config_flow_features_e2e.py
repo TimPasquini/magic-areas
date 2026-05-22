@@ -633,6 +633,70 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in keys
 
 
+async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Reopening after a mode change should render only fields for the saved mode."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "adaptive"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    assert result["type"] == FlowResultType.FORM
+    adaptive_keys = {
+        getattr(marker, "schema", marker) for marker in _data_schema(result).schema
+    }
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS in adaptive_keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in adaptive_keys
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "advisory"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    assert result["type"] == FlowResultType.FORM
+    advisory_keys = {
+        getattr(marker, "schema", marker) for marker in _data_schema(result).schema
+    }
+    assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in advisory_keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in advisory_keys
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in advisory_keys
+    assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY not in advisory_keys
+
+
 async def test_options_flow_light_groups_adaptive_selectors_are_lux_safe(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
