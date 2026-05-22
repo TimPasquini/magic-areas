@@ -79,9 +79,16 @@ set intentional and test-enforced.
   form.
 - The root options menu now orders enabled feature configuration pages by user task rather
   than alphabetically by implementation key.
+- The feature-selection form now uses the same user-task ordering so new features are
+  selected in the same conceptual order they appear in the options menu.
 - Runtime-data dependency failure is represented as a clean translated abort when an
   entry is not loaded.
-- The current config-flow automated checkpoint is `tests/config_flow`: `125 passed`.
+- User-exposed surface contracts now cover native group helpers/control switches, light
+  role labels, aggregate helpers, threshold helpers, and health helpers. These tests
+  assert visibility, area/device attachment, expected helper membership, and exclusion
+  from Magic Areas self-enumeration.
+- The current automated checkpoint is full Ruff, full mypy, `tests/config_flow`, the
+  user-exposed surface integration contract, and full pytest passing.
 
 ### 1) Light Group Form Structure
 
