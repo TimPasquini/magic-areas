@@ -609,6 +609,120 @@ async def test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings
     assert adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS) not in keys
 
 
+async def test_options_flow_light_groups_root_shows_substep_menu(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Light groups should open as task-focused substeps instead of a flat form."""
+    result = await _open_feature_config_step(
+        hass,
+        init_integration,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups",
+    )
+
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "feature_conf_light_groups"
+    assert result["menu_options"] == [
+        "feature_conf_light_groups_roles",
+        "feature_conf_light_groups_brightness",
+        "feature_conf_light_groups_adaptive_lighting",
+        "show_menu",
+    ]
+
+
+async def test_options_flow_light_groups_roles_preserve_hidden_behavior_modes(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Role edits should not drop brightness or Adaptive Lighting mode choices."""
+    config_entry = init_integration
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "brightness_mode": "adaptive",
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+        ),
+        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL: True,
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_roles",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"overhead_lights": ["light.test_light"]},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    feature_options = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ]
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert feature_options["brightness_mode"] == "adaptive"
+    assert (
+        feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
+        == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+    )
+    assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] is True
+
+
+async def test_options_flow_light_groups_brightness_preserves_hidden_roles(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Brightness edits should not drop hidden role membership."""
+    config_entry = init_integration
+    new_options = config_entry.options.copy()
+    new_options.setdefault(CONF_ENABLED_FEATURES, {})
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+        "overhead_lights": ["light.test_light"],
+        "overhead_lights_states": ["occupied"],
+        "overhead_lights_act_on": ["occupancy", "state"],
+        "brightness_mode": "inhibit",
+    }
+    hass.config_entries.async_update_entry(config_entry, options=new_options)
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "advisory"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+
+    feature_options = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ]
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert feature_options["brightness_mode"] == "advisory"
+    assert feature_options["overhead_lights"] == ["light.test_light"]
+    assert feature_options["overhead_lights_states"] == ["occupied"]
+    assert feature_options["overhead_lights_act_on"] == ["occupancy", "state"]
+
+
 async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
