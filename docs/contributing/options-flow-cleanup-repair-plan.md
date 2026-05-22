@@ -59,6 +59,30 @@ set intentional and test-enforced.
 
 ## Target Improvements
 
+## Implemented Checkpoint
+
+- Light groups now open as a submenu with dedicated substeps for roles, brightness
+  behavior, and Adaptive Lighting coordination.
+- Light-group mode-specific rendering is test-enforced for `classic`/internal
+  `inhibit`, `advisory`, `adaptive`, Adaptive Lighting `ignore`, `adopt_existing`,
+  and `manage`.
+- Hidden durable light-group values are preserved across unrelated substep edits, while
+  transient Adaptive Lighting pairing fields are normalized instead of leaking into saved
+  options.
+- Light-group selector contracts are test-enforced for dropdown mode selectors,
+  translated selector labels, illuminance-only lux entity selectors, and realistic lux
+  numeric ranges.
+- Aggregate illuminance threshold now uses the same realistic lux selector range as
+  adaptive brightness fields.
+- Custom control groups use a structured object selector and now have step-level
+  translation guidance so the advanced editor does not render as a blank or context-free
+  form.
+- The root options menu now orders enabled feature configuration pages by user task rather
+  than alphabetically by implementation key.
+- Runtime-data dependency failure is represented as a clean translated abort when an
+  entry is not loaded.
+- The current config-flow automated checkpoint is `tests/config_flow`: `125 passed`.
+
 ### 1) Light Group Form Structure
 
 Split the flat light-group form into clearer UI groupings. The current form exposes too
