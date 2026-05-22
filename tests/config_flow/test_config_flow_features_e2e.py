@@ -1317,16 +1317,25 @@ async def test_options_flow_add_feature(
         result["flow_id"], user_input={"next_step_id": "select_features"}
     )
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={MagicAreasFeatures.LIGHT_GROUPS: True}
+        result["flow_id"],
+        user_input={
+            MagicAreasFeatures.LIGHT_GROUPS: True,
+            MagicAreasFeatures.COVER_GROUPS: True,
+        },
     )
 
     assert result["type"] == FlowResultType.MENU
+    assert "feature_conf_light_groups" in result["menu_options"]
+    assert "feature_conf_cover_groups" not in result["menu_options"]
 
     await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
     )
     assert (
         MagicAreasFeatures.LIGHT_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
+    )
+    assert (
+        MagicAreasFeatures.COVER_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
     )
 
 
