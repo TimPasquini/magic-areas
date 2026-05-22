@@ -72,6 +72,9 @@ set intentional and test-enforced.
 - Light-group selector contracts are test-enforced for dropdown mode selectors,
   translated selector labels, illuminance-only lux entity selectors, and realistic lux
   numeric ranges.
+- Fan automation now uses constrained selectors for required area state, tracked
+  aggregate sensor device class, and numeric setpoint instead of relying on raw schema
+  primitives.
 - Aggregate illuminance threshold now uses the same realistic lux selector range as
   adaptive brightness fields.
 - Custom control groups use a structured object selector and now have step-level
