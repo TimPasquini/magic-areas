@@ -250,47 +250,9 @@ def _room_dev_area(room: DevRoom) -> DevArea:
 
 
 def _light_group_mode_options(room: DevRoom) -> dict[str, object]:
-    """Return the first-pass options needed to reveal mode-specific fields."""
-    return {
-        "brightness_mode": room.brightness_mode,
-        "adaptive_lighting_mode": room.adaptive_lighting_mode,
-        "overhead_lights": [room.overhead_light],
-        "overhead_lights_states": ["occupied"],
-        "overhead_lights_act_on": ["occupancy", "state"],
-        "sleep_lights": [room.second_light],
-        "sleep_lights_states": ["sleep"],
-        "sleep_lights_act_on": ["occupancy", "state"],
-        "accent_lights": [room.second_light] if room.include_accent else [],
-        "accent_lights_states": ["accented"] if room.include_accent else [],
-        "accent_lights_act_on": ["occupancy", "state"],
-        "task_lights": [],
-        "task_lights_states": [],
-        "task_lights_act_on": ["occupancy", "state"],
-    }
-
-
-def _needs_light_group_second_pass(room: DevRoom) -> bool:
-    """Return whether mode-specific fields require a second options pass."""
-    return room.brightness_mode != "inhibit" or room.adaptive_lighting_mode != "ignore"
-
-
-def _light_group_options(room: DevRoom) -> dict[str, object]:
-    """Return light-group options for one dev room."""
+    """Return light-group brightness behavior options for one dev room."""
     options: dict[str, object] = {
         "brightness_mode": room.brightness_mode,
-        "adaptive_lighting_mode": room.adaptive_lighting_mode,
-        "overhead_lights": [room.overhead_light],
-        "overhead_lights_states": ["occupied"],
-        "overhead_lights_act_on": ["occupancy", "state"],
-        "sleep_lights": [room.second_light],
-        "sleep_lights_states": ["sleep"],
-        "sleep_lights_act_on": ["occupancy", "state"],
-        "accent_lights": [room.second_light] if room.include_accent else [],
-        "accent_lights_states": ["accented"] if room.include_accent else [],
-        "accent_lights_act_on": ["occupancy", "state"],
-        "task_lights": [],
-        "task_lights_states": [],
-        "task_lights_act_on": ["occupancy", "state"],
     }
     if room.brightness_mode in {"advisory", "adaptive"}:
         options["inside_bright_entity"] = room.light_entity
@@ -317,6 +279,14 @@ def _light_group_options(room: DevRoom) -> dict[str, object]:
                 "ambient_rise_min_delta": room.ambient_rise_min_delta,
             }
         )
+    return options
+
+
+def _light_group_adaptive_lighting_options(room: DevRoom) -> dict[str, object]:
+    """Return Adaptive Lighting coordination options for one dev room."""
+    options: dict[str, object] = {
+        "adaptive_lighting_mode": room.adaptive_lighting_mode,
+    }
     if room.adaptive_lighting_mode == "manage":
         options.update(
             {
@@ -327,6 +297,24 @@ def _light_group_options(room: DevRoom) -> dict[str, object]:
             }
         )
     return options
+
+
+def _light_group_options(room: DevRoom) -> dict[str, object]:
+    """Return light-role membership options for one dev room."""
+    return {
+        "overhead_lights": [room.overhead_light],
+        "overhead_lights_states": ["occupied"],
+        "overhead_lights_act_on": ["occupancy", "state"],
+        "sleep_lights": [room.second_light],
+        "sleep_lights_states": ["sleep"],
+        "sleep_lights_act_on": ["occupancy", "state"],
+        "accent_lights": [room.second_light] if room.include_accent else [],
+        "accent_lights_states": ["accented"] if room.include_accent else [],
+        "accent_lights_act_on": ["occupancy", "state"],
+        "task_lights": [],
+        "task_lights_states": [],
+        "task_lights_act_on": ["occupancy", "state"],
+    }
 
 
 def _room_magic_area(room: DevRoom) -> DevMagicArea:
@@ -368,18 +356,16 @@ def _room_magic_area(room: DevRoom) -> DevMagicArea:
                 step_id="select_features",
                 user_input={"light_groups": True, "presence_hold": True},
             ),
-            *(
-                (
-                    OptionsStep(
-                        step_id="feature_conf_light_groups",
-                        user_input=_light_group_mode_options(room),
-                    ),
-                )
-                if _needs_light_group_second_pass(room)
-                else ()
+            OptionsStep(
+                step_id="feature_conf_light_groups_brightness",
+                user_input=_light_group_mode_options(room),
             ),
             OptionsStep(
-                step_id="feature_conf_light_groups",
+                step_id="feature_conf_light_groups_adaptive_lighting",
+                user_input=_light_group_adaptive_lighting_options(room),
+            ),
+            OptionsStep(
+                step_id="feature_conf_light_groups_roles",
                 user_input=_light_group_options(room),
             ),
             OptionsStep(
@@ -392,6 +378,33 @@ def _room_magic_area(room: DevRoom) -> DevMagicArea:
 
 DEV_AREAS: tuple[DevArea, ...] = (
     *(_room_dev_area(room) for room in DEV_ROOMS),
+    DevArea(
+        name="Setup Room",
+        aliases=("setup_room",),
+        entity_ids=(
+            "binary_sensor.setup_room_occupancy",
+            "binary_sensor.setup_room_motion",
+            "binary_sensor.setup_room_sleep",
+            "binary_sensor.setup_room_accent",
+            "binary_sensor.setup_room_light",
+            "binary_sensor.setup_room_door",
+            "binary_sensor.setup_room_window",
+            "binary_sensor.setup_room_problem",
+            "binary_sensor.setup_room_smoke",
+            "sensor.setup_room_illuminance",
+            "sensor.setup_room_temperature",
+            "sensor.setup_room_humidity",
+            "sensor.setup_room_ble_source",
+            "light.setup_room_overhead",
+            "light.setup_room_task",
+            "light.setup_room_accent",
+            "light.setup_room_sleep_light",
+            "fan.setup_room_fan",
+            "cover.setup_room_blinds",
+            "media_player.setup_room_speaker",
+            "climate.setup_room_thermostat",
+        ),
+    ),
     DevArea(
         name="Outdoor Test",
         aliases=("outdoor_test",),
@@ -427,6 +440,26 @@ def _initial_boolean_entities() -> list[str]:
                 ),
             ]
         )
+    entities.extend(
+        [
+            "input_boolean.setup_room_occupancy",
+            "input_boolean.setup_room_motion",
+            "input_boolean.setup_room_sleep",
+            "input_boolean.setup_room_accent",
+            "input_boolean.setup_room_door",
+            "input_boolean.setup_room_window",
+            "input_boolean.setup_room_problem",
+            "input_boolean.setup_room_smoke",
+            "input_boolean.setup_room_overhead_power",
+            "input_boolean.setup_room_task_power",
+            "input_boolean.setup_room_accent_power",
+            "input_boolean.setup_room_sleep_light_power",
+            "input_boolean.setup_room_fan_power",
+            "input_boolean.setup_room_blinds_open",
+            "input_boolean.setup_room_heater",
+            "input_boolean.setup_room_speaker_power",
+        ]
+    )
     return entities
 
 
@@ -447,6 +480,28 @@ def _initial_service_calls() -> tuple[dict[str, object], ...]:
             "service_data": {"value": room.initial_lux},
         }
         for room in DEV_ROOMS
+    )
+    calls.extend(
+        [
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.setup_room_lux"},
+                "service_data": {"value": 350},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.setup_room_temperature"},
+                "service_data": {"value": 72},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.setup_room_humidity"},
+                "service_data": {"value": 45},
+            },
+        ]
     )
     calls.append(
         {
@@ -782,6 +837,28 @@ def _post_options_flow(
     )
 
 
+def _route_options_step(
+    rest: HomeAssistantRest,
+    flow_id: str,
+    step_id: str,
+    current_result: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Route from the options root menu to a concrete form step."""
+    current_step_id = current_result.get("step_id")
+    if step_id.startswith("feature_conf_light_groups_"):
+        if current_step_id != "feature_conf_light_groups":
+            result = _post_options_flow(
+                rest, flow_id, {"next_step_id": "feature_conf_light_groups"}
+            )
+            if result.get("type") != "menu":
+                return result
+    elif current_step_id == "feature_conf_light_groups":
+        result = _post_options_flow(rest, flow_id, {"next_step_id": "show_menu"})
+        if result.get("type") != "menu":
+            return result
+    return _post_options_flow(rest, flow_id, {"next_step_id": step_id})
+
+
 async def configure_magic_area_options(
     client: HomeAssistantWs,
     rest: HomeAssistantRest,
@@ -811,9 +888,7 @@ async def configure_magic_area_options(
 
     flow_id = _flow_id(result)
     for options_step in dev_magic_area.options_steps:
-        result = _post_options_flow(
-            rest, flow_id, {"next_step_id": options_step.step_id}
-        )
+        result = _route_options_step(rest, flow_id, options_step.step_id, result)
         if result.get("type") != "form":
             raise RuntimeError(
                 f"Unexpected options route result for {dev_magic_area.name}/"

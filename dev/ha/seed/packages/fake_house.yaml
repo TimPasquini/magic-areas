@@ -209,6 +209,54 @@ input_boolean:
   startup_unavailable_room_lamp_power:
     name: Startup Unavailable Room Lamp Power
     icon: mdi:floor-lamp
+  setup_room_occupancy:
+    name: Setup Room Occupancy
+    icon: mdi:motion-sensor
+  setup_room_motion:
+    name: Setup Room Motion
+    icon: mdi:motion-sensor
+  setup_room_sleep:
+    name: Setup Room Sleep Mode
+    icon: mdi:sleep
+  setup_room_accent:
+    name: Setup Room Accent Mode
+    icon: mdi:television-ambient-light
+  setup_room_door:
+    name: Setup Room Door
+    icon: mdi:door
+  setup_room_window:
+    name: Setup Room Window
+    icon: mdi:window-open-variant
+  setup_room_problem:
+    name: Setup Room Problem
+    icon: mdi:alert-circle
+  setup_room_smoke:
+    name: Setup Room Smoke
+    icon: mdi:smoke-detector
+  setup_room_overhead_power:
+    name: Setup Room Overhead Power
+    icon: mdi:ceiling-light
+  setup_room_task_power:
+    name: Setup Room Task Power
+    icon: mdi:desk-lamp
+  setup_room_accent_power:
+    name: Setup Room Accent Power
+    icon: mdi:led-strip-variant
+  setup_room_sleep_light_power:
+    name: Setup Room Sleep Light Power
+    icon: mdi:lightbulb-night
+  setup_room_fan_power:
+    name: Setup Room Fan Power
+    icon: mdi:fan
+  setup_room_blinds_open:
+    name: Setup Room Blinds Open
+    icon: mdi:blinds
+  setup_room_heater:
+    name: Setup Room Heater
+    icon: mdi:radiator
+  setup_room_speaker_power:
+    name: Setup Room Speaker Power
+    icon: mdi:speaker
 
 input_select:
   startup_unknown_room_light_availability:
@@ -325,6 +373,27 @@ input_number:
     step: 10
     mode: slider
     unit_of_measurement: lx
+  setup_room_lux:
+    name: Setup Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  setup_room_temperature:
+    name: Setup Room Temperature
+    min: 40
+    max: 100
+    step: 0.5
+    mode: slider
+    unit_of_measurement: °F
+  setup_room_humidity:
+    name: Setup Room Humidity
+    min: 0
+    max: 100
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
   outdoor_lux:
     name: Outdoor Lux
     min: 0
@@ -543,6 +612,40 @@ template:
           {% else %}
             {{ states('input_number.startup_unavailable_room_lux') | float(0) > 900 }}
           {% endif %}
+      - name: Setup Room Occupancy
+        unique_id: ma_dev_setup_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.setup_room_occupancy', 'on') }}"
+      - name: Setup Room Motion
+        unique_id: ma_dev_setup_room_motion
+        device_class: motion
+        state: "{{ is_state('input_boolean.setup_room_motion', 'on') }}"
+      - name: Setup Room Sleep
+        unique_id: ma_dev_setup_room_sleep
+        state: "{{ is_state('input_boolean.setup_room_sleep', 'on') }}"
+      - name: Setup Room Accent
+        unique_id: ma_dev_setup_room_accent
+        state: "{{ is_state('input_boolean.setup_room_accent', 'on') }}"
+      - name: Setup Room Light
+        unique_id: ma_dev_setup_room_light
+        device_class: light
+        state: "{{ states('input_number.setup_room_lux') | float(0) > 900 }}"
+      - name: Setup Room Door
+        unique_id: ma_dev_setup_room_door
+        device_class: door
+        state: "{{ is_state('input_boolean.setup_room_door', 'on') }}"
+      - name: Setup Room Window
+        unique_id: ma_dev_setup_room_window
+        device_class: window
+        state: "{{ is_state('input_boolean.setup_room_window', 'on') }}"
+      - name: Setup Room Problem
+        unique_id: ma_dev_setup_room_problem
+        device_class: problem
+        state: "{{ is_state('input_boolean.setup_room_problem', 'on') }}"
+      - name: Setup Room Smoke
+        unique_id: ma_dev_setup_room_smoke
+        device_class: smoke
+        state: "{{ is_state('input_boolean.setup_room_smoke', 'on') }}"
       - name: Outdoor Bright
         unique_id: ma_dev_outdoor_bright
         device_class: light
@@ -632,6 +735,27 @@ template:
         state_class: measurement
         unit_of_measurement: lx
         state: "{{ states('input_number.startup_unavailable_room_lux') | float(0) }}"
+      - name: Setup Room Illuminance
+        unique_id: ma_dev_setup_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.setup_room_lux') | float(0) }}"
+      - name: Setup Room Temperature
+        unique_id: ma_dev_setup_room_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: °F
+        state: "{{ states('input_number.setup_room_temperature') | float(72) }}"
+      - name: Setup Room Humidity
+        unique_id: ma_dev_setup_room_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        state: "{{ states('input_number.setup_room_humidity') | float(45) }}"
+      - name: Setup Room BLE Source
+        unique_id: ma_dev_setup_room_ble_source
+        state: "setup-room-tracker"
       - name: Outdoor Illuminance
         unique_id: ma_dev_outdoor_illuminance
         device_class: illuminance
@@ -1031,3 +1155,131 @@ template:
             target:
               entity_id:
                 - input_boolean.startup_unavailable_room_lamp_power
+      - unique_id: ma_dev_setup_room_overhead
+        default_entity_id: light.setup_room_overhead
+        name: Setup Room Overhead
+        state: "{{ is_state('input_boolean.setup_room_overhead_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_overhead_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_overhead_power
+      - unique_id: ma_dev_setup_room_task
+        default_entity_id: light.setup_room_task
+        name: Setup Room Task
+        state: "{{ is_state('input_boolean.setup_room_task_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_task_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_task_power
+      - unique_id: ma_dev_setup_room_accent
+        default_entity_id: light.setup_room_accent
+        name: Setup Room Accent
+        state: "{{ is_state('input_boolean.setup_room_accent_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_accent_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_accent_power
+      - unique_id: ma_dev_setup_room_sleep_light
+        default_entity_id: light.setup_room_sleep_light
+        name: Setup Room Sleep Light
+        state: "{{ is_state('input_boolean.setup_room_sleep_light_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_sleep_light_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_sleep_light_power
+  - fan:
+      - unique_id: ma_dev_setup_room_fan
+        name: Setup Room Fan
+        state: "{{ is_state('input_boolean.setup_room_fan_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_fan_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_fan_power
+  - cover:
+      - unique_id: ma_dev_setup_room_blinds
+        name: Setup Room Blinds
+        device_class: blind
+        state: "{{ 'open' if is_state('input_boolean.setup_room_blinds_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.setup_room_blinds_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_blinds_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.setup_room_blinds_open
+
+climate:
+  - platform: generic_thermostat
+    unique_id: ma_dev_setup_room_thermostat
+    name: Setup Room Thermostat
+    heater: input_boolean.setup_room_heater
+    target_sensor: sensor.setup_room_temperature
+    min_temp: 60
+    max_temp: 85
+    target_temp: 72
+    cold_tolerance: 0.5
+    hot_tolerance: 0.5
+    away_temp: 62
+
+media_player:
+  - platform: universal
+    unique_id: ma_dev_setup_room_speaker
+    name: Setup Room Speaker
+    children: []
+    commands:
+      turn_on:
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.setup_room_speaker_power
+      turn_off:
+        action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.setup_room_speaker_power
+      volume_up:
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.setup_room_speaker_power
+      volume_down:
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.setup_room_speaker_power
+    attributes:
+      state: input_boolean.setup_room_speaker_power

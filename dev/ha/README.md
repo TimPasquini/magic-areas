@@ -111,6 +111,7 @@ these areas if missing:
 - Adaptive Ambient Room
 - Adaptive Manual Light Room
 - Adaptive Lighting Room
+- Setup Room
 - Outdoor Test
 
 It then assigns the seeded fake entities to those areas, creates the default
@@ -121,6 +122,12 @@ deterministic fake daylight, explicit outside binary, outside lux contrast,
 startup unknown/unavailable light-state fallback, ambient-rise gating, and a
 manual in-room light contamination case before a room that uses Magic
 Areas-managed Adaptive Lighting configs.
+
+`Setup Room` is intentionally different from the simulation matrix rooms. It is
+seeded with representative entities for the major Magic Areas configuration
+surfaces, but bootstrap does not create a Magic Areas config entry for it. Use it
+for frontend/config-flow walkthroughs where the goal is to create and configure a
+new Magic Area manually from the real HA UI.
 
 The bootstrap is idempotent. Re-running it should update missing/stale area
 assignments and create missing Magic Areas entries without destroying the rest of
@@ -172,6 +179,9 @@ It also creates fake entities useful for Magic Areas setup:
 - fake indoor/outdoor lux controls
 - template sensors/binary sensors derived from those controls
 - template lights backed by input booleans
+- an unconfigured setup room with lights, fan, cover, media player, climate,
+  illuminance, temperature, humidity, health, door/window, BLE-source, occupancy,
+  sleep, and accent entities
 
 Run the bootstrap after onboarding to create HA areas, assign the fake entities,
 and install/configure the default Magic Areas rooms. This keeps the dev instance
