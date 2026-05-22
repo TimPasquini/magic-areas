@@ -37,25 +37,24 @@ async def test_handle_feature_conf_unknown_feature() -> None:
 
 @pytest.mark.asyncio
 async def test_handle_feature_conf_shows_form_on_no_input() -> None:
-    """Test that feature config shows form when no input provided."""
+    """Test that the light-groups feature entry shows its submenu."""
     flow = MagicMock()
     flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
     flow.context = {}
     flow.area_options = {}
-    flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
-    flow._build_schema_from_vol = MagicMock(return_value={})
+    flow.async_show_menu = MagicMock(return_value={"type": FlowResultType.MENU})
 
     result = await handle_feature_conf(flow, user_input=None)
 
-    assert result["type"] == FlowResultType.FORM
-    flow.async_show_form.assert_called_once()
+    assert result["type"] == FlowResultType.MENU
+    flow.async_show_menu.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_handle_feature_conf_with_known_feature() -> None:
-    """Test that known feature from registry is handled correctly."""
+    """Test that known light-group substeps are handled correctly."""
     flow = MagicMock()
-    flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
+    flow._feature_step_id = "feature_conf_light_groups_roles"
     flow.context = {}
     flow.area_options = {}
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
@@ -72,10 +71,12 @@ async def test_handle_feature_conf_with_known_feature() -> None:
 async def test_handle_feature_conf_validates_input() -> None:
     """Test that user input is validated using feature schema."""
     flow = MagicMock()
-    flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
+    flow._feature_step_id = "feature_conf_light_groups_roles"
     flow.context = {}
     flow.area_options = {}
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow.async_step_feature_conf_light_groups = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     # Provide valid user input
     user_input: dict[str, str] = {}
@@ -90,10 +91,12 @@ async def test_handle_feature_conf_validates_input() -> None:
 async def test_handle_feature_conf_stores_valid_feature_config() -> None:
     """Test that valid feature configuration is stored in area_options."""
     flow = MagicMock()
-    flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
+    flow._feature_step_id = "feature_conf_light_groups_roles"
     flow.context = {}
     flow.area_options = {}
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow.async_step_feature_conf_light_groups = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     # Provide valid user input
     user_input: dict[str, str] = {}
@@ -110,7 +113,7 @@ async def test_handle_feature_conf_stores_valid_feature_config() -> None:
 async def test_handle_light_groups_manage_mode_uses_separate_all_lights_gate() -> None:
     """Manage mode exposes all-lights as a separate boolean gate."""
     flow = MagicMock()
-    flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
+    flow._feature_step_id = "feature_conf_light_groups_adaptive_lighting"
     flow.context = {}
     flow.all_lights = ["light.test_light"]
     flow.area_options = {
@@ -148,7 +151,7 @@ async def test_handle_light_groups_manage_mode_uses_separate_all_lights_gate() -
 async def test_handle_light_groups_preserves_hidden_manage_all_lights_gate() -> None:
     """Editing visible light options should preserve hidden room-level AL gate."""
     flow = MagicMock()
-    flow._feature_step_id = f"feature_conf_{MagicAreasFeatures.LIGHT_GROUPS}"
+    flow._feature_step_id = "feature_conf_light_groups_adaptive_lighting"
     flow.context = {}
     flow.area_options = {
         CONF_ENABLED_FEATURES: {
@@ -161,7 +164,9 @@ async def test_handle_light_groups_preserves_hidden_manage_all_lights_gate() -> 
             }
         }
     }
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow.async_step_feature_conf_light_groups = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     result = await handle_feature_conf(
         flow,

@@ -100,7 +100,7 @@ async def test_options_flow_async_step_routes_feature_conf(
 
     result = await flow.async_step("feature_conf_light_groups")
 
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] == FlowResultType.MENU
     assert result["step_id"] == "feature_conf_light_groups"
 
 

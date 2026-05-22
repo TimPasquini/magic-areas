@@ -59,7 +59,7 @@ def test_light_group_brightness_mode_uses_classic_label() -> None:
     """Keep the legacy inhibit token hidden behind clearer UI copy."""
     translations = json.loads(TRANSLATIONS_PATH.read_text(encoding="utf-8"))
     selector_options = translations["selector"]["light_brightness_mode"]["options"]
-    light_group_step = _options_step("feature_conf_light_groups")
+    light_group_step = _options_step("feature_conf_light_groups_brightness")
     descriptions = light_group_step["data_description"]
 
     assert selector_options["inhibit"] == "Classic: bright may block on and turn off"

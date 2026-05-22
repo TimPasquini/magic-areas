@@ -65,7 +65,7 @@ Split the flat light-group form into clearer UI groupings. The current form expo
 many internal concepts at once; users should move through room-lighting decisions in the
 same order they reason about the room.
 
-Preferred direction: substeps for major decision branches, with sections only inside a
+Implemented direction: substeps for major decision branches, with sections only inside a
 substep when several always-relevant fields belong together. Sections alone are probably
 not enough because Home Assistant config flows do not provide live conditional frontend
 field hiding; mode changes are expressed by submitting and rendering the next schema.
@@ -86,7 +86,7 @@ The desired light-group experience is:
   behavior because it controls another integration's adaptation switches, not Magic
   Areas on/off policy itself.
 
-Candidate substeps:
+Current substeps:
 
 - Light roles
   - overhead/task/accent/sleep entity membership

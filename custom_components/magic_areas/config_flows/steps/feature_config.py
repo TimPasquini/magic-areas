@@ -144,6 +144,21 @@ _LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
     LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX
 )
 _LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
+_LIGHT_GROUP_MENU_STEP = "feature_conf_light_groups"
+_LIGHT_GROUP_ROLES_STEP = "feature_conf_light_groups_roles"
+_LIGHT_GROUP_BRIGHTNESS_STEP = "feature_conf_light_groups_brightness"
+_LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP = "feature_conf_light_groups_adaptive_lighting"
+_LIGHT_GROUP_SUBSTEPS = {
+    _LIGHT_GROUP_MENU_STEP,
+    _LIGHT_GROUP_ROLES_STEP,
+    _LIGHT_GROUP_BRIGHTNESS_STEP,
+    _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP,
+}
+_LIGHT_GROUP_ROLE_KEYS = {
+    key
+    for preset in LIGHT_GROUP_PRESETS
+    for key in (preset.category, preset.states_key, preset.act_on_key)
+}
 
 
 def _copy_schema(schema: vol.Schema) -> vol.Schema:
@@ -193,6 +208,37 @@ def _filter_schema_for_keys(schema: vol.Schema, include_keys: set[str]) -> vol.S
         if isinstance(key, str) and key in include_keys:
             filtered[marker] = validator
     return vol.Schema(filtered, extra=vol.REMOVE_EXTRA)
+
+
+def _light_group_step_include_keys(
+    *,
+    step_id: str,
+    mode: str,
+    adaptive_lighting_mode: str,
+) -> set[str]:
+    """Return light-group config keys rendered on one light-group substep."""
+    if step_id == _LIGHT_GROUP_ROLES_STEP:
+        return set(_LIGHT_GROUP_ROLE_KEYS)
+
+    if step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
+        include_keys = {CONF_LIGHT_GROUP_BRIGHTNESS_MODE}
+        if mode in {
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        }:
+            include_keys.update(_LIGHT_GROUP_ADVISORY_KEYS)
+        if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
+            include_keys.update(_LIGHT_GROUP_ADAPTIVE_ONLY_KEYS)
+        return include_keys
+
+    if step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
+        include_keys = {CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE}
+        if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
+            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
+        return include_keys
+
+    return set()
 
 
 def _resolve_adaptive_lighting_mode(
@@ -519,7 +565,22 @@ async def handle_feature_conf(
 ) -> config_entries.ConfigFlowResult:
     """Configure a specific feature using registry-based approach."""
     step_id = flow._feature_step_id or str(flow.context.get("step_id", ""))
-    feature_key = step_id.replace("feature_conf_", "")
+    if step_id == _LIGHT_GROUP_MENU_STEP:
+        # noinspection PyTypeChecker
+        return flow.async_show_menu(
+            step_id=_LIGHT_GROUP_MENU_STEP,
+            menu_options=[
+                _LIGHT_GROUP_ROLES_STEP,
+                _LIGHT_GROUP_BRIGHTNESS_STEP,
+                _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP,
+                "show_menu",
+            ],
+        )
+
+    if step_id in _LIGHT_GROUP_SUBSTEPS:
+        feature_key = MagicAreasFeatures.LIGHT_GROUPS.value
+    else:
+        feature_key = step_id.replace("feature_conf_", "")
     try:
         feature_enum = MagicAreasFeatures(feature_key)
     except ValueError:
@@ -565,24 +626,20 @@ async def handle_feature_conf(
     if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
         mode = _resolve_light_groups_mode(flow, user_input)
         adaptive_lighting_mode = _resolve_adaptive_lighting_mode(flow, user_input)
-        include_keys = set(_LIGHT_GROUP_ALWAYS_KEYS)
-        for preset in LIGHT_GROUP_PRESETS:
-            include_keys.add(preset.category)
-            include_keys.add(preset.states_key)
-            include_keys.add(preset.act_on_key)
-        if mode in {
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-        }:
-            include_keys.update(_LIGHT_GROUP_ADVISORY_KEYS)
-        if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
-            include_keys.update(_LIGHT_GROUP_ADAPTIVE_ONLY_KEYS)
+        include_keys = _light_group_step_include_keys(
+            step_id=step_id,
+            mode=mode,
+            adaptive_lighting_mode=adaptive_lighting_mode,
+        )
         feature_config = enabled_feature_map(flow.area_options).get(
             MagicAreasFeatures.LIGHT_GROUPS.value, {}
         )
         if not isinstance(feature_config, Mapping):
             feature_config = {}
-        if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING:
+        if (
+            step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
+            and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+        ):
             candidates = _adaptive_lighting_candidate_switch_sets(flow, feature_config)
             candidate_options = ["", *candidates]
             for category in _light_group_pairing_categories(flow, feature_config):
@@ -600,7 +657,10 @@ async def handle_feature_conf(
                     multiple=False,
                     translation_key="adaptive_lighting_switch_set",
                 )
-        if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
+        if (
+            step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
+            and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+        ):
             role_options = _light_group_managed_role_options(flow, feature_config)
             include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
             include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
@@ -631,35 +691,40 @@ async def handle_feature_conf(
             )
         schema = _filter_schema_for_keys(schema, include_keys)
 
-        selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
-            options=[
-                LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-                LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-                LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-            ],
-            multiple=False,
-            translation_key="light_brightness_mode",
-        )
-        selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] = build_selector_select(
-            options=[
-                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
-                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-            ],
-            multiple=False,
-            translation_key="adaptive_lighting_mode",
-        )
+        if step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
+            selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
+                options=[
+                    LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+                    LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+                    LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+                ],
+                multiple=False,
+                translation_key="light_brightness_mode",
+            )
+        if step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
+            selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] = build_selector_select(
+                options=[
+                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
+                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+                ],
+                multiple=False,
+                translation_key="adaptive_lighting_mode",
+            )
         if mode in {
             LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
             LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-        }:
+        } and step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
             selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = (
                 build_selector_entity_simple(flow.all_binary_entities, multiple=False)
             )
             selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = (
                 build_selector_entity_simple(flow.all_binary_entities, multiple=False)
             )
-        if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
+        if (
+            mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE
+            and step_id == _LIGHT_GROUP_BRIGHTNESS_STEP
+        ):
             selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
                 min_value=0, unit_of_measurement="s"
             )
@@ -714,28 +779,29 @@ async def handle_feature_conf(
             selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
                 build_selector_number(min_value=0, unit_of_measurement="%")
             )
-        for preset in LIGHT_GROUP_PRESETS:
-            selectors[preset.category] = build_selector_entity_simple(
-                flow.all_lights, multiple=True
-            )
-            selectors[preset.states_key] = build_selector_select(
-                options=[
-                    AreaStates.OCCUPIED.value,
-                    AreaStates.EXTENDED.value,
-                    AreaStates.SLEEP.value,
-                    AreaStates.ACCENT.value,
-                ],
-                multiple=True,
-                translation_key=SelectorTranslationKeys.AREA_STATES,
-            )
-            selectors[preset.act_on_key] = build_selector_select(
-                options=[
-                    LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
-                    LIGHT_GROUP_ACT_ON_STATE_CHANGE,
-                ],
-                multiple=True,
-                translation_key=SelectorTranslationKeys.CONTROL_ON,
-            )
+        if step_id == _LIGHT_GROUP_ROLES_STEP:
+            for preset in LIGHT_GROUP_PRESETS:
+                selectors[preset.category] = build_selector_entity_simple(
+                    flow.all_lights, multiple=True
+                )
+                selectors[preset.states_key] = build_selector_select(
+                    options=[
+                        AreaStates.OCCUPIED.value,
+                        AreaStates.EXTENDED.value,
+                        AreaStates.SLEEP.value,
+                        AreaStates.ACCENT.value,
+                    ],
+                    multiple=True,
+                    translation_key=SelectorTranslationKeys.AREA_STATES,
+                )
+                selectors[preset.act_on_key] = build_selector_select(
+                    options=[
+                        LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
+                        LIGHT_GROUP_ACT_ON_STATE_CHANGE,
+                    ],
+                    multiple=True,
+                    translation_key=SelectorTranslationKeys.CONTROL_ON,
+                )
 
     if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
         selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = (
@@ -780,7 +846,11 @@ async def handle_feature_conf(
             if feature_enum == MagicAreasFeatures.LIGHT_GROUPS
             else feature.merge_options
         ),
-        next_step=feature.next_step,
+        next_step=(
+            _LIGHT_GROUP_MENU_STEP
+            if feature_enum == MagicAreasFeatures.LIGHT_GROUPS
+            else feature.next_step
+        ),
         selectors=selectors,
     )
 

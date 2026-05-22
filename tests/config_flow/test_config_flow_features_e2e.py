@@ -103,6 +103,11 @@ async def _open_feature_config_step(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={feature: True}
     )
+    if step_id.startswith("feature_conf_light_groups_"):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={"next_step_id": "feature_conf_light_groups"},
+        )
     return await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": step_id}
     )
@@ -460,7 +465,7 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_brightness",
     )
     assert result["type"] == FlowResultType.FORM
 
@@ -477,7 +482,8 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
     assert result["type"] == FlowResultType.MENU
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
     )
     assert result["type"] == FlowResultType.FORM
     schema = _data_schema(result)
@@ -496,7 +502,7 @@ async def test_options_flow_light_groups_uses_translated_selectors(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_roles",
     )
     assert result["type"] == FlowResultType.FORM
 
@@ -525,7 +531,7 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_brightness",
     )
     assert result["type"] == FlowResultType.FORM
 
@@ -536,7 +542,8 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     assert result["type"] == FlowResultType.MENU
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
     )
     assert result["type"] == FlowResultType.FORM
 
@@ -557,7 +564,7 @@ async def test_options_flow_light_groups_adaptive_lux_accepts_bright_outdoor_val
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_brightness",
     )
 
     result = await hass.config_entries.options.async_configure(
@@ -567,7 +574,8 @@ async def test_options_flow_light_groups_adaptive_lux_accepts_bright_outdoor_val
     assert result["type"] == FlowResultType.MENU
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -591,7 +599,7 @@ async def test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -627,7 +635,7 @@ async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -645,7 +653,8 @@ async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
     assert result["type"] == FlowResultType.MENU
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups"}
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_adaptive_lighting"},
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -686,7 +695,7 @@ async def test_options_flow_dynamic_pairings_do_not_mutate_light_group_schema(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -732,7 +741,7 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -749,6 +758,9 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
             ),
             pair_key: refs[MAIN_SWITCH],
         },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
@@ -788,7 +800,7 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -804,6 +816,9 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
             ),
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [CONF_OVERHEAD_LIGHTS],
         },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
@@ -836,7 +851,7 @@ async def test_options_flow_light_groups_manage_all_lights_uses_separate_gate(
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_adaptive_lighting",
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -864,6 +879,9 @@ async def test_options_flow_light_groups_manage_all_lights_uses_separate_gate(
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL: True,
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [CONF_OVERHEAD_LIGHTS],
         },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
@@ -907,11 +925,14 @@ async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets
         hass,
         config_entry,
         MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups",
+        "feature_conf_light_groups_brightness",
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={"brightness_mode": "inhibit"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}

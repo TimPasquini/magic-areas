@@ -76,6 +76,12 @@
       "feature_conf_light_groups": {
         "title": "Light Groups",
         "description": "Magic Areas creates these four (plus a global one) [light groups](https://github.com/jseidl/hass-magic_areas/wiki/Light-Groups) (if you assign lights to them) for you to use. These by default are plain light groups but can be automatically controlled if you assign them to area states and enable the light control switch (that will be created when you enable this feature). All lights will be turned off when an area is cleared. Additional states can be unlocked by configuring `Advanced area state tracking`.",
+        "menu_options": {
+          "feature_conf_light_groups_roles": "Light roles",
+          "feature_conf_light_groups_brightness": "Brightness behavior",
+          "feature_conf_light_groups_adaptive_lighting": "Adaptive Lighting",
+          "show_menu": "Back"
+        },
         "data": {
           "brightness_mode": "Brightness behavior mode",
           "adaptive_lighting_mode": "Adaptive Lighting coordination",
@@ -135,6 +141,86 @@
           "accent_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
           "task_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
           "task_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both."
+        }
+      },
+      "feature_conf_light_groups_roles": {
+        "title": "Light roles",
+        "description": "Assign lights to room roles and choose which area states and events control each role.",
+        "data": {
+          "overhead_lights": "Overhead lights",
+          "overhead_lights_states": "States which overhead lights are turned on",
+          "overhead_lights_act_on": "When should overhead lights be controlled?",
+          "sleep_lights": "Sleep lights",
+          "sleep_lights_states": "States which sleep lights are turned on",
+          "sleep_lights_act_on": "When should sleep lights be controlled?",
+          "accent_lights": "Accent lights",
+          "accent_lights_states": "States which accent lights are turned on",
+          "accent_lights_act_on": "When should accent lights be controlled?",
+          "task_lights": "Task lights",
+          "task_lights_states": "States which task lights are turned on",
+          "task_lights_act_on": "When should task lights be controlled?"
+        },
+        "data_description": {
+          "overhead_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
+          "overhead_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
+          "sleep_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
+          "sleep_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
+          "accent_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
+          "accent_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
+          "task_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
+          "task_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both."
+        }
+      },
+      "feature_conf_light_groups_brightness": {
+        "title": "Light brightness behavior",
+        "description": "Choose how room brightness affects Magic Areas light automation.",
+        "data": {
+          "brightness_mode": "Brightness behavior mode",
+          "bright_min_on_seconds": "Adaptive minimum on-time",
+          "bright_dwell_seconds": "Adaptive bright dwell",
+          "bright_attribution_hold_seconds": "Adaptive attribution hold",
+          "adaptive_require_ambient_rise": "Require ambient rise",
+          "ambient_rise_window_seconds": "Ambient rise window",
+          "ambient_rise_min_delta": "Ambient rise delta",
+          "inside_bright_entity": "Inside bright binary entity",
+          "outside_context_source": "Outside context source",
+          "outside_bright_entity": "Outside bright binary entity",
+          "outside_lux_entity": "Outside lux entity",
+          "outside_lux_min": "Outside lux minimum",
+          "outside_lux_inside_entity": "Inside lux entity for contrast",
+          "outside_lux_inside_delta": "Outside-inside lux delta",
+          "outside_lux_inside_ratio_min_percent": "Outside-inside ratio minimum"
+        },
+        "data_description": {
+          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass.",
+          "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
+          "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
+          "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action or a configured room light increases output.",
+          "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
+          "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
+          "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
+          "inside_bright_entity": "Optional binary entity that represents whether the room itself is bright (for example: an inside brightness threshold helper). In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
+          "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
+          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
+          "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
+          "outside_lux_min": "Minimum outside lux required for adaptive bright-driven turn-off when source is `outside_lux`.",
+          "outside_lux_inside_entity": "Optional in-room illuminance sensor used for outside/inside contrast checks when source is `outside_lux`.",
+          "outside_lux_inside_delta": "Optional required lux delta (`outside - inside`) before adaptive bright-driven turn-off is allowed. Set to 0 to disable.",
+          "outside_lux_inside_ratio_min_percent": "Optional required outside/inside lux ratio percentage (100 = 1.0x) for adaptive bright-driven turn-off when source is `outside_lux`. Set to 0 to disable."
+        }
+      },
+      "feature_conf_light_groups_adaptive_lighting": {
+        "title": "Adaptive Lighting coordination",
+        "description": "Choose whether Magic Areas ignores Adaptive Lighting, links to existing Adaptive Lighting switch sets, or creates managed Adaptive Lighting configs for selected light roles.",
+        "data": {
+          "adaptive_lighting_mode": "Adaptive Lighting coordination",
+          "adaptive_lighting_manage_all_lights": "Create room-level Adaptive Lighting group",
+          "adaptive_lighting_managed_roles": "Magic Areas-managed Adaptive Lighting roles"
+        },
+        "data_description": {
+          "adaptive_lighting_mode": "Select whether Magic Areas ignores Adaptive Lighting, adopts existing Adaptive Lighting switch sets, or manages Adaptive Lighting configs for selected light roles.",
+          "adaptive_lighting_manage_all_lights": "When enabled, Magic Areas creates a room-level Adaptive Lighting config containing all lights in the area. The all-lights switch can then coordinate that room-level Adaptive Lighting group separately from role groups.",
+          "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning."
         }
       },
       "feature_conf_presence_hold": {
