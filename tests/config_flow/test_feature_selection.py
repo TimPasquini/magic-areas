@@ -31,6 +31,32 @@ async def test_handle_feature_selection_shows_form_on_no_input() -> None:
 
 
 @pytest.mark.asyncio
+async def test_handle_feature_selection_uses_task_oriented_order() -> None:
+    """Feature-selection checkboxes should not inherit implementation registry order."""
+    flow = MagicMock()
+    flow._area_config = MagicMock()
+    flow._area_config.is_meta.return_value = False
+    flow._area_config.config = {}
+    flow._area_config.id = "kitchen"
+    flow.area_options = {}
+    flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
+    flow._build_options_schema = MagicMock(return_value={})
+
+    result = await handle_feature_selection(flow, user_input=None)
+
+    assert result["type"] == FlowResultType.FORM
+    options = flow._build_options_schema.call_args.kwargs["options"]
+    option_keys = [option[0] for option in options]
+    assert option_keys[:5] == [
+        MagicAreasFeatures.LIGHT_GROUPS.value,
+        MagicAreasFeatures.FAN_GROUPS.value,
+        MagicAreasFeatures.COVER_GROUPS.value,
+        MagicAreasFeatures.CLIMATE_CONTROL.value,
+        MagicAreasFeatures.MEDIA_PLAYER_GROUPS.value,
+    ]
+
+
+@pytest.mark.asyncio
 async def test_handle_feature_selection_enables_selected_features() -> None:
     """Test that selected features are enabled in area options."""
     flow = MagicMock()

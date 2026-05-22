@@ -159,6 +159,19 @@ _LIGHT_GROUP_ROLE_KEYS = {
     for preset in LIGHT_GROUP_PRESETS
     for key in (preset.category, preset.states_key, preset.act_on_key)
 }
+_FEATURE_SELECTION_ORDER = (
+    MagicAreasFeatures.LIGHT_GROUPS,
+    MagicAreasFeatures.FAN_GROUPS,
+    MagicAreasFeatures.COVER_GROUPS,
+    MagicAreasFeatures.CLIMATE_CONTROL,
+    MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+    MagicAreasFeatures.AGGREGATES,
+    MagicAreasFeatures.HEALTH,
+    MagicAreasFeatures.PRESENCE_HOLD,
+    MagicAreasFeatures.BLE_TRACKER,
+    MagicAreasFeatures.WASP_IN_A_BOX,
+)
 
 
 def _copy_schema(schema: vol.Schema) -> vol.Schema:
@@ -582,7 +595,10 @@ def _add_light_group_role_selectors(
 
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
-    return FEATURE_REGISTRY.available_features_for_area(area_config)
+    available = FEATURE_REGISTRY.available_features_for_area(area_config)
+    ordered = [feature for feature in _FEATURE_SELECTION_ORDER if feature in available]
+    ordered.extend(feature for feature in available if feature not in ordered)
+    return ordered
 
 
 def get_configurable_features(
