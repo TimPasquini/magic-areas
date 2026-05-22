@@ -37,4 +37,4 @@ jobs:
           run: uv run ruff format --check custom_components/magic_areas/
 
         - name: "Run mypy"
-          run: uv run mypy custom_components/magic_areas/
+          run: uv run --extra dev --extra test mypy custom_components tests scripts

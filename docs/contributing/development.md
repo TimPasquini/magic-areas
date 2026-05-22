@@ -21,9 +21,9 @@ uv sync --extra dev --extra test
 Run these before committing:
 
 ```bash
-uv run --extra dev ruff check custom_components/magic_areas tests
-uv run --extra test mypy custom_components/magic_areas tests
-uv run --extra test pytest tests -q
+uv run --extra dev --extra test ruff check custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
+uv run --extra dev --extra test pytest tests -q
 ```
 
 Also review `docs/contributing/dev-simulation-guidance.md` before committing
@@ -152,7 +152,7 @@ find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 ### Type-check cache reset
 
 ```bash
-uv run mypy --clear-cache custom_components/magic_areas tests
+uv run --extra dev --extra test mypy --clear-cache custom_components tests scripts
 ```
 
 ### Diagram artifacts

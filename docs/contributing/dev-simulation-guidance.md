@@ -47,7 +47,7 @@ Before committing relevant changes, check:
 
 ```bash
 uv run --extra dev ruff check custom_components/magic_areas tests scripts
-MYPYPATH=scripts uv run --extra dev mypy custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
 uv run --extra dev pytest tests/scenarios -q
 ```
 

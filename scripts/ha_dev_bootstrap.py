@@ -21,7 +21,7 @@ except ImportError as err:  # pragma: no cover - handled by shell wrapper.
         "Missing dependency 'websockets'. Run through ./scripts/ha_dev_bootstrap.sh."
     ) from err
 
-from ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
+from scripts.ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
 
 DEFAULT_URL = "ws://localhost:8123/api/websocket"
 DEFAULT_HTTP_URL = "http://localhost:8123"

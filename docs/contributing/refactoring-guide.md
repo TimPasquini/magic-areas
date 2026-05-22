@@ -109,9 +109,9 @@ A change is not good if it:
 Refactoring is complete only when all three pass:
 
 ```bash
-uv run ruff check custom_components/magic_areas tests
-uv run mypy custom_components/magic_areas tests
-uv run pytest tests -q
+uv run --extra dev --extra test ruff check custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
+uv run --extra dev --extra test pytest tests -q
 ```
 
 Use the live test output as the baseline; do not hard-code a passing-test count

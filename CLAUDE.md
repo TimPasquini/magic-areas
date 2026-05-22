@@ -34,9 +34,9 @@ For current implementation state, use:
 Run these before commit:
 
 ```bash
-uv run --extra dev ruff check custom_components/magic_areas tests
-uv run --extra test mypy custom_components/magic_areas tests
-uv run --extra test pytest tests -q
+uv run --extra dev --extra test ruff check custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
+uv run --extra dev --extra test pytest tests -q
 ```
 
 If a change affects room-control behavior, fake-house simulation, scenario

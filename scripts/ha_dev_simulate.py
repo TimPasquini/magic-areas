@@ -15,13 +15,18 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from ha_dev_bootstrap import DEFAULT_URL, DEV_ROOMS, HomeAssistantWs, wait_for_ha
-from ha_dev_simulation_plan import (
+from scripts.ha_dev_bootstrap import (
+    DEFAULT_URL,
+    DEV_ROOMS,
+    HomeAssistantWs,
+    wait_for_ha,
+)
+from scripts.ha_dev_simulation_plan import (
     DEFAULT_SETUP_SETTLE_SECONDS,
     LivingRoomDemoPlan,
     build_living_room_demo_plan,
 )
-from ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
+from scripts.ha_dev_token import DEV_HA_LONG_LIVED_TOKEN
 
 DEFAULT_CYCLE_SECONDS = 30.0
 DEFAULT_RAMP_SECONDS = 10.0

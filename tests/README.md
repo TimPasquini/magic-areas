@@ -22,9 +22,9 @@ tests/
 Use repository-standard commands:
 
 ```bash
-uv run pytest tests -q
-uv run ruff check custom_components/magic_areas tests
-uv run mypy custom_components/magic_areas tests
+uv run --extra dev --extra test pytest tests -q
+uv run --extra dev --extra test ruff check custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
 ```
 
 Optional focused runs:

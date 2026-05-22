@@ -191,6 +191,6 @@ for a particular room.
   catalog state, not treated as independent Magic Areas-internal truth.
 - No long-lived compatibility shims after parity is proven.
 - Full validation must stay green:
-  - `uv run ruff check custom_components/magic_areas tests`
-  - `uv run mypy custom_components/magic_areas tests`
-  - `uv run pytest tests -q`
+  - `uv run --extra dev --extra test ruff check custom_components tests scripts`
+  - `uv run --extra dev --extra test mypy custom_components tests scripts`
+  - `uv run --extra dev --extra test pytest tests -q`
