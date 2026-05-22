@@ -84,9 +84,16 @@ set intentional and test-enforced.
 - Runtime-data dependency failure is represented as a clean translated abort when an
   entry is not loaded.
 - User-exposed surface contracts now cover native group helpers/control switches, light
-  role labels, aggregate helpers, threshold helpers, and health helpers. These tests
-  assert visibility, area/device attachment, expected helper membership, and exclusion
-  from Magic Areas self-enumeration.
+  role labels, aggregate helpers, threshold helpers, health helpers, and first-class
+  Magic Areas presence hold/BLE tracker/wasp-in-a-box entities. These tests assert
+  visibility, area/device attachment, expected helper membership or source attributes,
+  and exclusion from Magic Areas self-enumeration where applicable.
+- Feature-selection translation guidance now distinguishes enabling a feature from
+  whether that feature adds a follow-up configuration page, so helper-only/default
+  behavior does not look like a missing menu item.
+- Light-group brightness mode reopen-cycle coverage now verifies that saved `adaptive`
+  mode fields appear when reopening the substep, and that switching to `advisory`
+  removes adaptive-only fields on the next reopen.
 - The current automated checkpoint is full Ruff, full mypy, `tests/config_flow`, the
   user-exposed surface integration contract, and full pytest passing.
 
