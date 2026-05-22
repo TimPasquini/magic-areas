@@ -4,17 +4,24 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+)
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor.const import SensorDeviceClass
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     ATTR_NAME,
     CONF_ENTITIES,
     CONF_NAME,
+    LIGHT_LUX,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -26,6 +33,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.config_keys.area import (
+    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
+    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
+    CONF_AGGREGATES_MIN_ENTITIES,
+    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
@@ -43,7 +54,7 @@ from tests.helpers import (
     setup_mock_entities,
     shutdown_integration,
 )
-from tests.mocks import MockCover, MockFan, MockLight, MockMediaPlayer
+from tests.mocks import MockCover, MockFan, MockLight, MockMediaPlayer, MockSensor
 
 GROUP_DOMAIN = "group"
 CONF_ACCENT_LIGHTS = "accent_lights"
@@ -288,5 +299,103 @@ async def test_group_control_features_expose_expected_user_surfaces(
     for entry in helper_config_entries:
         assert entry.options[CONF_NAME]
         assert entry.options[CONF_ENTITIES]
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_aggregate_features_expose_expected_user_surfaces(
+    hass: HomeAssistant,
+) -> None:
+    """Aggregate/threshold features should expose native helper surfaces."""
+    illuminance_sensor = MockSensor(
+        name="contract_lux",
+        unique_id="contract_lux",
+        native_value=250,
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        native_unit_of_measurement=LIGHT_LUX,
+        unit_of_measurement=LIGHT_LUX,
+    )
+    temperature_sensor = MockSensor(
+        name="contract_temperature",
+        unique_id="contract_temperature",
+        native_value=72,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement="°F",
+        unit_of_measurement="°F",
+    )
+
+    await setup_mock_entities(
+        hass,
+        SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [illuminance_sensor, temperature_sensor]},
+    )
+
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                MagicAreasFeatures.AGGREGATES: {
+                    CONF_AGGREGATES_MIN_ENTITIES: 1,
+                    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [
+                        SensorDeviceClass.ILLUMINANCE,
+                        SensorDeviceClass.TEMPERATURE,
+                    ],
+                    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 600,
+                    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS: 50,
+                },
+            }
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+
+    await init_integration(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    expected_sensor_helpers = {
+        _helper_entity_id(
+            domain=SENSOR_DOMAIN,
+            title=f"Magic Areas Aggregates {data[ATTR_NAME]} Aggregate Illuminance",
+        ): [illuminance_sensor.entity_id],
+        _helper_entity_id(
+            domain=SENSOR_DOMAIN,
+            title=f"Magic Areas Aggregates {data[ATTR_NAME]} Aggregate Temperature",
+        ): [temperature_sensor.entity_id],
+    }
+    threshold_entity_id = _helper_entity_id(
+        domain=BINARY_SENSOR_DOMAIN,
+        title=f"Magic Areas Threshold {data[ATTR_NAME]} Threshold Light",
+    )
+
+    for entity_id, expected_members in expected_sensor_helpers.items():
+        _assert_visible_area_device_surface(
+            hass=hass,
+            entity_registry=entity_registry,
+            entity_id=entity_id,
+        )
+        _assert_group_members(hass, entity_id, expected_members)
+
+    _assert_visible_area_device_surface(
+        hass=hass,
+        entity_registry=entity_registry,
+        entity_id=threshold_entity_id,
+    )
+    threshold_entry = _registry_entry(entity_registry, threshold_entity_id)
+    assert threshold_entry.device_class == BinarySensorDeviceClass.LIGHT
+
+    entities, _magic_entities = await load_area_entities(
+        hass=hass,
+        area_id=DEFAULT_MOCK_AREA.value,
+        config_entry_id=config_entry.entry_id,
+        config=data,
+    )
+    assert threshold_entity_id not in {
+        entity["entity_id"] for entity in entities.get(BINARY_SENSOR_DOMAIN, [])
+    }
+    for entity_id in expected_sensor_helpers:
+        assert entity_id not in {
+            entity["entity_id"] for entity in entities.get(SENSOR_DOMAIN, [])
+        }
 
     await shutdown_integration(hass, [config_entry])
