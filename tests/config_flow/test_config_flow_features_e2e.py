@@ -1,6 +1,6 @@
 """End-to-end feature configuration options-flow tests."""
 
-from typing import cast
+from typing import Protocol, cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
@@ -8,6 +8,7 @@ from homeassistant.components.climate.const import DOMAIN as CLIMATE_DOMAIN
 from homeassistant.components.climate.const import ATTR_PRESET_MODES
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
@@ -34,10 +35,14 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
     CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
     CONF_NOTIFICATION_DEVICES,
     CONF_PRESENCE_HOLD_TIMEOUT,
@@ -66,6 +71,23 @@ from custom_components.magic_areas.light_groups import (
 def _data_schema(result: ConfigFlowResult) -> vol.Schema:
     """Return a non-optional data schema from a form result."""
     return cast(vol.Schema, result["data_schema"])
+
+
+class _SelectorWithConfig(Protocol):
+    """Minimal selector contract used by options-flow tests."""
+
+    config: dict[str, object]
+
+
+def _schema_selectors(result: ConfigFlowResult) -> dict[str, _SelectorWithConfig]:
+    """Return selectors keyed by config key from a form result."""
+    return cast(
+        dict[str, _SelectorWithConfig],
+        {
+            getattr(marker, "schema", marker): selector
+            for marker, selector in _data_schema(result).schema.items()
+        },
+    )
 
 
 def _register_adaptive_lighting_switch_set(
@@ -522,6 +544,41 @@ async def test_options_flow_light_groups_uses_translated_selectors(
     )
 
 
+async def test_options_flow_light_groups_mode_selectors_use_dropdowns(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Mode selection should stay compact and translated for the frontend."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    assert result["type"] == FlowResultType.FORM
+    selectors = _schema_selectors(result)
+
+    brightness_selector = selectors["brightness_mode"]
+    assert brightness_selector.config["mode"] == "dropdown"
+    assert brightness_selector.config["translation_key"] == "light_brightness_mode"
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_adaptive_lighting",
+    )
+    assert result["type"] == FlowResultType.FORM
+    selectors = _schema_selectors(result)
+
+    adaptive_lighting_selector = selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
+    assert adaptive_lighting_selector.config["mode"] == "dropdown"
+    assert (
+        adaptive_lighting_selector.config["translation_key"]
+        == "adaptive_lighting_mode"
+    )
+
+
 async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -553,6 +610,70 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS in keys
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in keys
+
+
+async def test_options_flow_light_groups_adaptive_selectors_are_lux_safe(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Adaptive lux selectors should expose only illuminance entities with realistic ranges."""
+    config_entry = init_integration
+    hass.states.async_set(
+        "sensor.outdoor_lux",
+        "1200",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.ILLUMINANCE},
+    )
+    hass.states.async_set(
+        "sensor.living_room_temperature",
+        "72",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
+    )
+    hass.states.async_set(
+        "binary_sensor.daylight_flag",
+        "on",
+        {ATTR_DEVICE_CLASS: BinarySensorDeviceClass.LIGHT},
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "adaptive"},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
+    )
+    assert result["type"] == FlowResultType.FORM
+    selectors = _schema_selectors(result)
+
+    outside_lux_selector = selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY]
+    inside_lux_selector = selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY]
+    for selector in (outside_lux_selector, inside_lux_selector):
+        include_entities = cast(list[str], selector.config["include_entities"])
+        assert "sensor.outdoor_lux" in include_entities
+        assert "sensor.living_room_temperature" not in include_entities
+        assert "binary_sensor.daylight_flag" not in include_entities
+
+    assert (
+        selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE].config["translation_key"]
+        == "light_outside_context_source"
+    )
+    for key in (
+        CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+        CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
+        CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
+    ):
+        selector = selectors[key]
+        assert selector.config["mode"] == "box"
+        assert selector.config["unit_of_measurement"] == "lx"
+        assert selector.config["max"] == 120000
 
 
 async def test_options_flow_light_groups_adaptive_lux_accepts_bright_outdoor_values(

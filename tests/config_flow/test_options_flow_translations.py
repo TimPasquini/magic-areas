@@ -66,3 +66,31 @@ def test_light_group_brightness_mode_uses_classic_label() -> None:
     assert isinstance(descriptions, dict)
     assert "Classic keeps legacy behavior" in descriptions["brightness_mode"]
     assert "inhibit" not in descriptions["brightness_mode"]
+
+
+def test_light_group_submenu_uses_task_oriented_labels() -> None:
+    """Keep the light-group submenu split into human-scale tasks."""
+    light_group_menu = _options_step("feature_conf_light_groups")
+    menu_options = light_group_menu["menu_options"]
+
+    assert isinstance(menu_options, dict)
+    assert menu_options == {
+        "feature_conf_light_groups_roles": "Light roles",
+        "feature_conf_light_groups_brightness": "Brightness behavior",
+        "feature_conf_light_groups_adaptive_lighting": "Adaptive Lighting",
+        "show_menu": "Back",
+    }
+
+
+def test_light_group_substeps_explain_their_scope() -> None:
+    """Each light-group substep should tell users what job it configures."""
+    expected_descriptions = {
+        "feature_conf_light_groups_roles": "Assign lights to room roles",
+        "feature_conf_light_groups_brightness": "Choose how room brightness",
+        "feature_conf_light_groups_adaptive_lighting": "Choose whether Magic Areas ignores",
+    }
+
+    for step_id, expected_text in expected_descriptions.items():
+        description = _options_step(step_id)["description"]
+        assert isinstance(description, str)
+        assert expected_text in description
