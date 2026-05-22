@@ -441,6 +441,145 @@ def _normalize_light_group_adaptive_lighting_options(
     feature_config[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS] = switch_sets
 
 
+def _add_light_group_brightness_selectors(
+    *,
+    flow: "OptionsFlowHandler",
+    step_id: str,
+    mode: str,
+    selectors: SelectorMap,
+) -> None:
+    """Add selector overrides for the light-group brightness substep."""
+    if step_id != _LIGHT_GROUP_BRIGHTNESS_STEP:
+        return
+
+    selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
+        options=[
+            LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+        ],
+        multiple=False,
+        translation_key="light_brightness_mode",
+    )
+
+    if mode not in {
+        LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+        LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+    }:
+        return
+
+    selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
+        flow.all_binary_entities, multiple=False
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
+        flow.all_binary_entities, multiple=False
+    )
+
+    if mode != LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
+        return
+
+    selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
+        min_value=0, unit_of_measurement="s"
+    )
+    selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
+        min_value=0, unit_of_measurement="s"
+    )
+    selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = (
+        build_selector_number(min_value=0, unit_of_measurement="s")
+    )
+    selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
+        build_selector_boolean()
+    )
+    selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
+        min_value=0, unit_of_measurement="s"
+    )
+    selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
+        min_value=0,
+        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+        unit_of_measurement="lx",
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
+        options=[
+            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
+            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
+            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
+        ],
+        multiple=False,
+        translation_key="light_outside_context_source",
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = build_selector_entity_simple(
+        flow.all_illuminance_entities, multiple=False
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
+        min_value=0,
+        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+        unit_of_measurement="lx",
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
+        build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = build_selector_number(
+        min_value=0,
+        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+        unit_of_measurement="lx",
+    )
+    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
+        build_selector_number(min_value=0, unit_of_measurement="%")
+    )
+
+
+def _add_light_group_adaptive_lighting_selectors(
+    *,
+    step_id: str,
+    selectors: SelectorMap,
+) -> None:
+    """Add selector overrides for the Adaptive Lighting coordination substep."""
+    if step_id != _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
+        return
+    selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] = build_selector_select(
+        options=[
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+        ],
+        multiple=False,
+        translation_key="adaptive_lighting_mode",
+    )
+
+
+def _add_light_group_role_selectors(
+    *,
+    step_id: str,
+    flow: "OptionsFlowHandler",
+    selectors: SelectorMap,
+) -> None:
+    """Add selector overrides for the light-role membership substep."""
+    if step_id != _LIGHT_GROUP_ROLES_STEP:
+        return
+    for preset in LIGHT_GROUP_PRESETS:
+        selectors[preset.category] = build_selector_entity_simple(
+            flow.all_lights, multiple=True
+        )
+        selectors[preset.states_key] = build_selector_select(
+            options=[
+                AreaStates.OCCUPIED.value,
+                AreaStates.EXTENDED.value,
+                AreaStates.SLEEP.value,
+                AreaStates.ACCENT.value,
+            ],
+            multiple=True,
+            translation_key=SelectorTranslationKeys.AREA_STATES,
+        )
+        selectors[preset.act_on_key] = build_selector_select(
+            options=[
+                LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
+                LIGHT_GROUP_ACT_ON_STATE_CHANGE,
+            ],
+            multiple=True,
+            translation_key=SelectorTranslationKeys.CONTROL_ON,
+        )
+
+
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
     return FEATURE_REGISTRY.available_features_for_area(area_config)
@@ -693,117 +832,21 @@ async def handle_feature_conf(
             )
         schema = _filter_schema_for_keys(schema, include_keys)
 
-        if step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
-            selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
-                options=[
-                    LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-                    LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-                    LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-                ],
-                multiple=False,
-                translation_key="light_brightness_mode",
-            )
-        if step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
-            selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] = build_selector_select(
-                options=[
-                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
-                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-                ],
-                multiple=False,
-                translation_key="adaptive_lighting_mode",
-            )
-        if mode in {
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-        } and step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
-            selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = (
-                build_selector_entity_simple(flow.all_binary_entities, multiple=False)
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = (
-                build_selector_entity_simple(flow.all_binary_entities, multiple=False)
-            )
-        if (
-            mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE
-            and step_id == _LIGHT_GROUP_BRIGHTNESS_STEP
-        ):
-            selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
-                min_value=0, unit_of_measurement="s"
-            )
-            selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
-                min_value=0, unit_of_measurement="s"
-            )
-            selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = (
-                build_selector_number(min_value=0, unit_of_measurement="s")
-            )
-            selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
-                build_selector_boolean()
-            )
-            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = (
-                build_selector_number(min_value=0, unit_of_measurement="s")
-            )
-            selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
-                min_value=0,
-                max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-                unit_of_measurement="lx",
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
-                options=[
-                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
-                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
-                    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
-                ],
-                multiple=False,
-                translation_key="light_outside_context_source",
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = (
-                build_selector_entity_simple(
-                    flow.all_illuminance_entities, multiple=False
-                )
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
-                min_value=0,
-                max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-                unit_of_measurement="lx",
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
-                build_selector_entity_simple(
-                    flow.all_illuminance_entities, multiple=False
-                )
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = (
-                build_selector_number(
-                    min_value=0,
-                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-                    unit_of_measurement="lx",
-                )
-            )
-            selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
-                build_selector_number(min_value=0, unit_of_measurement="%")
-            )
-        if step_id == _LIGHT_GROUP_ROLES_STEP:
-            for preset in LIGHT_GROUP_PRESETS:
-                selectors[preset.category] = build_selector_entity_simple(
-                    flow.all_lights, multiple=True
-                )
-                selectors[preset.states_key] = build_selector_select(
-                    options=[
-                        AreaStates.OCCUPIED.value,
-                        AreaStates.EXTENDED.value,
-                        AreaStates.SLEEP.value,
-                        AreaStates.ACCENT.value,
-                    ],
-                    multiple=True,
-                    translation_key=SelectorTranslationKeys.AREA_STATES,
-                )
-                selectors[preset.act_on_key] = build_selector_select(
-                    options=[
-                        LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
-                        LIGHT_GROUP_ACT_ON_STATE_CHANGE,
-                    ],
-                    multiple=True,
-                    translation_key=SelectorTranslationKeys.CONTROL_ON,
-                )
+        _add_light_group_brightness_selectors(
+            flow=flow,
+            step_id=step_id,
+            mode=mode,
+            selectors=selectors,
+        )
+        _add_light_group_adaptive_lighting_selectors(
+            step_id=step_id,
+            selectors=selectors,
+        )
+        _add_light_group_role_selectors(
+            step_id=step_id,
+            flow=flow,
+            selectors=selectors,
+        )
 
     if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
         selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = (
