@@ -30,6 +30,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
+    CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
@@ -280,6 +281,42 @@ async def test_options_flow_fan_groups_accepts_integer_setpoint(
         ]
         == 50.0
     )
+
+
+async def test_options_flow_fan_groups_uses_constrained_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Fan automation fields should use HA selectors instead of raw inputs."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups",
+    )
+
+    selectors = _schema_selectors(result)
+    required_state_selector = selectors[CONF_FAN_GROUPS_REQUIRED_STATE]
+    tracked_class_selector = selectors[CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS]
+    setpoint_selector = selectors[CONF_FAN_GROUPS_SETPOINT]
+
+    assert required_state_selector.config["mode"] == "dropdown"
+    assert required_state_selector.config["translation_key"] == "area_states"
+    required_state_options = cast(
+        list[str], required_state_selector.config["options"]
+    )
+    assert AreaStates.OCCUPIED.value in required_state_options
+    assert AreaStates.SLEEP.value in required_state_options
+
+    assert tracked_class_selector.config["mode"] == "dropdown"
+    tracked_class_options = cast(list[str], tracked_class_selector.config["options"])
+    assert SensorDeviceClass.HUMIDITY in tracked_class_options
+    assert SensorDeviceClass.TEMPERATURE in tracked_class_options
+
+    assert setpoint_selector.config["mode"] == "box"
+    assert setpoint_selector.config["min"] == 0
+    assert setpoint_selector.config["max"] == 120000
+    assert setpoint_selector.config["step"] == 0.1
 
 
 async def test_options_flow_area_aware_media_player(

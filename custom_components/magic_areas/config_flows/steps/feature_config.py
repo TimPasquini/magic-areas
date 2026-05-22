@@ -41,6 +41,7 @@ from custom_components.magic_areas.features.config.readers import (
     BLE_TRACKER_OPTION_KEYS,
     CLIMATE_CONTROL_ENTITY_KEY,
     CLIMATE_CONTROL_PRESET_OPTION_KEYS,
+    FAN_GROUPS_OPTION_KEYS,
     AGGREGATES_OPTION_KEYS,
     HEALTH_OPTION_KEYS,
     WASP_IN_A_BOX_OPTION_KEYS,
@@ -776,6 +777,32 @@ async def handle_feature_conf(
                 ),
                 AGGREGATES_OPTION_KEYS[4]: build_selector_select(
                     sorted(ALL_SENSOR_DEVICE_CLASSES), multiple=True
+                ),
+            }
+        )
+
+    if feature_enum == MagicAreasFeatures.FAN_GROUPS:
+        selectors.update(
+            {
+                FAN_GROUPS_OPTION_KEYS[0]: build_selector_select(
+                    options=[
+                        AreaStates.OCCUPIED.value,
+                        AreaStates.EXTENDED.value,
+                        AreaStates.DARK.value,
+                        AreaStates.BRIGHT.value,
+                        AreaStates.SLEEP.value,
+                        AreaStates.ACCENT.value,
+                    ],
+                    translation_key=SelectorTranslationKeys.AREA_STATES,
+                ),
+                FAN_GROUPS_OPTION_KEYS[1]: build_selector_select(
+                    sorted(ALL_SENSOR_DEVICE_CLASSES),
+                ),
+                FAN_GROUPS_OPTION_KEYS[2]: build_selector_number(
+                    min_value=0,
+                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
+                    step=0.1,
+                    unit_of_measurement="",
                 ),
             }
         )
