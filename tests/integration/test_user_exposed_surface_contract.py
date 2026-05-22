@@ -37,11 +37,16 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
+    CONF_BLE_TRACKER_ENTITIES,
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+    CONF_PRESENCE_HOLD_TIMEOUT,
+    CONF_WASP_IN_A_BOX_DELAY,
+    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
+    CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import (
@@ -481,5 +486,89 @@ async def test_health_feature_exposes_expected_user_surfaces(
     assert health_entity_id not in {
         entity["entity_id"] for entity in entities.get(BINARY_SENSOR_DOMAIN, [])
     }
+
+    await shutdown_integration(hass, [config_entry])
+
+
+async def test_first_class_magic_area_features_expose_expected_user_surfaces(
+    hass: HomeAssistant,
+) -> None:
+    """First-class Magic Areas entities should be visible area/device surfaces."""
+    ble_source = MockSensor(
+        name="contract_ble_source",
+        unique_id="contract_ble_source",
+        native_value=DEFAULT_MOCK_AREA.value,
+    )
+    motion_sensor = MockBinarySensor(
+        name="contract_wasp_motion",
+        unique_id="contract_wasp_motion",
+        device_class=BinarySensorDeviceClass.MOTION,
+    )
+    door_sensor = MockBinarySensor(
+        name="contract_wasp_door",
+        unique_id="contract_wasp_door",
+        device_class=BinarySensorDeviceClass.DOOR,
+    )
+
+    await setup_mock_entities(
+        hass,
+        SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [ble_source]},
+    )
+    await setup_mock_entities(
+        hass,
+        BINARY_SENSOR_DOMAIN,
+        {DEFAULT_MOCK_AREA: [motion_sensor, door_sensor]},
+    )
+
+    data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                MagicAreasFeatures.PRESENCE_HOLD: {
+                    CONF_PRESENCE_HOLD_TIMEOUT: 1,
+                },
+                MagicAreasFeatures.BLE_TRACKER: {
+                    CONF_BLE_TRACKER_ENTITIES: [ble_source.entity_id],
+                },
+                MagicAreasFeatures.AGGREGATES: {
+                    CONF_AGGREGATES_MIN_ENTITIES: 1,
+                    CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [],
+                },
+                MagicAreasFeatures.WASP_IN_A_BOX: {
+                    CONF_WASP_IN_A_BOX_DELAY: 0,
+                    CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 1,
+                    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES: [
+                        BinarySensorDeviceClass.MOTION,
+                    ],
+                },
+            }
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=data)
+
+    await init_integration(hass, [config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    expected_surfaces = (
+        f"{SWITCH_DOMAIN}.magic_areas_presence_hold_{DEFAULT_MOCK_AREA}",
+        (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_ble_trackers_"
+            f"{DEFAULT_MOCK_AREA}_ble_tracker_monitor"
+        ),
+        f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{DEFAULT_MOCK_AREA}",
+    )
+    for entity_id in expected_surfaces:
+        _assert_visible_area_device_surface(
+            hass=hass,
+            entity_registry=entity_registry,
+            entity_id=entity_id,
+        )
+
+    ble_state = hass.states.get(expected_surfaces[1])
+    assert ble_state is not None
+    assert ble_state.attributes[ATTR_ENTITY_ID] == [ble_source.entity_id]
 
     await shutdown_integration(hass, [config_entry])
