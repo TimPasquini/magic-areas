@@ -94,3 +94,20 @@ def test_light_group_substeps_explain_their_scope() -> None:
         description = _options_step(step_id)["description"]
         assert isinstance(description, str)
         assert expected_text in description
+
+
+def test_custom_control_groups_step_has_guidance() -> None:
+    """The advanced custom-control editor should not render as a blank form."""
+    step = _options_step("custom_control_groups")
+
+    assert step["title"] == "Custom control groups"
+    description = step["description"]
+    data = step["data"]
+    data_description = step["data_description"]
+
+    assert isinstance(description, str)
+    assert "advanced role-style groups" in description
+    assert isinstance(data, dict)
+    assert data["custom_control_groups"] == "Custom control groups"
+    assert isinstance(data_description, dict)
+    assert "group_id" in data_description["custom_control_groups"]

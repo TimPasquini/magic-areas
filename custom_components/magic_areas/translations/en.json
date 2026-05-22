@@ -375,6 +375,16 @@
           "keep_only_entities": "Select presence-tracking entities that will only be considered when the room is already occupied. This is useful for preventing over-sensitive sensors such as mmWave sensors and BLE trackers false-triggering an area's presence.",
           "clear_timeout": "How long since last presence event should it wait before clearing the area"
         }
+      },
+      "custom_control_groups": {
+        "title": "Custom control groups",
+        "description": "Define additional Magic Areas control groups for this area. These are advanced role-style groups: choose members, the area states that should trigger the group, and the control policy that should act on it.",
+        "data": {
+          "custom_control_groups": "Custom control groups"
+        },
+        "data_description": {
+          "custom_control_groups": "Each item describes one area-scoped custom group. `group_id` should be stable, `members` are the target entities, `trigger_states` are the area states that activate the group, and `policy_id` selects the control policy."
+        }
       }
     },
     "error": {
