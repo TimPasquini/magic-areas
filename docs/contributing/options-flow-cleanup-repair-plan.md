@@ -85,10 +85,10 @@ set intentional and test-enforced.
   entry is not loaded.
 - User-exposed surface contracts now cover native group helpers/control switches, light
   role labels, aggregate helpers, threshold helpers, health helpers, and first-class
-  Magic Areas presence hold/BLE tracker/wasp-in-a-box entities, and the climate control
-  switch. These tests assert visibility, area/device attachment, expected helper
-  membership or source attributes, and exclusion from Magic Areas self-enumeration where
-  applicable.
+  Magic Areas presence hold/BLE tracker/wasp-in-a-box entities, the climate control
+  switch, and the global area-aware media player routing surface. These tests assert
+  visibility, area/device attachment, expected helper membership or source attributes,
+  and exclusion from Magic Areas self-enumeration where applicable.
 - Feature-selection translation guidance now distinguishes enabling a feature from
   whether that feature adds a follow-up configuration page, so helper-only/default
   behavior does not look like a missing menu item.
