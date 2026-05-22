@@ -28,8 +28,23 @@ from custom_components.magic_areas.schemas import (
 )
 from custom_components.magic_areas.config_flows.base import MutableConfigMap
 from custom_components.magic_areas.coordinator import MagicAreasData
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 _LOGGER = logging.getLogger(__name__)
+
+_ROOT_FEATURE_MENU_ORDER = (
+    MagicAreasFeatures.LIGHT_GROUPS.value,
+    MagicAreasFeatures.FAN_GROUPS.value,
+    MagicAreasFeatures.COVER_GROUPS.value,
+    MagicAreasFeatures.CLIMATE_CONTROL.value,
+    MagicAreasFeatures.MEDIA_PLAYER_GROUPS.value,
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER.value,
+    MagicAreasFeatures.AGGREGATES.value,
+    MagicAreasFeatures.HEALTH.value,
+    MagicAreasFeatures.PRESENCE_HOLD.value,
+    MagicAreasFeatures.BLE_TRACKER.value,
+    MagicAreasFeatures.WASP_IN_A_BOX.value,
+)
 
 
 def _coordinator_data_from_entry(
@@ -44,6 +59,29 @@ def _coordinator_data_from_entry(
         return None
     data = coordinator.data
     return data if isinstance(data, MagicAreasData) else None
+
+
+def _ordered_feature_menu_options(
+    enabled_features: Mapping[str, object],
+) -> list[str]:
+    """Return enabled configurable feature steps in task-oriented order."""
+    feature_registry = get_feature_config_steps()
+    enabled_configurable = {
+        feature
+        for feature in enabled_features
+        if feature in feature_registry
+    }
+
+    ordered = [
+        f"feature_conf_{feature}"
+        for feature in _ROOT_FEATURE_MENU_ORDER
+        if feature in enabled_configurable
+    ]
+    ordered.extend(
+        f"feature_conf_{feature}"
+        for feature in sorted(enabled_configurable - set(_ROOT_FEATURE_MENU_ORDER))
+    )
+    return ordered
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
@@ -161,18 +199,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             "area_config",
             "presence_tracking",
             "secondary_states",
-            "custom_control_groups",
-            "select_features",
         ]
 
-        # Add entries for features
-        feature_registry = get_feature_config_steps()
-        menu_options_features = []
-        for feature in enabled_feature_map(self.area_options):
-            if feature in feature_registry:
-                menu_options_features.append(f"feature_conf_{feature}")
-
-        menu_options.extend(sorted(menu_options_features))
+        menu_options.extend(
+            _ordered_feature_menu_options(enabled_feature_map(self.area_options))
+        )
+        menu_options.extend(["custom_control_groups", "select_features"])
         menu_options.append("finish")
 
         # noinspection PyTypeChecker

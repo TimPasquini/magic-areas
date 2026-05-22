@@ -194,6 +194,44 @@ async def test_options_flow_shows_menu_with_feature_conf_options() -> None:
 
 
 @pytest.mark.asyncio
+async def test_options_flow_show_menu_uses_task_oriented_order() -> None:
+    """Configured feature steps should not appear in alphabetical implementation order."""
+    config_entry = MagicMock()
+    config_entry.entry_id = "test_entry"
+    config_entry.options = {}
+
+    flow = OptionsFlowHandler(config_entry)
+    flow.hass = MagicMock()
+    flow._area_config = MagicMock()
+    flow.area_options = {
+        CONF_ENABLED_FEATURES: {
+            MagicAreasFeatures.AGGREGATES.value: {},
+            MagicAreasFeatures.CLIMATE_CONTROL.value: {},
+            MagicAreasFeatures.FAN_GROUPS.value: {},
+            MagicAreasFeatures.LIGHT_GROUPS.value: {},
+            MagicAreasFeatures.WASP_IN_A_BOX.value: {},
+        }
+    }
+
+    result = await flow.async_step_show_menu()
+
+    assert result["type"] == FlowResultType.MENU
+    assert result["menu_options"] == [
+        "area_config",
+        "presence_tracking",
+        "secondary_states",
+        "feature_conf_light_groups",
+        "feature_conf_fan_groups",
+        "feature_conf_climate_control",
+        "feature_conf_aggregates",
+        "feature_conf_wasp_in_a_box",
+        "custom_control_groups",
+        "select_features",
+        "finish",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_options_flow_deselecting_feature_removes_from_options() -> None:
     """Test that deselecting a feature removes it from options."""
     config_entry = MagicMock()
