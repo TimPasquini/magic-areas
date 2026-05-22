@@ -51,6 +51,8 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_HEALTH_SENSOR_DEVICE_CLASSES,
+    CONF_NOTIFICATION_DEVICES,
+    CONF_NOTIFY_STATES,
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
@@ -61,7 +63,7 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import 
     load_area_entities,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from tests.const import DEFAULT_MOCK_AREA
+from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
 from tests.helpers import (
     get_basic_config_entry_data,
     init_integration,
@@ -331,6 +333,61 @@ async def test_group_control_features_expose_expected_user_surfaces(
         assert entry.options[CONF_ENTITIES]
 
     await shutdown_integration(hass, [config_entry])
+
+
+async def test_area_aware_media_player_exposes_global_user_surface(
+    hass: HomeAssistant,
+) -> None:
+    """Area-aware media player should expose one visible global routing surface."""
+    media_player = MockMediaPlayer(
+        name="contract_area_aware_player",
+        unique_id="contract_area_aware_player",
+    )
+    await setup_mock_entities(
+        hass,
+        MEDIA_PLAYER_DOMAIN,
+        {DEFAULT_MOCK_AREA: [media_player]},
+    )
+
+    area_data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    area_data.update(
+        {
+            CONF_ENABLED_FEATURES: {
+                MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: {
+                    CONF_NOTIFICATION_DEVICES: [media_player.entity_id],
+                    CONF_NOTIFY_STATES: [AreaStates.OCCUPIED],
+                },
+            }
+        }
+    )
+    area_config_entry = MockConfigEntry(domain=DOMAIN, data=area_data)
+    global_config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=get_basic_config_entry_data(MockAreaIds.GLOBAL),
+    )
+
+    await init_integration(hass, [area_config_entry, global_config_entry])
+    await hass.async_start()
+    await hass.async_block_till_done()
+
+    entity_id = f"{MEDIA_PLAYER_DOMAIN}.magic_areas_area_aware_media_player_global"
+    state = hass.states.get(entity_id)
+    assert state is not None, f"Missing state for {entity_id}"
+    assert state.attributes[ATTR_ENTITY_ID] == [media_player.entity_id]
+
+    entity_registry = er.async_get(hass)
+    entry = _registry_entry(entity_registry, entity_id)
+    assert entry.hidden_by is None
+    assert entry.area_id is None
+    assert entry.device_id is not None
+
+    device = dr.async_get(hass).async_get(entry.device_id)
+    assert device is not None
+    assert (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{MockAreaIds.GLOBAL.value}") in (
+        device.identifiers
+    )
+
+    await shutdown_integration(hass, [area_config_entry, global_config_entry])
 
 
 async def test_aggregate_features_expose_expected_user_surfaces(
