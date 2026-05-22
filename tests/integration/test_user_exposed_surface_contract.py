@@ -8,6 +8,11 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     DOMAIN as BINARY_SENSOR_DOMAIN,
 )
+from homeassistant.components.climate.const import (
+    DOMAIN as CLIMATE_DOMAIN,
+    PRESET_AWAY,
+    PRESET_HOME,
+)
 from homeassistant.components.cover import CoverDeviceClass
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
@@ -38,6 +43,9 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_BLE_TRACKER_ENTITIES,
+    CONF_CLIMATE_CONTROL_ENTITY_ID,
+    CONF_CLIMATE_CONTROL_PRESET_CLEAR,
+    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
@@ -62,6 +70,7 @@ from tests.helpers import (
 )
 from tests.mocks import (
     MockBinarySensor,
+    MockClimate,
     MockCover,
     MockFan,
     MockLight,
@@ -152,10 +161,12 @@ async def test_group_control_features_expose_expected_user_surfaces(
         name="contract_media_player",
         unique_id="contract_media_player",
     )
+    climate = MockClimate(name="contract_climate", unique_id="contract_climate")
 
     await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
     await setup_mock_entities(hass, FAN_DOMAIN, {DEFAULT_MOCK_AREA: [fan]})
     await setup_mock_entities(hass, COVER_DOMAIN, {DEFAULT_MOCK_AREA: covers})
+    await setup_mock_entities(hass, CLIMATE_DOMAIN, {DEFAULT_MOCK_AREA: [climate]})
     await setup_mock_entities(
         hass,
         MEDIA_PLAYER_DOMAIN,
@@ -179,6 +190,11 @@ async def test_group_control_features_expose_expected_user_surfaces(
                 },
                 MagicAreasFeatures.COVER_GROUPS: {},
                 MagicAreasFeatures.MEDIA_PLAYER_GROUPS: {},
+                MagicAreasFeatures.CLIMATE_CONTROL: {
+                    CONF_CLIMATE_CONTROL_ENTITY_ID: climate.entity_id,
+                    CONF_CLIMATE_CONTROL_PRESET_OCCUPIED: PRESET_HOME,
+                    CONF_CLIMATE_CONTROL_PRESET_CLEAR: PRESET_AWAY,
+                },
             }
         }
     )
@@ -235,6 +251,7 @@ async def test_group_control_features_expose_expected_user_surfaces(
             f"{SWITCH_DOMAIN}.magic_areas_media_player_groups_"
             f"{DEFAULT_MOCK_AREA}_media_player_control"
         ),
+        f"{SWITCH_DOMAIN}.magic_areas_climate_control_{DEFAULT_MOCK_AREA}",
     }
 
     for entity_id, expected_members in expected_helpers.items():
