@@ -7,8 +7,9 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 
-from custom_components.magic_areas.config_flows import ConfigBase, OptionsFlowHandler
-from custom_components.magic_areas.config_flows.selector_builders import (
+from custom_components.magic_areas.config_flows import (
+    ConfigBase,
+    OptionsFlowHandler,
     build_selector_select,
 )
 from custom_components.magic_areas.config_keys.area import CONF_ID

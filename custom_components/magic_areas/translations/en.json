@@ -63,8 +63,8 @@
         "description": "Choose what to configure for this area. Changes are staged inside this flow and are not saved until you select `Save & Exit`.",
         "menu_options": {
           "area_config": "Area behavior",
-          "secondary_states": "Area states",
           "presence_tracking": "Presence tracking",
+          "secondary_states": "Area states",
           "select_features": "Features",
           "custom_control_groups": "Custom control groups",
           "finish": "Save & Exit",

@@ -28,11 +28,12 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_RELOAD_ON_REGISTRY_CHANGE,
+    CONF_SECONDARY_STATES_CALCULATION_MODE,
     CONF_SLEEP_ENTITY,
     CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
 )
-from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.enums import CalculationMode, MagicAreasFeatures
 
 from .options_flow_testkit import go_to_step, start_options_flow, submit_step
 
@@ -342,6 +343,7 @@ async def test_options_flow_secondary_states_uses_task_fit_selectors(
         selector = selectors[key]
         assert selector.config["mode"] == "box"
         assert selector.config["unit_of_measurement"] == "minutes"
+    assert CONF_SECONDARY_STATES_CALCULATION_MODE not in selectors
 
 
 async def test_options_flow_secondary_states_reopen_preserves_saved_values(
@@ -408,6 +410,46 @@ async def test_options_flow_secondary_states_reopen_preserves_saved_values(
     assert suggested_values[CONF_SLEEP_TIMEOUT] == 4
     assert suggested_values[CONF_EXTENDED_TIME] == 8
     assert suggested_values[CONF_EXTENDED_TIMEOUT] == 12
+
+
+async def test_options_flow_meta_secondary_states_exposes_calculation_mode(
+    hass: HomeAssistant, init_integration_all_areas: list[MockConfigEntry]
+) -> None:
+    """Meta-area secondary states should expose translated calculation mode choices."""
+    config_entry = next(
+        entry for entry in init_integration_all_areas if entry.data.get(CONF_TYPE) == "meta"
+    )
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "secondary_states")
+    selectors = _schema_selectors(result)
+    calculation_selector = selectors[CONF_SECONDARY_STATES_CALCULATION_MODE]
+
+    assert calculation_selector.config["mode"] == "dropdown"
+    assert calculation_selector.config["translation_key"] == "calculation_mode"
+    assert set(_selector_list(calculation_selector, "options")) == {
+        CalculationMode.ANY.value,
+        CalculationMode.ALL.value,
+        CalculationMode.MAJORITY.value,
+    }
+
+    result = await submit_step(
+        hass,
+        result,
+        {CONF_SECONDARY_STATES_CALCULATION_MODE: CalculationMode.MAJORITY},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "finish")
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "secondary_states")
+    suggested_values = _schema_suggested_values(result)
+    assert (
+        suggested_values[CONF_SECONDARY_STATES_CALCULATION_MODE]
+        == CalculationMode.MAJORITY
+    )
 
 
 async def test_options_flow_custom_control_groups_step(

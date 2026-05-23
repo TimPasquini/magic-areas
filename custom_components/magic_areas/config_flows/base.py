@@ -170,7 +170,7 @@ def enabled_feature_map(options: ConfigMap) -> dict[str, ConfigSubMap]:
     normalized: dict[str, ConfigSubMap] = {}
     for key, nested in value.items():
         if isinstance(key, str) and isinstance(nested, dict):
-            normalized[key] = dict(nested)
+            normalized[str(key)] = dict(nested)
     return normalized
 
 
@@ -183,7 +183,7 @@ def ensure_enabled_feature_map(options: MutableConfigMap) -> dict[str, ConfigSub
     normalized: dict[str, ConfigSubMap] = {}
     for key, nested in features.items():
         if isinstance(key, str) and isinstance(nested, dict):
-            normalized[key] = nested
+            normalized[str(key)] = nested
     if normalized is not features:
         options[CONF_ENABLED_FEATURES] = normalized
     return normalized

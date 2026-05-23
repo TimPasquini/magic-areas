@@ -29,8 +29,8 @@ def test_options_flow_root_menu_uses_task_oriented_labels() -> None:
     assert isinstance(menu_options, dict)
     assert menu_options == {
         "area_config": "Area behavior",
-        "secondary_states": "Area states",
         "presence_tracking": "Presence tracking",
+        "secondary_states": "Area states",
         "select_features": "Features",
         "custom_control_groups": "Custom control groups",
         "finish": "Save & Exit",

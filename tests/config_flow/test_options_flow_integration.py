@@ -6,6 +6,7 @@ import pytest
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.magic_areas.config_flows import OptionsFlowHandler
+from custom_components.magic_areas.config_flows.base import ensure_enabled_feature_map
 from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
@@ -13,6 +14,25 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 def _enabled_features(flow: OptionsFlowHandler) -> dict[object, object]:
     """Return enabled-features mapping with a concrete type for assertions."""
     return cast(dict[object, object], flow.area_options[CONF_ENABLED_FEATURES])
+
+
+def test_ensure_enabled_feature_map_canonicalizes_enum_keys() -> None:
+    """Feature config maps should persist string keys even when tests pass StrEnum keys."""
+    options: dict[str, object] = {
+        CONF_ENABLED_FEATURES: {
+            MagicAreasFeatures.LIGHT_GROUPS: {"some_config": "value1"},
+            MagicAreasFeatures.AGGREGATES.value: {"other_config": "value2"},
+        }
+    }
+
+    features = ensure_enabled_feature_map(options)
+
+    assert features == {
+        MagicAreasFeatures.LIGHT_GROUPS.value: {"some_config": "value1"},
+        MagicAreasFeatures.AGGREGATES.value: {"other_config": "value2"},
+    }
+    assert options[CONF_ENABLED_FEATURES] == features
+    assert all(type(key) is str for key in features)
 
 
 @pytest.mark.asyncio

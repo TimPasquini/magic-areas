@@ -138,6 +138,13 @@ set intentional and test-enforced.
   binary-sensor device classes, keep-only entity filtering, and clear-timeout handling.
 - Secondary area states now have selector and reopen-cycle coverage for dark/sleep/accent
   entity fields and sleep/extended timing fields.
+- Secondary-state calculation mode is now explicitly covered as a meta-area-only
+  translated selector. Regular rooms do not expose that meta aggregation field.
+- Root-menu translation ordering now matches runtime ordering: area behavior, presence
+  tracking, then area states.
+- Enabled feature maps are normalized to string feature IDs even when an enum key enters
+  through tests or older setup paths. This keeps saved option data aligned with Home
+  Assistant's serialized config shape.
 - Light-group brightness mode reopen-cycle coverage now verifies that saved `adaptive`
   mode fields appear when reopening the substep, and that switching to `advisory`
   removes adaptive-only fields on the next reopen.

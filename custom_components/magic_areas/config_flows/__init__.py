@@ -9,11 +9,15 @@ from custom_components.magic_areas.config_flows.entity_gatherer import (
     ConfigFlowEntityGatherer,
 )
 from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
+from custom_components.magic_areas.config_flows.selector_builders import (
+    build_selector_select,
+)
 
 __all__ = [
     "ADDITIONAL_LIGHT_TRACKING_ENTITIES",
     "ConfigBase",
     "ConfigFlowEntityGatherer",
     "OptionsFlowHandler",
+    "build_selector_select",
     "get_feature_config_steps",
 ]
