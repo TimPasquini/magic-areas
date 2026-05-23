@@ -1,25 +1,75 @@
 """End-to-end options-flow tests for area options and control groups."""
 
+from typing import Protocol, cast
+
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.entity_registry import async_get as async_get_er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+import voluptuous as vol
 
 from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.config_keys.area import (
+    CONF_ACCENT_ENTITY,
     CONF_CLEAR_TIMEOUT,
     CONF_CUSTOM_CONTROL_GROUPS,
+    CONF_DARK_ENTITY,
     CONF_ENABLED_FEATURES,
+    CONF_EXCLUDE_ENTITIES,
+    CONF_EXTENDED_TIME,
+    CONF_EXTENDED_TIMEOUT,
+    CONF_IGNORE_DIAGNOSTIC_ENTITIES,
+    CONF_INCLUDE_ENTITIES,
+    CONF_KEEP_ONLY_ENTITIES,
     CONF_PRESENCE_DEVICE_PLATFORMS,
+    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+    CONF_RELOAD_ON_REGISTRY_CHANGE,
+    CONF_SLEEP_ENTITY,
     CONF_SLEEP_TIMEOUT,
     CONF_TYPE,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from .options_flow_testkit import go_to_step, start_options_flow, submit_step
+
+
+def _data_schema(result: ConfigFlowResult) -> vol.Schema:
+    """Return a non-optional data schema from a form result."""
+    return cast(vol.Schema, result["data_schema"])
+
+
+class _SelectorWithConfig(Protocol):
+    """Minimal selector contract used by options-flow tests."""
+
+    config: dict[str, object]
+
+
+def _schema_selectors(result: ConfigFlowResult) -> dict[str, _SelectorWithConfig]:
+    """Return selectors keyed by config key from a form result."""
+    return cast(
+        dict[str, _SelectorWithConfig],
+        {
+            getattr(marker, "schema", marker): selector
+            for marker, selector in _data_schema(result).schema.items()
+        },
+    )
+
+
+def _schema_suggested_values(result: ConfigFlowResult) -> dict[str, object]:
+    """Return suggested values keyed by config key from a form result."""
+    return {
+        getattr(marker, "schema", marker): marker.description["suggested_value"]
+        for marker in _data_schema(result).schema
+    }
+
+
+def _selector_list(selector: _SelectorWithConfig, key: str) -> list[str]:
+    """Return a selector config list value."""
+    return cast(list[str], selector.config[key])
 
 
 async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
@@ -99,6 +149,267 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
     }
 
 
+async def test_options_flow_area_config_uses_task_fit_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Area behavior fields should use constrained selector surfaces."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    light_entity = er.async_get_or_create(
+        suggested_object_id="area_config_light",
+        unique_id="area_config_light",
+        domain=LIGHT_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    er.async_update_entity(light_entity.entity_id, area_id=str(config_entry.unique_id))
+    await hass.async_block_till_done()
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "area_config")
+    assert result["type"] == FlowResultType.FORM
+
+    selectors = _schema_selectors(result)
+    area_type_selector = selectors[CONF_TYPE]
+    include_selector = selectors[CONF_INCLUDE_ENTITIES]
+    exclude_selector = selectors[CONF_EXCLUDE_ENTITIES]
+
+    assert area_type_selector.config["mode"] == "dropdown"
+    assert area_type_selector.config["translation_key"] == "area_type"
+    assert include_selector.config["multiple"] is True
+    assert exclude_selector.config["multiple"] is True
+    assert light_entity.entity_id in _selector_list(
+        include_selector, "include_entities"
+    )
+    assert isinstance(exclude_selector.config["include_entities"], list)
+    assert CONF_RELOAD_ON_REGISTRY_CHANGE in selectors
+    assert CONF_IGNORE_DIAGNOSTIC_ENTITIES in selectors
+
+
+async def test_options_flow_area_config_reopen_preserves_saved_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Area behavior should reopen with saved type and entity filters."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    include_entity = er.async_get_or_create(
+        suggested_object_id="manual_include",
+        unique_id="manual_include",
+        domain=LIGHT_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    exclude_entity = er.async_get_or_create(
+        suggested_object_id="noisy",
+        unique_id="noisy",
+        domain="sensor",
+        platform="test",
+        config_entry=config_entry,
+    )
+    er.async_update_entity(exclude_entity.entity_id, area_id=str(config_entry.unique_id))
+    await hass.async_block_till_done()
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "area_config")
+    result = await submit_step(
+        hass,
+        result,
+        {
+            CONF_TYPE: AreaType.EXTERIOR,
+            CONF_INCLUDE_ENTITIES: [include_entity.entity_id],
+            CONF_EXCLUDE_ENTITIES: [exclude_entity.entity_id],
+            CONF_RELOAD_ON_REGISTRY_CHANGE: False,
+            CONF_IGNORE_DIAGNOSTIC_ENTITIES: False,
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "finish")
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "area_config")
+    suggested_values = _schema_suggested_values(result)
+
+    assert suggested_values[CONF_TYPE] == AreaType.EXTERIOR
+    assert suggested_values[CONF_INCLUDE_ENTITIES] == [include_entity.entity_id]
+    assert suggested_values[CONF_EXCLUDE_ENTITIES] == [exclude_entity.entity_id]
+    assert suggested_values[CONF_RELOAD_ON_REGISTRY_CHANGE] is False
+    assert suggested_values[CONF_IGNORE_DIAGNOSTIC_ENTITIES] is False
+
+
+async def test_options_flow_presence_tracking_uses_task_fit_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Presence tracking fields should use translated multi-select and number selectors."""
+    result = await start_options_flow(hass, init_integration)
+    result = await go_to_step(hass, result, "presence_tracking")
+    assert result["type"] == FlowResultType.FORM
+
+    selectors = _schema_selectors(result)
+    platform_selector = selectors[CONF_PRESENCE_DEVICE_PLATFORMS]
+    class_selector = selectors[CONF_PRESENCE_SENSOR_DEVICE_CLASS]
+    keep_only_selector = selectors[CONF_KEEP_ONLY_ENTITIES]
+    timeout_selector = selectors[CONF_CLEAR_TIMEOUT]
+
+    assert platform_selector.config["multiple"] is True
+    assert "binary_sensor" in _selector_list(platform_selector, "options")
+    assert "media_player" in _selector_list(platform_selector, "options")
+    assert class_selector.config["multiple"] is True
+    assert BinarySensorDeviceClass.MOTION in _selector_list(class_selector, "options")
+    assert keep_only_selector.config["multiple"] is True
+    assert timeout_selector.config["mode"] == "box"
+    assert timeout_selector.config["unit_of_measurement"] == "minutes"
+
+
+async def test_options_flow_presence_tracking_reopen_preserves_saved_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Presence tracking should reopen with saved platforms, classes, filters, timeout."""
+    config_entry = init_integration
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "presence_tracking")
+    result = await submit_step(
+        hass,
+        result,
+        {
+            CONF_PRESENCE_DEVICE_PLATFORMS: ["binary_sensor"],
+            CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"],
+            CONF_KEEP_ONLY_ENTITIES: ["binary_sensor.motion_keep"],
+            CONF_CLEAR_TIMEOUT: 7,
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "finish")
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "presence_tracking")
+    suggested_values = _schema_suggested_values(result)
+
+    assert suggested_values[CONF_PRESENCE_DEVICE_PLATFORMS] == ["binary_sensor"]
+    assert suggested_values[CONF_PRESENCE_SENSOR_DEVICE_CLASS] == ["motion"]
+    assert suggested_values[CONF_KEEP_ONLY_ENTITIES] == ["binary_sensor.motion_keep"]
+    assert suggested_values[CONF_CLEAR_TIMEOUT] == 7
+
+
+async def test_options_flow_secondary_states_uses_task_fit_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Secondary states should expose entity selectors and minute timeout controls."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    light_binary = er.async_get_or_create(
+        suggested_object_id="secondary_light_binary",
+        unique_id="secondary_light_binary",
+        domain="binary_sensor",
+        platform="test",
+        config_entry=config_entry,
+        original_device_class=BinarySensorDeviceClass.LIGHT,
+    )
+    sleep_binary = er.async_get_or_create(
+        suggested_object_id="secondary_sleep_binary",
+        unique_id="secondary_sleep_binary",
+        domain="binary_sensor",
+        platform="test",
+        config_entry=config_entry,
+    )
+    hass.states.async_set(
+        light_binary.entity_id,
+        "off",
+        {ATTR_DEVICE_CLASS: BinarySensorDeviceClass.LIGHT},
+    )
+    await hass.async_block_till_done()
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "secondary_states")
+    selectors = _schema_selectors(result)
+
+    dark_selector = selectors[CONF_DARK_ENTITY]
+    sleep_selector = selectors[CONF_SLEEP_ENTITY]
+    accent_selector = selectors[CONF_ACCENT_ENTITY]
+    assert light_binary.entity_id in _selector_list(
+        dark_selector, "include_entities"
+    )
+    assert sleep_binary.entity_id in _selector_list(
+        sleep_selector, "include_entities"
+    )
+    assert sleep_binary.entity_id in _selector_list(
+        accent_selector, "include_entities"
+    )
+    for key in (CONF_SLEEP_TIMEOUT, CONF_EXTENDED_TIME, CONF_EXTENDED_TIMEOUT):
+        selector = selectors[key]
+        assert selector.config["mode"] == "box"
+        assert selector.config["unit_of_measurement"] == "minutes"
+
+
+async def test_options_flow_secondary_states_reopen_preserves_saved_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Secondary states should reopen with saved entity and timeout choices."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    dark_entity = er.async_get_or_create(
+        suggested_object_id="room_dark",
+        unique_id="room_dark",
+        domain="binary_sensor",
+        platform="test",
+        config_entry=config_entry,
+        original_device_class=BinarySensorDeviceClass.LIGHT,
+    )
+    sleep_entity = er.async_get_or_create(
+        suggested_object_id="room_sleep",
+        unique_id="room_sleep",
+        domain="binary_sensor",
+        platform="test",
+        config_entry=config_entry,
+    )
+    accent_entity = er.async_get_or_create(
+        suggested_object_id="room_accent",
+        unique_id="room_accent",
+        domain="binary_sensor",
+        platform="test",
+        config_entry=config_entry,
+    )
+    hass.states.async_set(
+        dark_entity.entity_id,
+        "off",
+        {ATTR_DEVICE_CLASS: BinarySensorDeviceClass.LIGHT},
+    )
+    await hass.async_block_till_done()
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "secondary_states")
+    result = await submit_step(
+        hass,
+        result,
+        {
+            CONF_DARK_ENTITY: dark_entity.entity_id,
+            CONF_SLEEP_ENTITY: sleep_entity.entity_id,
+            CONF_ACCENT_ENTITY: accent_entity.entity_id,
+            CONF_SLEEP_TIMEOUT: 4,
+            CONF_EXTENDED_TIME: 8,
+            CONF_EXTENDED_TIMEOUT: 12,
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "finish")
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "secondary_states")
+    suggested_values = _schema_suggested_values(result)
+
+    assert suggested_values[CONF_DARK_ENTITY] == dark_entity.entity_id
+    assert suggested_values[CONF_SLEEP_ENTITY] == sleep_entity.entity_id
+    assert suggested_values[CONF_ACCENT_ENTITY] == accent_entity.entity_id
+    assert suggested_values[CONF_SLEEP_TIMEOUT] == 4
+    assert suggested_values[CONF_EXTENDED_TIME] == 8
+    assert suggested_values[CONF_EXTENDED_TIMEOUT] == 12
+
+
 async def test_options_flow_custom_control_groups_step(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -159,12 +470,15 @@ async def test_options_flow_custom_control_groups_uses_guided_selector(
     }
     assert fields["group_id"]["required"] is True
     assert fields["members"]["required"] is True
+    trigger_selector = fields["trigger_states"]["selector"]["select"]
+    assert trigger_selector["multiple"] is True
+    assert trigger_selector["translation_key"] == "area_states"
 
 
-async def test_options_flow_custom_control_groups_applies_templates_by_default(
+async def test_options_flow_custom_control_groups_empty_submit_does_not_seed_templates(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
-    """Custom control groups step should seed starter templates when unset."""
+    """Custom control groups should not create templates from an empty submit."""
     config_entry = init_integration
 
     result = await start_options_flow(hass, config_entry)
@@ -176,9 +490,34 @@ async def test_options_flow_custom_control_groups_applies_templates_by_default(
 
     result = await go_to_step(hass, result, "finish")
     assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS] == []
 
-    group_ids = {group["group_id"] for group in config_entry.options[CONF_CUSTOM_CONTROL_GROUPS]}
-    assert group_ids == {"control.task", "control.reading", "control.media"}
+
+async def test_options_flow_custom_control_groups_explicit_empty_does_not_reseed(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Explicitly deleting all custom control groups should not restore templates."""
+    config_entry = init_integration
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "custom_control_groups")
+    result = await submit_step(
+        hass,
+        result,
+        {CONF_CUSTOM_CONTROL_GROUPS: []},
+    )
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "finish")
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS] == []
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "custom_control_groups")
+    schema = result["data_schema"]
+    assert schema is not None
+    marker = next(iter(schema.schema))
+    assert marker.description["suggested_value"] == []
 
 
 async def test_options_flow_custom_control_groups_rejects_invalid_payload(

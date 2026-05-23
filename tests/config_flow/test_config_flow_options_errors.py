@@ -142,7 +142,7 @@ async def test_options_flow_async_step_feature_conf_unknown_feature(
     flow = OptionsFlowHandler(config_entry)
     flow.hass = hass
     flow.area_options = {CONF_ENABLED_FEATURES: {}}
-    flow._feature_step_id = "feature_conf_area"
+    flow._feature_step_id = "feature_conf_definitely_unknown"
 
     result = await flow.async_step_feature_conf()
 

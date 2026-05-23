@@ -4,11 +4,13 @@ This module contains tests for the basic form interactions and meta area creatio
 in the Magic Areas config flow.
 """
 
+from typing import Protocol, cast
 from unittest.mock import patch
 
 
 from homeassistant import config_entries, setup
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -31,6 +33,27 @@ from custom_components.magic_areas.const import (
 from tests.const import MockAreaIds
 
 
+class _SelectorWithConfig(Protocol):
+    """Minimal selector contract used by config-flow tests."""
+
+    config: dict[str, object]
+
+
+def _schema_selector(result: ConfigFlowResult, key: str) -> _SelectorWithConfig:
+    """Return one selector from a config-flow result schema."""
+    schema = result["data_schema"]
+    assert schema is not None
+    marker = next(
+        marker for marker in schema.schema if getattr(marker, "schema", marker) == key
+    )
+    return cast(_SelectorWithConfig, schema.schema[marker])
+
+
+def _selector_options(selector: _SelectorWithConfig) -> list[str]:
+    """Return select options from a selector config."""
+    return cast(list[str], selector.config["options"])
+
+
 async def test_form(hass: HomeAssistant) -> None:
     """Test we get the form."""
     await setup.async_setup_component(hass, "config", {})
@@ -44,6 +67,10 @@ async def test_form(hass: HomeAssistant) -> None:
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {}
+    assert result.get("last_step") is None
+    name_selector = _schema_selector(result, CONF_NAME)
+    assert name_selector.config["mode"] == "dropdown"
+    assert MockAreaIds.KITCHEN.value.capitalize() in _selector_options(name_selector)
 
     with patch(
         "custom_components.magic_areas.async_setup_entry",
@@ -78,8 +105,8 @@ async def test_form_floor_meta_area(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.FORM
 
     # Check that the floor is in the list of available areas
-    assert result["data_schema"] is not None
-    assert f"(Meta) {floor.name}" in result["data_schema"].schema["name"].container
+    name_selector = _schema_selector(result, CONF_NAME)
+    assert f"(Meta) {floor.name}" in _selector_options(name_selector)
 
     with patch(
         "custom_components.magic_areas.async_setup_entry",

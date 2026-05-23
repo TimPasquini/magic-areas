@@ -325,8 +325,9 @@ async def handle_custom_control_groups(
     flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Handle custom control-group configuration step."""
-    default_groups = flow.area_options.get(CONF_CUSTOM_CONTROL_GROUPS, [])
-    if not default_groups:
+    if CONF_CUSTOM_CONTROL_GROUPS in flow.area_options:
+        default_groups = flow.area_options[CONF_CUSTOM_CONTROL_GROUPS]
+    else:
         default_groups = get_custom_control_group_templates()
 
     schema = vol.Schema(

@@ -55,6 +55,20 @@ def test_options_flow_root_menu_explains_save_behavior() -> None:
     assert "not saved until you select `Save & Exit`" in description
 
 
+def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> None:
+    """The area-level bright/dark source should not imply it is the only light signal."""
+    secondary_states = _options_step("secondary_states")
+    data_description = secondary_states["data_description"]
+
+    assert isinstance(data_description, dict)
+    dark_entity = data_description["dark_entity"]
+    assert isinstance(dark_entity, str)
+    assert "area-level `bright`/`dark` state" in dark_entity
+    assert "separate in-room brightness entities" in dark_entity
+    assert "Advisory" in dark_entity
+    assert "Adaptive" in dark_entity
+
+
 def test_feature_selection_distinguishes_configurable_features() -> None:
     """Feature selection should explain which choices add follow-up menu pages."""
     select_features = _options_step("select_features")
@@ -104,7 +118,7 @@ def test_light_group_substeps_explain_their_scope() -> None:
     """Each light-group substep should tell users what job it configures."""
     expected_descriptions = {
         "feature_conf_light_groups_roles": "Assign lights to room roles",
-        "feature_conf_light_groups_brightness": "Choose how room brightness",
+        "feature_conf_light_groups_brightness": "Choose a brightness behavior mode first",
         "feature_conf_light_groups_adaptive_lighting": "Choose whether Magic Areas ignores",
     }
 
@@ -112,6 +126,44 @@ def test_light_group_substeps_explain_their_scope() -> None:
         description = _options_step(step_id)["description"]
         assert isinstance(description, str)
         assert expected_text in description
+
+
+def test_feature_section_submenus_expose_settings_and_back() -> None:
+    """Non-light feature sections should expose settings + back in menu-first UX."""
+    expected = {
+        "feature_conf_health": {"feature_conf_health_settings", "show_menu"},
+        "feature_conf_fan_groups": {"feature_conf_fan_groups_settings", "show_menu"},
+        "feature_conf_climate_control": {
+            "feature_conf_climate_control_settings",
+            "feature_conf_climate_control_select_presets",
+            "show_menu",
+        },
+        "feature_conf_area_aware_media_player": {
+            "feature_conf_area_aware_media_player_settings",
+            "show_menu",
+        },
+        "feature_conf_aggregates": {
+            "feature_conf_aggregates_settings",
+            "show_menu",
+        },
+        "feature_conf_presence_hold": {
+            "feature_conf_presence_hold_settings",
+            "show_menu",
+        },
+        "feature_conf_ble_trackers": {
+            "feature_conf_ble_trackers_settings",
+            "show_menu",
+        },
+        "feature_conf_wasp_in_a_box": {
+            "feature_conf_wasp_in_a_box_settings",
+            "show_menu",
+        },
+    }
+    for step_id, expected_options in expected.items():
+        step = _options_step(step_id)
+        menu_options = step.get("menu_options")
+        assert isinstance(menu_options, dict)
+        assert set(menu_options) == expected_options
 
 
 def test_custom_control_groups_step_has_guidance() -> None:

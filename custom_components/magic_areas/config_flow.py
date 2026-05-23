@@ -8,6 +8,9 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 
 from custom_components.magic_areas.config_flows import ConfigBase, OptionsFlowHandler
+from custom_components.magic_areas.config_flows.selector_builders import (
+    build_selector_select,
+)
 from custom_components.magic_areas.config_keys.area import CONF_ID
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.core.discovery import (
@@ -26,6 +29,7 @@ __all__ = [
     "ConfigFlow",
     "OptionsFlowHandler",
 ]
+
 
 class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
     """Handle a config flow for Magic Areas."""
@@ -82,7 +86,14 @@ class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
             available_areas, reserved_ids
         )
 
-        schema = vol.Schema({vol.Required(CONF_NAME): vol.In(available_area_names)})
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME): build_selector_select(
+                    available_area_names,
+                    multiple=False,
+                )
+            }
+        )
 
         # noinspection PyTypeChecker
         return self.async_show_form(

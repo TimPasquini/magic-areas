@@ -167,6 +167,7 @@ async def test_handle_light_groups_preserves_hidden_manage_all_lights_gate() -> 
     flow.async_step_feature_conf_light_groups = AsyncMock(
         return_value={"type": FlowResultType.MENU}
     )
+    flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     result = await handle_feature_conf(
         flow,
@@ -180,7 +181,7 @@ async def test_handle_light_groups_preserves_hidden_manage_all_lights_gate() -> 
     feature_options = flow.area_options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.LIGHT_GROUPS.value
     ]
-    assert result["type"] == FlowResultType.MENU
+    assert result["type"] == FlowResultType.FORM
     assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] is True
     assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES] == [
         CONF_OVERHEAD_LIGHTS

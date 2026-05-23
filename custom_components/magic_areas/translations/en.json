@@ -80,8 +80,16 @@
         }
       },
       "feature_conf_health": {
-        "title": "Health sensor",
-        "description": "You can choose a set of `binary sensor` device classes that will be tracked by this health sensor that can be used in automations.",
+        "title": "Health sensors",
+        "description": "Choose what to configure for health monitoring in this area.",
+        "menu_options": {
+          "feature_conf_health_settings": "Health sensor settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_health_settings": {
+        "title": "Health sensor settings",
+        "description": "Choose the binary sensor device classes tracked by the health sensor for this area.",
         "data": {
           "health_binary_sensor_device_classes": "Device classes to track"
         }
@@ -138,7 +146,7 @@
           "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
           "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
           "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
-          "inside_bright_entity": "Optional binary entity that represents whether the room itself is bright (for example: an inside brightness threshold helper). In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
+          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
           "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
           "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
           "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
@@ -186,9 +194,30 @@
       },
       "feature_conf_light_groups_brightness": {
         "title": "Light brightness behavior",
-        "description": "Choose how room brightness affects Magic Areas light automation.",
+        "description": "Choose a brightness behavior mode first. Mode-specific settings are shown on the next screen.",
         "data": {
-          "brightness_mode": "Brightness behavior mode",
+          "brightness_mode": "Brightness behavior mode"
+        },
+        "data_description": {
+          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass."
+        }
+      },
+      "feature_conf_light_groups_brightness_advisory": {
+        "title": "Advisory brightness settings",
+        "description": "Configure optional binary bright/dark hints used by advisory behavior.",
+        "data": {
+          "inside_bright_entity": "Inside bright binary entity",
+          "outside_bright_entity": "Outside bright binary entity"
+        },
+        "data_description": {
+          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
+          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks."
+        }
+      },
+      "feature_conf_light_groups_brightness_adaptive": {
+        "title": "Adaptive brightness settings",
+        "description": "Configure binary and lux safeguards for adaptive bright-driven turn-off.",
+        "data": {
           "bright_min_on_seconds": "Adaptive minimum on-time",
           "bright_dwell_seconds": "Adaptive bright dwell",
           "bright_attribution_hold_seconds": "Adaptive attribution hold",
@@ -205,14 +234,13 @@
           "outside_lux_inside_ratio_min_percent": "Outside-inside ratio minimum"
         },
         "data_description": {
-          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass.",
           "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
           "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action or a configured room light increases output.",
           "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
           "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
           "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
-          "inside_bright_entity": "Optional binary entity that represents whether the room itself is bright (for example: an inside brightness threshold helper). In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
+          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
           "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
           "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
           "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
@@ -237,15 +265,31 @@
         }
       },
       "feature_conf_presence_hold": {
-        "title": "Presence Hold",
-        "description": "Creates a switch that will hold an area occupied while it's on. You can configure a timeout to have the switch automatically turn off after a certain period of time, if you often see yourself leaving it on.",
+        "title": "Presence hold",
+        "description": "Choose what to configure for the presence hold switch in this area.",
+        "menu_options": {
+          "feature_conf_presence_hold_settings": "Presence hold settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_presence_hold_settings": {
+        "title": "Presence hold settings",
+        "description": "Configure how long the presence hold switch can keep the area occupied before it automatically turns off.",
         "data": {
           "presence_hold_timeout": "Time after the switch will be automatically turned `off`. (0 = timeout disabled)."
         }
       },
       "feature_conf_area_aware_media_player": {
-        "title": "Feature: Area-aware media player",
-        "description": "Creates a media player device that will forward play calls to other media players in occupied areas only. This is useful if you want to use TTS notifications but only want to notify areas that are occupied to avoid notifying media players in vacant areas. This feature has configuration options in each area but it is only created if you have a `Global` meta area.",
+        "title": "Area-aware media player",
+        "description": "Choose what to configure for area-aware media routing in this area.",
+        "menu_options": {
+          "feature_conf_area_aware_media_player_settings": "Area-aware media settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_area_aware_media_player_settings": {
+        "title": "Area-aware media settings",
+        "description": "Configure broadcast targets and states for area-aware media notifications.",
         "data": {
           "notification_devices": "Media Player devices used for broadcasting",
           "notification_states": "Play notifications devices only when on these states"
@@ -255,8 +299,16 @@
         }
       },
       "feature_conf_aggregates": {
-        "title": "Feature: Sensor aggregates",
-        "description": "If you have multiple `sensors` (or `binary sensors`) of the same type, Magic Areas can group then into a single entity allowing you to have averages (or sums) of sensors or combined state of binary sensors. It's even useful if you only currently have one sensor of each kind as it allows you to use the aggregate in automations and expand in the future without having to re-write your automations.",
+        "title": "Aggregate sensors",
+        "description": "Choose what to configure for aggregate helpers in this area.",
+        "menu_options": {
+          "feature_conf_aggregates_settings": "Aggregate sensor settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_aggregates_settings": {
+        "title": "Aggregate sensor settings",
+        "description": "Configure which sensor classes are aggregated and how threshold helpers are created.",
         "data": {
           "aggregates_min_entities": "Minimum number of entities of the same device class required to create aggregates.",
           "aggregates_binary_sensor_device_classes": "Binary sensor device classes to be aggregated.",
@@ -270,22 +322,39 @@
         }
       },
       "feature_conf_fan_groups": {
-        "title": "Feature: Fan Groups",
-        "description": "Group and control all fan entities in an area. This feature allows fan entities to be controlled automatically according to an area's state and wether the aggregate sensor value crosses a setpoint. Fan control requires the aggregates feature to be enable and corresponding device classses selected.",
+        "title": "Fan automation",
+        "description": "Choose what to configure for area fan automation in this area.",
+        "menu_options": {
+          "feature_conf_fan_groups_settings": "Fan automation settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_fan_groups_settings": {
+        "title": "Fan automation settings",
+        "description": "Configure the state, aggregate signal, and setpoint used to control fan groups.",
         "data": {
-          "required_state": "Required state.",
-          "tracked_device_class": "Tracked device class.",
-          "setpoint": "Setpoint."
+          "required_state": "Required state",
+          "tracked_device_class": "Tracked device class",
+          "setpoint": "Setpoint"
         },
         "data_description": {
-          "required_state": "State the area has to have in order to consider turning on the fan group.",
+          "required_state": "Area state required before fan automation can turn on the fan group.",
           "tracked_device_class": "Select which aggregate device class to track for value changes.",
-          "setpoint": "Number which the tracked aggregate sensor must be equal or greater in order to turn on the fan group."
+          "setpoint": "Minimum value the tracked aggregate sensor must reach before fan automation turns on the fan group."
         }
       },
       "feature_conf_climate_control": {
-        "title": "Feature: Climate Control > Entity Selection",
-        "description": "Select the climate entity that you would like to be controlled through area states.",
+        "title": "Climate automation",
+        "description": "Choose what to configure for climate control in this area.",
+        "menu_options": {
+          "feature_conf_climate_control_settings": "Climate entity selection",
+          "feature_conf_climate_control_select_presets": "Climate preset mapping",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_climate_control_settings": {
+        "title": "Climate entity selection",
+        "description": "Select the climate entity that should be controlled through area states.",
         "data": {
           "entity_id": "Climate entity"
         },
@@ -310,18 +379,34 @@
         }
       },
       "feature_conf_ble_trackers": {
-        "title": "BLE Tracker Integration",
-        "description": "Tracks sensors from BLE Trackers and creates a corresponding `occupancy` binary sensor for the area that is turned on when the BLE tracker sensor has a state equals to the area's name or ID. **This feature does _NOT_ perform BLE Tracking itself.**",
+        "title": "Bluetooth tracker monitoring",
+        "description": "Choose what to configure for BLE tracker presence monitoring in this area.",
+        "menu_options": {
+          "feature_conf_ble_trackers_settings": "BLE tracker settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_ble_trackers_settings": {
+        "title": "BLE tracker settings",
+        "description": "Choose BLE tracker entities whose room-state changes should contribute to area occupancy.",
         "data": {
           "ble_tracker_entities": "Entities from BLE Trackers to track."
         },
         "data_description": {
-          "ble_tracker_entities": "BLE Trackers such as [room-assistant](https://github.com/mKeRix/room-assistant), [Bermuda](https://github.com/agittins/bermuda) and [ESPresence](https://github.com/ESPresense/ESPresense) creates sensors which changes state to whatever area the device was closer to."
+          "ble_tracker_entities": "BLE tracker integrations such as [room-assistant](https://github.com/mKeRix/room-assistant), [Bermuda](https://github.com/agittins/bermuda), and [ESPresence](https://github.com/ESPresense/ESPresense) create sensors whose state indicates the closest area for a tracked device."
         }
       },
       "feature_conf_wasp_in_a_box": {
         "title": "Wasp in a Box",
-        "description": "If we see a wasp, then there is a wasp in the box. If we close the box while there is a wasp in the box, then the wasp remains in the box. If the box remains closed when there is a wasp in the box, and the wasp stops moving, we assume it's still in the box. If the box is opened, and the wasp is not moving, we assume that the wasp has escaped (there is no wasp in the box). This feature monitors your `door` aggregates as the box and your `motion` (default) aggregates as your wasp. A new `binary_sensor` will be created and automatically tracked for presence.",
+        "description": "Choose what to configure for Wasp in a Box occupancy inference in this area.",
+        "menu_options": {
+          "feature_conf_wasp_in_a_box_settings": "Wasp in a Box settings",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_wasp_in_a_box_settings": {
+        "title": "Wasp in a Box settings",
+        "description": "Configure delay, timeout, and source sensor classes used by Wasp in a Box.",
         "data": {
           "delay": "Delay",
           "wasp_timeout": "Wasp Timeout",
@@ -346,7 +431,7 @@
           "calculation_mode": "Secondary state calculation mode"
         },
         "data_description": {
-          "dark_entity": "The area's light sensor provides a coarse `bright`/`dark` area state. Use `sun.sun` or an exterior light sensor here when you want daylight-style context that is not affected by the room lights.\n\nFor Light groups, `advisory` and `adaptive` brightness modes can use separate in-room brightness entities in the Light groups configuration. Avoid using an in-room light sensor as the area's light sensor unless you understand the feedback-loop risk.",
+          "dark_entity": "This entity provides the area-level `bright`/`dark` state used by Magic Areas features. Use `sun.sun` or an exterior light sensor here when you want coarse daylight-style context that is not affected by the room lights.\n\nLight groups can use separate in-room brightness entities in `Advisory` and `Adaptive` modes. Avoid using an in-room light sensor for this area-level field unless you understand the feedback-loop risk.",
           "sleep_entity": "Entity used to track area sleep state",
           "sleep_timeout": "How long area will wait before clearing the state when on sleep state",
           "accent_entity": "Entity used to track area Accented state",

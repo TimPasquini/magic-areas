@@ -98,6 +98,46 @@ set intentional and test-enforced.
 - Feature-selection E2E coverage now verifies newly enabled configurable features appear
   in the returned root menu immediately, while enabled helper-only/default features do
   not create dead configuration menu paths.
+- Non-light configurable feature entry points now open as menu-first sections with
+  explicit settings pages and a Back path. E2E coverage verifies each section menu and
+  settings form route.
+- Fan and aggregate settings now have reopen-cycle coverage proving saved values are
+  offered back to the user as suggested values.
+- Area-aware media-player notification targets now use all available media-player
+  entities in the selector, instead of depending on the current area entity catalog.
+- Presence hold, Wasp in a Box, and BLE tracker configuration now use more specific
+  selector surfaces: bounded number selectors for timeout/delay fields and sensor-only
+  entity selection for BLE tracker sensors.
+- Climate control settings now have reopen-cycle coverage for the selected climate entity
+  and the preset map. This protects the two-step climate flow from losing or hiding saved
+  preset choices.
+- Area-aware media-player notification states now have selector and reopen-cycle coverage,
+  including translated area-state choices and persisted notification target/state values.
+- Health and Wasp in a Box settings now have reopen-cycle coverage so selected device
+  classes and timing values remain visible when revisiting the options flow.
+- Presence hold now has reopen-cycle coverage for the saved timeout value.
+- Cover groups and media-player groups now have E2E coverage proving they are
+  helper-only feature toggles: enabling them persists the feature flag without adding
+  dead feature-configuration menu paths.
+- Custom control groups now treat an empty submit as intentional empty configuration
+  and do not silently create or reseed starter-template groups.
+- Custom control groups now have selector coverage for translated multi-select trigger
+  states inside the guided object editor.
+- Area behavior now has selector and reopen-cycle coverage for area type,
+  include/exclude entity filters, reload-on-registry-change, and diagnostic/config entity
+  filtering.
+- Initial setup now uses the same HA select-selector surface for choosing the Home
+  Assistant area, including meta-area options, instead of relying on a raw `vol.In`
+  dropdown contract.
+- Initial setup no longer marks the area-selection form as `last_step`; selecting an
+  area creates the entry directly and should not present a skip/finish-style affordance.
+- The area behavior exclude selector is confirmed as area-catalog scoped. It should not
+  be treated as a global registry selector; tests enforce that distinction so future
+  changes do not accidentally broaden the candidate set.
+- Presence tracking now has selector and reopen-cycle coverage for platform selection,
+  binary-sensor device classes, keep-only entity filtering, and clear-timeout handling.
+- Secondary area states now have selector and reopen-cycle coverage for dark/sleep/accent
+  entity fields and sleep/extended timing fields.
 - Light-group brightness mode reopen-cycle coverage now verifies that saved `adaptive`
   mode fields appear when reopening the substep, and that switching to `advisory`
   removes adaptive-only fields on the next reopen.

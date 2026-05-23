@@ -213,7 +213,6 @@ async def handle_step_validation(
 
     if user_input is None:
         return errors, False
-
     _LOGGER.debug(
         "OptionsFlow: Validating area %s %s config: %s",
         area_name,

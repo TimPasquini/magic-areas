@@ -145,13 +145,13 @@ class ConfigFlowEntityGatherer:
         )
 
     def gather_media_players(self, all_entities: list[str]) -> list[str]:
-        """Gather media player entities from area."""
+        """Gather media player entities available to options-flow selectors."""
         return sorted(
             self.resolve_groups(
                 [
-                    entity["entity_id"]
-                    for entity in self.entities_by_domain.get(MEDIA_PLAYER_DOMAIN, [])
-                    if entity["entity_id"] in all_entities
+                    entity_id
+                    for entity_id in all_entities
+                    if entity_id.split(".")[0] == MEDIA_PLAYER_DOMAIN
                 ]
             )
         )

@@ -26,6 +26,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_CLIMATE_CONTROL_ENTITY_ID,
     CONF_CLIMATE_CONTROL_PRESET_CLEAR,
     CONF_CLIMATE_CONTROL_PRESET_OCCUPIED,
+    CONF_CLIMATE_CONTROL_PRESET_SLEEP,
     CONF_DARK_ENTITY,
     CONF_ENABLED_FEATURES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
@@ -46,8 +47,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
     CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
     CONF_NOTIFICATION_DEVICES,
+    CONF_NOTIFY_STATES,
     CONF_PRESENCE_HOLD_TIMEOUT,
     CONF_WASP_IN_A_BOX_DELAY,
+    CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
 from custom_components.magic_areas.core.control_intents import (
@@ -57,11 +60,16 @@ from custom_components.magic_areas.core.control_intents import (
     SLEEP_SWITCH,
     adaptive_lighting_switch_entity_ids,
 )
+from custom_components.magic_areas.core.runtime_model.feature_ids import (
+    build_threshold_light_sensor_unique_id,
+)
+from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     CONF_OVERHEAD_LIGHTS_ACT_ON,
     CONF_OVERHEAD_LIGHTS_STATES,
+    CONF_SLEEP_LIGHTS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     LIGHT_GROUP_FEATURE_SCHEMA,
@@ -89,6 +97,14 @@ def _schema_selectors(result: ConfigFlowResult) -> dict[str, _SelectorWithConfig
             for marker, selector in _data_schema(result).schema.items()
         },
     )
+
+
+def _schema_suggested_values(result: ConfigFlowResult) -> dict[str, object]:
+    """Return schema suggested values keyed by config key."""
+    return {
+        getattr(marker, "schema", marker): marker.description["suggested_value"]
+        for marker in _data_schema(result).schema
+    }
 
 
 def _register_adaptive_lighting_switch_set(
@@ -131,8 +147,194 @@ async def _open_feature_config_step(
             result["flow_id"],
             user_input={"next_step_id": "feature_conf_light_groups"},
         )
-    return await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": step_id}
+    )
+    if (
+        step_id.startswith("feature_conf_")
+        and not step_id.startswith("feature_conf_light_groups")
+        and not step_id.endswith("_settings")
+        and step_id != "feature_conf_climate_control_select_presets"
+        and result["type"] == FlowResultType.MENU
+    ):
+        return await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": f"{step_id}_settings"}
+        )
+    return result
+
+
+async def _open_existing_light_groups_adaptive_lighting_step(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+) -> ConfigFlowResult:
+    """Open the Adaptive Lighting substep for an already-enabled Light Groups config."""
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups"},
+    )
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_adaptive_lighting"},
+    )
+
+
+async def _open_light_groups_brightness_mode_step(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+) -> ConfigFlowResult:
+    """Open the light-groups brightness mode selector step."""
+    return await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+
+
+@pytest.mark.parametrize(
+    ("feature", "step_id", "expected_menu_options"),
+    [
+        (
+            MagicAreasFeatures.HEALTH,
+            "feature_conf_health",
+            {"feature_conf_health_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.FAN_GROUPS,
+            "feature_conf_fan_groups",
+            {"feature_conf_fan_groups_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.CLIMATE_CONTROL,
+            "feature_conf_climate_control",
+            {
+                "feature_conf_climate_control_settings",
+                "feature_conf_climate_control_select_presets",
+                "show_menu",
+            },
+        ),
+        (
+            MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+            "feature_conf_area_aware_media_player",
+            {"feature_conf_area_aware_media_player_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.AGGREGATES,
+            "feature_conf_aggregates",
+            {"feature_conf_aggregates_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.PRESENCE_HOLD,
+            "feature_conf_presence_hold",
+            {"feature_conf_presence_hold_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.BLE_TRACKER,
+            "feature_conf_ble_trackers",
+            {"feature_conf_ble_trackers_settings", "show_menu"},
+        ),
+        (
+            MagicAreasFeatures.WASP_IN_A_BOX,
+            "feature_conf_wasp_in_a_box",
+            {"feature_conf_wasp_in_a_box_settings", "show_menu"},
+        ),
+    ],
+)
+async def test_options_flow_non_light_feature_sections_open_menu_first(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    feature: MagicAreasFeatures,
+    step_id: str,
+    expected_menu_options: set[str],
+) -> None:
+    """Non-light feature config entry points should render as section menus."""
+    result = await hass.config_entries.options.async_init(init_integration.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "select_features"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={feature: True}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": step_id}
+    )
+    assert result["type"] == FlowResultType.MENU
+    assert set(cast(list[str], result["menu_options"])) == expected_menu_options
+
+
+@pytest.mark.parametrize(
+    ("feature", "step_id", "settings_step_id"),
+    [
+        (
+            MagicAreasFeatures.HEALTH,
+            "feature_conf_health",
+            "feature_conf_health_settings",
+        ),
+        (
+            MagicAreasFeatures.FAN_GROUPS,
+            "feature_conf_fan_groups",
+            "feature_conf_fan_groups_settings",
+        ),
+        (
+            MagicAreasFeatures.CLIMATE_CONTROL,
+            "feature_conf_climate_control",
+            "feature_conf_climate_control_settings",
+        ),
+        (
+            MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+            "feature_conf_area_aware_media_player",
+            "feature_conf_area_aware_media_player_settings",
+        ),
+        (
+            MagicAreasFeatures.AGGREGATES,
+            "feature_conf_aggregates",
+            "feature_conf_aggregates_settings",
+        ),
+        (
+            MagicAreasFeatures.PRESENCE_HOLD,
+            "feature_conf_presence_hold",
+            "feature_conf_presence_hold_settings",
+        ),
+        (
+            MagicAreasFeatures.BLE_TRACKER,
+            "feature_conf_ble_trackers",
+            "feature_conf_ble_trackers_settings",
+        ),
+        (
+            MagicAreasFeatures.WASP_IN_A_BOX,
+            "feature_conf_wasp_in_a_box",
+            "feature_conf_wasp_in_a_box_settings",
+        ),
+    ],
+)
+async def test_options_flow_non_light_feature_helpers_open_settings_forms(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    feature: MagicAreasFeatures,
+    step_id: str,
+    settings_step_id: str,
+) -> None:
+    """Feature-config helper routing should land tests on the settings form."""
+    result = await _open_feature_config_step(
+        hass,
+        init_integration,
+        feature,
+        step_id,
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == settings_step_id
+
+
+async def _select_light_groups_brightness_mode(
+    hass: HomeAssistant,
+    result: ConfigFlowResult,
+    mode: str,
+) -> ConfigFlowResult:
+    """Submit light-groups brightness mode and return mode-specific step result."""
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"brightness_mode": mode}
     )
 
 
@@ -218,6 +420,99 @@ async def test_options_flow_climate_with_presets(
     }
 
 
+async def test_options_flow_climate_reopen_preserves_saved_entity_and_presets(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Climate settings should reopen with saved entity and preset mapping."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    climate_entity = er.async_get_or_create(
+        suggested_object_id="reopen_climate_with_presets",
+        unique_id="reopen_climate_with_presets",
+        domain=CLIMATE_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+        capabilities={ATTR_PRESET_MODES: ["home", "away", "sleep"]},
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.CLIMATE_CONTROL,
+        "feature_conf_climate_control",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_CLIMATE_CONTROL_ENTITY_ID: climate_entity.entity_id},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_CLIMATE_CONTROL_PRESET_OCCUPIED: "home",
+            CONF_CLIMATE_CONTROL_PRESET_CLEAR: "away",
+            CONF_CLIMATE_CONTROL_PRESET_SLEEP: "sleep",
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.CLIMATE_CONTROL,
+        "feature_conf_climate_control",
+    )
+    assert result["type"] == FlowResultType.FORM
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_CLIMATE_CONTROL_ENTITY_ID] == climate_entity.entity_id
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_CLIMATE_CONTROL_ENTITY_ID: climate_entity.entity_id},
+    )
+    assert result["type"] == FlowResultType.FORM
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_CLIMATE_CONTROL_PRESET_OCCUPIED] == "home"
+    assert suggested_values[CONF_CLIMATE_CONTROL_PRESET_CLEAR] == "away"
+    assert suggested_values[CONF_CLIMATE_CONTROL_PRESET_SLEEP] == "sleep"
+
+
+async def test_options_flow_climate_entity_selector_surface(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Climate feature step should render an entity selector for climate entity."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    climate_entity = er.async_get_or_create(
+        suggested_object_id="selector_surface_climate",
+        unique_id="selector_surface_climate",
+        domain=CLIMATE_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+        capabilities={ATTR_PRESET_MODES: ["home"]},
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.CLIMATE_CONTROL,
+        "feature_conf_climate_control",
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    selectors = _schema_selectors(result)
+    assert CONF_CLIMATE_CONTROL_ENTITY_ID in selectors
+    selector = selectors[CONF_CLIMATE_CONTROL_ENTITY_ID]
+    assert selector.config["multiple"] is False
+    include_entities = selector.config.get("include_entities", [])
+    assert isinstance(include_entities, list)
+    assert climate_entity.entity_id in include_entities
+
+
 async def test_options_flow_fan_groups(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -283,6 +578,45 @@ async def test_options_flow_fan_groups_accepts_integer_setpoint(
     )
 
 
+async def test_options_flow_fan_groups_reopen_preserves_saved_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Fan settings should reopen with saved values as suggested values."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.SLEEP,
+            CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
+            CONF_FAN_GROUPS_SETPOINT: 55,
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups",
+    )
+    assert result["type"] == FlowResultType.FORM
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_FAN_GROUPS_REQUIRED_STATE] == AreaStates.SLEEP.value
+    assert suggested_values[CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS] == (
+        SensorDeviceClass.HUMIDITY
+    )
+    assert suggested_values[CONF_FAN_GROUPS_SETPOINT] == 55.0
+
+
 async def test_options_flow_fan_groups_uses_constrained_selectors(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -317,6 +651,45 @@ async def test_options_flow_fan_groups_uses_constrained_selectors(
     assert setpoint_selector.config["min"] == 0
     assert setpoint_selector.config["max"] == 120000
     assert setpoint_selector.config["step"] == 0.1
+
+
+async def test_options_flow_area_aware_media_player_uses_entity_selector(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Area-aware media settings should select from media players only."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    media_player_entity = er.async_get_or_create(
+        suggested_object_id="selector_media_player",
+        unique_id="selector_media_player",
+        domain=MEDIA_PLAYER_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    sensor_entity = er.async_get_or_create(
+        suggested_object_id="selector_sensor",
+        unique_id="selector_sensor",
+        domain=SENSOR_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+        "feature_conf_area_aware_media_player",
+    )
+    selectors = _schema_selectors(result)
+    notification_selector = selectors[CONF_NOTIFICATION_DEVICES]
+    include_entities = cast(
+        list[str], notification_selector.config["include_entities"]
+    )
+
+    assert notification_selector.config["multiple"] is True
+    assert media_player_entity.entity_id in include_entities
+    assert sensor_entity.entity_id not in include_entities
 
 
 async def test_options_flow_area_aware_media_player(
@@ -355,6 +728,63 @@ async def test_options_flow_area_aware_media_player(
         "notification_devices": ["media_player.test_media_player"],
         "notification_states": ["extended"],
     }
+
+
+async def test_options_flow_area_aware_media_player_states_selector_and_reopen(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Notification states should use translated area-state choices and persist."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    media_player_entity = er.async_get_or_create(
+        suggested_object_id="reopen_media_player",
+        unique_id="reopen_media_player",
+        domain=MEDIA_PLAYER_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+        "feature_conf_area_aware_media_player",
+    )
+    selectors = _schema_selectors(result)
+    states_selector = selectors[CONF_NOTIFY_STATES]
+    assert states_selector.config["multiple"] is True
+    assert states_selector.config["translation_key"] == "area_states"
+    state_options = cast(list[str], states_selector.config["options"])
+    assert AreaStates.OCCUPIED.value in state_options
+    assert AreaStates.SLEEP.value in state_options
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NOTIFICATION_DEVICES: [media_player_entity.entity_id],
+            CONF_NOTIFY_STATES: [AreaStates.OCCUPIED.value, AreaStates.SLEEP.value],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+        "feature_conf_area_aware_media_player",
+    )
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_NOTIFICATION_DEVICES] == [
+        media_player_entity.entity_id
+    ]
+    assert suggested_values[CONF_NOTIFY_STATES] == [
+        AreaStates.OCCUPIED.value,
+        AreaStates.SLEEP.value,
+    ]
 
 
 async def test_options_flow_aggregates(
@@ -416,6 +846,40 @@ async def test_options_flow_aggregates_illuminance_threshold_allows_daylight_lux
     assert threshold_selector.config["max"] == 120000
 
 
+async def test_options_flow_aggregates_reopen_preserves_saved_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Aggregate settings should reopen with saved thresholds and classes."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AGGREGATES,
+        "feature_conf_aggregates",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_AGGREGATES_MIN_ENTITIES: 2,
+            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: 1500,
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.AGGREGATES,
+        "feature_conf_aggregates",
+    )
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_AGGREGATES_MIN_ENTITIES] == 2
+    assert suggested_values[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD] == 1500.0
+
+
 async def test_options_flow_presence_hold(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -440,6 +904,55 @@ async def test_options_flow_presence_hold(
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.PRESENCE_HOLD
     ] == {"presence_hold_timeout": 10}
+
+
+async def test_options_flow_presence_hold_uses_seconds_selector(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Presence hold timeout should render as a bounded seconds input."""
+    result = await _open_feature_config_step(
+        hass,
+        init_integration,
+        MagicAreasFeatures.PRESENCE_HOLD,
+        "feature_conf_presence_hold",
+    )
+    selectors = _schema_selectors(result)
+    timeout_selector = selectors[CONF_PRESENCE_HOLD_TIMEOUT]
+
+    assert timeout_selector.config["mode"] == "box"
+    assert timeout_selector.config["min"] == 0
+    assert timeout_selector.config["max"] == 86400
+    assert timeout_selector.config["unit_of_measurement"] == "seconds"
+
+
+async def test_options_flow_presence_hold_reopen_preserves_timeout(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Presence hold timeout should reopen with the saved timeout value."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.PRESENCE_HOLD,
+        "feature_conf_presence_hold",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_PRESENCE_HOLD_TIMEOUT: 42},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.PRESENCE_HOLD,
+        "feature_conf_presence_hold",
+    )
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_PRESENCE_HOLD_TIMEOUT] == 42
 
 
 async def test_options_flow_ble_trackers(
@@ -477,6 +990,43 @@ async def test_options_flow_ble_trackers(
     ] == {"ble_tracker_entities": ["sensor.test_sensor"]}
 
 
+async def test_options_flow_ble_trackers_uses_sensor_selector(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """BLE tracker config should offer sensor entities, not arbitrary entities."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    sensor_entity = er.async_get_or_create(
+        suggested_object_id="ble_selector_sensor",
+        unique_id="ble_selector_sensor",
+        domain=SENSOR_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    media_player_entity = er.async_get_or_create(
+        suggested_object_id="ble_selector_media_player",
+        unique_id="ble_selector_media_player",
+        domain=MEDIA_PLAYER_DOMAIN,
+        platform="test",
+        config_entry=config_entry,
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.BLE_TRACKER,
+        "feature_conf_ble_trackers",
+    )
+    selectors = _schema_selectors(result)
+    tracker_selector = selectors[CONF_BLE_TRACKER_ENTITIES]
+    include_entities = cast(list[str], tracker_selector.config["include_entities"])
+
+    assert tracker_selector.config["multiple"] is True
+    assert sensor_entity.entity_id in include_entities
+    assert media_player_entity.entity_id not in include_entities
+
+
 async def test_options_flow_wasp_in_a_box(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -510,6 +1060,71 @@ async def test_options_flow_wasp_in_a_box(
     }
 
 
+async def test_options_flow_wasp_in_a_box_uses_number_and_class_selectors(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Wasp settings should use numeric selectors and multi-select device classes."""
+    result = await _open_feature_config_step(
+        hass,
+        init_integration,
+        MagicAreasFeatures.WASP_IN_A_BOX,
+        "feature_conf_wasp_in_a_box",
+    )
+    selectors = _schema_selectors(result)
+    delay_selector = selectors[CONF_WASP_IN_A_BOX_DELAY]
+    timeout_selector = selectors[CONF_WASP_IN_A_BOX_WASP_TIMEOUT]
+    class_selector = selectors[CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES]
+
+    assert delay_selector.config["mode"] == "box"
+    assert delay_selector.config["min"] == 0
+    assert delay_selector.config["max"] == 86400
+    assert delay_selector.config["unit_of_measurement"] == "seconds"
+    assert timeout_selector.config["mode"] == "box"
+    assert timeout_selector.config["min"] == 0
+    assert timeout_selector.config["max"] == 1440
+    assert timeout_selector.config["unit_of_measurement"] == "minutes"
+    assert class_selector.config["multiple"] is True
+
+
+async def test_options_flow_wasp_in_a_box_reopen_preserves_values(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Wasp settings should reopen with saved delay, timeout, and device classes."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.WASP_IN_A_BOX,
+        "feature_conf_wasp_in_a_box",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_WASP_IN_A_BOX_DELAY: 30,
+            CONF_WASP_IN_A_BOX_WASP_TIMEOUT: 12,
+            CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES: ["motion", "presence"],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.WASP_IN_A_BOX,
+        "feature_conf_wasp_in_a_box",
+    )
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_WASP_IN_A_BOX_DELAY] == 30
+    assert suggested_values[CONF_WASP_IN_A_BOX_WASP_TIMEOUT] == 12
+    assert suggested_values[CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES] == [
+        "motion",
+        "presence",
+    ]
+
+
 async def test_options_flow_health(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -536,6 +1151,46 @@ async def test_options_flow_health(
     }
 
 
+async def test_options_flow_health_selector_and_reopen_preserves_classes(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Health device classes should use multi-select and persist."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.HEALTH,
+        "feature_conf_health",
+    )
+    selectors = _schema_selectors(result)
+    class_selector = selectors[CONF_HEALTH_SENSOR_DEVICE_CLASSES]
+    assert class_selector.config["multiple"] is True
+    class_options = cast(list[str], class_selector.config["options"])
+    assert BinarySensorDeviceClass.PROBLEM in class_options
+    assert BinarySensorDeviceClass.SMOKE in class_options
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["problem", "smoke"]},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.HEALTH,
+        "feature_conf_health",
+    )
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_HEALTH_SENSOR_DEVICE_CLASSES] == [
+        "problem",
+        "smoke",
+    ]
+
+
 async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -559,18 +1214,51 @@ async def test_options_flow_light_groups_advisory_shows_binary_fields_only(
         result["flow_id"],
         user_input={"brightness_mode": "advisory"},
     )
-    assert result["type"] == FlowResultType.MENU
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
-    )
     assert result["type"] == FlowResultType.FORM
     schema = _data_schema(result)
     keys = {getattr(marker, "schema", marker) for marker in schema.schema}
     assert CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY in keys
     assert CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY in keys
-    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in keys
+
+
+async def test_options_flow_light_groups_inside_bright_defaults_to_threshold_sensor(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Inside bright entity should default to MA threshold binary helper when present."""
+    config_entry = init_integration
+    entity_registry = async_get_er(hass)
+    threshold_unique_id = build_threshold_light_sensor_unique_id(
+        area_id=str(config_entry.unique_id),
+    )
+    threshold_entry = entity_registry.async_get_or_create(
+        BINARY_SENSOR_DOMAIN,
+        DOMAIN,
+        threshold_unique_id,
+        suggested_object_id="magic_areas_threshold_test_threshold_light",
+    )
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_brightness",
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "feature_conf_light_groups_brightness"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"brightness_mode": "advisory"},
+    )
+    assert result["type"] == FlowResultType.FORM
+    schema = _data_schema(result)
+    marker = next(
+        marker
+        for marker in schema.schema
+        if getattr(marker, "schema", marker) == CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY
+    )
+    assert marker.default() == threshold_entry.entity_id
 
 
 async def test_options_flow_light_groups_uses_translated_selectors(
@@ -642,23 +1330,11 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
 ) -> None:
     """Adaptive mode should expose advisory and adaptive-only controls."""
     config_entry = init_integration
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
 
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"brightness_mode": "adaptive"},
-    )
-    assert result["type"] == FlowResultType.MENU
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
+    result = await _select_light_groups_brightness_mode(
+        hass, result, "adaptive"
     )
     assert result["type"] == FlowResultType.FORM
 
@@ -675,15 +1351,11 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
 ) -> None:
     """Reopening after a mode change should render only fields for the saved mode."""
     config_entry = init_integration
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
+    result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={"brightness_mode": "adaptive"},
+        user_input={CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY: ""},
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
@@ -693,22 +1365,24 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
-    adaptive_keys = {
-        getattr(marker, "schema", marker) for marker in _data_schema(result).schema
-    }
+    result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
+    adaptive_keys = {getattr(marker, "schema", marker) for marker in _data_schema(result).schema}
     assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS in adaptive_keys
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in adaptive_keys
 
     result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={}
+    )
+    assert result["type"] == FlowResultType.MENU
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups_brightness"}
+    )
+    result = await _select_light_groups_brightness_mode(hass, result, "advisory")
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={"brightness_mode": "advisory"},
+        user_input={CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY: ""},
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
@@ -717,14 +1391,15 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
         result["flow_id"], user_input={"next_step_id": "finish"}
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
+    feature_options = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ]
+    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in feature_options
+    assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY not in feature_options
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
+    result = await _select_light_groups_brightness_mode(hass, result, "advisory")
     advisory_keys = {
         getattr(marker, "schema", marker) for marker in _data_schema(result).schema
     }
@@ -756,22 +1431,8 @@ async def test_options_flow_light_groups_adaptive_selectors_are_lux_safe(
     )
     await hass.async_block_till_done()
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"brightness_mode": "adaptive"},
-    )
-    assert result["type"] == FlowResultType.MENU
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
+    result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
     assert result["type"] == FlowResultType.FORM
     selectors = _schema_selectors(result)
 
@@ -803,23 +1464,8 @@ async def test_options_flow_light_groups_adaptive_lux_accepts_bright_outdoor_val
 ) -> None:
     """Adaptive outside-lux threshold should allow realistic daylight values."""
     config_entry = init_integration
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"brightness_mode": "adaptive"},
-    )
-    assert result["type"] == FlowResultType.MENU
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
+    result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
 
     assert result["type"] == FlowResultType.FORM
     schema = _data_schema(result)
@@ -950,6 +1596,10 @@ async def test_options_flow_light_groups_brightness_preserves_hidden_roles(
         user_input={"brightness_mode": "advisory"},
     )
     result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY: ""},
+    )
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await hass.config_entries.options.async_configure(
@@ -988,11 +1638,8 @@ async def test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak(
     hass.config_entries.async_update_entry(config_entry, options=new_options)
     await hass.async_block_till_done()
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_adaptive_lighting",
+    result = await _open_existing_light_groups_adaptive_lighting_step(
+        hass, config_entry
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -1048,11 +1695,8 @@ async def test_options_flow_dynamic_pairings_do_not_mutate_light_group_schema(
     }
     assert pair_key not in before_keys
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_adaptive_lighting",
+    result = await _open_existing_light_groups_adaptive_lighting_step(
+        hass, config_entry
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -1094,11 +1738,8 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
     hass.config_entries.async_update_entry(config_entry, options=new_options)
     await hass.async_block_till_done()
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_adaptive_lighting",
+    result = await _open_existing_light_groups_adaptive_lighting_step(
+        hass, config_entry
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -1142,8 +1783,10 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
     """Manage mode should expose role selection and persist selected roles."""
     config_entry = init_integration
     new_options = config_entry.options.copy()
-    new_options.setdefault(CONF_ENABLED_FEATURES, {})
-    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+    new_options[CONF_ENABLED_FEATURES] = dict(
+        new_options.get(CONF_ENABLED_FEATURES, {})
+    )
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS.value] = {
         "overhead_lights": ["light.test_light"],
         "brightness_mode": "inhibit",
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
@@ -1153,11 +1796,8 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
     hass.config_entries.async_update_entry(config_entry, options=new_options)
     await hass.async_block_till_done()
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_adaptive_lighting",
+    result = await _open_existing_light_groups_adaptive_lighting_step(
+        hass, config_entry
     )
 
     assert result["type"] == FlowResultType.FORM
@@ -1187,14 +1827,105 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
     ] == [CONF_OVERHEAD_LIGHTS]
 
 
+async def test_options_flow_light_groups_manage_immediately_reveals_targets(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Selecting manage mode should stay on the step and reveal target fields."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_roles",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_OVERHEAD_LIGHTS: ["light.test_light"],
+            CONF_SLEEP_LIGHTS: ["light.sleep_light"],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_adaptive_lighting"},
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+            ),
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "feature_conf_light_groups_adaptive_lighting"
+    schema = _data_schema(result)
+    keys = {getattr(marker, "schema", marker) for marker in schema.schema}
+    assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL in keys
+    assert CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES in keys
+    role_marker = next(
+        marker
+        for marker in schema.schema
+        if getattr(marker, "schema", marker)
+        == CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
+    )
+    assert role_marker.default() == [CONF_OVERHEAD_LIGHTS, CONF_SLEEP_LIGHTS]
+
+
+async def test_options_flow_light_groups_manage_defaults_to_configured_roles(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Manage mode should default to configured role groups instead of no-op."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.LIGHT_GROUPS,
+        "feature_conf_light_groups_roles",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_OVERHEAD_LIGHTS: ["light.test_light"],
+            CONF_SLEEP_LIGHTS: ["light.sleep_light"],
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_adaptive_lighting"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+            ),
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    role_marker = next(
+        marker
+        for marker in _data_schema(result).schema
+        if getattr(marker, "schema", marker)
+        == CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
+    )
+    assert role_marker.default() == [CONF_OVERHEAD_LIGHTS, CONF_SLEEP_LIGHTS]
+
+
 async def test_options_flow_light_groups_manage_all_lights_uses_separate_gate(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
     """Manage mode should expose all-lights as a boolean, not a role option."""
     config_entry = init_integration
     new_options = config_entry.options.copy()
-    new_options.setdefault(CONF_ENABLED_FEATURES, {})
-    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] = {
+    new_options[CONF_ENABLED_FEATURES] = dict(
+        new_options.get(CONF_ENABLED_FEATURES, {})
+    )
+    new_options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS.value] = {
         "overhead_lights": ["light.test_light"],
         "brightness_mode": "inhibit",
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
@@ -1278,19 +2009,9 @@ async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets
     hass.config_entries.async_update_entry(config_entry, options=new_options)
     await hass.async_block_till_done()
 
-    result = await _open_feature_config_step(
-        hass,
-        config_entry,
-        MagicAreasFeatures.LIGHT_GROUPS,
-        "feature_conf_light_groups_brightness",
-    )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"brightness_mode": "inhibit"},
-    )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "show_menu"}
-    )
+    result = await _open_light_groups_brightness_mode_step(hass, config_entry)
+    result = await _select_light_groups_brightness_mode(hass, result, "inhibit")
+    assert result["type"] == FlowResultType.MENU
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "finish"}
     )
@@ -1374,6 +2095,39 @@ async def test_options_flow_add_feature(
     assert (
         MagicAreasFeatures.COVER_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
     )
+
+
+@pytest.mark.parametrize(
+    "feature",
+    [
+        MagicAreasFeatures.COVER_GROUPS,
+        MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
+    ],
+)
+async def test_options_flow_helper_only_features_enable_without_config_menu(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    feature: MagicAreasFeatures,
+) -> None:
+    """Native helper-only features should enable without dead config menu entries."""
+    config_entry = init_integration
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "select_features"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={feature: True},
+    )
+
+    assert result["type"] == FlowResultType.MENU
+    assert f"feature_conf_{feature.value}" not in result["menu_options"]
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "finish"}
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert feature in config_entry.options[CONF_ENABLED_FEATURES]
 
 
 async def test_options_flow_with_light_binary_sensor(
