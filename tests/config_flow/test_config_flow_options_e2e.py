@@ -28,6 +28,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
     CONF_RELOAD_ON_REGISTRY_CHANGE,
+    CONF_SECONDARY_STATES,
     CONF_SECONDARY_STATES_CALCULATION_MODE,
     CONF_SLEEP_ENTITY,
     CONF_SLEEP_TIMEOUT,
@@ -148,6 +149,119 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
         "task_lights_states": [],
         "task_lights_act_on": ["occupancy", "state"],
     }
+
+
+async def test_options_flow_root_sections_are_menu_first_with_back(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Root-level categories should expose Settings + Back before leaf forms."""
+    root_sections = {
+        "area_config": "area_config_settings",
+        "presence_tracking": "presence_tracking_settings",
+        "secondary_states": "secondary_states_settings",
+        "custom_control_groups": "custom_control_groups_settings",
+    }
+
+    for section_step, settings_step in root_sections.items():
+        result = await start_options_flow(hass, init_integration)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": section_step}
+        )
+        assert result["type"] == FlowResultType.MENU
+        assert result["step_id"] == section_step
+        assert set(cast(list[str], result["menu_options"])) == {
+            settings_step,
+            "show_menu",
+        }
+
+        back_result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": "show_menu"}
+        )
+        assert back_result["type"] == FlowResultType.MENU
+        assert back_result["step_id"] == "show_menu"
+
+        result = await start_options_flow(hass, init_integration)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": section_step}
+        )
+        form_result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": settings_step}
+        )
+        assert form_result["type"] == FlowResultType.FORM
+        assert form_result["step_id"] == settings_step
+
+
+async def test_options_flow_root_leaf_submits_return_to_parent_section_menu(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Root-level leaf forms should return to their section menu after submit."""
+    submit_cases: list[tuple[str, str, dict[str, object]]] = [
+        ("area_config", "area_config_settings", {CONF_TYPE: AreaType.EXTERIOR}),
+        (
+            "presence_tracking",
+            "presence_tracking_settings",
+            {CONF_CLEAR_TIMEOUT: 2},
+        ),
+        (
+            "secondary_states",
+            "secondary_states_settings",
+            {CONF_SLEEP_TIMEOUT: 3},
+        ),
+        (
+            "custom_control_groups",
+            "custom_control_groups_settings",
+            {CONF_CUSTOM_CONTROL_GROUPS: []},
+        ),
+    ]
+
+    result = await start_options_flow(hass, init_integration)
+    for section_step, settings_step, user_input in submit_cases:
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": section_step}
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": settings_step}
+        )
+        result = await submit_step(hass, result, user_input)
+
+        assert result["type"] == FlowResultType.MENU
+        assert result["step_id"] == section_step
+        assert "show_menu" in cast(list[str], result["menu_options"])
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": "show_menu"}
+        )
+
+
+async def test_options_flow_staged_edits_survive_back_navigation_until_save(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+) -> None:
+    """Back navigation should not discard staged values before Save & Exit."""
+    config_entry = init_integration
+
+    result = await start_options_flow(hass, config_entry)
+    result = await go_to_step(hass, result, "area_config")
+    result = await submit_step(hass, result, {CONF_TYPE: AreaType.EXTERIOR})
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "presence_tracking")
+    result = await submit_step(hass, result, {CONF_CLEAR_TIMEOUT: 9})
+    assert result["type"] == FlowResultType.MENU
+
+    result = await go_to_step(hass, result, "secondary_states")
+    result = await submit_step(hass, result, {CONF_SLEEP_TIMEOUT: 4})
+    assert result["type"] == FlowResultType.MENU
+
+    assert config_entry.options.get(CONF_TYPE) != AreaType.EXTERIOR
+    result = await go_to_step(hass, result, "finish")
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_TYPE] == AreaType.EXTERIOR
+    assert config_entry.options[CONF_CLEAR_TIMEOUT] == 9
+    assert config_entry.options[CONF_SECONDARY_STATES][CONF_SLEEP_TIMEOUT] == 4
 
 
 async def test_options_flow_area_config_uses_task_fit_selectors(
@@ -592,7 +706,7 @@ async def test_options_flow_custom_control_groups_rejects_invalid_payload(
         },
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "custom_control_groups"
+    assert result["step_id"] == "custom_control_groups_settings"
     assert result["errors"]
 
 

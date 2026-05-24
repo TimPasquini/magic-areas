@@ -4,6 +4,7 @@ Handles basic area settings, presence tracking configuration, and secondary stat
 """
 
 from collections.abc import Mapping
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Protocol
 
 import voluptuous as vol
@@ -146,9 +147,14 @@ def _field_selector(selector_obj: _SerializableSelector) -> dict[str, object]:
 
 
 async def handle_area_config(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
+    flow: "OptionsFlowHandler",
+    user_input: Mapping[str, object] | None = None,
+    *,
+    step_id: str = "area_config",
+    on_success: Callable[[], Awaitable[config_entries.ConfigFlowResult]] | None = None,
 ) -> config_entries.ConfigFlowResult:
     """Handle area configuration step."""
+    success_step = on_success or flow.async_step_show_menu
     options_schema = (
         META_AREA_BASIC_OPTIONS_SCHEMA
         if (flow._area_config and flow._area_config.is_meta())
@@ -161,11 +167,11 @@ async def handle_area_config(
         area_name=flow._area_config.name if flow._area_config else "Unknown",
         step_name="area_config",
         area_options=flow.area_options,
-        on_success=flow.async_step_show_menu,
+        on_success=success_step,
     )
 
     if validated:
-        return await flow.async_step_show_menu()
+        return await success_step()
 
     all_selectors: SelectorMap = {
         CONF_TYPE: build_selector_select(
@@ -189,16 +195,21 @@ async def handle_area_config(
     )
 
     return flow.async_show_form(
-        step_id="area_config",
+        step_id=step_id,
         data_schema=data_schema,
         errors=errors,
     )
 
 
 async def handle_presence_tracking(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
+    flow: "OptionsFlowHandler",
+    user_input: Mapping[str, object] | None = None,
+    *,
+    step_id: str = "presence_tracking",
+    on_success: Callable[[], Awaitable[config_entries.ConfigFlowResult]] | None = None,
 ) -> config_entries.ConfigFlowResult:
     """Handle presence tracking configuration step."""
+    success_step = on_success or flow.async_step_show_menu
     options_schema = (
         META_AREA_PRESENCE_TRACKING_OPTIONS_SCHEMA
         if (flow._area_config and flow._area_config.is_meta())
@@ -211,11 +222,11 @@ async def handle_presence_tracking(
         area_name=flow._area_config.name if flow._area_config else "Unknown",
         step_name="presence_tracking",
         area_options=flow.area_options,
-        on_success=flow.async_step_show_menu,
+        on_success=success_step,
     )
 
     if validated:
-        return await flow.async_step_show_menu()
+        return await success_step()
 
     all_selectors: SelectorMap = {
         CONF_PRESENCE_DEVICE_PLATFORMS: build_selector_select(
@@ -242,16 +253,21 @@ async def handle_presence_tracking(
     )
 
     return flow.async_show_form(
-        step_id="presence_tracking",
+        step_id=step_id,
         data_schema=data_schema,
         errors=errors,
     )
 
 
 async def handle_secondary_states(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
+    flow: "OptionsFlowHandler",
+    user_input: Mapping[str, object] | None = None,
+    *,
+    step_id: str = "secondary_states",
+    on_success: Callable[[], Awaitable[config_entries.ConfigFlowResult]] | None = None,
 ) -> config_entries.ConfigFlowResult:
     """Handle secondary states configuration step."""
+    success_step = on_success or flow.async_step_show_menu
     area_state_schema = (
         META_AREA_SECONDARY_STATES_SCHEMA
         if (flow._area_config and flow._area_config.is_meta())
@@ -265,11 +281,11 @@ async def handle_secondary_states(
         step_name="secondary_states",
         area_options=flow.area_options,
         config_key=CONF_SECONDARY_STATES,
-        on_success=flow.async_step_show_menu,
+        on_success=success_step,
     )
 
     if validated:
-        return await flow.async_step_show_menu()
+        return await success_step()
 
     dynamic_validators: DynamicValidatorMap = {
         CONF_DARK_ENTITY: vol.In(
@@ -306,7 +322,7 @@ async def handle_secondary_states(
     saved_secondary_states = flow.area_options.get(CONF_SECONDARY_STATES)
 
     return flow.async_show_form(
-        step_id="secondary_states",
+        step_id=step_id,
         data_schema=flow._build_schema_from_vol(
             area_state_schema,
             saved_options=(
@@ -322,9 +338,14 @@ async def handle_secondary_states(
 
 
 async def handle_custom_control_groups(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
+    flow: "OptionsFlowHandler",
+    user_input: Mapping[str, object] | None = None,
+    *,
+    step_id: str = "custom_control_groups",
+    on_success: Callable[[], Awaitable[config_entries.ConfigFlowResult]] | None = None,
 ) -> config_entries.ConfigFlowResult:
     """Handle custom control-group configuration step."""
+    success_step = on_success or flow.async_step_show_menu
     if CONF_CUSTOM_CONTROL_GROUPS in flow.area_options:
         default_groups = flow.area_options[CONF_CUSTOM_CONTROL_GROUPS]
     else:
@@ -345,14 +366,14 @@ async def handle_custom_control_groups(
         area_name=flow._area_config.name if flow._area_config else "Unknown",
         step_name="custom_control_groups",
         area_options=flow.area_options,
-        on_success=flow.async_step_show_menu,
+        on_success=success_step,
     )
 
     if validated:
-        return await flow.async_step_show_menu()
+        return await success_step()
 
     return flow.async_show_form(
-        step_id="custom_control_groups",
+        step_id=step_id,
         data_schema=flow._build_schema_from_vol(
             schema,
             saved_options=flow.area_options,

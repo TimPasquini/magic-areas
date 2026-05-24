@@ -419,6 +419,14 @@
         }
       },
       "secondary_states": {
+        "title": "Area states",
+        "description": "Configure area-level secondary state behavior.",
+        "menu_options": {
+          "secondary_states_settings": "Area state settings",
+          "show_menu": "Back"
+        }
+      },
+      "secondary_states_settings": {
         "title": "Advanced area state tracking",
         "description": "You can enable [secondary states](https://github.com/jseidl/hass-magic_areas/wiki/Area-State) for a Magic Area by assigning an entity to it. Secondary states are used by features for turning lights on only when it's dark or only turning on climate devices after an `extended` period of time or not sending notifications to an area if it's on `sleep`.",
         "data": {
@@ -441,6 +449,14 @@
         }
       },
       "area_config": {
+        "title": "Area behavior",
+        "description": "Configure basic area behavior and entity membership rules.",
+        "menu_options": {
+          "area_config_settings": "Area behavior settings",
+          "show_menu": "Back"
+        }
+      },
+      "area_config_settings": {
         "title": "Basic area options",
         "description": "Configure basic options for the area. Area type is used for the Interior/Exterior/Global [Meta-areas](https://github.com/jseidl/hass-magic_areas/wiki/Meta-Areas) and you can fine-tune which entities are analyzed by Magic Areas by using the include/exclude entities options.",
         "data": {
@@ -459,6 +475,14 @@
         }
       },
       "presence_tracking": {
+        "title": "Presence tracking",
+        "description": "Configure how this area detects and clears presence.",
+        "menu_options": {
+          "presence_tracking_settings": "Presence tracking settings",
+          "show_menu": "Back"
+        }
+      },
+      "presence_tracking_settings": {
         "title": "Presence Tracking",
         "description": "Configure which platforms and binary sensor device classes are used for [presence tracking](https://github.com/jseidl/hass-magic_areas/wiki/Presence-Sensing). This section also allows you to configure how long Magic Area will wait until clearing the area after the last presence event.",
         "data": {
@@ -475,6 +499,14 @@
         }
       },
       "custom_control_groups": {
+        "title": "Custom control groups",
+        "description": "Configure advanced custom control groups for this area.",
+        "menu_options": {
+          "custom_control_groups_settings": "Custom control group settings",
+          "show_menu": "Back"
+        }
+      },
+      "custom_control_groups_settings": {
         "title": "Custom control groups",
         "description": "Define additional Magic Areas control groups for this area. These are advanced role-style groups: choose members, the area states that should trigger the group, and the control policy that should act on it.",
         "data": {

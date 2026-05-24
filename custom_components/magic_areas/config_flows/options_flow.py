@@ -46,6 +46,25 @@ _ROOT_FEATURE_MENU_ORDER = (
     MagicAreasFeatures.WASP_IN_A_BOX.value,
 )
 
+_ROOT_SECTION_SETTINGS = {
+    "area_config": "area_config_settings",
+    "presence_tracking": "presence_tracking_settings",
+    "secondary_states": "secondary_states_settings",
+    "custom_control_groups": "custom_control_groups_settings",
+}
+
+
+def _show_root_section_menu(
+    flow: config_entries.OptionsFlow,
+    *,
+    step_id: str,
+) -> config_entries.ConfigFlowResult:
+    """Show a root-level section menu with settings and Back."""
+    return flow.async_show_menu(
+        step_id=step_id,
+        menu_options=[_ROOT_SECTION_SETTINGS[step_id], "show_menu"],
+    )
+
 
 def _coordinator_data_from_entry(
     config_entry: MagicAreasConfigEntry,
@@ -214,25 +233,73 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather basic settings for the area."""
-        return await handle_area_config(self, user_input)
+        del user_input
+        return _show_root_section_menu(self, step_id="area_config")
+
+    async def async_step_area_config_settings(
+        self, user_input: Mapping[str, object] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Gather basic settings for the area."""
+        return await handle_area_config(
+            self,
+            user_input,
+            step_id="area_config_settings",
+            on_success=self.async_step_area_config,
+        )
 
     async def async_step_presence_tracking(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather presence tracking settings for the area."""
-        return await handle_presence_tracking(self, user_input)
+        del user_input
+        return _show_root_section_menu(self, step_id="presence_tracking")
+
+    async def async_step_presence_tracking_settings(
+        self, user_input: Mapping[str, object] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Gather presence tracking settings for the area."""
+        return await handle_presence_tracking(
+            self,
+            user_input,
+            step_id="presence_tracking_settings",
+            on_success=self.async_step_presence_tracking,
+        )
 
     async def async_step_secondary_states(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather secondary states settings for the area."""
-        return await handle_secondary_states(self, user_input)
+        del user_input
+        return _show_root_section_menu(self, step_id="secondary_states")
+
+    async def async_step_secondary_states_settings(
+        self, user_input: Mapping[str, object] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Gather secondary states settings for the area."""
+        return await handle_secondary_states(
+            self,
+            user_input,
+            step_id="secondary_states_settings",
+            on_success=self.async_step_secondary_states,
+        )
 
     async def async_step_custom_control_groups(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Configure custom control groups for this area."""
-        return await handle_custom_control_groups(self, user_input)
+        del user_input
+        return _show_root_section_menu(self, step_id="custom_control_groups")
+
+    async def async_step_custom_control_groups_settings(
+        self, user_input: Mapping[str, object] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Configure custom control groups for this area."""
+        return await handle_custom_control_groups(
+            self,
+            user_input,
+            step_id="custom_control_groups_settings",
+            on_success=self.async_step_custom_control_groups,
+        )
 
     async def async_step_select_features(
         self, user_input: Mapping[str, object] | None = None

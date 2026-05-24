@@ -57,7 +57,7 @@ def test_options_flow_root_menu_explains_save_behavior() -> None:
 
 def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> None:
     """The area-level bright/dark source should not imply it is the only light signal."""
-    secondary_states = _options_step("secondary_states")
+    secondary_states = _options_step("secondary_states_settings")
     data_description = secondary_states["data_description"]
 
     assert isinstance(data_description, dict)
@@ -166,9 +166,25 @@ def test_feature_section_submenus_expose_settings_and_back() -> None:
         assert set(menu_options) == expected_options
 
 
+def test_root_section_submenus_expose_settings_and_back() -> None:
+    """Root options sections should expose settings + back in menu-first UX."""
+    expected = {
+        "area_config": {"area_config_settings", "show_menu"},
+        "presence_tracking": {"presence_tracking_settings", "show_menu"},
+        "secondary_states": {"secondary_states_settings", "show_menu"},
+        "custom_control_groups": {"custom_control_groups_settings", "show_menu"},
+    }
+
+    for step_id, expected_options in expected.items():
+        step = _options_step(step_id)
+        menu_options = step.get("menu_options")
+        assert isinstance(menu_options, dict)
+        assert set(menu_options) == expected_options
+
+
 def test_custom_control_groups_step_has_guidance() -> None:
     """The advanced custom-control editor should not render as a blank form."""
-    step = _options_step("custom_control_groups")
+    step = _options_step("custom_control_groups_settings")
 
     assert step["title"] == "Custom control groups"
     description = step["description"]

@@ -2241,6 +2241,9 @@ async def test_options_flow_with_light_binary_sensor(
         result["flow_id"], user_input={"next_step_id": "secondary_states"}
     )
     result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "secondary_states_settings"}
+    )
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={CONF_DARK_ENTITY: "binary_sensor.test_light_sensor"},
     )

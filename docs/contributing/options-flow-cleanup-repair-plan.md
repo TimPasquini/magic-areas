@@ -92,22 +92,22 @@ Implemented feature-section behavior:
 
 ## Remaining Work
 
-Feature-section backwards navigation is implemented and test-enforced. The remaining
-navigation decision is root-level behavior:
+Feature-section and root-section backwards navigation are implemented and test-enforced.
+Root-level settings now use the same menu-first pattern as feature sections:
 
-- Root-level settings:
-  - Area behavior, Presence tracking, Area states, and Custom control groups currently
-    behave as root-level leaf forms. Decide whether to keep that direct root-return
-    behavior or wrap each in a section menu for consistency.
-  - If wrapped, each section should have Settings and Back menu options.
-  - If not wrapped, tests should explicitly document that root is the intended parent.
+- Area behavior opens a section menu with Settings and Back.
+- Presence tracking opens a section menu with Settings and Back.
+- Area states opens a section menu with Settings and Back.
+- Custom control groups opens a section menu with Settings and Back.
+- Submitting one of those settings forms returns to its parent section menu, not directly
+  to root.
 
 Tests still needed:
 
-- Root-level leaf forms have explicit tests for their intended parent behavior, whether
-  direct root-return or wrapped section menus.
-- Staged edits across multiple sections remain present until `Save & Exit`; navigating
-  Back between menus must not persist early or discard staged values.
+- Manual frontend validation should confirm the extra Settings screen feels acceptable in
+  HA for common edits.
+- Any newly added root-level option category should follow the same menu-first contract
+  unless explicitly documented otherwise.
 
 ## Implemented Checkpoint
 
@@ -206,6 +206,10 @@ Tests still needed:
 - Climate control preserves its required two-step path: entity selection advances to
   preset mapping, and preset mapping submit returns to the Climate automation section
   menu.
+- Root-level option categories now use section menus. Tests cover Settings + Back for
+  Area behavior, Presence tracking, Area states, and Custom control groups.
+- Root-level settings forms now return to their parent section menu after submit. Tests
+  also verify staged edits across several root sections remain staged until `Save & Exit`.
 - The current automated checkpoint is full Ruff, full mypy, `tests/config_flow`, the
   user-exposed surface integration contract, and full pytest passing.
 
