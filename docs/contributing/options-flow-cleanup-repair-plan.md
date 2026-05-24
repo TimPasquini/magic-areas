@@ -59,6 +59,56 @@ set intentional and test-enforced.
 
 ## Target Improvements
 
+## Navigation Contract
+
+The selector/menu cleanup checkpoint now uses a consistent parent/child navigation
+contract for feature sections. Root still owns final persistence through `Save & Exit`;
+feature section menus own local Back navigation; and feature leaf forms submit back to
+their local section menu instead of dumping the user back at the root menu.
+
+The intended navigation contract is:
+
+- Root menu owns final persistence through `Save & Exit`.
+- Section menus own Back navigation to their parent menu.
+- Leaf forms submit back to their local section menu, not directly to root, when a local
+  section menu exists.
+- Root-level leaf forms either need a lightweight section wrapper or an explicit decision
+  that returning directly to root is their intended parent behavior.
+- The frontend close/X behavior remains HA-owned and should be treated as abandon/cancel;
+  Magic Areas should make the safe navigation path obvious enough that users do not need
+  to rely on close/X for normal movement.
+
+Implemented feature-section behavior:
+
+- Light groups:
+  - Submitting Light roles should return to the Light groups submenu.
+  - Submitting Brightness behavior/settings should return to the Light groups submenu.
+  - Submitting Adaptive Lighting coordination should return to the Light groups submenu.
+  - The Light groups submenu Back option should return to the root options menu.
+- Non-light configurable features:
+  - Submitting each `*_settings` form should return to that feature's section menu.
+  - Climate preset selection should return to the Climate automation section menu.
+  - Each feature section menu Back option should return to the root options menu.
+
+## Remaining Work
+
+Feature-section backwards navigation is implemented and test-enforced. The remaining
+navigation decision is root-level behavior:
+
+- Root-level settings:
+  - Area behavior, Presence tracking, Area states, and Custom control groups currently
+    behave as root-level leaf forms. Decide whether to keep that direct root-return
+    behavior or wrap each in a section menu for consistency.
+  - If wrapped, each section should have Settings and Back menu options.
+  - If not wrapped, tests should explicitly document that root is the intended parent.
+
+Tests still needed:
+
+- Root-level leaf forms have explicit tests for their intended parent behavior, whether
+  direct root-return or wrapped section menus.
+- Staged edits across multiple sections remain present until `Save & Exit`; navigating
+  Back between menus must not persist early or discard staged values.
+
 ## Implemented Checkpoint
 
 - Light groups now open as a submenu with dedicated substeps for roles, brightness
@@ -148,6 +198,14 @@ set intentional and test-enforced.
 - Light-group brightness mode reopen-cycle coverage now verifies that saved `adaptive`
   mode fields appear when reopening the substep, and that switching to `advisory`
   removes adaptive-only fields on the next reopen.
+- Feature section leaf forms now return to their local section menu after submit. Tests
+  cover Light groups roles, brightness behavior, Adaptive Lighting coordination, health,
+  fan groups, aggregates, presence hold, and Wasp in a Box.
+- Feature section Back paths now return to the root options menu. Tests cover Light
+  groups and non-light configurable feature sections.
+- Climate control preserves its required two-step path: entity selection advances to
+  preset mapping, and preset mapping submit returns to the Climate automation section
+  menu.
 - The current automated checkpoint is full Ruff, full mypy, `tests/config_flow`, the
   user-exposed surface integration contract, and full pytest passing.
 

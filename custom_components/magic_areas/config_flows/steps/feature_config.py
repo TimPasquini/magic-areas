@@ -193,6 +193,11 @@ _FEATURE_SELECTION_ORDER = (
 )
 
 
+def _feature_section_step(feature: MagicAreasFeatures) -> str:
+    """Return the parent section-menu step for a feature."""
+    return f"feature_conf_{feature.value}"
+
+
 def _copy_schema(schema: vol.Schema) -> vol.Schema:
     """Return a shallow copy so dynamic flow fields do not mutate registry schemas."""
     raw_schema = schema.schema
@@ -1050,7 +1055,8 @@ async def handle_feature_conf(
                 mode=selected_mode,
             )
             if selected_mode == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT:
-                return await flow.async_step_show_menu()
+                flow._feature_step_id = _LIGHT_GROUP_MENU_STEP
+                return await handle_feature_conf(flow)
             flow._feature_step_id = (
                 _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP
                 if selected_mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
@@ -1260,7 +1266,14 @@ async def handle_feature_conf(
         next_step=(
             _LIGHT_GROUP_MENU_STEP
             if feature_enum == MagicAreasFeatures.LIGHT_GROUPS
-            else feature.next_step
+            else (
+                feature.next_step
+                or (
+                    _feature_section_step(feature_enum)
+                    if step_id.endswith(_FEATURE_SETTINGS_STEP_SUFFIX)
+                    else None
+                )
+            )
         ),
         selectors=selectors,
     )
@@ -1302,6 +1315,7 @@ async def handle_climate_preset_selection(
         schema=CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT,
         user_input=user_input,
         merge_options=True,
+        next_step=_feature_section_step(MagicAreasFeatures.CLIMATE_CONTROL),
         selectors=selectors,
         dynamic_validators=dynamic_validators,
     )

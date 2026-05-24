@@ -99,6 +99,9 @@ async def test_handle_climate_preset_selection_processes_valid_input() -> None:
     flow.hass = MagicMock()
     flow.area_options = {"features": {MagicAreasFeatures.CLIMATE_CONTROL: {}}}
     flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow.async_step_feature_conf_climate_control = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     user_input = {
         "preset_occupied": "occupied",
