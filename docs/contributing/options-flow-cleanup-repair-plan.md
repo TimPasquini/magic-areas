@@ -59,55 +59,170 @@ set intentional and test-enforced.
 
 ## Target Improvements
 
-## Navigation Contract
+## Navigation And Persistence Contract
 
-The selector/menu cleanup checkpoint now uses a consistent parent/child navigation
-contract for feature sections. Root still owns final persistence through `Save & Exit`;
-feature section menus own local Back navigation; and feature leaf forms submit back to
-their local section menu instead of dumping the user back at the root menu.
+The previous menu-first checkpoint proved that adding a one-item intermediary menu does
+not solve the real user problem: Home Assistant form pages do not expose a native
+step-local Back button, and the frontend close/X abandons the active flow rather than
+routing to the parent menu. The repair direction is therefore:
 
-The intended navigation contract is:
+- Use submenus only when they organize meaningful multi-page domains.
+- Do not add intermediary menus whose only real child is a single Settings page plus
+  Back.
+- Treat `Submit` on a complete page or complete guided subflow as the save boundary.
+- Persist with `async_update_entry(..., options=dict(self.area_options))` after a
+  successful completion boundary.
+- Do not mutate `config_entry.options` directly.
+- Treat close/X as "discard only the current unsubmitted page" by ensuring already
+  completed pages have been persisted.
+- Keep a root Done/Close path if useful, but do not depend on a final Save & Exit for
+  previously submitted pages.
 
-- Root menu owns final persistence through `Save & Exit`.
-- Section menus own Back navigation to their parent menu.
-- Leaf forms submit back to their local section menu, not directly to root, when a local
-  section menu exists.
-- Root-level leaf forms either need a lightweight section wrapper or an explicit decision
-  that returning directly to root is their intended parent behavior.
-- The frontend close/X behavior remains HA-owned and should be treated as abandon/cancel;
-  Magic Areas should make the safe navigation path obvious enough that users do not need
-  to rely on close/X for normal movement.
+Submenu decisions should be based on domain complexity and near-term planned expansion,
+not only the current number of implemented child pages.
 
-Implemented feature-section behavior:
+Keep submenus for:
 
-- Light groups:
-  - Submitting Light roles should return to the Light groups submenu.
-  - Submitting Brightness behavior/settings should return to the Light groups submenu.
-  - Submitting Adaptive Lighting coordination should return to the Light groups submenu.
-  - The Light groups submenu Back option should return to the root options menu.
-- Non-light configurable features:
-  - Submitting each `*_settings` form should return to that feature's section menu.
-  - Climate preset selection should return to the Climate automation section menu.
-  - Each feature section menu Back option should return to the root options menu.
+- Light groups: role membership, brightness behavior, Adaptive Lighting coordination, and
+  mode-dependent guided pages.
+- Climate automation: climate entity selection and preset mapping.
+- Fan automation: even if currently represented by one settings form, this domain is
+  expected to split into multiple fan-control use cases:
+  - bathroom humidity management
+  - bathroom odor/manual-duration management
+  - temperature-based fan triggers
+  - other sensor-triggered fan uses such as particulate/air-filter control
 
-## Remaining Work
+Remove one-child intermediary menus for:
 
-Feature-section and root-section backwards navigation are implemented and test-enforced.
-Root-level settings now use the same menu-first pattern as feature sections:
+- Area behavior.
+- Presence tracking.
+- Area states.
+- Custom control groups.
+- Health sensors.
+- Aggregate sensors.
+- Presence hold.
+- BLE tracker monitoring.
+- Wasp in a Box.
+- Area-aware media player.
 
-- Area behavior opens a section menu with Settings and Back.
-- Presence tracking opens a section menu with Settings and Back.
-- Area states opens a section menu with Settings and Back.
-- Custom control groups opens a section menu with Settings and Back.
-- Submitting one of those settings forms returns to its parent section menu, not directly
-  to root.
+Completion-boundary rules:
 
-Tests still needed:
+- Single-page root settings persist immediately on successful submit.
+- Single-page feature settings persist immediately on successful submit.
+- Climate entity selection advances to preset mapping when presets are not complete or
+  when the entity changes; preset mapping submit persists the climate feature.
+- Light-group role edits can persist on submit because defaults make the role config
+  complete enough.
+- Light-group brightness mode changes persist immediately only when the selected mode has
+  no required dependent page, such as Classic.
+- Selecting Advisory or Adaptive brightness mode deactivates fields from other modes for
+  UI and runtime purposes, advances to that mode's settings page, and persists only after
+  the dependent settings page submits.
+- Mode changes must not destructively delete dormant mode-specific settings. A user who
+  switches from Adaptive to Advisory and later switches back to Adaptive should see the
+  previous Adaptive settings restored as suggested/default values, unless those settings
+  reference invalid entities or the user explicitly clears them.
+- Runtime policy must only consume settings relevant to the active brightness mode, even
+  though dormant settings for inactive modes remain persisted for future restoration.
+- Adaptive Lighting `ignore` can persist immediately.
+- Adaptive Lighting `adopt_existing` and `manage` should persist only after the required
+  pairing or managed-role decisions are submitted.
 
-- Manual frontend validation should confirm the extra Settings screen feels acceptable in
-  HA for common edits.
-- Any newly added root-level option category should follow the same menu-first contract
-  unless explicitly documented otherwise.
+## Test-First Targets
+
+Write these tests before implementing the next runtime/options-flow adjustment. The
+priority list below may be used to slice the work, but this full target list is the
+required scope and should not be pruned just because an early slice covers the backbone.
+
+Full target list:
+
+- Complete-page submit persists immediately via `async_update_entry`.
+- Validation failure does not persist.
+- Closing/X after a submitted complete page does not lose that submitted page.
+- Closing/X during an incomplete guided subflow does not persist partial dependent config.
+- Single-child intermediary menus are removed.
+- Intentional multi-page submenus remain for Light groups, Climate automation, and Fan
+  automation.
+- Area behavior submit persists immediately and returns to root.
+- Presence tracking submit persists immediately and returns to root.
+- Area states submit persists immediately and returns to root.
+- Custom control groups submit persists immediately and returns to root.
+- Single-page feature submit persists immediately and returns to root.
+- Fan automation keeps its submenu despite current single settings page.
+- Climate entity selection advances to preset mapping when not complete.
+- Climate entity selection does not persist until preset mapping succeeds.
+- Climate preset mapping submit persists the climate feature.
+- Changing the climate entity forces preset remapping before persistence.
+- Light roles submit persists immediately because defaults make role config complete.
+- Brightness mode `Classic` persists immediately and returns to Light groups menu.
+- Brightness mode `Advisory` advances to advisory settings and does not persist
+  mode/config until advisory settings submit.
+- Brightness mode `Adaptive` advances to adaptive settings and does not persist
+  mode/config until adaptive settings submit.
+- Advisory settings submit persists advisory mode/config.
+- Adaptive settings submit persists adaptive mode/config.
+- Switching `Adaptive -> Advisory` deactivates adaptive runtime fields but does not delete
+  adaptive settings.
+- Switching `Advisory -> Adaptive` restores prior adaptive settings in the UI.
+- Switching `Adaptive -> Classic` hides adaptive settings but preserves them.
+- Inactive/dormant mode settings do not affect runtime behavior while another brightness
+  mode is active.
+- Adaptive Lighting `ignore` persists immediately.
+- Adaptive Lighting `adopt_existing` does not persist until pairings are submitted.
+- Adaptive Lighting `manage` does not persist until managed roles/all-lights choices are
+  submitted.
+- Switching Adaptive Lighting modes preserves dormant mode-specific settings where useful.
+- Root/menu copy no longer says changes are staged until final `Save & Exit`.
+- Submit/save copy explains completed pages are saved immediately.
+- `finish`/Done path does not perform the only save operation anymore.
+- Failed form validation keeps the user on the same form with errors.
+- Reopen after submit shows persisted values as suggested/default values.
+- Dynamic mode switching does not leave hidden transient fields visible.
+- Helper-only features still do not create dead configuration menu paths.
+- Enabling configurable features still immediately exposes the expected root menu paths.
+
+Recommended test slices:
+
+1. Incremental persistence backbone:
+   - complete-page submit persists immediately
+   - validation failure does not persist
+   - submitted pages survive later close/X
+   - incomplete guided subflows do not persist partial dependent config
+2. Menu topology:
+   - single-child intermediary menus are removed
+   - Light groups, Climate automation, and Fan automation remain intentional submenus
+   - helper-only features still do not create dead menu paths
+   - configurable features still appear immediately after enabling
+3. Root and single-page feature persistence:
+   - Area behavior, Presence tracking, Area states, Custom control groups
+   - Health, Aggregates, Presence hold, BLE trackers, Wasp in a Box, Area-aware media
+     player
+   - reopen-cycle suggested/default values after submit
+4. Climate guided completion:
+   - entity selection advances to presets when incomplete
+   - entity-only submit does not persist
+   - preset mapping submit persists
+   - entity changes force preset remapping before persistence
+5. Light-group brightness guided completion:
+   - roles submit persists
+   - Classic persists immediately
+   - Advisory/Adaptive route to dependent pages and persist only after settings submit
+   - failed validation remains on the same form
+6. Dormant mode preservation and runtime isolation:
+   - Adaptive/Advisory settings survive switching away
+   - switching back restores prior settings in the UI
+   - dormant inactive-mode settings do not affect runtime policy
+7. Adaptive Lighting completion boundaries:
+   - ignore persists immediately
+   - adopt_existing persists only after pairings
+   - manage persists only after managed-role/all-lights choices
+   - useful dormant mode-specific Adaptive Lighting settings are preserved across mode
+     switches
+8. Copy/translation contracts:
+   - root/menu copy reflects incremental save behavior
+   - submit/save copy explains completed pages save immediately
+   - Done/finish copy does not imply it is the only persistence path
 
 ## Implemented Checkpoint
 
@@ -489,6 +604,289 @@ Automated tests should cover:
 - Feature-selection submit returns a root menu that includes newly enabled configurable
   features without requiring full options-flow exit/reopen.
 - Features without config steps are represented clearly and do not create dead menu paths.
+
+## Legacy Test Clash Audit
+
+Use this section while developing the incremental-save redesign. When a config-flow or
+options-flow test fails, first check whether it belongs to one of these categories before
+treating it as a new regression. The goal is to distinguish expected failures from real
+bugs and avoid preserving tests that enforce the rejected staged-save/intermediary-menu
+paradigm.
+
+### A) Final Save / Staged Options Paradigm
+
+Old expectation:
+
+- Forms update `self.area_options` only.
+- Nothing reaches `config_entry.options` until the user selects `finish` / `Save & Exit`.
+- Tests use `_finish_options_flow(...)` or `next_step_id: "finish"` before asserting
+  persisted options.
+
+New expectation:
+
+- A complete page or complete guided subflow persists immediately through
+  `async_update_entry(..., options=dict(self.area_options))`.
+- `finish`/Done is not the only persistence path.
+- Reopen-cycle tests should usually assert persistence immediately after the completing
+  submit, not after a final finish step.
+
+Known tests/helpers likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_options_e2e.py::test_options_flow`
+- `tests/config_flow/test_config_flow_options_e2e.py::test_options_flow_staged_edits_survive_back_navigation_until_save`
+- Reopen/persistence tests in `test_config_flow_options_e2e.py` for Area behavior,
+  Presence tracking, Area states, meta secondary states, and Custom control groups.
+- Persistence/reopen tests in `test_config_flow_features_e2e.py` for Climate, Fan
+  groups, Area-aware media player, Aggregates, Presence hold, BLE trackers, Wasp in a
+  Box, Health, Light groups, and Adaptive Lighting coordination.
+- `tests/config_flow/test_config_flow_features_e2e.py::_finish_options_flow`
+- Any direct `async_configure(... {"next_step_id": "finish"})` used as the only save
+  boundary.
+
+Expected action:
+
+- Replace final-save assertions with immediate-persistence assertions at the correct
+  completion boundary.
+- Keep a smaller Done/finish test only to prove the flow can close without being the only
+  save mechanism.
+
+### B) Root Single-Child Intermediary Menus
+
+Old expectation:
+
+- Root sections such as Area behavior, Presence tracking, Area states, and Custom control
+  groups open a section menu containing Settings + Back.
+- Their forms submit back to that intermediary menu.
+
+New expectation:
+
+- Root single-page sections route directly to their form.
+- A successful submit persists immediately and returns to the root menu.
+- The HA form page still does not have a native Back button; close/X abandons only the
+  current unsubmitted form because prior completed pages are already persisted.
+
+Known tests/helpers likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_options_e2e.py::test_options_flow_root_sections_are_menu_first_with_back`
+- `tests/config_flow/test_config_flow_options_e2e.py::test_options_flow_root_leaf_submits_return_to_parent_section_menu`
+- `tests/config_flow/test_options_flow_translations.py::test_root_section_submenus_expose_settings_and_back`
+- `tests/config_flow/options_flow_testkit.py::go_to_step`, because it currently
+  auto-enters root section settings and can hide topology mistakes.
+
+Expected action:
+
+- Delete or rewrite the intermediary-menu tests to assert direct form routing.
+- Remove auto-enter behavior from shared test helpers, or split helpers into explicit
+  menu-navigation and form-navigation helpers so topology remains visible.
+
+### C) Single-Page Feature Intermediary Menus
+
+Old expectation:
+
+- Every non-light configurable feature opens a section menu with Settings + Back.
+- Single-page feature forms submit back to their feature section menu.
+
+New expectation:
+
+- Keep submenus only for domains with meaningful multi-page organization or near-term
+  planned domain complexity.
+- Keep submenus for Light groups, Climate automation, and Fan automation.
+- Simple single-page features should route directly to their form and return to root
+  after successful immediate persistence.
+
+Known tests/helpers likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_non_light_feature_sections_open_menu_first`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_non_light_leaf_submits_return_to_feature_menu`
+- `tests/config_flow/test_options_flow_translations.py::test_feature_section_submenus_expose_settings_and_back`
+- `tests/config_flow/test_config_flow_features_e2e.py::_open_feature_config_step`,
+  because it currently auto-enters `*_settings` forms for non-light feature menus and
+  can hide whether a feature incorrectly still has a submenu.
+- `tests/config_flow/test_config_flow_feature_conf_handlers.py::test_options_flow_feature_conf_validation_error`
+  and `test_options_flow_wasp_in_a_box_selector`, if they continue to assume
+  `feature_conf_health_settings` / `feature_conf_wasp_in_a_box_settings` for simple
+  single-page features.
+
+Expected action:
+
+- Rewrite topology tests to assert:
+  - Light groups, Climate automation, and Fan automation are menu-first.
+  - Health, Aggregates, Presence hold, BLE trackers, Wasp in a Box, and Area-aware media
+    player route directly to forms.
+- Make helper navigation explicit so tests fail when topology regresses.
+
+### D) Climate Guided Completion
+
+Old expectation:
+
+- Climate entity selection can be treated like a normal feature submit in some tests.
+- Preset mapping is reached, then persistence is asserted after final finish.
+
+New expectation:
+
+- Climate entity selection is not a persistence boundary when preset mapping is required.
+- Entity submit advances to preset mapping.
+- Preset mapping submit is the completion boundary and persists the feature.
+- Changing the climate entity in an already complete config forces preset remapping
+  before persistence.
+
+Known tests likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_climate_with_presets`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_climate_reopen_preserves_saved_entity_and_presets`
+- `tests/config_flow/test_feature_config_climate.py::test_handle_climate_preset_selection_processes_valid_input`
+- Climate no-preset/invalid-entity tests may need routing updates but the error
+  expectations remain valid.
+
+Expected action:
+
+- Add explicit assertions that entity-only submit does not persist.
+- Add explicit assertions that preset mapping submit persists.
+- Add an entity-change remap test.
+
+### E) Light-Group Brightness Mode Completion And Dormant Settings
+
+Old expectation:
+
+- Hidden or incompatible mode fields may be pruned/deleted when switching modes.
+- Some tests focus on fields not leaking after reopen, which can be misread as requiring
+  destructive deletion.
+
+New expectation:
+
+- Mode changes deactivate inactive mode fields for UI/runtime purposes.
+- Dormant mode-specific settings remain persisted so switching back restores them.
+- Runtime policy consumes only the active brightness mode's settings.
+- Classic can persist immediately; Advisory and Adaptive persist after their dependent
+  settings pages submit.
+
+Known tests likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_roles_preserve_hidden_behavior_modes`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_brightness_preserves_hidden_roles`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_advisory_shows_binary_fields_only`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields`
+- Light-group selector tests are generally still valid, but their navigation setup may
+  need adjustment.
+
+Expected action:
+
+- Split "not visible/not active" assertions from "not persisted" assertions.
+- Add tests proving Adaptive/Advisory settings survive switching away and are restored
+  when switching back.
+- Add runtime-policy tests proving dormant settings do not affect the active mode.
+
+### F) Adaptive Lighting Completion Boundaries
+
+Old expectation:
+
+- Adaptive Lighting mode submit and final finish are sufficient for persistence.
+- Transient pair fields should not leak into saved options.
+
+New expectation:
+
+- `ignore` is complete and can persist immediately.
+- `adopt_existing` is incomplete until pairings are submitted.
+- `manage` is incomplete until managed-role/all-lights choices are submitted.
+- Dormant Adaptive Lighting mode-specific settings should be preserved where useful, but
+  transient submitted pairing fields should still be normalized into the durable mapping
+  shape.
+
+Known tests likely to fail or require rewrite:
+
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_adaptive_lighting_ignore_hides_pairings`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_adaptive_lighting_pairings_do_not_leak`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_manage_selects_managed_roles`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_manage_immediately_reveals_targets`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_manage_defaults_to_configured_roles`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_manage_all_lights_uses_separate_gate`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets`
+
+Expected action:
+
+- Preserve visibility/selector tests where they remain true.
+- Rewrite persistence assertions around `ignore`, `adopt_existing`, and `manage`
+  completion boundaries.
+- Keep transient pair-field normalization tests, but distinguish them from dormant
+  setting preservation.
+
+### G) Feature Selection Persistence And Menu Refresh
+
+Old expectation:
+
+- Feature selection updates `self.area_options` and returns a refreshed menu.
+- Some tests do not assert whether feature-selection submit persists immediately.
+
+New expectation:
+
+- Feature selection is a complete page and should persist enabled/disabled feature map on
+  submit.
+- Configurable features should still appear in the returned root menu immediately.
+- Helper-only features should still not create dead config menu paths.
+
+Known tests likely to need expansion:
+
+- `tests/config_flow/test_feature_selection.py::test_handle_feature_selection_enables_selected_features`
+- `tests/config_flow/test_feature_selection.py::test_handle_feature_selection_removes_deselected_features`
+- `tests/config_flow/test_feature_selection.py::test_handle_feature_selection_creates_features_dict`
+- `tests/config_flow/test_options_flow_integration.py::test_options_flow_select_features_then_configure`
+- `tests/config_flow/test_options_flow_integration.py::test_options_flow_select_features_returns_refreshed_menu`
+- `tests/config_flow/test_options_flow_integration.py::test_options_flow_deselecting_feature_removes_from_options`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_add_feature`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_remove_feature`
+- `tests/config_flow/test_config_flow_features_e2e.py::test_options_flow_helper_only_features_enable_without_config_menu`
+
+Expected action:
+
+- Add immediate persistence assertions to feature selection tests.
+- Preserve menu-refresh and helper-only/dead-path assertions.
+
+### H) Translation/Copy Contracts
+
+Old expectation:
+
+- Root menu copy explains staged options and final Save & Exit.
+- Menu labels include `Save & Exit`.
+- Feature descriptions say configurable features add menu pages.
+
+New expectation:
+
+- Copy explains completed page submits save immediately.
+- Close/X copy should imply unsubmitted current-page changes are lost, not that all prior
+  submitted changes are lost.
+- Done/finish should not imply it is the only persistence path.
+- Feature-selection copy should distinguish direct config pages, intentional submenus,
+  and helper-only features.
+
+Known tests likely to fail or require rewrite:
+
+- `tests/config_flow/test_options_flow_translations.py::test_options_flow_root_menu_uses_task_oriented_labels`
+- `tests/config_flow/test_options_flow_translations.py::test_options_flow_root_menu_explains_save_behavior`
+- `tests/config_flow/test_options_flow_translations.py::test_feature_selection_distinguishes_configurable_features`
+- `tests/config_flow/test_options_flow_translations.py::test_feature_section_submenus_expose_settings_and_back`
+- `tests/config_flow/test_options_flow_translations.py::test_root_section_submenus_expose_settings_and_back`
+- `tests/config_flow/test_options_flow_translations.py::test_custom_control_groups_step_has_guidance`, if the
+  custom-control step id returns from `custom_control_groups_settings` to
+  `custom_control_groups`.
+
+Expected action:
+
+- Rewrite copy tests around incremental-save semantics and the new topology.
+
+### I) Likely Compatible Tests
+
+These areas are less likely to enforce the rejected paradigm. They may need small step-id
+updates but should not be treated as expected failures unless they touch persistence or
+menu topology.
+
+- `tests/config_flow/test_config_flow_basic.py::*`
+- `tests/config_flow/test_options_flow_routing.py::*`
+- `tests/config_flow/test_config_flow_options_runtime.py::*`
+- `tests/config_flow/test_feature_helpers.py::*`
+- `tests/config_flow/test_area_steps.py::*`, except for handler-signature changes.
+- `tests/config_flow/test_config_flow_errors.py::*`, except climate routing details.
 
 Manual HA-dev validation should cover:
 

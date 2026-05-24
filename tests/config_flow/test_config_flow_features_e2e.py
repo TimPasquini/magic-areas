@@ -196,11 +196,6 @@ async def _open_light_groups_brightness_mode_step(
     ("feature", "step_id", "expected_menu_options"),
     [
         (
-            MagicAreasFeatures.HEALTH,
-            "feature_conf_health",
-            {"feature_conf_health_settings", "show_menu"},
-        ),
-        (
             MagicAreasFeatures.FAN_GROUPS,
             "feature_conf_fan_groups",
             {"feature_conf_fan_groups_settings", "show_menu"},
@@ -214,41 +209,16 @@ async def _open_light_groups_brightness_mode_step(
                 "show_menu",
             },
         ),
-        (
-            MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
-            "feature_conf_area_aware_media_player",
-            {"feature_conf_area_aware_media_player_settings", "show_menu"},
-        ),
-        (
-            MagicAreasFeatures.AGGREGATES,
-            "feature_conf_aggregates",
-            {"feature_conf_aggregates_settings", "show_menu"},
-        ),
-        (
-            MagicAreasFeatures.PRESENCE_HOLD,
-            "feature_conf_presence_hold",
-            {"feature_conf_presence_hold_settings", "show_menu"},
-        ),
-        (
-            MagicAreasFeatures.BLE_TRACKER,
-            "feature_conf_ble_trackers",
-            {"feature_conf_ble_trackers_settings", "show_menu"},
-        ),
-        (
-            MagicAreasFeatures.WASP_IN_A_BOX,
-            "feature_conf_wasp_in_a_box",
-            {"feature_conf_wasp_in_a_box_settings", "show_menu"},
-        ),
     ],
 )
-async def test_options_flow_non_light_feature_sections_open_menu_first(
+async def test_options_flow_intentional_domain_features_open_menu_first(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
     feature: MagicAreasFeatures,
     step_id: str,
     expected_menu_options: set[str],
 ) -> None:
-    """Non-light feature config entry points should render as section menus."""
+    """Features with multi-page or planned domain complexity should keep submenus."""
     result = await hass.config_entries.options.async_init(init_integration.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "select_features"}
@@ -261,6 +231,41 @@ async def test_options_flow_non_light_feature_sections_open_menu_first(
     )
     assert result["type"] == FlowResultType.MENU
     assert set(cast(list[str], result["menu_options"])) == expected_menu_options
+
+
+@pytest.mark.parametrize(
+    ("feature", "step_id"),
+    [
+        (MagicAreasFeatures.HEALTH, "feature_conf_health"),
+        (
+            MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
+            "feature_conf_area_aware_media_player",
+        ),
+        (MagicAreasFeatures.AGGREGATES, "feature_conf_aggregates"),
+        (MagicAreasFeatures.PRESENCE_HOLD, "feature_conf_presence_hold"),
+        (MagicAreasFeatures.BLE_TRACKER, "feature_conf_ble_trackers"),
+        (MagicAreasFeatures.WASP_IN_A_BOX, "feature_conf_wasp_in_a_box"),
+    ],
+)
+async def test_options_flow_single_page_features_open_forms_directly(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    feature: MagicAreasFeatures,
+    step_id: str,
+) -> None:
+    """Simple single-page feature config entry points should render forms directly."""
+    result = await hass.config_entries.options.async_init(init_integration.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "select_features"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={feature: True}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": step_id}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == step_id
 
 
 @pytest.mark.parametrize(
@@ -417,14 +422,6 @@ async def test_options_flow_light_group_leaf_submits_return_to_light_group_menu(
             {CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["problem"]},
         ),
         (
-            MagicAreasFeatures.FAN_GROUPS,
-            "feature_conf_fan_groups",
-            {
-                CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.EXTENDED,
-                CONF_FAN_GROUPS_SETPOINT: 25.0,
-            },
-        ),
-        (
             MagicAreasFeatures.AGGREGATES,
             "feature_conf_aggregates",
             {CONF_AGGREGATES_MIN_ENTITIES: 2},
@@ -441,33 +438,32 @@ async def test_options_flow_light_group_leaf_submits_return_to_light_group_menu(
         ),
     ],
 )
-async def test_options_flow_non_light_leaf_submits_return_to_feature_menu(
+async def test_options_flow_single_page_feature_submit_returns_to_root(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
     feature: MagicAreasFeatures,
     step_id: str,
     user_input: dict[str, object],
 ) -> None:
-    """Non-light leaf forms should return to their local feature section menu."""
-    result = await _open_feature_config_step(
-        hass,
-        init_integration,
-        feature,
-        step_id,
+    """Simple single-page feature submits should save the page and return to root."""
+    result = await hass.config_entries.options.async_init(init_integration.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "select_features"}
     )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={feature: True}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": step_id}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == step_id
+
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input=user_input,
     )
 
-    assert result["type"] == FlowResultType.MENU
-    assert result["step_id"] == step_id
-    assert "show_menu" in cast(list[str], result["menu_options"])
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "show_menu"},
-    )
     assert result["type"] == FlowResultType.MENU
     assert result["step_id"] == "show_menu"
 

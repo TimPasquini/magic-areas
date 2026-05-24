@@ -69,6 +69,33 @@ class TestLightGroupPolicy:
         assert decision.action == LightAction.NOOP
         assert "bright_advisory_ignore" in decision.reason
 
+    def test_dormant_adaptive_settings_do_not_affect_advisory_runtime(self) -> None:
+        """Inactive Adaptive settings must not change Advisory-mode policy behavior."""
+        policy = LightGroupPolicy(
+            assigned_states=[AreaStates.DARK],
+            act_on_modes=[ActOnMode.STATE_CHANGE],
+            brightness_mode="advisory",
+            bright_dwell_seconds=30,
+            bright_min_on_seconds=60,
+            adaptive_require_ambient_rise=True,
+            ambient_rise_window_seconds=120,
+            ambient_rise_min_delta=20,
+        )
+        decision = policy.evaluate_control_context(
+            new_states=[AreaStates.BRIGHT],
+            lost_states=[],
+            current_states=[AreaStates.OCCUPIED, AreaStates.BRIGHT],
+            control_state=CommandEchoState(controlling=True, awaiting_echo=False),
+            is_primary=False,
+            bright_dwell_met=True,
+            min_on_met=True,
+            outside_context_ok=True,
+            attribution_hold_met=True,
+            ambient_rise_met=True,
+        )
+        assert decision.action == LightAction.NOOP
+        assert "bright_advisory_ignore" in decision.reason
+
     def test_bright_advisory_mode_blocks_occupancy_turn_on_when_bright(self) -> None:
         """Advisory mode should no-op occupancy turn-on while bright is active."""
         policy = LightGroupPolicy(

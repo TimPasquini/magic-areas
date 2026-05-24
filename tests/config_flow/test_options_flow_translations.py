@@ -33,7 +33,7 @@ def test_options_flow_root_menu_uses_task_oriented_labels() -> None:
         "secondary_states": "Area states",
         "select_features": "Features",
         "custom_control_groups": "Custom control groups",
-        "finish": "Save & Exit",
+        "finish": "Done",
         "feature_conf_health": "Health sensors",
         "feature_conf_fan_groups": "Fan automation",
         "feature_conf_climate_control": "Climate automation",
@@ -47,12 +47,42 @@ def test_options_flow_root_menu_uses_task_oriented_labels() -> None:
 
 
 def test_options_flow_root_menu_explains_save_behavior() -> None:
-    """The root menu should make staged options explicit."""
+    """Root copy should describe incremental page-level saves."""
     show_menu = _options_step("show_menu")
     description = show_menu["description"]
 
     assert isinstance(description, str)
-    assert "not saved until you select `Save & Exit`" in description
+    assert "saved when you submit" in description
+    assert "Save & Exit" not in description
+
+
+def test_done_label_does_not_imply_final_save_semantics() -> None:
+    """The Done menu label should not suggest it is the only save operation."""
+    show_menu = _options_step("show_menu")
+    menu_options = show_menu["menu_options"]
+
+    assert isinstance(menu_options, dict)
+    assert menu_options["finish"] == "Done"
+    assert "Save" not in menu_options["finish"]
+
+
+def test_single_page_forms_explain_submit_saves_immediately() -> None:
+    """Common single-page forms should tell users Submit saves that page."""
+    for step_id in (
+        "area_config",
+        "presence_tracking",
+        "secondary_states",
+        "custom_control_groups",
+        "feature_conf_health",
+        "feature_conf_aggregates",
+        "feature_conf_presence_hold",
+        "feature_conf_ble_trackers",
+        "feature_conf_wasp_in_a_box",
+        "feature_conf_area_aware_media_player",
+    ):
+        description = _options_step(step_id)["description"]
+        assert isinstance(description, str)
+        assert "saved when you submit" in description
 
 
 def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> None:
@@ -128,36 +158,15 @@ def test_light_group_substeps_explain_their_scope() -> None:
         assert expected_text in description
 
 
-def test_feature_section_submenus_expose_settings_and_back() -> None:
-    """Non-light feature sections should expose settings + back in menu-first UX."""
+def test_intentional_feature_submenus_expose_settings_and_back() -> None:
+    """Only intentional multi-page/domain feature sections should expose submenus."""
     expected = {
-        "feature_conf_health": {"feature_conf_health_settings", "show_menu"},
         "feature_conf_fan_groups": {"feature_conf_fan_groups_settings", "show_menu"},
         "feature_conf_climate_control": {
             "feature_conf_climate_control_settings",
             "feature_conf_climate_control_select_presets",
             "show_menu",
         },
-        "feature_conf_area_aware_media_player": {
-            "feature_conf_area_aware_media_player_settings",
-            "show_menu",
-        },
-        "feature_conf_aggregates": {
-            "feature_conf_aggregates_settings",
-            "show_menu",
-        },
-        "feature_conf_presence_hold": {
-            "feature_conf_presence_hold_settings",
-            "show_menu",
-        },
-        "feature_conf_ble_trackers": {
-            "feature_conf_ble_trackers_settings",
-            "show_menu",
-        },
-        "feature_conf_wasp_in_a_box": {
-            "feature_conf_wasp_in_a_box_settings",
-            "show_menu",
-        },
     }
     for step_id, expected_options in expected.items():
         step = _options_step(step_id)
@@ -165,21 +174,18 @@ def test_feature_section_submenus_expose_settings_and_back() -> None:
         assert isinstance(menu_options, dict)
         assert set(menu_options) == expected_options
 
-
-def test_root_section_submenus_expose_settings_and_back() -> None:
-    """Root options sections should expose settings + back in menu-first UX."""
-    expected = {
-        "area_config": {"area_config_settings", "show_menu"},
-        "presence_tracking": {"presence_tracking_settings", "show_menu"},
-        "secondary_states": {"secondary_states_settings", "show_menu"},
-        "custom_control_groups": {"custom_control_groups_settings", "show_menu"},
+    simple_feature_steps = {
+        "feature_conf_health",
+        "feature_conf_area_aware_media_player",
+        "feature_conf_aggregates",
+        "feature_conf_presence_hold",
+        "feature_conf_ble_trackers",
+        "feature_conf_wasp_in_a_box",
     }
-
-    for step_id, expected_options in expected.items():
+    for step_id in simple_feature_steps:
         step = _options_step(step_id)
-        menu_options = step.get("menu_options")
-        assert isinstance(menu_options, dict)
-        assert set(menu_options) == expected_options
+        assert "menu_options" not in step
+        assert "data" in step
 
 
 def test_custom_control_groups_step_has_guidance() -> None:
