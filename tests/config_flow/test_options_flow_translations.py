@@ -162,7 +162,12 @@ def test_light_group_substeps_explain_their_scope() -> None:
 def test_intentional_feature_submenus_expose_settings_and_back() -> None:
     """Only intentional multi-page/domain feature sections should expose submenus."""
     expected = {
-        "feature_conf_fan_groups": {"feature_conf_fan_groups_settings", "show_menu"},
+        "feature_conf_fan_groups": {
+            "feature_conf_fan_groups_cooling",
+            "feature_conf_fan_groups_humidity",
+            "feature_conf_fan_groups_odor",
+            "show_menu",
+        },
         "feature_conf_climate_control": {
             "feature_conf_climate_control_settings",
             "feature_conf_climate_control_select_presets",

@@ -1,7 +1,8 @@
 # Fan And Cover Default Automation Plan
 
-Status: in progress. Stage 2 pure fan policy work has started; runtime behavior is
-not migrated yet.
+Status: in progress. Fan controller policy, Cooling runtime adapter, and
+controller-role options-flow pages are implemented. Multi-role runtime consumption
+and fan-derived area states remain open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -459,23 +460,42 @@ Acceptance:
   controller-list injection before it can be fully asserted.
 - [x] Runtime debug attributes show active/suppressed reasons.
 
+Remaining runtime gap:
+
+- Runtime currently evaluates a generated Cooling controller for the existing
+  single-threshold behavior. Stage 4 now stores multi-role controller configs,
+  but runtime does not yet consume those persisted Cooling/Humidity/Odor role
+  configs directly.
+- Per-controller subset targeting is still incomplete. The current runtime uses
+  the native all-fan helper when it can; explicit per-role entity-list targeting
+  is still required before same-fan overlap can be proven end-to-end.
+
 ### Stage 4: Fan Config Flow
 
 Tasks:
 
-- Keep Fan automation as an intentional submenu.
-- Add Cooling, Humidity, and Odor pages.
-- Each page configures the same controller schema with role-specific labels and
+- [x] Keep Fan automation as an intentional submenu.
+- [x] Add Cooling, Humidity, and Odor pages.
+- [x] Each page configures the same controller schema with role-specific labels and
   defaults.
-- Allow the same fan to be assigned to multiple controller roles.
-- Reopen existing fan config as Cooling.
+- [x] Allow the same fan to be assigned to multiple controller roles.
+- [x] Reopen existing fan config as Cooling.
+
+Notes:
+
+- Role pages persist under `features.fan_groups.controllers.<role>`.
+- Cooling submissions also synchronize the existing legacy fan-group keys so the
+  current Cooling runtime adapter remains compatible until runtime consumes the
+  multi-role controller configs directly.
+- Detection mode is currently `threshold` only. `threshold_trend` remains a Stage
+  6 addition.
 
 Acceptance:
 
-- Config-flow tests cover selectors, persistence, reopen values, and independent
+- [x] Config-flow tests cover selectors, persistence, reopen values, and independent
   role edits.
-- Incomplete/invalid controller pages do not persist invalid values.
-- Submitted controller pages persist immediately under the current options-flow
+- [x] Incomplete/invalid controller pages do not persist invalid values.
+- [x] Submitted controller pages persist immediately under the current options-flow
   contract.
 
 ### Stage 5: Fan Visible Area States

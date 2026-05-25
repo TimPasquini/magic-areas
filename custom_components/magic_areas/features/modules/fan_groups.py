@@ -12,6 +12,7 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.config_keys.area import CONF_FAN_GROUPS_CONTROLLERS
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
@@ -50,6 +51,7 @@ FAN_GROUP_FEATURE_SCHEMA = schema_from_default_options(
         (FAN_GROUPS_OPTION_KEYS[0], str),
         (FAN_GROUPS_OPTION_KEYS[1], str),
         (FAN_GROUPS_OPTION_KEYS[2], vol.Coerce(float)),
+        (CONF_FAN_GROUPS_CONTROLLERS, dict),
     ),
 )
 

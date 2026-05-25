@@ -29,6 +29,15 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
     CONF_DARK_ENTITY,
     CONF_ENABLED_FEATURES,
+    CONF_FAN_CONTROLLER_ACTIVE_STATES,
+    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
+    CONF_FAN_CONTROLLER_HYSTERESIS,
+    CONF_FAN_CONTROLLER_MEMBERS,
+    CONF_FAN_CONTROLLER_ON_THRESHOLD,
+    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID,
+    CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR,
+    CONF_FAN_CONTROLLER_SUPPRESS_STATES,
+    CONF_FAN_GROUPS_CONTROLLERS,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
@@ -59,6 +68,11 @@ from custom_components.magic_areas.core.control_intents import (
     MAIN_SWITCH,
     SLEEP_SWITCH,
     adaptive_lighting_switch_entity_ids,
+)
+from custom_components.magic_areas.core.controls.policies.fan import (
+    FanClearBehavior,
+    FanControllerRole,
+    FanSensorUnavailableBehavior,
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_threshold_light_sensor_unique_id,
@@ -147,6 +161,11 @@ async def _open_feature_config_step(
             result["flow_id"],
             user_input={"next_step_id": "feature_conf_light_groups"},
         )
+    if step_id.startswith("feature_conf_fan_groups_"):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={"next_step_id": "feature_conf_fan_groups"},
+        )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": step_id}
     )
@@ -198,7 +217,12 @@ async def _open_light_groups_brightness_mode_step(
         (
             MagicAreasFeatures.FAN_GROUPS,
             "feature_conf_fan_groups",
-            {"feature_conf_fan_groups_settings", "show_menu"},
+            {
+                "feature_conf_fan_groups_cooling",
+                "feature_conf_fan_groups_humidity",
+                "feature_conf_fan_groups_odor",
+                "show_menu",
+            },
         ),
         (
             MagicAreasFeatures.CLIMATE_CONTROL,
@@ -628,25 +652,27 @@ async def test_options_flow_fan_groups(
         hass,
         config_entry,
         MagicAreasFeatures.FAN_GROUPS,
-        "feature_conf_fan_groups",
+        "feature_conf_fan_groups_cooling",
     )
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={
-            CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.EXTENDED,
-            CONF_FAN_GROUPS_SETPOINT: 25.0,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.EXTENDED],
+            CONF_FAN_CONTROLLER_ON_THRESHOLD: 25.0,
         },
     )
     result = await _finish_options_flow(hass, result)
     assert result["type"] == FlowResultType.MENU
-    assert config_entry.options[CONF_ENABLED_FEATURES][
+    fan_options = config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.FAN_GROUPS
-    ] == {
-        "required_state": "extended",
-        "tracked_device_class": "temperature",
-        "setpoint": 25.0,
-    }
+    ]
+    assert fan_options[CONF_FAN_GROUPS_REQUIRED_STATE] == "extended"
+    assert fan_options[CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS] == "temperature"
+    assert fan_options[CONF_FAN_GROUPS_SETPOINT] == 25.0
+    assert fan_options[CONF_FAN_GROUPS_CONTROLLERS][FanControllerRole.COOLING.value][
+        CONF_FAN_CONTROLLER_ACTIVE_STATES
+    ] == ["extended"]
 
 
 async def test_options_flow_fan_groups_accepts_integer_setpoint(
@@ -658,14 +684,14 @@ async def test_options_flow_fan_groups_accepts_integer_setpoint(
         hass,
         config_entry,
         MagicAreasFeatures.FAN_GROUPS,
-        "feature_conf_fan_groups",
+        "feature_conf_fan_groups_cooling",
     )
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={
-            CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.EXTENDED,
-            CONF_FAN_GROUPS_SETPOINT: 50,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.EXTENDED],
+            CONF_FAN_CONTROLLER_ON_THRESHOLD: 50,
         },
     )
     result = await _finish_options_flow(hass, result)
@@ -687,14 +713,14 @@ async def test_options_flow_fan_groups_reopen_preserves_saved_values(
         hass,
         config_entry,
         MagicAreasFeatures.FAN_GROUPS,
-        "feature_conf_fan_groups",
+        "feature_conf_fan_groups_cooling",
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={
-            CONF_FAN_GROUPS_REQUIRED_STATE: AreaStates.SLEEP,
-            CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
-            CONF_FAN_GROUPS_SETPOINT: 55,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.SLEEP],
+            CONF_FAN_CONTROLLER_ON_THRESHOLD: 55,
+            CONF_FAN_CONTROLLER_HYSTERESIS: 2.5,
         },
     )
     result = await _finish_options_flow(hass, result)
@@ -704,15 +730,15 @@ async def test_options_flow_fan_groups_reopen_preserves_saved_values(
         hass,
         config_entry,
         MagicAreasFeatures.FAN_GROUPS,
-        "feature_conf_fan_groups",
+        "feature_conf_fan_groups_cooling",
     )
     assert result["type"] == FlowResultType.FORM
     suggested_values = _schema_suggested_values(result)
-    assert suggested_values[CONF_FAN_GROUPS_REQUIRED_STATE] == AreaStates.SLEEP.value
-    assert suggested_values[CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS] == (
-        SensorDeviceClass.HUMIDITY
-    )
-    assert suggested_values[CONF_FAN_GROUPS_SETPOINT] == 55.0
+    assert suggested_values[CONF_FAN_CONTROLLER_ACTIVE_STATES] == [
+        AreaStates.SLEEP.value
+    ]
+    assert suggested_values[CONF_FAN_CONTROLLER_ON_THRESHOLD] == 55.0
+    assert suggested_values[CONF_FAN_CONTROLLER_HYSTERESIS] == 2.5
 
 
 async def test_options_flow_fan_groups_uses_constrained_selectors(
@@ -724,31 +750,89 @@ async def test_options_flow_fan_groups_uses_constrained_selectors(
         hass,
         config_entry,
         MagicAreasFeatures.FAN_GROUPS,
-        "feature_conf_fan_groups",
+        "feature_conf_fan_groups_cooling",
     )
 
     selectors = _schema_selectors(result)
-    required_state_selector = selectors[CONF_FAN_GROUPS_REQUIRED_STATE]
-    tracked_class_selector = selectors[CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS]
-    setpoint_selector = selectors[CONF_FAN_GROUPS_SETPOINT]
+    members_selector = selectors[CONF_FAN_CONTROLLER_MEMBERS]
+    active_states_selector = selectors[CONF_FAN_CONTROLLER_ACTIVE_STATES]
+    setpoint_selector = selectors[CONF_FAN_CONTROLLER_ON_THRESHOLD]
+    unavailable_selector = selectors[CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR]
 
-    assert required_state_selector.config["mode"] == "dropdown"
-    assert required_state_selector.config["translation_key"] == "area_states"
+    assert members_selector.config["multiple"] is True
+    assert active_states_selector.config["mode"] == "dropdown"
+    assert active_states_selector.config["translation_key"] == "area_states"
     required_state_options = cast(
-        list[str], required_state_selector.config["options"]
+        list[str], active_states_selector.config["options"]
     )
     assert AreaStates.OCCUPIED.value in required_state_options
     assert AreaStates.SLEEP.value in required_state_options
-
-    assert tracked_class_selector.config["mode"] == "dropdown"
-    tracked_class_options = cast(list[str], tracked_class_selector.config["options"])
-    assert SensorDeviceClass.HUMIDITY in tracked_class_options
-    assert SensorDeviceClass.TEMPERATURE in tracked_class_options
 
     assert setpoint_selector.config["mode"] == "box"
     assert setpoint_selector.config["min"] == 0
     assert setpoint_selector.config["max"] == 120000
     assert setpoint_selector.config["step"] == 0.1
+    assert unavailable_selector.config["translation_key"] == (
+        "fan_sensor_unavailable_behavior"
+    )
+
+
+async def test_options_flow_fan_groups_stores_independent_controller_roles(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Fan role pages should persist independently and allow shared fans."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    fan_entry = er.async_get_or_create(
+        "fan",
+        "test",
+        "bathroom_fan",
+        suggested_object_id="bathroom_fan",
+    )
+    sensor_entry = er.async_get_or_create(
+        SENSOR_DOMAIN,
+        "test",
+        "bathroom_humidity",
+        suggested_object_id="bathroom_humidity",
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups_humidity",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FAN_CONTROLLER_MEMBERS: [fan_entry.entity_id],
+            CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: sensor_entry.entity_id,
+            CONF_FAN_CONTROLLER_ON_THRESHOLD: 60,
+            CONF_FAN_CONTROLLER_HYSTERESIS: 5,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [
+                AreaStates.OCCUPIED,
+                AreaStates.EXTENDED,
+            ],
+            CONF_FAN_CONTROLLER_SUPPRESS_STATES: [AreaStates.SLEEP],
+            CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: FanClearBehavior.RUN_UNTIL_CLEAR,
+            CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR: (
+                FanSensorUnavailableBehavior.HOLD_THEN_CLEAR
+            ),
+        },
+    )
+    result = await _finish_options_flow(hass, result)
+    assert result["type"] == FlowResultType.MENU
+
+    humidity = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.FAN_GROUPS
+    ][CONF_FAN_GROUPS_CONTROLLERS][FanControllerRole.HUMIDITY.value]
+    assert humidity[CONF_FAN_CONTROLLER_MEMBERS] == [fan_entry.entity_id]
+    assert humidity[CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID] == sensor_entry.entity_id
+    assert humidity[CONF_FAN_CONTROLLER_ON_THRESHOLD] == 60.0
+    assert humidity[CONF_FAN_CONTROLLER_HYSTERESIS] == 5.0
+    assert humidity[CONF_FAN_CONTROLLER_SUPPRESS_STATES] == ["sleep"]
+    assert humidity[CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR] == "run_until_clear"
 
 
 async def test_options_flow_area_aware_media_player_uses_entity_selector(

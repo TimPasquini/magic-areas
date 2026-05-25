@@ -292,22 +292,77 @@
         "title": "Fan automation",
         "description": "Configure when this room should run fans. Fan rules can be used for things like humidity, temperature, odor, or air quality.",
         "menu_options": {
-          "feature_conf_fan_groups_settings": "Fan automation settings",
+          "feature_conf_fan_groups_cooling": "Cooling",
+          "feature_conf_fan_groups_humidity": "Humidity",
+          "feature_conf_fan_groups_odor": "Odor and air quality",
           "show_menu": "Back"
         }
       },
-      "feature_conf_fan_groups_settings": {
-        "title": "Fan automation settings",
-        "description": "Choose the room state and sensor reading required before this room may turn its fans on.",
+      "feature_conf_fan_groups_cooling": {
+        "title": "Cooling fan automation",
+        "description": "Run selected fans when this room is in the configured states and the selected cooling signal crosses the threshold.",
         "data": {
-          "required_state": "Required state",
-          "tracked_device_class": "Tracked sensor type",
-          "setpoint": "Setpoint"
+          "members": "Fans",
+          "sensor_entity_id": "Cooling sensor",
+          "detection_mode": "Detection mode",
+          "on_threshold": "Turn-on threshold",
+          "hysteresis": "Hysteresis",
+          "active_states": "Allowed room states",
+          "suppress_states": "Suppressing room states",
+          "clear_behavior": "Clear behavior",
+          "post_clear_hold_seconds": "Post-clear hold",
+          "sensor_unavailable_behavior": "Unavailable sensor behavior"
         },
         "data_description": {
-          "required_state": "Room state required before fan automation may turn fans on.",
-          "tracked_device_class": "Sensor reading to watch, such as humidity or temperature.",
-          "setpoint": "Minimum value the room sensor reading must reach before fans turn on."
+          "members": "Fans this cooling rule may control.",
+          "sensor_entity_id": "Temperature or comparable signal used to decide if cooling is needed.",
+          "active_states": "Room states where cooling may start.",
+          "suppress_states": "Room states that should block this cooling rule, such as Sleep.",
+          "clear_behavior": "Whether the fan stops when room state clears or keeps running until the sensor condition clears."
+        }
+      },
+      "feature_conf_fan_groups_humidity": {
+        "title": "Humidity fan automation",
+        "description": "Run selected fans for shower or moisture control. This rule can continue after occupancy clears until the humidity condition clears.",
+        "data": {
+          "members": "Fans",
+          "sensor_entity_id": "Humidity sensor",
+          "detection_mode": "Detection mode",
+          "on_threshold": "Turn-on threshold",
+          "hysteresis": "Hysteresis",
+          "active_states": "Allowed room states",
+          "suppress_states": "Suppressing room states",
+          "clear_behavior": "Clear behavior",
+          "post_clear_hold_seconds": "Post-clear hold",
+          "sensor_unavailable_behavior": "Unavailable sensor behavior"
+        },
+        "data_description": {
+          "members": "Fans this humidity rule may control.",
+          "sensor_entity_id": "Humidity sensor or managed room humidity signal.",
+          "active_states": "Room states where humidity control may start.",
+          "clear_behavior": "Bathrooms usually use run-until-clear so the fan keeps running after a shower until humidity drops."
+        }
+      },
+      "feature_conf_fan_groups_odor": {
+        "title": "Odor and air-quality fan automation",
+        "description": "Run selected fans from an air-quality signal such as VOC, particulate, gas, or another odor proxy.",
+        "data": {
+          "members": "Fans",
+          "sensor_entity_id": "Air-quality sensor",
+          "detection_mode": "Detection mode",
+          "on_threshold": "Turn-on threshold",
+          "hysteresis": "Hysteresis",
+          "active_states": "Allowed room states",
+          "suppress_states": "Suppressing room states",
+          "clear_behavior": "Clear behavior",
+          "post_clear_hold_seconds": "Post-clear hold",
+          "sensor_unavailable_behavior": "Unavailable sensor behavior"
+        },
+        "data_description": {
+          "members": "Fans this odor or air-quality rule may control.",
+          "sensor_entity_id": "VOC, particulate, gas, air-quality, or comparable sensor.",
+          "active_states": "Room states where odor or air-quality control may start.",
+          "clear_behavior": "Sensor-based odor control normally runs until the air-quality condition clears."
         }
       },
       "feature_conf_climate_control": {
@@ -702,6 +757,20 @@
         "sun": "Sun",
         "outside_lux": "Outside lux",
         "none": "None (disable adaptive bright off)"
+      }
+    },
+    "fan_clear_behavior": {
+      "options": {
+        "run_until_clear": "Run until the sensor condition clears",
+        "occupancy_only": "Stop when the room state no longer allows it",
+        "post_clear_hold": "Run for a fixed time after the room state clears"
+      }
+    },
+    "fan_sensor_unavailable_behavior": {
+      "options": {
+        "clear_reason": "Clear this fan reason",
+        "hold_then_clear": "Hold briefly, then clear",
+        "hold_until_restored": "Hold until the sensor returns"
       }
     },
     "calculation_mode": {
