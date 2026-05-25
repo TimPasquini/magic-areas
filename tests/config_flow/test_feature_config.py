@@ -77,6 +77,7 @@ async def test_handle_feature_conf_validates_input() -> None:
     flow.async_step_feature_conf_light_groups = AsyncMock(
         return_value={"type": FlowResultType.MENU}
     )
+    flow._persist_options = AsyncMock()
 
     # Provide valid user input
     user_input: dict[str, str] = {}
@@ -97,6 +98,7 @@ async def test_handle_feature_conf_stores_valid_feature_config() -> None:
     flow.async_step_feature_conf_light_groups = AsyncMock(
         return_value={"type": FlowResultType.MENU}
     )
+    flow._persist_options = AsyncMock()
 
     # Provide valid user input
     user_input: dict[str, str] = {}

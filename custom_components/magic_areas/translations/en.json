@@ -30,7 +30,7 @@
     "step": {
       "select_features": {
         "title": "Feature selection",
-        "description": "Select the features you want to enable for this area. Features with settings add a configuration menu after submit; helper-only features are enabled with sensible defaults without extra menu pages.",
+        "description": "Choose what Magic Areas should manage for this room. Some choices add room behavior, such as lights, fans, climate, notifications, or room sensors; others only create convenient room-level groups.",
         "data": {
           "fan_groups": "Create fan groups",
           "climate_control": "Create climate controller",
@@ -45,29 +45,28 @@
           "wasp_in_a_box": "Create a Wasp in a Box sensor"
         },
         "data_description": {
-          "fan_groups": "Creates a native fan helper group and adds a configuration menu for trigger state and setpoint behavior.",
-          "climate_control": "Adds a configuration menu for choosing the climate entity and presets used for room states.",
-          "media_player_groups": "Creates a native media-player helper group using default grouping and does not add a configuration menu.",
-          "light_groups": "Creates native light helper groups and adds a configuration menu for roles, brightness behavior, and Adaptive Lighting coordination.",
-          "cover_groups": "Creates native cover helper groups by device class using default grouping and does not add a configuration menu.",
-          "area_aware_media_player": "Adds a configuration menu for notification targets and states used by the area-aware media player.",
-          "aggregates": "Creates native aggregate helpers and adds a configuration menu for device classes, thresholds, and minimum entity counts.",
-          "health": "Creates a native health helper and adds a configuration menu for monitored binary-sensor device classes.",
-          "presence_hold": "Creates a presence hold switch and adds a configuration menu for the hold timeout.",
-          "ble_trackers": "Creates a BLE tracker monitor and adds a configuration menu for the tracker entities to watch.",
-          "wasp_in_a_box": "Creates a Wasp in a Box sensor and adds a configuration menu for delay, timeout, and sensor classes."
+          "fan_groups": "Lets this room run fans from room state and sensor values, such as humidity, temperature, or air quality.",
+          "climate_control": "Lets this room change a thermostat or climate device preset when the room changes state.",
+          "media_player_groups": "Creates one room-level media-player target from media players assigned to this area.",
+          "light_groups": "Lets this room organize lights by role, turn those roles on and off from room states, and optionally coordinate Adaptive Lighting.",
+          "cover_groups": "Creates room-level cover targets from covers assigned to this area, grouped by cover type.",
+          "area_aware_media_player": "Lets this room play notifications only through selected media players and only during selected room states.",
+          "aggregates": "Creates room-level sensor readings from the sensors in this area, such as average temperature or combined motion.",
+          "health": "Creates a room health sensor from problem, battery, connectivity, or other status sensors in this area.",
+          "presence_hold": "Adds a manual hold switch that can keep this room occupied for a limited time.",
+          "ble_trackers": "Lets Bluetooth room-tracker sensors contribute to this room's occupancy.",
+          "wasp_in_a_box": "Keeps this room occupied after a door or motion pattern suggests someone may still be inside."
         }
       },
       "show_menu": {
         "title": "Magic Areas Options",
-        "description": "Choose what to configure for this area. Changes are staged inside this flow and are not saved until you select `Save & Exit`.",
+        "description": "Choose what to change for this room. Completed pages are saved when you submit them. Use the close button when you are finished; closing discards only the current unsubmitted page.",
         "menu_options": {
           "area_config": "Area behavior",
           "presence_tracking": "Presence tracking",
           "secondary_states": "Area states",
           "select_features": "Features",
           "custom_control_groups": "Custom control groups",
-          "finish": "Save & Exit",
           "feature_conf_health": "Health sensors",
           "feature_conf_fan_groups": "Fan automation",
           "feature_conf_climate_control": "Climate automation",
@@ -81,22 +80,14 @@
       },
       "feature_conf_health": {
         "title": "Health sensors",
-        "description": "Choose what to configure for health monitoring in this area.",
-        "menu_options": {
-          "feature_conf_health_settings": "Health sensor settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_health_settings": {
-        "title": "Health sensor settings",
-        "description": "Choose the binary sensor device classes tracked by the health sensor for this area.",
+        "description": "Choose which kinds of status sensors should make this room report a health problem. This page is saved when you submit it.",
         "data": {
           "health_binary_sensor_device_classes": "Device classes to track"
         }
       },
       "feature_conf_light_groups": {
         "title": "Light Groups",
-        "description": "Magic Areas creates these four (plus a global one) [light groups](https://github.com/jseidl/hass-magic_areas/wiki/Light-Groups) (if you assign lights to them) for you to use. These by default are plain light groups but can be automatically controlled if you assign them to area states and enable the light control switch (that will be created when you enable this feature). All lights will be turned off when an area is cleared. Additional states can be unlocked by configuring `Advanced area state tracking`.",
+        "description": "Configure how this room uses its lights. Assign lights to roles such as overhead, task, accent, and sleep; decide how room brightness affects automatic light control; and optionally coordinate with Adaptive Lighting.",
         "menu_options": {
           "feature_conf_light_groups_roles": "Light roles",
           "feature_conf_light_groups_brightness": "Brightness behavior",
@@ -114,12 +105,12 @@
           "adaptive_require_ambient_rise": "Require ambient rise",
           "ambient_rise_window_seconds": "Ambient rise window",
           "ambient_rise_min_delta": "Ambient rise delta",
-          "inside_bright_entity": "Inside bright binary entity",
+          "inside_bright_entity": "Inside bright sensor",
           "outside_context_source": "Outside context source",
-          "outside_bright_entity": "Outside bright binary entity",
-          "outside_lux_entity": "Outside lux entity",
+          "outside_bright_entity": "Outside bright sensor",
+          "outside_lux_entity": "Outside lux sensor",
           "outside_lux_min": "Outside lux minimum",
-          "outside_lux_inside_entity": "Inside lux entity for contrast",
+          "outside_lux_inside_entity": "Inside lux sensor for contrast",
           "outside_lux_inside_delta": "Outside-inside lux delta",
           "outside_lux_inside_ratio_min_percent": "Outside-inside ratio minimum",
           "overhead_lights": "Overhead lights",
@@ -136,37 +127,37 @@
           "task_lights_act_on": "When should task lights be controlled?"
         },
         "data_description": {
-          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass.",
-          "adaptive_lighting_mode": "Select whether Magic Areas ignores Adaptive Lighting, adopts existing Adaptive Lighting switch sets, or manages Adaptive Lighting configs for selected light roles.",
-          "adaptive_lighting_manage_all_lights": "When enabled, Magic Areas creates a room-level Adaptive Lighting config containing all lights in the area. The all-lights switch can then coordinate that room-level Adaptive Lighting group separately from role groups.",
-          "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning.",
-          "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
-          "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
-          "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action or a configured room light increases output.",
-          "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
-          "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
-          "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
-          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
-          "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
-          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
-          "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
-          "outside_lux_min": "Minimum outside lux required for adaptive bright-driven turn-off when source is `outside_lux`.",
-          "outside_lux_inside_entity": "Optional in-room illuminance sensor used for outside/inside contrast checks when source is `outside_lux`.",
-          "outside_lux_inside_delta": "Optional required lux delta (`outside - inside`) before adaptive bright-driven turn-off is allowed. Set to 0 to disable.",
-          "outside_lux_inside_ratio_min_percent": "Optional required outside/inside lux ratio percentage (100 = 1.0x) for adaptive bright-driven turn-off when source is `outside_lux`. Set to 0 to disable.",
-          "overhead_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "overhead_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "sleep_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "sleep_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "accent_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "accent_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "task_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "task_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both."
+          "brightness_mode": "Choose how this room reacts when it is bright. Classic can keep lights off or turn them off when the room is bright. Advisory can use brightness to decide when lights are needed, but does not turn lights off just because the room became bright. Adaptive can turn lights off from brightness only after extra safeguards pass.",
+          "adaptive_lighting_mode": "Choose whether this room ignores Adaptive Lighting, uses Adaptive Lighting setups you already created, or asks Magic Areas to create matching Adaptive Lighting setups for selected light roles.",
+          "adaptive_lighting_manage_all_lights": "Create one Adaptive Lighting setup for every light assigned to this room, in addition to any role-specific setups.",
+          "adaptive_lighting_managed_roles": "Choose which light roles should get matching Adaptive Lighting setups. Adaptive Lighting still decides brightness, color, and sleep appearance.",
+          "bright_min_on_seconds": "Keep lights on for at least this long before adaptive brightness is allowed to turn them off.",
+          "bright_dwell_seconds": "Require the room to stay bright for this long before adaptive brightness is allowed to turn lights off.",
+          "bright_attribution_hold_seconds": "After Magic Areas turns on lights, or a room light gets brighter, wait this long before treating a brightness increase as daylight.",
+          "adaptive_require_ambient_rise": "Require the room's illuminance reading to rise before adaptive brightness may turn lights off.",
+          "ambient_rise_window_seconds": "How far back Magic Areas looks for a room-brightness increase.",
+          "ambient_rise_min_delta": "Minimum lux increase needed before the room counts as getting brighter.",
+          "inside_bright_entity": "Optional room bright/dark binary sensor. Use this for a threshold-light sensor that says whether the room itself is bright enough.",
+          "outside_context_source": "Choose what proves there is enough outside light for adaptive brightness to turn room lights off.",
+          "outside_bright_entity": "Optional binary sensor that says whether it is bright outside.",
+          "outside_lux_entity": "Optional outdoor illuminance sensor used to decide whether outside light is strong enough.",
+          "outside_lux_min": "Minimum outdoor lux required before adaptive brightness may turn room lights off.",
+          "outside_lux_inside_entity": "Optional room illuminance sensor used to compare indoor and outdoor brightness.",
+          "outside_lux_inside_delta": "Required lux difference between outside and inside before adaptive brightness may turn lights off. Set to 0 to disable.",
+          "outside_lux_inside_ratio_min_percent": "Required outside-to-inside brightness ratio. 100 means outside must be at least as bright as inside. Set to 0 to disable.",
+          "overhead_lights_states": "Choose the room states that should turn overhead lights on. They turn off when the room no longer has any selected state.",
+          "overhead_lights_act_on": "Choose whether overhead lights react when the room becomes occupied, when room states change, or both.",
+          "sleep_lights_states": "Choose the room states that should turn sleep lights on. They turn off when the room no longer has any selected state.",
+          "sleep_lights_act_on": "Choose whether sleep lights react when the room becomes occupied, when room states change, or both.",
+          "accent_lights_states": "Choose the room states that should turn accent lights on. They turn off when the room no longer has any selected state.",
+          "accent_lights_act_on": "Choose whether accent lights react when the room becomes occupied, when room states change, or both.",
+          "task_lights_states": "Choose the room states that should turn task lights on. They turn off when the room no longer has any selected state.",
+          "task_lights_act_on": "Choose whether task lights react when the room becomes occupied, when room states change, or both."
         }
       },
       "feature_conf_light_groups_roles": {
         "title": "Light roles",
-        "description": "Assign lights to room roles and choose which area states and events control each role.",
+        "description": "Assign this room's lights to roles, then choose when each role turns on or off as the room becomes occupied, extended, accented, asleep, bright, or dark.",
         "data": {
           "overhead_lights": "Overhead lights",
           "overhead_lights_states": "States which overhead lights are turned on",
@@ -182,14 +173,14 @@
           "task_lights_act_on": "When should task lights be controlled?"
         },
         "data_description": {
-          "overhead_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "overhead_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "sleep_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "sleep_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "accent_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "accent_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both.",
-          "task_lights_states": "Configure which area states will trigger this light group. Light groups will be turned `on` while area is on this state and `off` if the area loses these states. For example, if you want the light to stay `on` after an extended period of time, you need to select the `extended` state too.",
-          "task_lights_act_on": "Select if this light group should be controlled only when an area first gets occupied, only on area state changes or both."
+          "overhead_lights_states": "Choose the room states that should turn overhead lights on. They turn off when the room no longer has any selected state.",
+          "overhead_lights_act_on": "Choose whether overhead lights react when the room becomes occupied, when room states change, or both.",
+          "sleep_lights_states": "Choose the room states that should turn sleep lights on. They turn off when the room no longer has any selected state.",
+          "sleep_lights_act_on": "Choose whether sleep lights react when the room becomes occupied, when room states change, or both.",
+          "accent_lights_states": "Choose the room states that should turn accent lights on. They turn off when the room no longer has any selected state.",
+          "accent_lights_act_on": "Choose whether accent lights react when the room becomes occupied, when room states change, or both.",
+          "task_lights_states": "Choose the room states that should turn task lights on. They turn off when the room no longer has any selected state.",
+          "task_lights_act_on": "Choose whether task lights react when the room becomes occupied, when room states change, or both."
         }
       },
       "feature_conf_light_groups_brightness": {
@@ -199,24 +190,24 @@
           "brightness_mode": "Brightness behavior mode"
         },
         "data_description": {
-          "brightness_mode": "Select how `bright` affects automation for this group: Classic keeps legacy behavior (bright can block turn-on and can trigger turn-off), Advisory ignores bright for turn-off decisions, and Adaptive allows bright-driven turn-off only when safeguards pass."
+          "brightness_mode": "Choose how this room reacts when it is bright. Classic can keep lights off or turn them off when the room is bright. Advisory can use brightness to decide when lights are needed, but does not turn lights off just because the room became bright. Adaptive can turn lights off from brightness only after extra safeguards pass."
         }
       },
       "feature_conf_light_groups_brightness_advisory": {
         "title": "Advisory brightness settings",
-        "description": "Configure optional binary bright/dark hints used by advisory behavior.",
+        "description": "Choose optional bright/dark sensors for advisory behavior. These should be binary sensors that already say whether the room or outside is bright.",
         "data": {
-          "inside_bright_entity": "Inside bright binary entity",
-          "outside_bright_entity": "Outside bright binary entity"
+          "inside_bright_entity": "Inside bright sensor",
+          "outside_bright_entity": "Outside bright sensor"
         },
         "data_description": {
-          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
-          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks."
+          "inside_bright_entity": "Optional binary sensor that says whether this room is bright enough.",
+          "outside_bright_entity": "Optional binary sensor that says whether it is bright outside."
         }
       },
       "feature_conf_light_groups_brightness_adaptive": {
         "title": "Adaptive brightness settings",
-        "description": "Configure binary and lux safeguards for adaptive bright-driven turn-off.",
+        "description": "Set the safeguards that must pass before room brightness is allowed to turn lights off automatically.",
         "data": {
           "bright_min_on_seconds": "Adaptive minimum on-time",
           "bright_dwell_seconds": "Adaptive bright dwell",
@@ -224,106 +215,82 @@
           "adaptive_require_ambient_rise": "Require ambient rise",
           "ambient_rise_window_seconds": "Ambient rise window",
           "ambient_rise_min_delta": "Ambient rise delta",
-          "inside_bright_entity": "Inside bright binary entity",
+          "inside_bright_entity": "Inside bright sensor",
           "outside_context_source": "Outside context source",
-          "outside_bright_entity": "Outside bright binary entity",
-          "outside_lux_entity": "Outside lux entity",
+          "outside_bright_entity": "Outside bright sensor",
+          "outside_lux_entity": "Outside lux sensor",
           "outside_lux_min": "Outside lux minimum",
-          "outside_lux_inside_entity": "Inside lux entity for contrast",
+          "outside_lux_inside_entity": "Inside lux sensor for contrast",
           "outside_lux_inside_delta": "Outside-inside lux delta",
           "outside_lux_inside_ratio_min_percent": "Outside-inside ratio minimum"
         },
         "data_description": {
-          "bright_min_on_seconds": "In `adaptive` mode, require lights to remain on for at least this many seconds before bright-driven turn-off is allowed.",
-          "bright_dwell_seconds": "In `adaptive` mode, require the area to remain `bright` for at least this many seconds before bright-driven turn-off is allowed.",
-          "bright_attribution_hold_seconds": "In `adaptive` mode, suppress bright-driven turn-off for this many seconds after Magic Areas issues a light-group action or a configured room light increases output.",
-          "adaptive_require_ambient_rise": "When enabled, `adaptive` mode requires in-room lux to show a meaningful rise within a rolling window before bright-driven turn-off is allowed.",
-          "ambient_rise_window_seconds": "Rolling time window (seconds) used to evaluate in-room ambient rise.",
-          "ambient_rise_min_delta": "Minimum in-room lux increase required within the ambient-rise window when ambient rise is required.",
-          "inside_bright_entity": "Optional binary bright/dark entity for the room (recommended: the Magic Areas threshold-light binary sensor). This is not a lux sensor. In `advisory`/`adaptive`, this overrides inferred room-bright behavior for bright gating.",
-          "outside_context_source": "Outside context used by `adaptive` mode for bright-driven turn-off eligibility.",
-          "outside_bright_entity": "Optional binary entity that represents whether it is bright outside. When set, this is used as the first outside-context gate before sun/lux checks.",
-          "outside_lux_entity": "Optional outdoor illuminance sensor used when outside context source is `outside_lux`.",
-          "outside_lux_min": "Minimum outside lux required for adaptive bright-driven turn-off when source is `outside_lux`.",
-          "outside_lux_inside_entity": "Optional in-room illuminance sensor used for outside/inside contrast checks when source is `outside_lux`.",
-          "outside_lux_inside_delta": "Optional required lux delta (`outside - inside`) before adaptive bright-driven turn-off is allowed. Set to 0 to disable.",
-          "outside_lux_inside_ratio_min_percent": "Optional required outside/inside lux ratio percentage (100 = 1.0x) for adaptive bright-driven turn-off when source is `outside_lux`. Set to 0 to disable."
+          "bright_min_on_seconds": "Keep lights on for at least this long before adaptive brightness is allowed to turn them off.",
+          "bright_dwell_seconds": "Require the room to stay bright for this long before adaptive brightness is allowed to turn lights off.",
+          "bright_attribution_hold_seconds": "After Magic Areas turns on lights, or a room light gets brighter, wait this long before treating a brightness increase as daylight.",
+          "adaptive_require_ambient_rise": "Require the room's illuminance reading to rise before adaptive brightness may turn lights off.",
+          "ambient_rise_window_seconds": "How far back Magic Areas looks for a room-brightness increase.",
+          "ambient_rise_min_delta": "Minimum lux increase needed before the room counts as getting brighter.",
+          "inside_bright_entity": "Optional binary sensor that says whether this room is bright enough.",
+          "outside_context_source": "Choose what proves there is enough outside light for adaptive brightness to turn room lights off.",
+          "outside_bright_entity": "Optional binary sensor that says whether it is bright outside.",
+          "outside_lux_entity": "Optional outdoor illuminance sensor used to decide whether outside light is strong enough.",
+          "outside_lux_min": "Minimum outdoor lux required before adaptive brightness may turn room lights off.",
+          "outside_lux_inside_entity": "Optional room illuminance sensor used to compare indoor and outdoor brightness.",
+          "outside_lux_inside_delta": "Required lux difference between outside and inside before adaptive brightness may turn lights off. Set to 0 to disable.",
+          "outside_lux_inside_ratio_min_percent": "Required outside-to-inside brightness ratio. 100 means outside must be at least as bright as inside. Set to 0 to disable."
         }
       },
       "feature_conf_light_groups_adaptive_lighting": {
         "title": "Adaptive Lighting coordination",
-        "description": "Choose whether Magic Areas ignores Adaptive Lighting, links to existing Adaptive Lighting switch sets, or creates managed Adaptive Lighting configs for selected light roles.",
+        "description": "Choose how this room works with Adaptive Lighting. Adaptive Lighting controls light appearance; Magic Areas controls which room lights should be on.",
         "data": {
           "adaptive_lighting_mode": "Adaptive Lighting coordination",
           "adaptive_lighting_manage_all_lights": "Create room-level Adaptive Lighting group",
           "adaptive_lighting_managed_roles": "Magic Areas-managed Adaptive Lighting roles"
         },
         "data_description": {
-          "adaptive_lighting_mode": "Select whether Magic Areas ignores Adaptive Lighting, adopts existing Adaptive Lighting switch sets, or manages Adaptive Lighting configs for selected light roles.",
-          "adaptive_lighting_manage_all_lights": "When enabled, Magic Areas creates a room-level Adaptive Lighting config containing all lights in the area. The all-lights switch can then coordinate that room-level Adaptive Lighting group separately from role groups.",
-          "adaptive_lighting_managed_roles": "Select which Magic Areas light roles should receive Magic Areas-managed Adaptive Lighting configs. Adaptive Lighting still owns brightness/color/sleep tuning."
+          "adaptive_lighting_mode": "Choose whether this room ignores Adaptive Lighting, uses Adaptive Lighting setups you already created, or asks Magic Areas to create matching Adaptive Lighting setups for selected light roles.",
+          "adaptive_lighting_manage_all_lights": "Create one Adaptive Lighting setup for every light assigned to this room, in addition to any role-specific setups.",
+          "adaptive_lighting_managed_roles": "Choose which light roles should get matching Adaptive Lighting setups. Adaptive Lighting still decides brightness, color, and sleep appearance."
         }
       },
       "feature_conf_presence_hold": {
         "title": "Presence hold",
-        "description": "Choose what to configure for the presence hold switch in this area.",
-        "menu_options": {
-          "feature_conf_presence_hold_settings": "Presence hold settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_presence_hold_settings": {
-        "title": "Presence hold settings",
-        "description": "Configure how long the presence hold switch can keep the area occupied before it automatically turns off.",
+        "description": "Configure how long the presence hold switch can keep the area occupied before it automatically turns off. This page is saved when you submit it.",
         "data": {
           "presence_hold_timeout": "Time after the switch will be automatically turned `off`. (0 = timeout disabled)."
         }
       },
       "feature_conf_area_aware_media_player": {
         "title": "Area-aware media player",
-        "description": "Choose what to configure for area-aware media routing in this area.",
-        "menu_options": {
-          "feature_conf_area_aware_media_player_settings": "Area-aware media settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_area_aware_media_player_settings": {
-        "title": "Area-aware media settings",
-        "description": "Configure broadcast targets and states for area-aware media notifications.",
+        "description": "Choose where this room can play announcements and which room states allow announcements. This page is saved when you submit it.",
         "data": {
           "notification_devices": "Media Player devices used for broadcasting",
           "notification_states": "Play notifications devices only when on these states"
         },
         "data_description": {
-          "notification_states": "Notifications will only be played when an area is on this state. Using `extended` will ensure you don't get notified in rooms you just passed by and not selecting `sleep` will prevent notifications while on this mode."
+          "notification_states": "Announcements only play when the room has one of these states. Use extended to avoid rooms you only passed through; leave sleep unselected to avoid announcements while sleeping."
         }
       },
       "feature_conf_aggregates": {
         "title": "Aggregate sensors",
-        "description": "Choose what to configure for aggregate helpers in this area.",
-        "menu_options": {
-          "feature_conf_aggregates_settings": "Aggregate sensor settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_aggregates_settings": {
-        "title": "Aggregate sensor settings",
-        "description": "Configure which sensor classes are aggregated and how threshold helpers are created.",
+        "description": "Choose which room sensor readings should be combined, such as temperature, humidity, motion, or illuminance. You can also create a bright/dark sensor from the room's combined illuminance. This page is saved when you submit it.",
         "data": {
-          "aggregates_min_entities": "Minimum number of entities of the same device class required to create aggregates.",
-          "aggregates_binary_sensor_device_classes": "Binary sensor device classes to be aggregated.",
-          "aggregates_sensor_device_classes": "Sensor device classes to be aggregated.",
+          "aggregates_min_entities": "Minimum number of matching sensors needed before Magic Areas creates a combined room reading.",
+          "aggregates_binary_sensor_device_classes": "Binary sensor types to combine for this room.",
+          "aggregates_sensor_device_classes": "Sensor types to combine for this room.",
           "aggregates_illuminance_threshold": "Illuminance threshold for this area",
           "aggregates_illuminance_threshold_hysteresis": "Hysteresis (% of illuminance threshold)"
         },
         "data_description": {
-          "aggregates_illuminance_threshold": "Magic Areas will create a `light` binary sensor that will track when the area's aggregate illuminance goes over this threshold. Requires the device class `illuminance` to be selected for aggregation. Set to 0 to disable.",
+          "aggregates_illuminance_threshold": "Magic Areas will create a room bright/dark sensor when combined room illuminance crosses this threshold. Requires illuminance sensors to be selected above. Set to 0 to disable.",
           "aggregates_illuminance_threshold_hysteresis": "[Hysteresis](https://www.home-assistant.io/integrations/threshold/#hysteresis) defines how sensitive the sensor is to changes. This value is a percentage of the illuminance threshold, not lux. Example: threshold `1000` with hysteresis `5` means a `50 lux` margin. A value of `0` flips whenever the threshold is crossed."
         }
       },
       "feature_conf_fan_groups": {
         "title": "Fan automation",
-        "description": "Choose what to configure for area fan automation in this area.",
+        "description": "Configure when this room should run fans. Fan rules can be used for things like humidity, temperature, odor, or air quality.",
         "menu_options": {
           "feature_conf_fan_groups_settings": "Fan automation settings",
           "show_menu": "Back"
@@ -331,40 +298,40 @@
       },
       "feature_conf_fan_groups_settings": {
         "title": "Fan automation settings",
-        "description": "Configure the state, aggregate signal, and setpoint used to control fan groups.",
+        "description": "Choose the room state and sensor reading required before this room may turn its fans on.",
         "data": {
           "required_state": "Required state",
-          "tracked_device_class": "Tracked device class",
+          "tracked_device_class": "Tracked sensor type",
           "setpoint": "Setpoint"
         },
         "data_description": {
-          "required_state": "Area state required before fan automation can turn on the fan group.",
-          "tracked_device_class": "Select which aggregate device class to track for value changes.",
-          "setpoint": "Minimum value the tracked aggregate sensor must reach before fan automation turns on the fan group."
+          "required_state": "Room state required before fan automation may turn fans on.",
+          "tracked_device_class": "Sensor reading to watch, such as humidity or temperature.",
+          "setpoint": "Minimum value the room sensor reading must reach before fans turn on."
         }
       },
       "feature_conf_climate_control": {
         "title": "Climate automation",
-        "description": "Choose what to configure for climate control in this area.",
+        "description": "Configure how this room changes a thermostat or climate device as the room changes state. Select the device first, then map room states to presets.",
         "menu_options": {
-          "feature_conf_climate_control_settings": "Climate entity selection",
+          "feature_conf_climate_control_settings": "Climate device selection",
           "feature_conf_climate_control_select_presets": "Climate preset mapping",
           "show_menu": "Back"
         }
       },
       "feature_conf_climate_control_settings": {
-        "title": "Climate entity selection",
-        "description": "Select the climate entity that should be controlled through area states.",
+        "title": "Climate device selection",
+        "description": "Select the thermostat or climate device this room should control.",
         "data": {
-          "entity_id": "Climate entity"
+          "entity_id": "Climate device"
         },
         "data_description": {
-          "entity_id": "Climate entity to be controlled."
+          "entity_id": "Thermostat or climate device to control from this room."
         }
       },
       "feature_conf_climate_control_select_presets": {
-        "title": "Feature: Climate Control > Preset Mapping",
-        "description": "Control a climate entity by mapping presets to the area state. `extended` state takes priority over `occupied` and `sleep` state takes priority over `extended` and `occupied`. Map a state to an empty preset to disable changing presets for that state.",
+        "title": "Climate preset mapping",
+        "description": "Choose which climate preset should apply for each room state. Sleep takes priority over extended and occupied; extended takes priority over occupied. Leave a state empty to make no preset change for that state.",
         "data": {
           "preset_clear": "Clear",
           "preset_occupied": "Occupied",
@@ -372,93 +339,61 @@
           "preset_extended": "Extended"
         },
         "data_description": {
-          "preset_clear": "Preset to be changed when on `clear` state.",
-          "preset_occupied": "Preset to be changed when on `occupied` state.",
-          "preset_sleep": "Preset to be changed when on `sleep` state.",
-          "preset_extended": "Preset to be changed when on `extended` state."
+          "preset_clear": "Preset to use when the room is clear.",
+          "preset_occupied": "Preset to use when the room is occupied.",
+          "preset_sleep": "Preset to use when the room is in sleep mode.",
+          "preset_extended": "Preset to use when the room has been occupied long enough to become extended."
         }
       },
       "feature_conf_ble_trackers": {
         "title": "Bluetooth tracker monitoring",
-        "description": "Choose what to configure for BLE tracker presence monitoring in this area.",
-        "menu_options": {
-          "feature_conf_ble_trackers_settings": "BLE tracker settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_ble_trackers_settings": {
-        "title": "BLE tracker settings",
-        "description": "Choose BLE tracker entities whose room-state changes should contribute to area occupancy.",
+        "description": "Choose Bluetooth tracker sensors that can help decide whether this room is occupied. This page is saved when you submit it.",
         "data": {
           "ble_tracker_entities": "Entities from BLE Trackers to track."
         },
         "data_description": {
-          "ble_tracker_entities": "BLE tracker integrations such as [room-assistant](https://github.com/mKeRix/room-assistant), [Bermuda](https://github.com/agittins/bermuda), and [ESPresence](https://github.com/ESPresense/ESPresense) create sensors whose state indicates the closest area for a tracked device."
+          "ble_tracker_entities": "Choose tracker sensors whose state names the room where a person or device is currently closest."
         }
       },
       "feature_conf_wasp_in_a_box": {
         "title": "Wasp in a Box",
-        "description": "Choose what to configure for Wasp in a Box occupancy inference in this area.",
-        "menu_options": {
-          "feature_conf_wasp_in_a_box_settings": "Wasp in a Box settings",
-          "show_menu": "Back"
-        }
-      },
-      "feature_conf_wasp_in_a_box_settings": {
-        "title": "Wasp in a Box settings",
-        "description": "Configure delay, timeout, and source sensor classes used by Wasp in a Box.",
+        "description": "Configure how this room stays occupied after door and motion patterns suggest someone may still be inside. This page is saved when you submit it.",
         "data": {
           "delay": "Delay",
           "wasp_timeout": "Wasp Timeout",
           "wasp_device_classes": "Wasp sensor device classes"
         },
         "data_description": {
-          "delay": "Time to wait before checking for wasps after a box changing state. Set to 0 to disable.",
-          "wasp_timeout": "If greater than 0, wasp will be 'forgotten' after being inactive for this long.",
-          "wasp_device_classes": "If you wish other aggregates to be considered as wasps, please select from the list."
+          "delay": "Time to wait before deciding the room may still be occupied after the watched sensors change. Set to 0 to disable.",
+          "wasp_timeout": "How long to keep the room in this protected occupied state without new activity. Set to 0 to disable the timeout.",
+          "wasp_device_classes": "Sensor types that can help decide whether someone may still be in the room."
         }
       },
       "secondary_states": {
         "title": "Area states",
-        "description": "Configure area-level secondary state behavior.",
-        "menu_options": {
-          "secondary_states_settings": "Area state settings",
-          "show_menu": "Back"
-        }
-      },
-      "secondary_states_settings": {
-        "title": "Advanced area state tracking",
-        "description": "You can enable [secondary states](https://github.com/jseidl/hass-magic_areas/wiki/Area-State) for a Magic Area by assigning an entity to it. Secondary states are used by features for turning lights on only when it's dark or only turning on climate devices after an `extended` period of time or not sending notifications to an area if it's on `sleep`.",
+        "description": "Configure optional room states such as dark/bright, sleep, accent, and extended. These states can drive lights, climate presets, notifications, and other room behavior. This page is saved when you submit it.",
         "data": {
           "dark_entity": "Area's light sensor",
-          "sleep_entity": "Sleep state entity",
+          "sleep_entity": "Sleep state sensor",
           "sleep_timeout": "Clear timeout (Sleep)",
-          "accent_entity": "Accented state entity",
+          "accent_entity": "Accented state sensor",
           "extended_time": "Extended state time required",
           "extended_timeout": "Clear timeout (Extended)",
           "calculation_mode": "Secondary state calculation mode"
         },
         "data_description": {
-          "dark_entity": "This entity provides the area-level `bright`/`dark` state used by Magic Areas features. Use `sun.sun` or an exterior light sensor here when you want coarse daylight-style context that is not affected by the room lights.\n\nLight groups can use separate in-room brightness entities in `Advisory` and `Adaptive` modes. Avoid using an in-room light sensor for this area-level field unless you understand the feedback-loop risk.",
-          "sleep_entity": "Entity used to track area sleep state",
-          "sleep_timeout": "How long area will wait before clearing the state when on sleep state",
-          "accent_entity": "Entity used to track area Accented state",
-          "extended_time": "Area will be marked as 'extended' after being occupied for this long",
-          "extended_timeout": "How long area will wait before clearing the state when on extended state",
-          "calculation_mode": "Mode of calculating the meta-area secondary states from their children. 'Any' means if any area has the state, 'All' means all areas have to have the state and 'Majority' means >50% of the areas have to have the state."
+          "dark_entity": "Choose the daylight-style signal for this room's bright/dark state. Use sun.sun or an outdoor light sensor when you want a signal that room lights cannot affect.\n\nLight roles can use separate in-room brightness sensors in Advisory and Adaptive modes.",
+          "sleep_entity": "Sensor or switch that turns this room's sleep state on or off.",
+          "sleep_timeout": "How long the room waits before clearing sleep after the sleep signal turns off.",
+          "accent_entity": "Sensor or switch that turns this room's accent state on or off.",
+          "extended_time": "How long the room must stay occupied before it becomes extended.",
+          "extended_timeout": "How long the room waits before clearing extended after the extended condition ends.",
+          "calculation_mode": "For meta areas, choose how child rooms combine their states. Any means one child is enough, All means every child must match, and Majority means more than half must match."
         }
       },
       "area_config": {
         "title": "Area behavior",
-        "description": "Configure basic area behavior and entity membership rules.",
-        "menu_options": {
-          "area_config_settings": "Area behavior settings",
-          "show_menu": "Back"
-        }
-      },
-      "area_config_settings": {
-        "title": "Basic area options",
-        "description": "Configure basic options for the area. Area type is used for the Interior/Exterior/Global [Meta-areas](https://github.com/jseidl/hass-magic_areas/wiki/Meta-Areas) and you can fine-tune which entities are analyzed by Magic Areas by using the include/exclude entities options.",
+        "description": "Configure what kind of room this is and which devices or entities belong to it. This page is saved when you submit it.",
         "data": {
           "include_entities": "Include entities to this area",
           "exclude_entities": "Exclude entities from being analyzed",
@@ -467,24 +402,16 @@
           "ignore_diagnostic_entities": "Ignore diagnostic and configuration entities"
         },
         "data_description": {
-          "include_entities": "Magic Areas can consider entities from other areas including other Magic entities. You can use this to make a room's presence binary sensor to act as another room's presence sensor as well.",
-          "exclude_entities": "Entities listed here will be completely ignored by Magic Areas. Use this if you have entities throwing your data off like device temperature sensors.",
-          "type": "Defining an area type allows Meta areas for Interior/Exterior to be created.",
+          "include_entities": "Add entities that should count as part of this room even if Home Assistant assigns them somewhere else.",
+          "exclude_entities": "Ignore entities that should not affect this room, such as noisy diagnostic sensors or device temperature readings.",
+          "type": "Choose whether this room is indoors, outdoors, or a meta area.",
           "reload_on_registry_change": "Automatically reload this Magic Area when any entity or device is assigned or moved to an area.",
           "ignore_diagnostic_entities": "Magic Areas can ignore diagnostic and configuration entities which are usually not relevant."
         }
       },
       "presence_tracking": {
         "title": "Presence tracking",
-        "description": "Configure how this area detects and clears presence.",
-        "menu_options": {
-          "presence_tracking_settings": "Presence tracking settings",
-          "show_menu": "Back"
-        }
-      },
-      "presence_tracking_settings": {
-        "title": "Presence Tracking",
-        "description": "Configure which platforms and binary sensor device classes are used for [presence tracking](https://github.com/jseidl/hass-magic_areas/wiki/Presence-Sensing). This section also allows you to configure how long Magic Area will wait until clearing the area after the last presence event.",
+        "description": "Choose which devices and sensors count as presence, plus how long this room waits before clearing after activity stops. This page is saved when you submit it.",
         "data": {
           "presence_sensor_device_class": "Presence sensors device classes",
           "presence_device_platforms": "Platforms to be used for presence sensing",
@@ -492,34 +419,27 @@
           "clear_timeout": "Clear timeout"
         },
         "data_description": {
-          "presence_device_platforms": "Binary sensors are usually the standard source of presence but media devices can be used too.",
-          "presence_sensor_device_class": "Define which device classes of `binary sensors` will be used for presence tracking. Common non-standard options are door and humidity.",
-          "keep_only_entities": "Select presence-tracking entities that will only be considered when the room is already occupied. This is useful for preventing over-sensitive sensors such as mmWave sensors and BLE trackers false-triggering an area's presence.",
-          "clear_timeout": "How long since last presence event should it wait before clearing the area"
+          "presence_device_platforms": "Choose whether this room can use binary sensors, media players, or both for presence.",
+          "presence_sensor_device_class": "Choose which binary sensor types count as presence for this room.",
+          "keep_only_entities": "Choose sensors that can keep the room occupied but cannot start occupancy by themselves. This helps with sensitive sensors such as mmWave or BLE.",
+          "clear_timeout": "How long the room waits after the last activity before becoming clear."
         }
       },
       "custom_control_groups": {
         "title": "Custom control groups",
-        "description": "Configure advanced custom control groups for this area.",
-        "menu_options": {
-          "custom_control_groups_settings": "Custom control group settings",
-          "show_menu": "Back"
-        }
-      },
-      "custom_control_groups_settings": {
-        "title": "Custom control groups",
-        "description": "Define additional Magic Areas control groups for this area. These are advanced role-style groups: choose members, the area states that should trigger the group, and the control policy that should act on it.",
+        "description": "Define advanced room control groups beyond the built-in roles. Use these when you need a custom set of devices to react to specific room states. This page is saved when you submit it.",
         "data": {
           "custom_control_groups": "Custom control groups"
         },
         "data_description": {
-          "custom_control_groups": "Each item describes one area-scoped custom group. `group_id` should be stable, `members` are the target entities, `trigger_states` are the area states that activate the group, and `policy_id` selects the control policy."
+          "custom_control_groups": "Each item describes one custom room group. Choose a stable ID, the devices to control, the room states that activate the group, and the policy that decides what action to take."
         }
       }
     },
     "error": {
       "option_error": "Invalid option",
       "malformed_input": "This field is invalid or required",
+      "invalid_input": "This field is invalid or required",
       "no_entity_selected": "No entity was selected",
       "invalid_entity": "Invalid entity selected",
       "climate_no_preset_support": "Climate entity does not support preset modes"

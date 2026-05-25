@@ -33,7 +33,6 @@ def test_options_flow_root_menu_uses_task_oriented_labels() -> None:
         "secondary_states": "Area states",
         "select_features": "Features",
         "custom_control_groups": "Custom control groups",
-        "finish": "Done",
         "feature_conf_health": "Health sensors",
         "feature_conf_fan_groups": "Fan automation",
         "feature_conf_climate_control": "Climate automation",
@@ -53,17 +52,19 @@ def test_options_flow_root_menu_explains_save_behavior() -> None:
 
     assert isinstance(description, str)
     assert "saved when you submit" in description
+    assert "close button" in description
     assert "Save & Exit" not in description
 
 
-def test_done_label_does_not_imply_final_save_semantics() -> None:
-    """The Done menu label should not suggest it is the only save operation."""
+def test_root_menu_does_not_expose_final_save_action() -> None:
+    """Root menu should not show a misleading final save or done action."""
     show_menu = _options_step("show_menu")
     menu_options = show_menu["menu_options"]
 
     assert isinstance(menu_options, dict)
-    assert menu_options["finish"] == "Done"
-    assert "Save" not in menu_options["finish"]
+    assert "finish" not in menu_options
+    assert "Done" not in menu_options.values()
+    assert all("Save" not in label for label in menu_options.values())
 
 
 def test_single_page_forms_explain_submit_saves_immediately() -> None:
@@ -87,14 +88,14 @@ def test_single_page_forms_explain_submit_saves_immediately() -> None:
 
 def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> None:
     """The area-level bright/dark source should not imply it is the only light signal."""
-    secondary_states = _options_step("secondary_states_settings")
+    secondary_states = _options_step("secondary_states")
     data_description = secondary_states["data_description"]
 
     assert isinstance(data_description, dict)
     dark_entity = data_description["dark_entity"]
     assert isinstance(dark_entity, str)
-    assert "area-level `bright`/`dark` state" in dark_entity
-    assert "separate in-room brightness entities" in dark_entity
+    assert "daylight-style signal" in dark_entity
+    assert "separate in-room brightness sensors" in dark_entity
     assert "Advisory" in dark_entity
     assert "Adaptive" in dark_entity
 
@@ -106,13 +107,13 @@ def test_feature_selection_distinguishes_configurable_features() -> None:
     data_description = select_features["data_description"]
 
     assert isinstance(description, str)
-    assert "without extra menu pages" in description
+    assert "convenient room-level groups" in description
     assert isinstance(data_description, dict)
-    assert "adds a configuration menu" in data_description["light_groups"]
-    assert "using default grouping and does not add a configuration menu" in (
+    assert "turn those roles on and off" in data_description["light_groups"]
+    assert "room-level cover targets" in (
         data_description["cover_groups"]
     )
-    assert "using default grouping and does not add a configuration menu" in (
+    assert "room-level media-player target" in (
         data_description["media_player_groups"]
     )
 
@@ -126,7 +127,7 @@ def test_light_group_brightness_mode_uses_classic_label() -> None:
 
     assert selector_options["inhibit"] == "Classic: bright may block on and turn off"
     assert isinstance(descriptions, dict)
-    assert "Classic keeps legacy behavior" in descriptions["brightness_mode"]
+    assert "Classic can keep lights off" in descriptions["brightness_mode"]
     assert "inhibit" not in descriptions["brightness_mode"]
 
 
@@ -147,9 +148,9 @@ def test_light_group_submenu_uses_task_oriented_labels() -> None:
 def test_light_group_substeps_explain_their_scope() -> None:
     """Each light-group substep should tell users what job it configures."""
     expected_descriptions = {
-        "feature_conf_light_groups_roles": "Assign lights to room roles",
+        "feature_conf_light_groups_roles": "Assign this room's lights to roles",
         "feature_conf_light_groups_brightness": "Choose a brightness behavior mode first",
-        "feature_conf_light_groups_adaptive_lighting": "Choose whether Magic Areas ignores",
+        "feature_conf_light_groups_adaptive_lighting": "works with Adaptive Lighting",
     }
 
     for step_id, expected_text in expected_descriptions.items():
@@ -190,7 +191,7 @@ def test_intentional_feature_submenus_expose_settings_and_back() -> None:
 
 def test_custom_control_groups_step_has_guidance() -> None:
     """The advanced custom-control editor should not render as a blank form."""
-    step = _options_step("custom_control_groups_settings")
+    step = _options_step("custom_control_groups")
 
     assert step["title"] == "Custom control groups"
     description = step["description"]
@@ -198,8 +199,8 @@ def test_custom_control_groups_step_has_guidance() -> None:
     data_description = step["data_description"]
 
     assert isinstance(description, str)
-    assert "advanced role-style groups" in description
+    assert "advanced room control groups" in description
     assert isinstance(data, dict)
     assert data["custom_control_groups"] == "Custom control groups"
     assert isinstance(data_description, dict)
-    assert "group_id" in data_description["custom_control_groups"]
+    assert "stable ID" in data_description["custom_control_groups"]

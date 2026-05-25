@@ -372,11 +372,15 @@ async def handle_custom_control_groups(
     if validated:
         return await success_step()
 
+    form_saved_options: Mapping[str, object] = flow.area_options
+    if user_input is not None and errors:
+        form_saved_options = user_input
+
     return flow.async_show_form(
         step_id=step_id,
         data_schema=flow._build_schema_from_vol(
             schema,
-            saved_options=flow.area_options,
+            saved_options=form_saved_options,
             selectors={
                 CONF_CUSTOM_CONTROL_GROUPS: _custom_control_group_selector(),
             },

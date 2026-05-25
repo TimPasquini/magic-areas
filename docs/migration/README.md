@@ -97,6 +97,10 @@ migration documents.
 - New schema and validation modules consolidate config and options flow logic.
 - Constants/config keys are split into scoped modules:
   `config_keys/`, `defaults.py`, and `enums.py`.
+- Options flow now uses page-level persistence for complete pages instead of a
+  final root-menu save action. Direct single-page tasks open directly; Light
+  groups, Fan automation, and Climate automation remain intentional guided
+  submenus.
 
 ### Tests and verification
 

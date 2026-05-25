@@ -177,7 +177,5 @@ async def test_options_flow_custom_control_groups_step_meta_area(
         },
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options["custom_control_groups"][0]["group_id"] == "control.meta_task"

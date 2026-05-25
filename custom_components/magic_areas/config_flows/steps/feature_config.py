@@ -171,7 +171,13 @@ _LIGHT_GROUP_SUBSTEPS = {
 }
 _FEATURE_SETTINGS_STEP_SUFFIX = "_settings"
 _FEATURE_MENU_EXCLUSIONS = {
+    MagicAreasFeatures.AGGREGATES.value,
+    MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER.value,
+    MagicAreasFeatures.BLE_TRACKER.value,
+    MagicAreasFeatures.HEALTH.value,
     MagicAreasFeatures.LIGHT_GROUPS.value,
+    MagicAreasFeatures.PRESENCE_HOLD.value,
+    MagicAreasFeatures.WASP_IN_A_BOX.value,
 }
 _LIGHT_GROUP_ROLE_KEYS = {
     key
@@ -416,18 +422,8 @@ def _prune_light_group_options_for_brightness_mode(
     existing: dict[str, object],
     mode: str,
 ) -> None:
-    """Drop persisted brightness keys that are invalid for the selected mode."""
-    if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE:
-        return
-
-    if mode == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY:
-        for key in _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS:
-            existing.pop(key, None)
-        return
-
-    if mode == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT:
-        for key in _LIGHT_GROUP_ADVISORY_KEYS | _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS:
-            existing.pop(key, None)
+    """Preserve dormant brightness settings when switching modes."""
+    return
 
 
 def _default_inside_bright_entity(
@@ -482,11 +478,17 @@ def _should_rerender_light_group_adaptive_lighting_step(
     """Return whether mode selection should reveal follow-up controls immediately."""
     if step_id != _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
         return False
-    if (
-        validated.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
-        != LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
-    ):
+    mode = validated.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
+    if mode not in {
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
+        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
+    }:
         return False
+    if mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING:
+        return not any(
+            key.startswith(_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX)
+            for key in user_input
+        )
     return (
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL not in user_input
         and CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES not in user_input
@@ -610,32 +612,34 @@ def _add_light_group_brightness_selectors(
         return
 
     selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
-        flow.all_binary_entities, multiple=False
+        multiple=False
     )
     selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
-        flow.all_binary_entities, multiple=False
+        multiple=False
     )
 
     if step_id != _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP:
         return
 
     selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
-        min_value=0, unit_of_measurement="s"
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
     selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
-        min_value=0, unit_of_measurement="s"
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
     selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = (
-        build_selector_number(min_value=0, unit_of_measurement="s")
+        build_selector_number(
+            min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
+        )
     )
     selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
         build_selector_boolean()
     )
     selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
-        min_value=0, unit_of_measurement="s"
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
     selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
-        min_value=0,
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
         max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
         unit_of_measurement="lx",
     )
@@ -652,7 +656,7 @@ def _add_light_group_brightness_selectors(
         flow.all_illuminance_entities, multiple=False
     )
     selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
-        min_value=0,
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
         max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
         unit_of_measurement="lx",
     )
@@ -660,12 +664,14 @@ def _add_light_group_brightness_selectors(
         build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
     )
     selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = build_selector_number(
-        min_value=0,
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
         max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
         unit_of_measurement="lx",
     )
     selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
-        build_selector_number(min_value=0, unit_of_measurement="%")
+        build_selector_number(
+            min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="%"
+        )
     )
 
 
@@ -758,7 +764,7 @@ async def handle_feature_selection(
             else:
                 enabled_features.pop(c_feature.value, None)
 
-        return await flow.async_step_show_menu()
+        return await flow._persist_options_and_show_menu()
 
     return flow.async_show_form(
         step_id="select_features",
@@ -858,11 +864,13 @@ async def handle_feature_form(
                 return await handle_feature_conf(flow)
 
             if next_step:
+                if next_step != "feature_conf_climate_control_select_presets":
+                    await flow._persist_options()
                 step_handler: Callable[[], Awaitable[config_entries.ConfigFlowResult]]
                 step_handler = getattr(flow, f"async_step_{next_step}")
                 return await step_handler()
             # noinspection PyTypeChecker
-            return await flow.async_step_show_menu()
+            return await flow._persist_options_and_show_menu()
 
     # noinspection PyTypeChecker
     return flow.async_show_form(
@@ -1055,6 +1063,7 @@ async def handle_feature_conf(
                 mode=selected_mode,
             )
             if selected_mode == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT:
+                await flow._persist_options()
                 flow._feature_step_id = _LIGHT_GROUP_MENU_STEP
                 return await handle_feature_conf(flow)
             flow._feature_step_id = (
@@ -1235,7 +1244,7 @@ async def handle_feature_conf(
                         feature_config=feature_config,
                     ),
                 )
-            ] = vol.In(["", *flow.all_binary_entities])
+            ] = cv.string
         _add_light_group_adaptive_lighting_selectors(
             step_id=step_id,
             selectors=selectors,

@@ -269,58 +269,41 @@ async def test_options_flow_single_page_features_open_forms_directly(
 
 
 @pytest.mark.parametrize(
-    ("feature", "step_id", "settings_step_id"),
+    ("feature", "step_id"),
     [
         (
             MagicAreasFeatures.HEALTH,
             "feature_conf_health",
-            "feature_conf_health_settings",
-        ),
-        (
-            MagicAreasFeatures.FAN_GROUPS,
-            "feature_conf_fan_groups",
-            "feature_conf_fan_groups_settings",
-        ),
-        (
-            MagicAreasFeatures.CLIMATE_CONTROL,
-            "feature_conf_climate_control",
-            "feature_conf_climate_control_settings",
         ),
         (
             MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER,
             "feature_conf_area_aware_media_player",
-            "feature_conf_area_aware_media_player_settings",
         ),
         (
             MagicAreasFeatures.AGGREGATES,
             "feature_conf_aggregates",
-            "feature_conf_aggregates_settings",
         ),
         (
             MagicAreasFeatures.PRESENCE_HOLD,
             "feature_conf_presence_hold",
-            "feature_conf_presence_hold_settings",
         ),
         (
             MagicAreasFeatures.BLE_TRACKER,
             "feature_conf_ble_trackers",
-            "feature_conf_ble_trackers_settings",
         ),
         (
             MagicAreasFeatures.WASP_IN_A_BOX,
             "feature_conf_wasp_in_a_box",
-            "feature_conf_wasp_in_a_box_settings",
         ),
     ],
 )
-async def test_options_flow_non_light_feature_helpers_open_settings_forms(
+async def test_options_flow_single_page_feature_helpers_open_direct_forms(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
     feature: MagicAreasFeatures,
     step_id: str,
-    settings_step_id: str,
 ) -> None:
-    """Feature-config helper routing should land tests on the settings form."""
+    """Feature-config helper routing should land simple features on their direct form."""
     result = await _open_feature_config_step(
         hass,
         init_integration,
@@ -329,7 +312,7 @@ async def test_options_flow_non_light_feature_helpers_open_settings_forms(
     )
 
     assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == settings_step_id
+    assert result["step_id"] == step_id
 
 
 async def _select_light_groups_brightness_mode(
@@ -347,7 +330,7 @@ async def _finish_options_flow(
     hass: HomeAssistant,
     result: ConfigFlowResult,
 ) -> ConfigFlowResult:
-    """Navigate back to root when needed, then save staged options."""
+    """Navigate back to root when needed after page-level options save."""
     menu_options = result.get("menu_options", [])
     if (
         result["type"] == FlowResultType.MENU
@@ -357,9 +340,7 @@ async def _finish_options_flow(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], user_input={"next_step_id": "show_menu"}
         )
-    return await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "finish"}
-    )
+    return result
 
 
 async def test_options_flow_light_group_leaf_submits_return_to_light_group_menu(
@@ -535,8 +516,7 @@ async def test_options_flow_climate_with_presets(
         },
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.CLIMATE_CONTROL
     ] == {
@@ -583,7 +563,7 @@ async def test_options_flow_climate_reopen_preserves_saved_entity_and_presets(
         },
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -659,8 +639,7 @@ async def test_options_flow_fan_groups(
         },
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.FAN_GROUPS
     ] == {
@@ -690,8 +669,7 @@ async def test_options_flow_fan_groups_accepts_integer_setpoint(
         },
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert (
         config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.FAN_GROUPS][
             "setpoint"
@@ -720,7 +698,7 @@ async def test_options_flow_fan_groups_reopen_preserves_saved_values(
         },
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -838,8 +816,7 @@ async def test_options_flow_area_aware_media_player(
         user_input={CONF_NOTIFICATION_DEVICES: [media_player_entity.entity_id]},
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
     ] == {
@@ -885,7 +862,7 @@ async def test_options_flow_area_aware_media_player_states_selector_and_reopen(
         },
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -923,8 +900,7 @@ async def test_options_flow_aggregates(
         },
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert (
         config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.AGGREGATES][
             "aggregates_min_entities"
@@ -979,7 +955,7 @@ async def test_options_flow_aggregates_reopen_preserves_saved_values(
         },
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -1009,8 +985,7 @@ async def test_options_flow_presence_hold(
         user_input={CONF_PRESENCE_HOLD_TIMEOUT: 10},
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.PRESENCE_HOLD
     ] == {"presence_hold_timeout": 10}
@@ -1051,7 +1026,7 @@ async def test_options_flow_presence_hold_reopen_preserves_timeout(
         user_input={CONF_PRESENCE_HOLD_TIMEOUT: 42},
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -1089,8 +1064,7 @@ async def test_options_flow_ble_trackers(
         user_input={CONF_BLE_TRACKER_ENTITIES: [sensor_entity.entity_id]},
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.BLE_TRACKER
     ] == {"ble_tracker_entities": ["sensor.test_sensor"]}
@@ -1153,8 +1127,7 @@ async def test_options_flow_wasp_in_a_box(
         },
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.WASP_IN_A_BOX
     ] == {
@@ -1210,7 +1183,7 @@ async def test_options_flow_wasp_in_a_box_reopen_preserves_values(
         },
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -1244,8 +1217,7 @@ async def test_options_flow_health(
         user_input={CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["problem", "smoke"]},
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.HEALTH] == {
         "health_binary_sensor_device_classes": ["problem", "smoke"]
     }
@@ -1274,7 +1246,7 @@ async def test_options_flow_health_selector_and_reopen_preserves_classes(
         user_input={CONF_HEALTH_SENSOR_DEVICE_CLASSES: ["problem", "smoke"]},
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_feature_config_step(
         hass,
@@ -1459,7 +1431,7 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
@@ -1484,12 +1456,7 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    feature_options = config_entry.options[CONF_ENABLED_FEATURES][
-        MagicAreasFeatures.LIGHT_GROUPS
-    ]
-    assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS not in feature_options
-    assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY not in feature_options
+    assert result["type"] == FlowResultType.MENU
 
     result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
@@ -1650,7 +1617,7 @@ async def test_options_flow_light_groups_roles_preserve_hidden_behavior_modes(
     feature_options = config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.LIGHT_GROUPS
     ]
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert feature_options["brightness_mode"] == "adaptive"
     assert (
         feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
@@ -1699,7 +1666,7 @@ async def test_options_flow_light_groups_brightness_preserves_hidden_roles(
     feature_options = config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.LIGHT_GROUPS
     ]
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert feature_options["brightness_mode"] == "advisory"
     assert feature_options["overhead_lights"] == ["light.test_light"]
     assert feature_options["overhead_lights_states"] == ["occupied"]
@@ -1851,8 +1818,7 @@ async def test_options_flow_light_groups_adopt_existing_pairs_same_area_al_set(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS
     ] == {
@@ -1906,8 +1872,7 @@ async def test_options_flow_light_groups_manage_selects_managed_roles(
         result["flow_id"], user_input={"next_step_id": "show_menu"}
     )
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES
     ] == [CONF_OVERHEAD_LIGHTS]
@@ -2062,7 +2027,7 @@ async def test_options_flow_light_groups_manage_all_lights_uses_separate_gate(
     feature_options = config_entry.options[CONF_ENABLED_FEATURES][
         MagicAreasFeatures.LIGHT_GROUPS
     ]
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] is True
     assert feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES] == [
         CONF_OVERHEAD_LIGHTS
@@ -2097,8 +2062,7 @@ async def test_options_flow_light_groups_preserves_adaptive_lighting_switch_sets
     result = await _select_light_groups_brightness_mode(hass, result, "inhibit")
     assert result["type"] == FlowResultType.MENU
     result = await _finish_options_flow(hass, result)
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert (
         config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS][
             CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS
@@ -2128,9 +2092,7 @@ async def test_options_flow_remove_feature(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={MagicAreasFeatures.LIGHT_GROUPS: False}
     )
-    await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "finish"}
-    )
+    assert result["type"] == FlowResultType.MENU
 
     assert (
         MagicAreasFeatures.LIGHT_GROUPS
@@ -2167,10 +2129,7 @@ async def test_options_flow_add_feature(
     assert result["type"] == FlowResultType.MENU
     assert "feature_conf_light_groups" in result["menu_options"]
     assert "feature_conf_cover_groups" not in result["menu_options"]
-
-    await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "finish"}
-    )
+    assert result["type"] == FlowResultType.MENU
     assert (
         MagicAreasFeatures.LIGHT_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
     )
@@ -2204,9 +2163,8 @@ async def test_options_flow_helper_only_features_enable_without_config_menu(
 
     assert result["type"] == FlowResultType.MENU
     assert f"feature_conf_{feature.value}" not in result["menu_options"]
-
     result = await _finish_options_flow(hass, result)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert feature in config_entry.options[CONF_ENABLED_FEATURES]
 
 
@@ -2235,9 +2193,6 @@ async def test_options_flow_with_light_binary_sensor(
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "secondary_states"}
-    )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "secondary_states_settings"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],

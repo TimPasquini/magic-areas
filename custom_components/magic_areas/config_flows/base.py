@@ -191,11 +191,14 @@ def ensure_enabled_feature_map(options: MutableConfigMap) -> dict[str, ConfigSub
 
 def errors_from_validation(validation: vol.MultipleInvalid) -> dict[str, str]:
     """Convert voluptuous validation errors to Home Assistant form errors."""
-    return {
+    field_errors = {
         str(error.path[0]): str(error.msg)
         for error in validation.errors
         if isinstance(error, vol.Invalid) and error.path
     }
+    if field_errors:
+        return field_errors
+    return invalid_input_error()
 
 
 async def handle_step_validation(

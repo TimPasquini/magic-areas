@@ -97,7 +97,8 @@ async def test_handle_climate_preset_selection_processes_valid_input() -> None:
     """Test that valid preset input is processed and saved."""
     flow = MagicMock()
     flow.hass = MagicMock()
-    flow.area_options = {"features": {MagicAreasFeatures.CLIMATE_CONTROL: {}}}
+    flow.area_options = {"features": {MagicAreasFeatures.CLIMATE_CONTROL.value: {}}}
+    flow._persist_options = AsyncMock()
     flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
     flow.async_step_feature_conf_climate_control = AsyncMock(
         return_value={"type": FlowResultType.MENU}
@@ -122,7 +123,7 @@ async def test_handle_climate_preset_selection_processes_valid_input() -> None:
 
     assert result["type"] == FlowResultType.MENU
     # Verify presets were merged into climate config
-    assert MagicAreasFeatures.CLIMATE_CONTROL in flow.area_options["features"]
+    assert MagicAreasFeatures.CLIMATE_CONTROL.value in flow.area_options["features"]
 
 
 @pytest.mark.asyncio

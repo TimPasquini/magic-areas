@@ -121,6 +121,8 @@ Options flow (schema-driven)
   └─ config_flows/options_flow.py
        ├─ menu built from enabled features + config-flow registry
        ├─ feature_conf_* steps routed dynamically to a generic handler
+       ├─ complete pages persist on submit via async_update_entry
+       ├─ root menu intentionally omits final Done/Save action
        └─ UI forms built directly from vol schemas
 
 Platform setup (registry-driven)

@@ -127,9 +127,7 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
 
     result = await go_to_step(hass, result, "show_menu")
     assert result["type"] == FlowResultType.MENU
-    result = await go_to_step(hass, result, "finish")
-
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_TYPE] == AreaType.EXTERIOR
     assert config_entry.options[CONF_CLEAR_TIMEOUT] == 2
     assert config_entry.options[CONF_PRESENCE_DEVICE_PLATFORMS] == ["binary_sensor"]
@@ -224,9 +222,7 @@ async def test_options_flow_area_config_reopen_preserves_saved_values(
         },
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await start_options_flow(hass, config_entry)
     result = await go_to_step(hass, result, "area_config")
@@ -281,9 +277,7 @@ async def test_options_flow_presence_tracking_reopen_preserves_saved_values(
         },
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await start_options_flow(hass, config_entry)
     result = await go_to_step(hass, result, "presence_tracking")
@@ -396,9 +390,7 @@ async def test_options_flow_secondary_states_reopen_preserves_saved_values(
         },
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await start_options_flow(hass, config_entry)
     result = await go_to_step(hass, result, "secondary_states")
@@ -439,9 +431,7 @@ async def test_options_flow_meta_secondary_states_exposes_calculation_mode(
         {CONF_SECONDARY_STATES_CALCULATION_MODE: CalculationMode.MAJORITY},
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
 
     result = await start_options_flow(hass, config_entry)
     result = await go_to_step(hass, result, "secondary_states")
@@ -480,9 +470,7 @@ async def test_options_flow_custom_control_groups_step(
         },
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.task"
 
 
@@ -529,9 +517,7 @@ async def test_options_flow_custom_control_groups_empty_submit_does_not_seed_tem
 
     result = await submit_step(hass, result, {})
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS] == []
 
 
@@ -549,9 +535,7 @@ async def test_options_flow_custom_control_groups_explicit_empty_does_not_reseed
         {CONF_CUSTOM_CONTROL_GROUPS: []},
     )
     assert result["type"] == FlowResultType.MENU
-
-    result = await go_to_step(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS] == []
 
     result = await start_options_flow(hass, config_entry)
@@ -592,7 +576,7 @@ async def test_options_flow_custom_control_groups_rejects_invalid_payload(
         },
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "custom_control_groups_settings"
+    assert result["step_id"] == "custom_control_groups"
     assert result["errors"]
 
 

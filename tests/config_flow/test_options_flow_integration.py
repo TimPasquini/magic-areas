@@ -84,9 +84,11 @@ async def test_options_flow_select_features_then_configure() -> None:
         str(MagicAreasFeatures.CLIMATE_CONTROL): False,
     }
 
-    # Patch async_step_show_menu for the handler call
     with patch.object(
-        flow, "async_step_show_menu", new_callable=AsyncMock, return_value={"type": FlowResultType.MENU}
+        flow,
+        "_persist_options_and_show_menu",
+        new_callable=AsyncMock,
+        return_value={"type": FlowResultType.MENU},
     ):
         result = await handle_feature_selection(flow, user_input=user_input)
 
@@ -94,8 +96,8 @@ async def test_options_flow_select_features_then_configure() -> None:
     assert result["type"] == FlowResultType.MENU
     assert CONF_ENABLED_FEATURES in flow.area_options
     enabled_features = _enabled_features(flow)
-    assert MagicAreasFeatures.LIGHT_GROUPS in enabled_features
-    assert MagicAreasFeatures.CLIMATE_CONTROL not in enabled_features
+    assert MagicAreasFeatures.LIGHT_GROUPS.value in enabled_features
+    assert MagicAreasFeatures.CLIMATE_CONTROL.value not in enabled_features
 
 
 @pytest.mark.asyncio
@@ -124,13 +126,14 @@ async def test_options_flow_select_features_returns_refreshed_menu() -> None:
         handle_feature_selection,
     )
 
-    result = await handle_feature_selection(
-        flow,
-        user_input={
-            str(MagicAreasFeatures.LIGHT_GROUPS): True,
-            str(MagicAreasFeatures.CLIMATE_CONTROL): False,
-        },
-    )
+    with patch.object(flow, "_persist_options", new_callable=AsyncMock):
+        result = await handle_feature_selection(
+            flow,
+            user_input={
+                str(MagicAreasFeatures.LIGHT_GROUPS): True,
+                str(MagicAreasFeatures.CLIMATE_CONTROL): False,
+            },
+        )
 
     assert result["type"] == FlowResultType.MENU
     assert "feature_conf_light_groups" in result["menu_options"]
@@ -191,8 +194,8 @@ async def test_options_flow_shows_menu_with_feature_conf_options() -> None:
     flow._area_config = coordinator_data.area_config
     flow.area_options = {
         CONF_ENABLED_FEATURES: {
-            MagicAreasFeatures.LIGHT_GROUPS: {},
-            MagicAreasFeatures.CLIMATE_CONTROL: {},
+            MagicAreasFeatures.LIGHT_GROUPS.value: {},
+            MagicAreasFeatures.CLIMATE_CONTROL.value: {},
         }
     }
 
@@ -210,7 +213,7 @@ async def test_options_flow_shows_menu_with_feature_conf_options() -> None:
         assert "feature_conf_light_groups" in menu_options
         assert "feature_conf_climate_control" in menu_options
         assert "area_config" in menu_options
-        assert "finish" in menu_options
+        assert "finish" not in menu_options
 
 
 @pytest.mark.asyncio
@@ -247,7 +250,6 @@ async def test_options_flow_show_menu_uses_task_oriented_order() -> None:
         "feature_conf_wasp_in_a_box",
         "custom_control_groups",
         "select_features",
-        "finish",
     ]
 
 
@@ -281,17 +283,19 @@ async def test_options_flow_deselecting_feature_removes_from_options() -> None:
         str(MagicAreasFeatures.CLIMATE_CONTROL): False,
     }
 
-    # Patch async_step_show_menu for the handler call
     with patch.object(
-        flow, "async_step_show_menu", new_callable=AsyncMock, return_value={"type": FlowResultType.MENU}
+        flow,
+        "_persist_options_and_show_menu",
+        new_callable=AsyncMock,
+        return_value={"type": FlowResultType.MENU},
     ):
         result = await handle_feature_selection(flow, user_input=user_input)
 
     # Verify climate_control was removed
     assert result["type"] == FlowResultType.MENU
     enabled_features = _enabled_features(flow)
-    assert MagicAreasFeatures.LIGHT_GROUPS in enabled_features
-    assert MagicAreasFeatures.CLIMATE_CONTROL not in enabled_features
+    assert MagicAreasFeatures.LIGHT_GROUPS.value in enabled_features
+    assert MagicAreasFeatures.CLIMATE_CONTROL.value not in enabled_features
 
 
 @pytest.mark.asyncio

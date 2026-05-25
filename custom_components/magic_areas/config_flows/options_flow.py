@@ -46,26 +46,6 @@ _ROOT_FEATURE_MENU_ORDER = (
     MagicAreasFeatures.WASP_IN_A_BOX.value,
 )
 
-_ROOT_SECTION_SETTINGS = {
-    "area_config": "area_config_settings",
-    "presence_tracking": "presence_tracking_settings",
-    "secondary_states": "secondary_states_settings",
-    "custom_control_groups": "custom_control_groups_settings",
-}
-
-
-def _show_root_section_menu(
-    flow: config_entries.OptionsFlow,
-    *,
-    step_id: str,
-) -> config_entries.ConfigFlowResult:
-    """Show a root-level section menu with settings and Back."""
-    return flow.async_show_menu(
-        step_id=step_id,
-        menu_options=[_ROOT_SECTION_SETTINGS[step_id], "show_menu"],
-    )
-
-
 def _coordinator_data_from_entry(
     config_entry: MagicAreasConfigEntry,
 ) -> MagicAreasData | None:
@@ -101,6 +81,26 @@ def _ordered_feature_menu_options(
         for feature in sorted(enabled_configurable - set(_ROOT_FEATURE_MENU_ORDER))
     )
     return ordered
+
+
+def _copy_option_value(value: object) -> object:
+    """Deep-copy option containers without requiring pickle support."""
+    if isinstance(value, Mapping):
+        return {key: _copy_option_value(nested) for key, nested in value.items()}
+    if isinstance(value, list):
+        return [_copy_option_value(nested) for nested in value]
+    if isinstance(value, tuple):
+        return tuple(_copy_option_value(nested) for nested in value)
+    return value
+
+
+def _copy_options(options: Mapping[str, object]) -> dict[str, object]:
+    """Return a mutable, recursively copied options mapping."""
+    return {
+        str(key): _copy_option_value(value)
+        for key, value in options.items()
+        if isinstance(key, str)
+    }
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
@@ -145,9 +145,29 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         return await handle_feature_conf(self, user_input)
 
     async def _update_options(self) -> config_entries.ConfigFlowResult:
-        """Update config entry options."""
+        """Compatibility close path for direct callers.
+
+        The root menu no longer exposes a final save action. Complete pages
+        persist when they are submitted, so users can close the flow without a
+        misleading Home Assistant completion prompt.
+        """
         # noinspection PyTypeChecker
-        return self.async_create_entry(title="", data=dict(self.area_options))
+        return self.async_create_entry(title="", data=_copy_options(self.area_options))
+
+    async def _persist_options(self) -> None:
+        """Persist the current staged options onto the config entry."""
+        self.hass.config_entries.async_update_entry(
+            self.config_entry,
+            options=_copy_options(self.area_options),
+        )
+        await self.hass.async_block_till_done()
+
+    async def _persist_options_and_show_menu(
+        self,
+    ) -> config_entries.ConfigFlowResult:
+        """Persist a complete page and return to the root options menu."""
+        await self._persist_options()
+        return await self.async_step_show_menu()
 
     async def async_step_init(
         self, user_input: Mapping[str, object] | None = None
@@ -200,7 +220,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self.all_illuminance_entities = entity_collections["all_illuminance_entities"]
 
         area_schema = META_AREA_SCHEMA if (self._area_config and self._area_config.is_meta()) else REGULAR_AREA_SCHEMA
-        self.area_options = area_schema(dict(self.config_entry.options))
+        self.area_options = area_schema(_copy_options(self.config_entry.options))
 
         _LOGGER.debug(
             "%s: Loaded area options: %s", area_name, str(self.area_options)
@@ -224,7 +244,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             _ordered_feature_menu_options(enabled_feature_map(self.area_options))
         )
         menu_options.extend(["custom_control_groups", "select_features"])
-        menu_options.append("finish")
 
         # noinspection PyTypeChecker
         return self.async_show_menu(step_id="show_menu", menu_options=menu_options)
@@ -233,8 +252,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather basic settings for the area."""
-        del user_input
-        return _show_root_section_menu(self, step_id="area_config")
+        return await handle_area_config(
+            self,
+            user_input,
+            step_id="area_config",
+            on_success=self._persist_options_and_show_menu,
+        )
 
     async def async_step_area_config_settings(
         self, user_input: Mapping[str, object] | None = None
@@ -244,15 +267,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             self,
             user_input,
             step_id="area_config_settings",
-            on_success=self.async_step_area_config,
+            on_success=self._persist_options_and_show_menu,
         )
 
     async def async_step_presence_tracking(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather presence tracking settings for the area."""
-        del user_input
-        return _show_root_section_menu(self, step_id="presence_tracking")
+        return await handle_presence_tracking(
+            self,
+            user_input,
+            step_id="presence_tracking",
+            on_success=self._persist_options_and_show_menu,
+        )
 
     async def async_step_presence_tracking_settings(
         self, user_input: Mapping[str, object] | None = None
@@ -262,15 +289,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             self,
             user_input,
             step_id="presence_tracking_settings",
-            on_success=self.async_step_presence_tracking,
+            on_success=self._persist_options_and_show_menu,
         )
 
     async def async_step_secondary_states(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Gather secondary states settings for the area."""
-        del user_input
-        return _show_root_section_menu(self, step_id="secondary_states")
+        return await handle_secondary_states(
+            self,
+            user_input,
+            step_id="secondary_states",
+            on_success=self._persist_options_and_show_menu,
+        )
 
     async def async_step_secondary_states_settings(
         self, user_input: Mapping[str, object] | None = None
@@ -280,15 +311,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             self,
             user_input,
             step_id="secondary_states_settings",
-            on_success=self.async_step_secondary_states,
+            on_success=self._persist_options_and_show_menu,
         )
 
     async def async_step_custom_control_groups(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Configure custom control groups for this area."""
-        del user_input
-        return _show_root_section_menu(self, step_id="custom_control_groups")
+        return await handle_custom_control_groups(
+            self,
+            user_input,
+            step_id="custom_control_groups",
+            on_success=self._persist_options_and_show_menu,
+        )
 
     async def async_step_custom_control_groups_settings(
         self, user_input: Mapping[str, object] | None = None
@@ -298,7 +333,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             self,
             user_input,
             step_id="custom_control_groups_settings",
-            on_success=self.async_step_custom_control_groups,
+            on_success=self._persist_options_and_show_menu,
         )
 
     async def async_step_select_features(

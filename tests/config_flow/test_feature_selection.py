@@ -65,7 +65,9 @@ async def test_handle_feature_selection_enables_selected_features() -> None:
     flow._area_config.config = {}
     flow._area_config.id = "kitchen"
     flow.area_options = {}
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow._persist_options_and_show_menu = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     # Simulate user selecting light_groups and climate_control features
     user_input = {
@@ -78,13 +80,13 @@ async def test_handle_feature_selection_enables_selected_features() -> None:
 
     # Should return menu (next step)
     assert result["type"] == FlowResultType.MENU
-    flow.async_step_show_menu.assert_called_once()
+    flow._persist_options_and_show_menu.assert_awaited_once()
 
-    # Check that enabled features are stored (using enum members as keys)
+    # Check that enabled features are stored using HA-serializable string keys.
     assert "features" in flow.area_options
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options["features"]
-    assert MagicAreasFeatures.CLIMATE_CONTROL in flow.area_options["features"]
-    assert MagicAreasFeatures.AGGREGATES not in flow.area_options["features"]
+    assert MagicAreasFeatures.LIGHT_GROUPS.value in flow.area_options["features"]
+    assert MagicAreasFeatures.CLIMATE_CONTROL.value in flow.area_options["features"]
+    assert MagicAreasFeatures.AGGREGATES.value not in flow.area_options["features"]
 
 
 @pytest.mark.asyncio
@@ -98,11 +100,13 @@ async def test_handle_feature_selection_removes_deselected_features() -> None:
     # Pre-populate with enabled features using enum members as keys
     flow.area_options = {
         "features": {
-            MagicAreasFeatures.LIGHT_GROUPS: {},
-            MagicAreasFeatures.CLIMATE_CONTROL: {},
+            MagicAreasFeatures.LIGHT_GROUPS.value: {},
+            MagicAreasFeatures.CLIMATE_CONTROL.value: {},
         }
     }
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow._persist_options_and_show_menu = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     # Simulate user deselecting climate_control
     user_input = {
@@ -117,8 +121,8 @@ async def test_handle_feature_selection_removes_deselected_features() -> None:
     assert result["type"] == FlowResultType.MENU
 
     # Check that climate_control was removed
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options["features"]
-    assert MagicAreasFeatures.CLIMATE_CONTROL not in flow.area_options["features"]
+    assert MagicAreasFeatures.LIGHT_GROUPS.value in flow.area_options["features"]
+    assert MagicAreasFeatures.CLIMATE_CONTROL.value not in flow.area_options["features"]
 
 
 @pytest.mark.asyncio
@@ -130,7 +134,9 @@ async def test_handle_feature_selection_creates_features_dict() -> None:
     flow._area_config.config = {}
     flow._area_config.id = "kitchen"
     flow.area_options = {}
-    flow.async_step_show_menu = AsyncMock(return_value={"type": FlowResultType.MENU})
+    flow._persist_options_and_show_menu = AsyncMock(
+        return_value={"type": FlowResultType.MENU}
+    )
 
     user_input = {
         str(MagicAreasFeatures.LIGHT_GROUPS): True,
@@ -140,4 +146,4 @@ async def test_handle_feature_selection_creates_features_dict() -> None:
 
     assert result["type"] == FlowResultType.MENU
     assert "features" in flow.area_options
-    assert MagicAreasFeatures.LIGHT_GROUPS in flow.area_options["features"]
+    assert MagicAreasFeatures.LIGHT_GROUPS.value in flow.area_options["features"]

@@ -221,11 +221,11 @@ async def test_complete_page_submit_persists_with_async_update_entry(
     assert update_entry.call_args.kwargs["options"][CONF_TYPE] == AreaType.EXTERIOR
 
 
-async def test_done_path_is_not_the_only_save_operation(
+async def test_root_menu_has_no_final_save_operation(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
 ) -> None:
-    """Done should close the flow, not be the only point where submitted pages save."""
+    """Submitted pages should save without exposing a confusing Done prompt."""
     result = await _start_options(hass, init_integration)
     result = await _choose(hass, result, "area_config")
     result = await hass.config_entries.options.async_configure(
@@ -234,9 +234,7 @@ async def test_done_path_is_not_the_only_save_operation(
 
     assert result["type"] == FlowResultType.MENU
     assert init_integration.options[CONF_TYPE] == AreaType.EXTERIOR
-
-    result = await _choose(hass, result, "finish")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert "finish" not in result["menu_options"]
     assert init_integration.options[CONF_TYPE] == AreaType.EXTERIOR
 
 
@@ -316,28 +314,30 @@ async def test_validation_failure_does_not_persist_partial_page(
     result = await _choose(hass, result, "custom_control_groups")
     assert result["type"] == FlowResultType.FORM
 
+    submitted_groups = [
+        {
+            "group_id": "control.duplicate",
+            "members": ["light.one"],
+            "trigger_states": ["occupied"],
+            "policy_id": "custom_control_group",
+        },
+        {
+            "group_id": "control.duplicate",
+            "members": ["light.two"],
+            "trigger_states": ["sleep"],
+            "policy_id": "custom_control_group",
+        },
+    ]
+
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={
-            CONF_CUSTOM_CONTROL_GROUPS: [
-                {
-                    "group_id": "control.duplicate",
-                    "members": ["light.one"],
-                    "trigger_states": ["occupied"],
-                    "policy_id": "custom_control_group",
-                },
-                {
-                    "group_id": "control.duplicate",
-                    "members": ["light.two"],
-                    "trigger_states": ["sleep"],
-                    "policy_id": "custom_control_group",
-                },
-            ]
-        },
+        user_input={CONF_CUSTOM_CONTROL_GROUPS: submitted_groups},
     )
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"]
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_CUSTOM_CONTROL_GROUPS] == submitted_groups
     assert init_integration.options.get(CONF_CUSTOM_CONTROL_GROUPS, []) == []
 
 

@@ -118,9 +118,6 @@ async def test_options_flow_feature_conf_validation_error(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "feature_conf_health"}
     )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_health_settings"}
-    )
 
     patched_feature = FeatureConfigStep(
         feature=MagicAreasFeatures.HEALTH,
@@ -137,7 +134,7 @@ async def test_options_flow_feature_conf_validation_error(
         )
 
     assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "feature_conf_health_settings"
+    assert result["step_id"] == "feature_conf_health"
     assert result["errors"] == {"base": "invalid_input"}
 
 
@@ -155,10 +152,6 @@ async def test_options_flow_wasp_in_a_box_selector(
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": "feature_conf_wasp_in_a_box"}
-    )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={"next_step_id": "feature_conf_wasp_in_a_box_settings"},
     )
 
     assert result["type"] == FlowResultType.FORM
