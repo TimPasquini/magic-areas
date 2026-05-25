@@ -436,18 +436,28 @@ Notes:
 
 Tasks:
 
-- Update fan runtime/control switch to evaluate controller lists.
+- [x] Update fan runtime/control switch to evaluate controller lists.
 - Resolve per-controller fan targets.
-- Use exact native helper targets where possible.
+- [x] Use exact native helper targets where possible.
 - Fall back to explicit entity lists where per-controller membership requires
   subsets.
-- Preserve the master fan control switch.
+- [x] Preserve the master fan control switch.
+
+Notes:
+
+- The current runtime adapter now evaluates a generated Cooling controller list
+  while still targeting the existing native fan helper group. Per-controller
+  subset targeting is not complete until multi-role fan config exists.
+- Fan control switch debug attributes now expose active, suppressed, inactive,
+  and target fan controller details.
 
 Acceptance:
 
-- Existing fan tests pass or are intentionally updated to Cooling semantics.
+- [x] Existing fan tests pass or are intentionally updated to Cooling semantics.
 - Same fan in humidity and odor stays on until both reasons clear.
-- Runtime debug attributes show active/suppressed reasons.
+- Runtime same-fan overlap requires Stage 4 config surfaces or direct runtime
+  controller-list injection before it can be fully asserted.
+- [x] Runtime debug attributes show active/suppressed reasons.
 
 ### Stage 4: Fan Config Flow
 

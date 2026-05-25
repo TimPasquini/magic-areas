@@ -332,3 +332,35 @@ async def test_run_logic_returns_early_without_resolved_fan_group(
     await switch.run_logic(["occupied"])
 
     switch.policy.evaluate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_run_logic_exposes_fan_controller_debug_attributes(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+) -> None:
+    """run_logic should expose controller reason details on the control switch."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._attr_is_on = True
+    switch._fan_group_entity_id = "fan.test_fan"
+    switch.tracked_entity_id = "sensor.test_sensor"
+    switch._attr_name = "Test Switch"
+
+    def get_state(entity_id: str) -> State | None:
+        if entity_id == "sensor.test_sensor":
+            return State(entity_id, "30")
+        if entity_id == "fan.test_fan":
+            return State(entity_id, STATE_OFF)
+        return None
+
+    mock_hass.states.get.side_effect = get_state
+
+    await switch.run_logic([AreaStates.OCCUPIED, AreaStates.EXTENDED])
+
+    attrs = switch._attr_extra_state_attributes
+    assert attrs["active_fan_reasons"] == ["cooling"]
+    assert attrs["suppressed_fan_reasons"] == []
+    assert attrs["inactive_fan_reasons"] == []
+    assert attrs["target_fan_entities"] == []

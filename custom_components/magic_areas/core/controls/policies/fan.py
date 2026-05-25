@@ -39,20 +39,44 @@ __all__ = [
     "build_fan_control_group_policy",
     "build_fan_policy",
     "evaluate_fan_controllers",
+    "fan_controller_evaluation_to_control_group",
     "fan_decision_to_control_group",
     "legacy_cooling_controller",
 ]
+
+LEGACY_FAN_SENSOR_KEY = "__legacy_fan_sensor__"
 
 
 @dataclass(slots=True)
 class FanControlGroupPolicy(ControlGroupPolicy):
     """Canonical control-group policy adapter for fan control."""
 
-    policy: FanControlPolicy
+    policy: FanControlPolicy | None = None
+    controllers: tuple[FanControllerConfig, ...] = ()
+    last_evaluation: FanControllerEvaluation | None = None
 
     def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
         """Evaluate fan control for a canonical control-group context."""
         signals = FanPolicySignals.from_signals(context.signals)
+
+        if self.controllers:
+            evaluation = evaluate_fan_controllers(
+                self.controllers,
+                current_states=context.current_states,
+                sensor_values={LEGACY_FAN_SENSOR_KEY: signals.sensor_value},
+            )
+            self.last_evaluation = evaluation
+            return fan_controller_evaluation_to_control_group(
+                evaluation=evaluation,
+                fan_group_entity_id=signals.fan_group_entity_id,
+                fan_group_state=signals.fan_group_state,
+            )
+
+        if self.policy is None:
+            return ControlGroupDecision(
+                action_type=ControlActionType.NOOP,
+                reason="fan_policy_unavailable",
+            )
 
         decision = self.policy.evaluate(
             current_states=context.current_states,
@@ -412,7 +436,66 @@ def build_fan_control_group_policy(
     feature_config: Mapping[str, object]
 ) -> FanControlGroupPolicy:
     """Build a canonical control-group policy adapter from feature config."""
-    return FanControlGroupPolicy(policy=build_fan_policy(feature_config))
+    policy = build_fan_policy(feature_config)
+    return FanControlGroupPolicy(
+        policy=policy,
+        controllers=(
+            legacy_cooling_controller(
+                setpoint=policy.setpoint,
+                required_state=policy.required_state,
+                tracked_sensor_entity_id=LEGACY_FAN_SENSOR_KEY,
+            ),
+        ),
+    )
+
+
+def fan_controller_evaluation_to_control_group(
+    *,
+    evaluation: FanControllerEvaluation,
+    fan_group_entity_id: str | None,
+    fan_group_state: str | None,
+) -> ControlGroupDecision:
+    """Translate controller-list evaluation into a control-group decision."""
+    if not fan_group_entity_id:
+        return ControlGroupDecision(
+            action_type=ControlActionType.NOOP,
+            reason="fan_group_unavailable",
+        )
+
+    if evaluation.active_reasons:
+        return ControlGroupDecision(
+            action_type=ControlActionType.ACTIVATE,
+            reason=", ".join(reason.reason for reason in evaluation.active_reasons),
+            actions=(
+                ControlAction(
+                    domain=FAN_DOMAIN,
+                    service=SERVICE_TURN_ON,
+                    target_entity_ids=(fan_group_entity_id,),
+                ),
+            ),
+        )
+
+    reason = (
+        ", ".join(reason.reason for reason in evaluation.inactive_reasons)
+        or "no_active_fan_reasons"
+    )
+    if fan_group_state == STATE_ON:
+        return ControlGroupDecision(
+            action_type=ControlActionType.DEACTIVATE,
+            reason=reason,
+            actions=(
+                ControlAction(
+                    domain=FAN_DOMAIN,
+                    service=SERVICE_TURN_OFF,
+                    target_entity_ids=(fan_group_entity_id,),
+                ),
+            ),
+        )
+
+    return ControlGroupDecision(
+        action_type=ControlActionType.NOOP,
+        reason=f"{reason}_noop",
+    )
 
 
 def fan_decision_to_control_group(

@@ -185,3 +185,29 @@ class FanControlSwitch(ControlSwitchBase):
             context=context,
             logger=_LOGGER,
         )
+        self._write_policy_debug_attributes()
+        if self.platform is not None:
+            self.async_write_ha_state()
+
+    def _write_policy_debug_attributes(self) -> None:
+        """Expose fan controller evaluation details for troubleshooting."""
+        evaluation = self.policy.last_evaluation
+        if evaluation is None:
+            return
+
+        attrs = dict(getattr(self, "_attr_extra_state_attributes", {}) or {})
+        attrs.update(
+            {
+                "active_fan_reasons": [
+                    reason.controller_id for reason in evaluation.active_reasons
+                ],
+                "suppressed_fan_reasons": [
+                    reason.controller_id for reason in evaluation.suppressed_reasons
+                ],
+                "inactive_fan_reasons": [
+                    reason.controller_id for reason in evaluation.inactive_reasons
+                ],
+                "target_fan_entities": list(evaluation.target_fan_entity_ids),
+            }
+        )
+        self._attr_extra_state_attributes = attrs

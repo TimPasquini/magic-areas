@@ -23,6 +23,7 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     build_fan_control_group_policy,
     build_fan_policy,
     evaluate_fan_controllers,
+    fan_controller_evaluation_to_control_group,
     fan_decision_to_control_group,
     legacy_cooling_controller,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "climate_preset_to_control_group",
     "evaluate_area_routing",
     "evaluate_fan_controllers",
+    "fan_controller_evaluation_to_control_group",
     "fan_decision_to_control_group",
     "has_valid_notification_states",
     "legacy_cooling_controller",
