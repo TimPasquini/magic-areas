@@ -16,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from custom_components.magic_areas.core.controls.policies.fan import (
     build_fan_control_group_policy,
     FanControlGroupPolicy,
+    LEGACY_FAN_SENSOR_KEY,
     FanPolicySignals,
 )
 from custom_components.magic_areas.features.config.readers import (
@@ -48,6 +49,7 @@ class FanControlSwitch(ControlSwitchBase):
     _last_states: list[str]
     _area_sensor_entity_id: str | None
     _fan_group_entity_id: str | None
+    _controller_sensor_entity_ids: tuple[str, ...]
 
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
@@ -68,6 +70,16 @@ class FanControlSwitch(ControlSwitchBase):
 
         # Build canonical control-group policy from feature configuration.
         self.policy = build_fan_control_group_policy(feature_config)
+        self._controller_sensor_entity_ids = tuple(
+            sorted(
+                {
+                    controller.sensor_entity_id
+                    for controller in self.policy.controllers
+                    if controller.sensor_entity_id
+                    and controller.sensor_entity_id != LEGACY_FAN_SENSOR_KEY
+                }
+            )
+        )
         self._last_states = []
 
     async def async_added_to_hass(self) -> None:
@@ -103,6 +115,12 @@ class FanControlSwitch(ControlSwitchBase):
             self.tracked_entity_id,
             self.aggregate_sensor_state_changed,
         )
+        for index, entity_id in enumerate(self._controller_sensor_entity_ids):
+            self._track_state_change(
+                f"fan_controller_sensor_state_change_{index}",
+                entity_id,
+                self.aggregate_sensor_state_changed,
+            )
 
     async def aggregate_sensor_state_changed(
         self, event: Event[EventStateChangedData]
@@ -164,6 +182,16 @@ class FanControlSwitch(ControlSwitchBase):
                 "aggregates are enabled and the selected device class is configured."
             ),
         )
+        sensor_values = {
+            entity_id: self._read_float_state(
+                entity_id,
+                missing_log=(
+                    "%s: Controller sensor entity '%s' is not found. Please ensure "
+                    "the selected sensor exists."
+                ),
+            )
+            for entity_id in self._controller_sensor_entity_ids
+        }
 
         fan_state = (
             self.hass.states.get(self._fan_group_entity_id)
@@ -177,6 +205,7 @@ class FanControlSwitch(ControlSwitchBase):
                 sensor_value=sensor_value,
                 fan_group_entity_id=self._fan_group_entity_id,
                 fan_group_state=fan_state.state if fan_state else None,
+                sensor_values=sensor_values,
             ),
             is_enabled=self.is_on,
         )

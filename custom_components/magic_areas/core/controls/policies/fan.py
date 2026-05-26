@@ -10,6 +10,17 @@ from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, STATE_ON
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
+    CONF_FAN_CONTROLLER_ACTIVE_STATES,
+    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
+    CONF_FAN_CONTROLLER_DETECTION_MODE,
+    CONF_FAN_CONTROLLER_HYSTERESIS,
+    CONF_FAN_CONTROLLER_MEMBERS,
+    CONF_FAN_CONTROLLER_ON_THRESHOLD,
+    CONF_FAN_CONTROLLER_POST_CLEAR_HOLD_SECONDS,
+    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID,
+    CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR,
+    CONF_FAN_CONTROLLER_SUPPRESS_STATES,
+    CONF_FAN_GROUPS_CONTROLLERS,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
 )
@@ -60,10 +71,12 @@ class FanControlGroupPolicy(ControlGroupPolicy):
         signals = FanPolicySignals.from_signals(context.signals)
 
         if self.controllers:
+            sensor_values = dict(signals.sensor_values or {})
+            sensor_values.setdefault(LEGACY_FAN_SENSOR_KEY, signals.sensor_value)
             evaluation = evaluate_fan_controllers(
                 self.controllers,
                 current_states=context.current_states,
-                sensor_values={LEGACY_FAN_SENSOR_KEY: signals.sensor_value},
+                sensor_values=sensor_values,
             )
             self.last_evaluation = evaluation
             return fan_controller_evaluation_to_control_group(
@@ -171,6 +184,7 @@ class FanPolicySignals:
     sensor_value: float | None
     fan_group_entity_id: str | None
     fan_group_state: str | None
+    sensor_values: Mapping[str, float | None] | None = None
 
     @classmethod
     def from_signals(cls, signals: object) -> FanPolicySignals:
@@ -436,6 +450,10 @@ def build_fan_control_group_policy(
     feature_config: Mapping[str, object]
 ) -> FanControlGroupPolicy:
     """Build a canonical control-group policy adapter from feature config."""
+    controllers = _controllers_from_feature_config(feature_config)
+    if controllers:
+        return FanControlGroupPolicy(controllers=controllers)
+
     policy = build_fan_policy(feature_config)
     return FanControlGroupPolicy(
         policy=policy,
@@ -449,6 +467,107 @@ def build_fan_control_group_policy(
     )
 
 
+def _controllers_from_feature_config(
+    feature_config: Mapping[str, object],
+) -> tuple[FanControllerConfig, ...]:
+    """Build controller configs from persisted role config."""
+    raw_controllers = feature_config.get(CONF_FAN_GROUPS_CONTROLLERS)
+    if not isinstance(raw_controllers, Mapping):
+        return ()
+
+    controllers: list[FanControllerConfig] = []
+    for controller_id in (
+        FanControllerRole.COOLING.value,
+        FanControllerRole.HUMIDITY.value,
+        FanControllerRole.ODOR.value,
+    ):
+        raw_controller = raw_controllers.get(controller_id)
+        if not isinstance(raw_controller, Mapping):
+            continue
+        controller = _controller_from_mapping(controller_id, raw_controller)
+        if controller is not None:
+            controllers.append(controller)
+    return tuple(controllers)
+
+
+def _controller_from_mapping(
+    controller_id: str,
+    raw_controller: Mapping[str, object],
+) -> FanControllerConfig | None:
+    """Coerce persisted controller config into runtime policy config."""
+    members = _string_tuple(raw_controller.get(CONF_FAN_CONTROLLER_MEMBERS))
+    sensor_entity_id = raw_controller.get(CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID)
+    sensor_entity_id = str(sensor_entity_id) if sensor_entity_id else None
+
+    if not members or not sensor_entity_id:
+        return None
+
+    detection_mode = _enum_or_default(
+        FanDetectionMode,
+        raw_controller.get(CONF_FAN_CONTROLLER_DETECTION_MODE),
+        FanDetectionMode.THRESHOLD,
+    )
+    clear_behavior = _enum_or_default(
+        FanClearBehavior,
+        raw_controller.get(CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR),
+        FanClearBehavior.OCCUPANCY_ONLY,
+    )
+    unavailable_behavior = _enum_or_default(
+        FanSensorUnavailableBehavior,
+        raw_controller.get(CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR),
+        FanSensorUnavailableBehavior.CLEAR_REASON,
+    )
+    active_states = _string_tuple(raw_controller.get(CONF_FAN_CONTROLLER_ACTIVE_STATES))
+
+    return FanControllerConfig(
+        controller_id=controller_id,
+        members=members,
+        sensor_entity_id=sensor_entity_id,
+        detection_mode=detection_mode,
+        on_threshold=coerce_float(
+            raw_controller.get(CONF_FAN_CONTROLLER_ON_THRESHOLD),
+            default=0.0,
+        ),
+        hysteresis=coerce_float(
+            raw_controller.get(CONF_FAN_CONTROLLER_HYSTERESIS),
+            default=0.0,
+        ),
+        active_states=active_states,
+        suppress_states=_string_tuple(
+            raw_controller.get(CONF_FAN_CONTROLLER_SUPPRESS_STATES)
+        ),
+        clear_behavior=clear_behavior,
+        post_clear_hold_seconds=int(
+            coerce_float(
+                raw_controller.get(CONF_FAN_CONTROLLER_POST_CLEAR_HOLD_SECONDS),
+                default=0.0,
+            )
+        ),
+        sensor_unavailable_behavior=unavailable_behavior,
+    )
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    """Coerce a stored string/list value into a string tuple."""
+    if isinstance(value, str):
+        return (value,) if value else ()
+    if not isinstance(value, Sequence):
+        return ()
+    return tuple(str(item) for item in value if item)
+
+
+def _enum_or_default[T: StrEnum](
+    enum_type: type[T],
+    value: object,
+    default: T,
+) -> T:
+    """Coerce a stored enum value or return the default."""
+    try:
+        return enum_type(str(value))
+    except ValueError:
+        return default
+
+
 def fan_controller_evaluation_to_control_group(
     *,
     evaluation: FanControllerEvaluation,
@@ -456,7 +575,14 @@ def fan_controller_evaluation_to_control_group(
     fan_group_state: str | None,
 ) -> ControlGroupDecision:
     """Translate controller-list evaluation into a control-group decision."""
-    if not fan_group_entity_id:
+    activate_targets = evaluation.turn_on_entity_ids or (
+        (fan_group_entity_id,) if fan_group_entity_id else ()
+    )
+    deactivate_targets = evaluation.turn_off_entity_ids or (
+        (fan_group_entity_id,) if fan_group_entity_id else ()
+    )
+
+    if not activate_targets and not deactivate_targets:
         return ControlGroupDecision(
             action_type=ControlActionType.NOOP,
             reason="fan_group_unavailable",
@@ -470,7 +596,7 @@ def fan_controller_evaluation_to_control_group(
                 ControlAction(
                     domain=FAN_DOMAIN,
                     service=SERVICE_TURN_ON,
-                    target_entity_ids=(fan_group_entity_id,),
+                    target_entity_ids=activate_targets,
                 ),
             ),
         )
@@ -479,7 +605,7 @@ def fan_controller_evaluation_to_control_group(
         ", ".join(reason.reason for reason in evaluation.inactive_reasons)
         or "no_active_fan_reasons"
     )
-    if fan_group_state == STATE_ON:
+    if evaluation.turn_off_entity_ids or fan_group_state == STATE_ON:
         return ControlGroupDecision(
             action_type=ControlActionType.DEACTIVATE,
             reason=reason,
@@ -487,7 +613,7 @@ def fan_controller_evaluation_to_control_group(
                 ControlAction(
                     domain=FAN_DOMAIN,
                     service=SERVICE_TURN_OFF,
-                    target_entity_ids=(fan_group_entity_id,),
+                    target_entity_ids=deactivate_targets,
                 ),
             ),
         )

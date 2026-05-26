@@ -2,13 +2,25 @@
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls.policies.fan import (
+    build_fan_control_group_policy,
     FanClearBehavior,
     FanControllerConfig,
     FanControllerRole,
     FanDetectionMode,
     FanSensorUnavailableBehavior,
     evaluate_fan_controllers,
+    fan_controller_evaluation_to_control_group,
     legacy_cooling_controller,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_FAN_CONTROLLER_ACTIVE_STATES,
+    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
+    CONF_FAN_CONTROLLER_DETECTION_MODE,
+    CONF_FAN_CONTROLLER_HYSTERESIS,
+    CONF_FAN_CONTROLLER_MEMBERS,
+    CONF_FAN_CONTROLLER_ON_THRESHOLD,
+    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID,
+    CONF_FAN_GROUPS_CONTROLLERS,
 )
 
 
@@ -237,3 +249,76 @@ def test_legacy_fan_config_maps_to_cooling_controller() -> None:
     assert controller.controller_id == FanControllerRole.COOLING
     assert controller.hysteresis == 0.0
     assert [reason.controller_id for reason in result.active_reasons] == ["cooling"]
+
+
+def test_build_policy_uses_persisted_role_controllers() -> None:
+    """Persisted fan role pages become runtime controller configs."""
+    policy = build_fan_control_group_policy(
+        {
+            CONF_FAN_GROUPS_CONTROLLERS: {
+                FanControllerRole.HUMIDITY.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "sensor.bathroom_humidity",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.THRESHOLD.value,
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 60,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 5,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                    ),
+                },
+                FanControllerRole.ODOR.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "sensor.bathroom_voc",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.THRESHOLD.value,
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 200,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 10,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                    ),
+                },
+            }
+        }
+    )
+
+    assert policy.policy is None
+    assert [controller.controller_id for controller in policy.controllers] == [
+        FanControllerRole.HUMIDITY.value,
+        FanControllerRole.ODOR.value,
+    ]
+
+    result = evaluate_fan_controllers(
+        policy.controllers,
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={
+            "sensor.bathroom_humidity": 45.0,
+            "sensor.bathroom_voc": 250.0,
+        },
+    )
+
+    assert [reason.controller_id for reason in result.active_reasons] == ["odor"]
+    assert result.turn_off_entity_ids == ()
+
+
+def test_controller_evaluation_targets_role_members_before_all_fan_group() -> None:
+    """Role-member targets avoid overreaching through the all-fan helper."""
+    cooling = _controller(
+        FanControllerRole.COOLING,
+        members=("fan.ceiling",),
+        sensor_entity_id="sensor.temperature",
+        on_threshold=75.0,
+    )
+
+    result = evaluate_fan_controllers(
+        (cooling,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.temperature": 80.0},
+    )
+    decision = fan_controller_evaluation_to_control_group(
+        evaluation=result,
+        fan_group_entity_id="fan.all_room_fans",
+        fan_group_state="off",
+    )
+
+    assert decision.actions[0].target_entity_ids == ("fan.ceiling",)

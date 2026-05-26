@@ -1,8 +1,8 @@
 # Fan And Cover Default Automation Plan
 
-Status: in progress. Fan controller policy, Cooling runtime adapter, and
-controller-role options-flow pages are implemented. Multi-role runtime consumption
-and fan-derived area states remain open.
+Status: in progress. Fan controller policy, multi-role runtime consumption, and
+controller-role options-flow pages are implemented. Fan-derived area states
+remain open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -438,9 +438,9 @@ Notes:
 Tasks:
 
 - [x] Update fan runtime/control switch to evaluate controller lists.
-- Resolve per-controller fan targets.
+- [x] Resolve per-controller fan targets.
 - [x] Use exact native helper targets where possible.
-- Fall back to explicit entity lists where per-controller membership requires
+- [x] Fall back to explicit entity lists where per-controller membership requires
   subsets.
 - [x] Preserve the master fan control switch.
 
@@ -455,20 +455,18 @@ Notes:
 Acceptance:
 
 - [x] Existing fan tests pass or are intentionally updated to Cooling semantics.
-- Same fan in humidity and odor stays on until both reasons clear.
-- Runtime same-fan overlap requires Stage 4 config surfaces or direct runtime
+- [x] Same fan in humidity and odor stays on until both reasons clear.
+- [x] Runtime same-fan overlap requires Stage 4 config surfaces or direct runtime
   controller-list injection before it can be fully asserted.
 - [x] Runtime debug attributes show active/suppressed reasons.
 
-Remaining runtime gap:
+Notes:
 
-- Runtime currently evaluates a generated Cooling controller for the existing
-  single-threshold behavior. Stage 4 now stores multi-role controller configs,
-  but runtime does not yet consume those persisted Cooling/Humidity/Odor role
-  configs directly.
-- Per-controller subset targeting is still incomplete. The current runtime uses
-  the native all-fan helper when it can; explicit per-role entity-list targeting
-  is still required before same-fan overlap can be proven end-to-end.
+- Runtime now consumes persisted Cooling/Humidity/Odor role configs directly when
+  they exist. Legacy Cooling generation remains only as the fallback when no role
+  controller config has been saved.
+- Per-controller role members are explicit service targets when targeting the
+  native all-fan helper would overreach.
 
 ### Stage 4: Fan Config Flow
 
