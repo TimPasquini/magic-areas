@@ -81,6 +81,10 @@ ALLOWLIST_OVERRIDES: dict[str, set[tuple[str, str]]] = {
             "tests/unit/test_switch_base_write_contract",
             "custom_components.magic_areas.switch.base",
         ),
+        (
+            "tests/unit/test_cover_control_policy",
+            "custom_components.magic_areas.switch.cover_control",
+        ),
     },
 }
 
@@ -119,8 +123,10 @@ CORE_PUBLIC_API_SURFACES: set[str] = {
     "custom_components.magic_areas.core.control_intents",
     "custom_components.magic_areas.core.controls",
     "custom_components.magic_areas.core.controls.builders",
+    "custom_components.magic_areas.core.controls.fan_signals",
     "custom_components.magic_areas.core.controls.policies",
     "custom_components.magic_areas.core.controls.policies.climate",
+    "custom_components.magic_areas.core.controls.policies.cover",
     "custom_components.magic_areas.core.controls.policies.fan",
     "custom_components.magic_areas.core.controls.policies.media",
     "custom_components.magic_areas.core.discovery",
@@ -137,8 +143,10 @@ CORE_PUBLIC_API_SURFACES: set[str] = {
 
 CORE_CONTROLS_PUBLIC_API_SURFACES: set[str] = {
     "custom_components.magic_areas.core.controls.builders",
+    "custom_components.magic_areas.core.controls.fan_signals",
     "custom_components.magic_areas.core.controls.policies",
     "custom_components.magic_areas.core.controls.policies.climate",
+    "custom_components.magic_areas.core.controls.policies.cover",
     "custom_components.magic_areas.core.controls.policies.fan",
     "custom_components.magic_areas.core.controls.policies.media",
 }

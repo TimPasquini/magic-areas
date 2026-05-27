@@ -367,7 +367,6 @@ async def test_feature_selection_persists_immediately_and_refreshes_menu(
 @pytest.mark.parametrize(
     "feature",
     [
-        MagicAreasFeatures.COVER_GROUPS,
         MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
     ],
 )

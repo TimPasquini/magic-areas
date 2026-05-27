@@ -112,6 +112,7 @@
     <MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER: 'area_aware_media_player'>,
     <MagicAreasFeatures.BLE_TRACKER: 'ble_trackers'>,
     <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
+    <MagicAreasFeatures.COVER_GROUPS: 'cover_groups'>,
     <MagicAreasFeatures.FAN_GROUPS: 'fan_groups'>,
     <MagicAreasFeatures.HEALTH: 'health'>,
     <MagicAreasFeatures.LIGHT_GROUPS: 'light_groups'>,
@@ -148,6 +149,13 @@
       'key': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
       'merge_options': True,
       'name': <MagicAreasFeatures.CLIMATE_CONTROL: 'climate_control'>,
+    }),
+    dict({
+      'has_next_step': False,
+      'has_schema': True,
+      'key': <MagicAreasFeatures.COVER_GROUPS: 'cover_groups'>,
+      'merge_options': False,
+      'name': <MagicAreasFeatures.COVER_GROUPS: 'cover_groups'>,
     }),
     dict({
       'has_next_step': False,

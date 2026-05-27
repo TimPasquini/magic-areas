@@ -35,6 +35,7 @@ def test_options_flow_root_menu_uses_task_oriented_labels() -> None:
         "custom_control_groups": "Custom control groups",
         "feature_conf_health": "Health sensors",
         "feature_conf_fan_groups": "Fan automation",
+        "feature_conf_cover_groups": "Cover automation",
         "feature_conf_climate_control": "Climate automation",
         "feature_conf_light_groups": "Light roles and automation",
         "feature_conf_area_aware_media_player": "Area-aware media player",

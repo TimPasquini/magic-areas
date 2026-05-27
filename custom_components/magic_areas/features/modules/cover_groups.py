@@ -15,21 +15,7 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.config_keys.area import (
-    CONF_COVER_GROUPS_ACCENT_ACTION,
-    CONF_COVER_GROUPS_ACCENT_STATES,
-    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
-    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
-    CONF_COVER_GROUPS_DAYLIGHT_STATES,
-    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
-    CONF_COVER_GROUPS_PRIVACY_ACTION,
-    CONF_COVER_GROUPS_PRIVACY_STATES,
-)
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.controls.policies.cover import (
-    DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES,
-    CoverPresetAction,
-)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ControlGroupPolicyId,
@@ -42,6 +28,18 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     schema_from_default_options,
+)
+from custom_components.magic_areas.features.config.readers import (
+    COVER_GROUPS_ACCENT_ACTION_KEY,
+    COVER_GROUPS_ACCENT_STATES_KEY,
+    COVER_GROUPS_ACTION_VALUES,
+    COVER_GROUPS_AUTOMATION_DEVICE_CLASSES_KEY,
+    COVER_GROUPS_DAYLIGHT_ACTION_KEY,
+    COVER_GROUPS_DAYLIGHT_STATES_KEY,
+    COVER_GROUPS_DEFAULT_AUTOMATION_DEVICE_CLASSES,
+    COVER_GROUPS_MANUAL_HOLD_SECONDS_KEY,
+    COVER_GROUPS_PRIVACY_ACTION_KEY,
+    COVER_GROUPS_PRIVACY_STATES_KEY,
 )
 from custom_components.magic_areas.features.control_builders import (
     build_control_group_definition,
@@ -57,7 +55,6 @@ if TYPE_CHECKING:  # pragma: no cover
 _LOGGER = logging.getLogger(__name__)
 GROUP_DOMAIN = "group"
 
-_COVER_ACTION_VALUES = [action.value for action in CoverPresetAction]
 _COVER_AREA_STATE_VALUES = [
     AreaStates.OCCUPIED.value,
     AreaStates.EXTENDED.value,
@@ -71,29 +68,29 @@ COVER_GROUP_FEATURE_SCHEMA = schema_from_default_options(
     feature=MagicAreasFeatures.COVER_GROUPS,
     keys_and_validators=(
         (
-            CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+            COVER_GROUPS_AUTOMATION_DEVICE_CLASSES_KEY,
             vol.All(
                 cv.ensure_list,
-                [vol.In([*DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES])],
+                [vol.In([*COVER_GROUPS_DEFAULT_AUTOMATION_DEVICE_CLASSES])],
             ),
         ),
         (
-            CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+            COVER_GROUPS_MANUAL_HOLD_SECONDS_KEY,
             vol.All(vol.Coerce(int), vol.Range(min=0)),
         ),
-        (CONF_COVER_GROUPS_DAYLIGHT_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (COVER_GROUPS_DAYLIGHT_ACTION_KEY, vol.In(COVER_GROUPS_ACTION_VALUES)),
         (
-            CONF_COVER_GROUPS_DAYLIGHT_STATES,
+            COVER_GROUPS_DAYLIGHT_STATES_KEY,
             vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
         ),
-        (CONF_COVER_GROUPS_PRIVACY_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (COVER_GROUPS_PRIVACY_ACTION_KEY, vol.In(COVER_GROUPS_ACTION_VALUES)),
         (
-            CONF_COVER_GROUPS_PRIVACY_STATES,
+            COVER_GROUPS_PRIVACY_STATES_KEY,
             vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
         ),
-        (CONF_COVER_GROUPS_ACCENT_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (COVER_GROUPS_ACCENT_ACTION_KEY, vol.In(COVER_GROUPS_ACTION_VALUES)),
         (
-            CONF_COVER_GROUPS_ACCENT_STATES,
+            COVER_GROUPS_ACCENT_STATES_KEY,
             vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
         ),
     ),

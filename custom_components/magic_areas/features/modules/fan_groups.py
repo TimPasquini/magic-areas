@@ -12,13 +12,6 @@ from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.config_keys.area import CONF_FAN_GROUPS_CONTROLLERS
-from custom_components.magic_areas.core.controls.fan_signals import (
-    fan_controller_trend_signal_surface,
-)
-from custom_components.magic_areas.core.controls.policies.fan import (
-    build_fan_control_group_policy,
-)
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
@@ -29,6 +22,7 @@ from custom_components.magic_areas.core.runtime_model import (
     build_managed_surface_unique_id,
 )
 from custom_components.magic_areas.features.config.readers import (
+    FAN_GROUPS_CONTROLLERS_KEY,
     FAN_GROUPS_OPTION_KEYS,
     fan_groups_config,
 )
@@ -38,7 +32,9 @@ from custom_components.magic_areas.features.base import (
     schema_from_default_options,
 )
 from custom_components.magic_areas.features.control_builders import (
+    build_fan_control_group_policy,
     build_control_group_definition,
+    fan_controller_trend_signal_surface,
     register_area_default_groups,
 )
 import custom_components.magic_areas.switch as switch_platform
@@ -57,7 +53,7 @@ FAN_GROUP_FEATURE_SCHEMA = schema_from_default_options(
         (FAN_GROUPS_OPTION_KEYS[0], str),
         (FAN_GROUPS_OPTION_KEYS[1], str),
         (FAN_GROUPS_OPTION_KEYS[2], vol.Coerce(float)),
-        (CONF_FAN_GROUPS_CONTROLLERS, dict),
+        (FAN_GROUPS_CONTROLLERS_KEY, dict),
     ),
 )
 

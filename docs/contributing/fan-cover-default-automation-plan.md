@@ -3,9 +3,9 @@
 Status: in progress. Fan controller policy, multi-role runtime consumption,
 controller-role options-flow pages, fan-derived area states, and fan
 threshold+trend helper support are implemented. Sensor-driven odor control and
-explicit room-state odor fallback are implemented. Cover preset configuration and
-runtime cover preset policy are implemented. Cover/adaptive scenario coverage
-remains open.
+explicit room-state odor fallback are implemented. Cover preset configuration,
+runtime cover preset policy, and baseline cover scenario coverage are
+implemented. Cover/adaptive lux scenario coverage remains open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -636,16 +636,33 @@ Acceptance:
 
 Tasks:
 
-- Extend scenario/dev-house tests for cover movement affecting lux.
-- Capture traces for cover state, lux state, area states, adaptive guards, and
+- [x] Add baseline HA scenario coverage for cover preset runtime behavior.
+- [x] Prove Privacy/Sleep closes eligible native cover helper groups and releases
+  back to Daylight/open when privacy clears.
+- [x] Prove manual cover movement is not immediately reversed by the next area
+  state event.
+- [ ] Extend scenario/dev-house tests for cover movement affecting lux.
+- [ ] Capture traces for cover state, lux state, area states, adaptive guards, and
   light decisions.
+
+Notes:
+
+- Baseline cover scenario tests now exercise normal HA integration startup,
+  native cover helper group state, the cover control switch, Magic Areas
+  area-state dispatch, and manual movement hold behavior.
+- The package-root policy adapter imports were made lazy so Home Assistant
+  config-flow discovery can import the integration without a policy/defaults
+  circular import.
+- Cover/adaptive lux interaction remains the open part of this stage. That
+  should prove that cover movement changes brightness context which light policy
+  can consume; covers still must not command lights directly.
 
 Acceptance:
 
-- Cover opening can support adaptive light-off.
-- Cover closing can support light-on if occupied/dark.
-- Media/Accent cover close does not directly command lights.
-- Manual cover movement is not immediately reversed.
+- [ ] Cover opening can support adaptive light-off.
+- [ ] Cover closing can support light-on if occupied/dark.
+- [x] Media/Accent cover close does not directly command lights.
+- [x] Manual cover movement is not immediately reversed.
 
 ## Test Plan
 
