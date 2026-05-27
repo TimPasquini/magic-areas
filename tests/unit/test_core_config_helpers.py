@@ -9,6 +9,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_CUSTOM_CONTROL_GROUPS,
     CONF_ENABLED_FEATURES,
     CONF_EXCLUDE_ENTITIES,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_IGNORE_DIAGNOSTIC_ENTITIES,
     CONF_INCLUDE_ENTITIES,
@@ -26,6 +30,11 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_DELAY,
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
+)
+from custom_components.magic_areas.core.controls.policies.cover import (
+    DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES,
+    CoverPresetAction,
+    CoverPresetRole,
 )
 from custom_components.magic_areas.core.config import (
     area_type,
@@ -58,6 +67,7 @@ from custom_components.magic_areas.features.config.readers import (
     area_aware_media_player_config,
     ble_tracker_config,
     climate_control_config,
+    cover_groups_config,
     fan_groups_config,
     presence_hold_config,
     wasp_in_a_box_config,
@@ -143,6 +153,38 @@ def test_fan_groups_config_uses_defaults() -> None:
     assert fan_groups_config(
         {CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: "humidity"}
     ).tracked_device_class == "humidity"
+
+
+def test_cover_groups_config_uses_preset_defaults_and_overrides() -> None:
+    """Cover config should normalize eligible classes, presets, and manual hold."""
+    default_config = cover_groups_config({})
+    assert default_config.automation_device_classes == (
+        DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES
+    )
+    assert "awning" not in default_config.automation_device_classes
+    assert "garage" not in default_config.automation_device_classes
+    assert "gate" not in default_config.automation_device_classes
+    assert "door" not in default_config.automation_device_classes
+    assert "damper" not in default_config.automation_device_classes
+    assert default_config.manual_hold_seconds == 900
+    presets = {preset.role: preset for preset in default_config.presets}
+    assert presets[CoverPresetRole.DAYLIGHT].action is CoverPresetAction.OPEN
+    assert presets[CoverPresetRole.PRIVACY].states == (AreaStates.SLEEP.value,)
+    assert presets[CoverPresetRole.ACCENT].action is CoverPresetAction.CLOSE
+
+    custom_config = cover_groups_config(
+        {
+            CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES: ["blind"],
+            CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS: 120,
+            CONF_COVER_GROUPS_ACCENT_ACTION: "none",
+            CONF_COVER_GROUPS_ACCENT_STATES: [AreaStates.ACCENT.value, "sleep"],
+        }
+    )
+    custom_presets = {preset.role: preset for preset in custom_config.presets}
+    assert custom_config.automation_device_classes == ("blind",)
+    assert custom_config.manual_hold_seconds == 120
+    assert custom_presets[CoverPresetRole.ACCENT].action is CoverPresetAction.NONE
+    assert custom_presets[CoverPresetRole.ACCENT].states == ("accented", "sleep")
 
 
 def test_presence_hold_config_helper() -> None:

@@ -14,6 +14,14 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
     CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
     CONF_AGGREGATES_MIN_ENTITIES,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
     CONF_FAN_CONTROLLER_DETECTION_MODE,
@@ -32,6 +40,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
+)
+from custom_components.magic_areas.core.controls.policies.cover import (
+    DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES,
+    CoverPresetAction,
 )
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
@@ -229,6 +241,16 @@ _FEATURE_SELECTION_ORDER = (
     MagicAreasFeatures.PRESENCE_HOLD,
     MagicAreasFeatures.BLE_TRACKER,
     MagicAreasFeatures.WASP_IN_A_BOX,
+)
+_COVER_PRESET_ACTION_KEYS = (
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+)
+_COVER_PRESET_STATE_KEYS = (
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
+    CONF_COVER_GROUPS_ACCENT_STATES,
 )
 
 
@@ -1336,6 +1358,37 @@ def _add_non_light_feature_selectors(
                 ),
             }
         )
+
+    if feature_enum == MagicAreasFeatures.COVER_GROUPS:
+        cover_device_classes = sorted(DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES)
+        area_state_options = [
+            AreaStates.OCCUPIED.value,
+            AreaStates.EXTENDED.value,
+            AreaStates.DARK.value,
+            AreaStates.BRIGHT.value,
+            AreaStates.SLEEP.value,
+            AreaStates.ACCENT.value,
+        ]
+        selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] = (
+            build_selector_select(cover_device_classes, multiple=True)
+        )
+        selectors[CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS] = build_selector_number(
+            min_value=0,
+            max_value=86_400,
+            unit_of_measurement="seconds",
+        )
+        for key in _COVER_PRESET_ACTION_KEYS:
+            selectors[key] = build_selector_select(
+                options=[action.value for action in CoverPresetAction],
+                multiple=False,
+                translation_key="cover_preset_action",
+            )
+        for key in _COVER_PRESET_STATE_KEYS:
+            selectors[key] = build_selector_select(
+                options=area_state_options,
+                multiple=True,
+                translation_key=SelectorTranslationKeys.AREA_STATES,
+            )
 
     if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
         selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = (

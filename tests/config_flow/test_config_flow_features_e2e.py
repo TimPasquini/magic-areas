@@ -29,6 +29,14 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_CLIMATE_CONTROL_PRESET_SLEEP,
     CONF_DARK_ENTITY,
     CONF_ENABLED_FEATURES,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
     CONF_FAN_CONTROLLER_DETECTION_MODE,
@@ -63,6 +71,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
+from custom_components.magic_areas.core.controls.policies.cover import CoverPresetAction
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
@@ -167,6 +176,11 @@ async def _open_feature_config_step(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={"next_step_id": "feature_conf_fan_groups"},
+        )
+    if step_id.startswith("feature_conf_cover_groups_"):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={"next_step_id": "feature_conf_cover_groups"},
         )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={"next_step_id": step_id}
@@ -881,6 +895,77 @@ async def test_options_flow_fan_groups_stores_sensorless_odor_fallback(
     assert odor[CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID] == ""
     assert odor[CONF_FAN_CONTROLLER_DETECTION_MODE] == FanDetectionMode.ROOM_STATE.value
     assert odor[CONF_FAN_CONTROLLER_ACTIVE_STATES] == ["occupied"]
+
+
+async def test_options_flow_cover_groups_stores_presets_and_reopens(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Cover settings should save preset config and reopen with saved values."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.COVER_GROUPS,
+        "feature_conf_cover_groups_settings",
+    )
+    assert result["type"] == FlowResultType.FORM
+    selectors = _schema_selectors(result)
+    assert selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES].config[
+        "multiple"
+    ] is True
+    assert (
+        selectors[CONF_COVER_GROUPS_DAYLIGHT_ACTION].config["translation_key"]
+        == "cover_preset_action"
+    )
+    assert selectors[CONF_COVER_GROUPS_ACCENT_STATES].config["translation_key"] == (
+        "area_states"
+    )
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES: ["blind", "shade"],
+            CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS: 120,
+            CONF_COVER_GROUPS_DAYLIGHT_ACTION: CoverPresetAction.OPEN.value,
+            CONF_COVER_GROUPS_DAYLIGHT_STATES: [AreaStates.OCCUPIED.value],
+            CONF_COVER_GROUPS_PRIVACY_ACTION: CoverPresetAction.CLOSE.value,
+            CONF_COVER_GROUPS_PRIVACY_STATES: [AreaStates.SLEEP.value],
+            CONF_COVER_GROUPS_ACCENT_ACTION: CoverPresetAction.CLOSE.value,
+            CONF_COVER_GROUPS_ACCENT_STATES: [AreaStates.ACCENT.value],
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"next_step_id": "show_menu"}
+    )
+    result = await _finish_options_flow(hass, result)
+    assert result["type"] == FlowResultType.MENU
+
+    cover_options = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.COVER_GROUPS
+    ]
+    assert cover_options[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] == [
+        "blind",
+        "shade",
+    ]
+    assert cover_options[CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS] == 120
+    assert cover_options[CONF_COVER_GROUPS_ACCENT_ACTION] == "close"
+    assert cover_options[CONF_COVER_GROUPS_ACCENT_STATES] == ["accented"]
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.COVER_GROUPS,
+        "feature_conf_cover_groups_settings",
+    )
+    assert result["type"] == FlowResultType.FORM
+    suggested_values = _schema_suggested_values(result)
+    assert suggested_values[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] == [
+        "blind",
+        "shade",
+    ]
+    assert suggested_values[CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS] == 120
+    assert suggested_values[CONF_COVER_GROUPS_ACCENT_ACTION] == "close"
 
 
 async def test_options_flow_area_aware_media_player_uses_entity_selector(
@@ -2260,7 +2345,7 @@ async def test_options_flow_add_feature(
 
     assert result["type"] == FlowResultType.MENU
     assert "feature_conf_light_groups" in result["menu_options"]
-    assert "feature_conf_cover_groups" not in result["menu_options"]
+    assert "feature_conf_cover_groups" in result["menu_options"]
     assert result["type"] == FlowResultType.MENU
     assert (
         MagicAreasFeatures.LIGHT_GROUPS in config_entry.options[CONF_ENABLED_FEATURES]
@@ -2273,7 +2358,6 @@ async def test_options_flow_add_feature(
 @pytest.mark.parametrize(
     "feature",
     [
-        MagicAreasFeatures.COVER_GROUPS,
         MagicAreasFeatures.MEDIA_PLAYER_GROUPS,
     ],
 )

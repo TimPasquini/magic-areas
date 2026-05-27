@@ -5,14 +5,31 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.components.cover import DEVICE_CLASSES as COVER_DEVICE_CLASSES
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import CONF_ENTITIES, CONF_NAME
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.area_state import AreaStates
+from custom_components.magic_areas.config_keys.area import (
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
+)
 from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.core.controls.policies.cover import (
+    DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES,
+    CoverPresetAction,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ControlGroupPolicyId,
@@ -22,7 +39,10 @@ from custom_components.magic_areas.core.runtime_model import (
     build_managed_surface_unique_id,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from custom_components.magic_areas.features.base import BaseFeatureModule
+from custom_components.magic_areas.features.base import (
+    BaseFeatureModule,
+    schema_from_default_options,
+)
 from custom_components.magic_areas.features.control_builders import (
     build_control_group_definition,
     register_area_default_groups,
@@ -37,12 +57,55 @@ if TYPE_CHECKING:  # pragma: no cover
 _LOGGER = logging.getLogger(__name__)
 GROUP_DOMAIN = "group"
 
+_COVER_ACTION_VALUES = [action.value for action in CoverPresetAction]
+_COVER_AREA_STATE_VALUES = [
+    AreaStates.OCCUPIED.value,
+    AreaStates.EXTENDED.value,
+    AreaStates.DARK.value,
+    AreaStates.BRIGHT.value,
+    AreaStates.SLEEP.value,
+    AreaStates.ACCENT.value,
+]
+
+COVER_GROUP_FEATURE_SCHEMA = schema_from_default_options(
+    feature=MagicAreasFeatures.COVER_GROUPS,
+    keys_and_validators=(
+        (
+            CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+            vol.All(
+                cv.ensure_list,
+                [vol.In([*DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES])],
+            ),
+        ),
+        (
+            CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+            vol.All(vol.Coerce(int), vol.Range(min=0)),
+        ),
+        (CONF_COVER_GROUPS_DAYLIGHT_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (
+            CONF_COVER_GROUPS_DAYLIGHT_STATES,
+            vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
+        ),
+        (CONF_COVER_GROUPS_PRIVACY_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (
+            CONF_COVER_GROUPS_PRIVACY_STATES,
+            vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
+        ),
+        (CONF_COVER_GROUPS_ACCENT_ACTION, vol.In(_COVER_ACTION_VALUES)),
+        (
+            CONF_COVER_GROUPS_ACCENT_STATES,
+            vol.All(cv.ensure_list, [vol.In(_COVER_AREA_STATE_VALUES)]),
+        ),
+    ),
+)
+
 
 class CoverGroupsFeatureModule(BaseFeatureModule):
     """Feature module for cover groups."""
 
     id = MagicAreasFeatures.COVER_GROUPS
     domains = {COVER_DOMAIN, SWITCH_DOMAIN}
+    feature_schema = COVER_GROUP_FEATURE_SCHEMA
 
     def build_entities(
         self,

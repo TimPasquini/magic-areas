@@ -3,7 +3,8 @@
 Status: in progress. Fan controller policy, multi-role runtime consumption,
 controller-role options-flow pages, fan-derived area states, and fan
 threshold+trend helper support are implemented. Sensor-driven odor control and
-explicit room-state odor fallback are implemented. Cover automation remains open.
+explicit room-state odor fallback are implemented. Cover preset configuration is
+implemented. Cover runtime automation remains open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -578,16 +579,30 @@ Acceptance:
 
 Tasks:
 
-- Define editable cover presets: Daylight, Privacy/Sleep, Media/Accent.
-- Add config readers/defaults.
-- Restrict default eligible automation classes to window-light-management covers.
-- Add manual-hold config.
+- [x] Define editable cover presets: Daylight, Privacy/Sleep, Media/Accent.
+- [x] Add config readers/defaults.
+- [x] Restrict default eligible automation classes to window-light-management
+  covers.
+- [x] Add manual-hold config.
+
+Notes:
+
+- Cover preset config is intentionally model/config only. Runtime cover movement
+  belongs to Stage 9.
+- Cover helpers still create the existing native control surfaces; default
+  automation eligibility is narrower than helper creation.
+- Default automatic cover classes are `blind`, `curtain`, `shade`, `shutter`,
+  and `window`.
+- `awning`, `garage`, `gate`, `door`, and `damper` are not default automation
+  targets.
+- Preset state tokens use canonical Magic Areas area-state values, including
+  `accented`.
 
 Acceptance:
 
-- Config tests prove presets save and reopen.
-- Excluded cover classes are not default automation targets.
-- Cover helper surfaces remain unchanged unless needed for policy metadata.
+- [x] Config tests prove presets save and reopen.
+- [x] Excluded cover classes are not default automation targets.
+- [x] Cover helper surfaces remain unchanged unless needed for policy metadata.
 
 ### Stage 9: Cover Runtime Policy
 

@@ -14,6 +14,14 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_SENSOR_DEVICE_CLASSES,
     CONF_BLE_TRACKER_ENTITIES,
     CONF_CLIMATE_CONTROL_ENTITY_ID,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
@@ -25,9 +33,18 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
     CONF_WASP_IN_A_BOX_WASP_TIMEOUT,
 )
+from custom_components.magic_areas.core.controls.policies.cover import (
+    COVER_PRESET_CONFIG_KEYS,
+    DEFAULT_COVER_PRESETS,
+    CoverGroupsConfig,
+    CoverPresetAction,
+    CoverPresetConfig,
+    CoverPresetRole,
+)
 from custom_components.magic_areas.feature_reader_common import (
     FeatureConfig,
     FeatureConfigValue,
+    FeatureOptions,
     RawFeatureList,
     options_for_feature,
 )
@@ -56,6 +73,16 @@ FAN_GROUPS_OPTION_KEYS: tuple[str, ...] = (
     CONF_FAN_GROUPS_REQUIRED_STATE,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_FAN_GROUPS_SETPOINT,
+)
+COVER_GROUPS_OPTION_KEYS: tuple[str, ...] = (
+    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
+    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
+    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
+    CONF_COVER_GROUPS_DAYLIGHT_STATES,
+    CONF_COVER_GROUPS_PRIVACY_ACTION,
+    CONF_COVER_GROUPS_PRIVACY_STATES,
+    CONF_COVER_GROUPS_ACCENT_ACTION,
+    CONF_COVER_GROUPS_ACCENT_STATES,
 )
 HEALTH_OPTION_KEYS: tuple[str, ...] = (CONF_HEALTH_SENSOR_DEVICE_CLASSES,)
 PRESENCE_HOLD_OPTION_KEYS: tuple[str, ...] = (CONF_PRESENCE_HOLD_TIMEOUT,)
@@ -102,6 +129,38 @@ def fan_groups_config(feature_configs: FeatureConfig) -> FanGroupsConfig:
         setpoint=options.float_value(CONF_FAN_GROUPS_SETPOINT),
         tracked_device_class=options.value(CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS),
     )
+
+
+def cover_groups_config(feature_configs: FeatureConfig) -> CoverGroupsConfig:
+    """Return normalized cover-groups automation configuration."""
+    options = options_for_feature(feature_configs, MagicAreasFeatures.COVER_GROUPS)
+    return CoverGroupsConfig(
+        automation_device_classes=tuple(
+            options.list_value(CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES)
+        ),
+        manual_hold_seconds=max(
+            0,
+            options.int_value(CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS),
+        ),
+        presets=tuple(_cover_preset_config(options, role) for role in CoverPresetRole),
+    )
+
+
+def _cover_preset_config(
+    options: FeatureOptions,
+    role: CoverPresetRole,
+) -> CoverPresetConfig:
+    """Return normalized config for one cover preset role."""
+    action_key, states_key = COVER_PRESET_CONFIG_KEYS[role]
+    default = DEFAULT_COVER_PRESETS[role]
+    raw_action = options.str_value(action_key)
+    try:
+        action = CoverPresetAction(raw_action)
+    except ValueError:
+        action = default.action
+
+    states = tuple(options.list_value(states_key, default=list(default.states)))
+    return CoverPresetConfig(role=role, action=action, states=states)
 
 
 @dataclass(frozen=True, slots=True)

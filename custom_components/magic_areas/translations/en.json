@@ -69,6 +69,7 @@
           "custom_control_groups": "Custom control groups",
           "feature_conf_health": "Health sensors",
           "feature_conf_fan_groups": "Fan automation",
+          "feature_conf_cover_groups": "Cover automation",
           "feature_conf_climate_control": "Climate automation",
           "feature_conf_light_groups": "Light roles and automation",
           "feature_conf_area_aware_media_player": "Area-aware media player",
@@ -363,6 +364,35 @@
           "sensor_entity_id": "VOC, particulate, gas, air-quality, or comparable sensor. Leave empty only when using room-state-only detection.",
           "active_states": "Room states where odor or air-quality control may start.",
           "clear_behavior": "Sensor-based odor control normally runs until the air-quality condition clears."
+        }
+      },
+      "feature_conf_cover_groups": {
+        "title": "Cover automation",
+        "description": "Configure how this room may move window covers for daylight, privacy, and media/accent use. Automatic movement only happens when the cover control switch is on.",
+        "menu_options": {
+          "feature_conf_cover_groups_settings": "Cover presets",
+          "show_menu": "Back"
+        }
+      },
+      "feature_conf_cover_groups_settings": {
+        "title": "Cover presets",
+        "description": "Choose which cover types can be automated and what each built-in preset should do when its room states are active.",
+        "data": {
+          "automation_device_classes": "Automated cover types",
+          "manual_hold_seconds": "Manual movement hold",
+          "daylight_action": "Daylight action",
+          "daylight_states": "Daylight states",
+          "privacy_action": "Privacy/Sleep action",
+          "privacy_states": "Privacy/Sleep states",
+          "accent_action": "Media/Accent action",
+          "accent_states": "Media/Accent states"
+        },
+        "data_description": {
+          "automation_device_classes": "Only these cover types are eligible for automatic movement. Group helpers are still created for all assigned covers.",
+          "manual_hold_seconds": "How long Magic Areas should avoid reversing a manual cover movement.",
+          "daylight_action": "Usually open covers when the room can use daylight.",
+          "privacy_action": "Usually close covers for sleep or privacy states.",
+          "accent_action": "Usually close covers for TV, media, or other accent states."
         }
       },
       "feature_conf_climate_control": {
@@ -795,6 +825,13 @@
         "threshold": "Threshold",
         "threshold_trend": "Threshold plus rising trend",
         "room_state": "Room state only (no sensor)"
+      }
+    },
+    "cover_preset_action": {
+      "options": {
+        "none": "Do nothing",
+        "open": "Open",
+        "close": "Close"
       }
     },
     "fan_sensor_unavailable_behavior": {
