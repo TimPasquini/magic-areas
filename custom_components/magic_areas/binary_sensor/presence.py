@@ -71,6 +71,9 @@ _STATE_DISPLAY_ORDER: tuple[str, ...] = (
     AreaStates.EXTENDED.value,
     AreaStates.SLEEP.value,
     AreaStates.ACCENT.value,
+    AreaStates.HOT.value,
+    AreaStates.HUMID.value,
+    AreaStates.ODOR.value,
     AreaStates.DARK.value,
     AreaStates.BRIGHT.value,
 )
@@ -80,6 +83,9 @@ _STATE_LABELS: dict[str, str] = {
     AreaStates.EXTENDED.value: "Extended",
     AreaStates.SLEEP.value: "Sleep",
     AreaStates.ACCENT.value: "Accented",
+    AreaStates.HOT.value: "Hot",
+    AreaStates.HUMID.value: "Humid",
+    AreaStates.ODOR.value: "Odor",
     AreaStates.DARK.value: "Dark",
     AreaStates.BRIGHT.value: "Bright",
 }
@@ -116,6 +122,8 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
         # Cache current states from tracker (no longer mutating self.area.states)
         self._current_states: list[str] = []
+        self._base_states: list[str] = []
+        self._runtime_state_sources: dict[str, set[str]] = {}
 
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 
@@ -154,6 +162,14 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         self._listener_registry.track(
             "cleanup_presence_listener", self._clear_presence_sensor_listener
         )
+        self._listener_registry.track(
+            "runtime_state_dispatcher",
+            async_dispatcher_connect(
+                self.hass,
+                MagicAreasEvents.AREA_RUNTIME_STATES_CHANGED,
+                self._runtime_states_changed,
+            ),
+        )
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up listeners on removal."""
@@ -188,6 +204,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         ordered = [state for state in _STATE_DISPLAY_ORDER if state in current_state_set]
         remaining = sorted(current_state_set - set(_STATE_DISPLAY_ORDER))
         return [*ordered, *remaining]
+
+    def _sync_attributes(self) -> None:
+        """Refresh exposed metadata attributes."""
+        self._attr_extra_state_attributes.update(self.get_metadata())
 
     # Helpers
 
@@ -289,8 +309,10 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
 
     def _apply_presence_update(self, update: PresenceUpdate) -> None:
         """Apply evaluated state transitions, timers, and event dispatch."""
-        # Cache current states locally for get_metadata()
-        self._current_states = list(update.current_states)
+        previous_states = set(self._current_states)
+        self._base_states = list(update.current_states)
+        current_states = set(self._merged_current_states())
+        self._current_states = list(current_states)
 
         # Handle timeout requests
         if update.cancel_timeout:
@@ -305,11 +327,46 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
             str(update.lost_states),
         )
 
-        if update.new_states or update.lost_states:
+        new_states = current_states - previous_states
+        lost_states = previous_states - current_states
+
+        if new_states or lost_states:
             # Pass current_states snapshot to prevent stale reads in handlers.
-            self._report_state_change(
-                (update.new_states, update.lost_states, set(update.current_states))
-            )
+            self._report_state_change((new_states, lost_states, current_states))
+
+    def _merged_current_states(self) -> list[str]:
+        """Return base states merged with feature-published runtime states."""
+        runtime_states = {
+            state for states in self._runtime_state_sources.values() for state in states
+        }
+        return [*self._base_states, *sorted(runtime_states - set(self._base_states))]
+
+    def _runtime_states_changed(
+        self,
+        area_id: str,
+        source_id: str,
+        states: list[str],
+    ) -> None:
+        """Merge feature-published room-condition states into visible area states."""
+        if area_id != self._area_id:
+            return
+
+        previous_states = set(self._current_states)
+        state_set = {str(state) for state in states}
+        if state_set:
+            self._runtime_state_sources[source_id] = state_set
+        else:
+            self._runtime_state_sources.pop(source_id, None)
+
+        current_states = set(self._merged_current_states())
+        self._current_states = list(current_states)
+        self._sync_attributes()
+
+        new_states = current_states - previous_states
+        lost_states = previous_states - current_states
+        if new_states or lost_states:
+            self._report_state_change((new_states, lost_states, current_states))
+        self.schedule_update_ha_state()
 
     def _report_state_change(
         self, states_tuple: tuple[set[str], set[str], set[str]]
@@ -480,10 +537,6 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
         # HA may deliver this dispatcher callback off-loop; keep scheduler writes.
         self.schedule_update_ha_state()
 
-    def _sync_attributes(self) -> None:
-        """Refresh exposed metadata attributes."""
-        self._attr_extra_state_attributes.update(self.get_metadata())
-
     def _apply_sensor_inventory_update(self, new_sensors: list[str]) -> None:
         """Apply snapshot-driven presence sensor inventory changes."""
         self._sensors = new_sensors
@@ -493,8 +546,14 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
 
     def _apply_state_projection(self, current_states: list[str]) -> None:
         """Project tracked current states onto the binary sensor state."""
-        self._current_states = list(current_states)
-        self._attr_is_on = AreaStates.OCCUPIED.value in current_states
+        self._base_states = [
+            state
+            for state in current_states
+            if state
+            not in {AreaStates.HOT.value, AreaStates.HUMID.value, AreaStates.ODOR.value}
+        ]
+        self._current_states = self._merged_current_states()
+        self._attr_is_on = AreaStates.OCCUPIED.value in self._current_states
         self._sync_attributes()
 
 

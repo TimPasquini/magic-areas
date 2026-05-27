@@ -52,6 +52,7 @@ class MagicAreasEvents(StrEnum):
     """Event identifiers dispatched by Magic Areas."""
 
     AREA_STATE_CHANGED = "magicareas_area_state_changed"
+    AREA_RUNTIME_STATES_CHANGED = "magicareas_area_runtime_states_changed"
     AREA_SNAPSHOT_READY = "magicareas_area_snapshot_ready"
 
 

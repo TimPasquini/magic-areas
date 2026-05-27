@@ -13,6 +13,9 @@ class AreaStates(StrEnum):
     BRIGHT = "bright"
     SLEEP = "sleep"
     ACCENT = "accented"
+    HOT = "hot"
+    HUMID = "humid"
+    ODOR = "odor"
 
 
 AREA_PRIORITY_STATES = [AreaStates.SLEEP, AreaStates.ACCENT]

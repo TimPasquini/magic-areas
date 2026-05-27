@@ -521,6 +521,9 @@
               "sleep": "Sleep",
               "accent": "Accented",
               "accented": "Accented",
+              "hot": "Hot",
+              "humid": "Humid",
+              "odor": "Odor",
               "dark": "Dark",
               "bright": "Bright"
             }
@@ -558,6 +561,27 @@
           },
           "state_accented": {
             "name": "Accented",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_hot": {
+            "name": "Hot",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_humid": {
+            "name": "Humid",
+            "state": {
+              "on": "Active",
+              "off": "Inactive"
+            }
+          },
+          "state_odor": {
+            "name": "Odor",
             "state": {
               "on": "Active",
               "off": "Inactive"

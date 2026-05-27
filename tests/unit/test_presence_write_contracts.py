@@ -106,6 +106,58 @@ def test_apply_state_projection_exposes_ordered_state_summary_and_flags() -> Non
     assert entity._attr_extra_state_attributes["state_extended"] == "off"
 
 
+def test_runtime_states_merge_into_visible_area_state_attributes() -> None:
+    """Feature-published runtime states should appear in area-state metadata."""
+    entity = AreaStateBinarySensor(_area_config(), _coordinator())
+    entity._attr_extra_state_attributes = {}
+    entity._apply_state_projection([AreaStates.OCCUPIED.value])
+
+    with (
+        patch.object(entity, "schedule_update_ha_state") as mock_schedule,
+        patch("custom_components.magic_areas.binary_sensor.presence.dispatcher_send"),
+    ):
+        entity._runtime_states_changed(
+            "kitchen",
+            "fan_groups",
+            [AreaStates.HUMID.value, AreaStates.ODOR.value],
+        )
+
+    assert entity._attr_extra_state_attributes["states"] == [
+        AreaStates.OCCUPIED.value,
+        AreaStates.HUMID.value,
+        AreaStates.ODOR.value,
+    ]
+    assert (
+        entity._attr_extra_state_attributes["active_states"]
+        == "Occupied, Humid, Odor"
+    )
+    assert entity._attr_extra_state_attributes["state_humid"] == "on"
+    assert entity._attr_extra_state_attributes["state_odor"] == "on"
+    mock_schedule.assert_called_once()
+
+
+def test_runtime_states_clear_when_source_publishes_empty_state_list() -> None:
+    """Runtime-state sources can clear their visible area states."""
+    entity = AreaStateBinarySensor(_area_config(), _coordinator())
+    entity._attr_extra_state_attributes = {}
+    entity._apply_state_projection([AreaStates.OCCUPIED.value])
+    with (
+        patch.object(entity, "schedule_update_ha_state"),
+        patch("custom_components.magic_areas.binary_sensor.presence.dispatcher_send"),
+    ):
+        entity._runtime_states_changed(
+            "kitchen",
+            "fan_groups",
+            [AreaStates.HOT.value],
+        )
+        entity._runtime_states_changed("kitchen", "fan_groups", [])
+
+    assert entity._attr_extra_state_attributes["states"] == [
+        AreaStates.OCCUPIED.value
+    ]
+    assert entity._attr_extra_state_attributes["state_hot"] == "off"
+
+
 def test_apply_sensor_inventory_update_tracks_added_sensors() -> None:
     """Inventory helper owns snapshot-driven presence sensor reconciliation."""
     entity = AreaStateBinarySensor(_area_config(), _coordinator())

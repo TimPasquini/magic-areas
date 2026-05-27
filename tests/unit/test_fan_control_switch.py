@@ -3,7 +3,7 @@
 from typing import cast
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from homeassistant.core import Event, State
 from homeassistant.const import STATE_OFF, STATE_ON
 
@@ -432,3 +432,56 @@ async def test_run_logic_uses_persisted_role_controller_sensors_and_members(
     attrs = switch._attr_extra_state_attributes
     assert attrs["active_fan_reasons"] == ["humidity"]
     assert attrs["target_fan_entities"] == ["fan.bathroom"]
+
+
+@pytest.mark.asyncio
+async def test_run_logic_publishes_fan_runtime_area_states(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+) -> None:
+    """Active fan controller reasons publish visible area-condition states."""
+    mock_coordinator.data.feature_configs = {
+        MagicAreasFeatures.FAN_GROUPS.value: {
+            CONF_FAN_GROUPS_CONTROLLERS: {
+                FanControllerRole.ODOR.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "sensor.bathroom_voc",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.THRESHOLD.value,
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 200,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 10,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                    ),
+                }
+            }
+        }
+    }
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._attr_is_on = True
+    switch._fan_group_entity_id = "fan.all_bathroom_fans"
+    switch._attr_name = "Test Switch"
+
+    def get_state(entity_id: str) -> State | None:
+        if entity_id == "sensor.bathroom_voc":
+            return State(entity_id, "250")
+        if entity_id == "fan.all_bathroom_fans":
+            return State(entity_id, STATE_OFF)
+        return None
+
+    mock_hass.states.get.side_effect = get_state
+
+    with patch(
+        "custom_components.magic_areas.switch.fan_control.dispatcher_send"
+    ) as mock_dispatch:
+        await switch.run_logic([AreaStates.OCCUPIED.value])
+
+    mock_dispatch.assert_called_once_with(
+        mock_hass,
+        "magicareas_area_runtime_states_changed",
+        "test_area",
+        "fan_groups",
+        [AreaStates.ODOR.value],
+    )

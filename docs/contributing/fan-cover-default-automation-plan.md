@@ -1,8 +1,8 @@
 # Fan And Cover Default Automation Plan
 
-Status: in progress. Fan controller policy, multi-role runtime consumption, and
-controller-role options-flow pages are implemented. Fan-derived area states
-remain open.
+Status: in progress. Fan controller policy, multi-role runtime consumption,
+controller-role options-flow pages, and fan-derived area states are implemented.
+Threshold + trend support and cover automation remain open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -500,15 +500,24 @@ Acceptance:
 
 Tasks:
 
-- Add canonical area states `humid`, `odor`, and `hot`.
-- Emit these states from active fan controller reasons.
-- Ensure state attributes and translated/detail display are consistent.
-- Expose active/suppressed fan reasons and target fans in debug attributes.
+- [x] Add canonical area states `humid`, `odor`, and `hot`.
+- [x] Emit these states from active fan controller reasons.
+- [x] Ensure state attributes and translated/detail display are consistent.
+- [x] Expose active/suppressed fan reasons and target fans in debug attributes.
+
+Notes:
+
+- Fan-derived states are published through a runtime-state dispatcher and merged
+  into the canonical area-state entity attributes.
+- Fan-derived states represent active controller reasons, not raw fan on/off
+  state.
+- The area-state entity keeps presence/secondary states as the base state set and
+  overlays feature-published runtime states by source.
 
 Acceptance:
 
-- Area-state tests prove fan-derived states appear and clear.
-- States reflect controller condition rather than raw fan on/off state.
+- [x] Area-state tests prove fan-derived states appear and clear.
+- [x] States reflect controller condition rather than raw fan on/off state.
 
 ### Stage 6: Threshold + Trend Helper Support
 

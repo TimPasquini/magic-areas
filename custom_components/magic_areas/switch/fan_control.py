@@ -9,6 +9,7 @@ from homeassistant.const import (
     STATE_OFF,
 )
 from homeassistant.core import Event, EventStateChangedData, callback
+from homeassistant.helpers.dispatcher import dispatcher_send
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
@@ -16,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from custom_components.magic_areas.core.controls.policies.fan import (
     build_fan_control_group_policy,
     FanControlGroupPolicy,
+    FanControllerRole,
     LEGACY_FAN_SENSOR_KEY,
     FanPolicySignals,
 )
@@ -31,10 +33,15 @@ from custom_components.magic_areas.core.aggregates import resolve_aggregate_enti
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
-from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from custom_components.magic_areas.switch.base import ControlSwitchBase
 
 _LOGGER = logging.getLogger(__name__)
+_FAN_ROLE_AREA_STATES: dict[str, str] = {
+    FanControllerRole.COOLING.value: AreaStates.HOT.value,
+    FanControllerRole.HUMIDITY.value: AreaStates.HUMID.value,
+    FanControllerRole.ODOR.value: AreaStates.ODOR.value,
+}
 
 
 class FanControlSwitch(ControlSwitchBase):
@@ -215,6 +222,7 @@ class FanControlSwitch(ControlSwitchBase):
             logger=_LOGGER,
         )
         self._write_policy_debug_attributes()
+        self._publish_fan_runtime_states()
         if self.platform is not None:
             self.async_write_ha_state()
 
@@ -240,3 +248,22 @@ class FanControlSwitch(ControlSwitchBase):
             }
         )
         self._attr_extra_state_attributes = attrs
+
+    def _publish_fan_runtime_states(self) -> None:
+        """Publish active fan reason states to the area-state entity."""
+        evaluation = self.policy.last_evaluation
+        if evaluation is None:
+            return
+
+        states = [
+            state
+            for reason in evaluation.active_reasons
+            if (state := _FAN_ROLE_AREA_STATES.get(reason.controller_id))
+        ]
+        dispatcher_send(
+            self.hass,
+            MagicAreasEvents.AREA_RUNTIME_STATES_CHANGED,
+            self._area_id,
+            "fan_groups",
+            states,
+        )
