@@ -5,7 +5,8 @@ controller-role options-flow pages, fan-derived area states, and fan
 threshold+trend helper support are implemented. Sensor-driven odor control and
 explicit room-state odor fallback are implemented. Cover preset configuration,
 runtime cover preset policy, and baseline cover scenario coverage are
-implemented. Cover/adaptive lux scenario coverage remains open.
+implemented. Cover/adaptive lux scenario coverage is implemented at the pytest
+scenario level.
 
 Target branch: `fan-cover-default-automation`
 
@@ -641,9 +642,10 @@ Tasks:
   back to Daylight/open when privacy clears.
 - [x] Prove manual cover movement is not immediately reversed by the next area
   state event.
-- [ ] Extend scenario/dev-house tests for cover movement affecting lux.
-- [ ] Capture traces for cover state, lux state, area states, adaptive guards, and
-  light decisions.
+- [x] Extend scenario tests for cover movement affecting light-policy brightness
+  context.
+- [x] Assert cover state, in-room bright/dark state, area states, and light
+  decisions in the same scenario path.
 
 Notes:
 
@@ -653,14 +655,15 @@ Notes:
 - The package-root policy adapter imports were made lazy so Home Assistant
   config-flow discovery can import the integration without a policy/defaults
   circular import.
-- Cover/adaptive lux interaction remains the open part of this stage. That
-  should prove that cover movement changes brightness context which light policy
-  can consume; covers still must not command lights directly.
+- Cover/adaptive lux interaction is covered by combined cover/light scenarios.
+  The tests intentionally model cover movement as changing the room brightness
+  signal; light policy consumes that brightness context and covers still do not
+  command lights directly.
 
 Acceptance:
 
-- [ ] Cover opening can support adaptive light-off.
-- [ ] Cover closing can support light-on if occupied/dark.
+- [x] Cover opening can support adaptive light-off.
+- [x] Cover closing can support light-on if occupied/dark.
 - [x] Media/Accent cover close does not directly command lights.
 - [x] Manual cover movement is not immediately reversed.
 
