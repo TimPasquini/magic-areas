@@ -1,6 +1,6 @@
 # Fan And Cover Default Automation Plan
 
-Status: in progress. Fan controller policy, multi-role runtime consumption,
+Status: implementation complete. Fan controller policy, multi-role runtime consumption,
 controller-role options-flow pages, fan-derived area states, and fan
 threshold+trend helper support are implemented. Sensor-driven odor control and
 explicit room-state odor fallback are implemented. Cover preset configuration,
@@ -737,18 +737,18 @@ Acceptance:
 
 ## Branch Exit Criteria
 
-- Fan controller model replaces current single-threshold fan runtime.
-- Cooling preserves current default behavior.
-- Humidity and odor controllers are implemented with threshold + hysteresis.
-- Threshold + trend path is implemented for humidity.
-- Fan-derived visible area states are implemented.
-- Fan config-flow exposes role/controller pages.
-- Cover presets are implemented for eligible window-light cover classes.
-- Cover movement is opt-in and manual-hold protected.
-- Cover/adaptive-switching scenario coverage exists.
-- Full `pytest`, `ruff`, and `mypy` gates pass.
-- Temporary plan is updated to closure state before deletion.
-- Durable docs are updated only for completed behavior.
+- [x] Fan controller model replaces current single-threshold fan runtime.
+- [x] Cooling preserves current default behavior.
+- [x] Humidity and odor controllers are implemented with threshold + hysteresis.
+- [x] Threshold + trend path is implemented for humidity.
+- [x] Fan-derived visible area states are implemented.
+- [x] Fan config-flow exposes role/controller pages.
+- [x] Cover presets are implemented for eligible window-light cover classes.
+- [x] Cover movement is opt-in and manual-hold protected.
+- [x] Cover/adaptive-switching scenario coverage exists.
+- [x] Full `pytest`, `ruff`, and `mypy` gates pass.
+- [x] Temporary plan is updated to closure state before deletion.
+- [ ] Durable docs are updated only for completed behavior.
 
 ## Explicit Non-Goals For This Branch
 
