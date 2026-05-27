@@ -77,6 +77,7 @@ class FanControlGroupPolicy(ControlGroupPolicy):
                 self.controllers,
                 current_states=context.current_states,
                 sensor_values=sensor_values,
+                trend_states=signals.trend_states,
             )
             self.last_evaluation = evaluation
             return fan_controller_evaluation_to_control_group(
@@ -114,6 +115,7 @@ class FanDetectionMode(StrEnum):
     """Supported fan controller signal detection modes."""
 
     THRESHOLD = "threshold"
+    THRESHOLD_TREND = "threshold_trend"
 
 
 class FanClearBehavior(StrEnum):
@@ -185,6 +187,7 @@ class FanPolicySignals:
     fan_group_entity_id: str | None
     fan_group_state: str | None
     sensor_values: Mapping[str, float | None] | None = None
+    trend_states: Mapping[str, bool | None] | None = None
 
     @classmethod
     def from_signals(cls, signals: object) -> FanPolicySignals:
@@ -277,11 +280,13 @@ def evaluate_fan_controllers(
     *,
     current_states: Sequence[str],
     sensor_values: Mapping[str, float | None],
+    trend_states: Mapping[str, bool | None] | None = None,
     previously_active_controller_ids: Sequence[str] = (),
 ) -> FanControllerEvaluation:
     """Evaluate fan controllers and aggregate per-entity service intent."""
     current_state_set = {str(state) for state in current_states}
     previous_active = {str(controller_id) for controller_id in previously_active_controller_ids}
+    current_trend_states = trend_states or {}
 
     active: list[FanControllerReason] = []
     suppressed: list[FanControllerReason] = []
@@ -292,6 +297,7 @@ def evaluate_fan_controllers(
             controller,
             current_states=current_state_set,
             sensor_values=sensor_values,
+            trend_states=current_trend_states,
             was_active=controller.controller_id in previous_active,
         )
         if reason.reason.startswith("suppressed"):
@@ -324,6 +330,7 @@ def _evaluate_fan_controller(
     *,
     current_states: set[str],
     sensor_values: Mapping[str, float | None],
+    trend_states: Mapping[str, bool | None],
     was_active: bool,
 ) -> FanControllerReason:
     """Evaluate one fan controller reason."""
@@ -370,6 +377,20 @@ def _evaluate_fan_controller(
             reason=(
                 f"active_threshold_reached "
                 f"({sensor_value:.1f} >= {controller.on_threshold:.1f})"
+            ),
+        )
+
+    if (
+        controller.detection_mode is FanDetectionMode.THRESHOLD_TREND
+        and trend_states.get(controller.controller_id) is True
+        and sensor_value >= controller.off_threshold
+    ):
+        return FanControllerReason(
+            controller_id=controller.controller_id,
+            members=controller.members,
+            reason=(
+                f"active_trend_rising_inside_hysteresis "
+                f"({sensor_value:.1f} >= {controller.off_threshold:.1f})"
             ),
         )
 

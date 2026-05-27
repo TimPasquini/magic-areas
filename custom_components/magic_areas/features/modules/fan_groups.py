@@ -13,6 +13,12 @@ from homeassistant.helpers.entity import Entity
 from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.config_keys.area import CONF_FAN_GROUPS_CONTROLLERS
+from custom_components.magic_areas.core.controls.fan_signals import (
+    fan_controller_trend_signal_surface,
+)
+from custom_components.magic_areas.core.controls.policies.fan import (
+    build_fan_control_group_policy,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
@@ -107,7 +113,8 @@ class FanGroupsFeatureModule(BaseFeatureModule):
         if not member_ids:
             return []
         title = f"Magic Areas Fan Groups {area_config.name} Fan Group"
-        return [
+        device_identifier = (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}")
+        surfaces: list[ManagedSurface] = [
             ConfigEntryHelperSurface(
                 unique_id=_fan_group_surface_unique_id(area_config, data),
                 domain=GROUP_DOMAIN,
@@ -119,10 +126,25 @@ class FanGroupsFeatureModule(BaseFeatureModule):
                     "hide_members": False,
                 },
                 area_id=area_config.id,
-                device_identifier=(DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}{area_config.id}"),
+                device_identifier=device_identifier,
                 device_name=area_config.name,
             )
         ]
+        raw_config = data.feature_configs.get(MagicAreasFeatures.FAN_GROUPS, {})
+        feature_config = raw_config if isinstance(raw_config, dict) else {}
+        policy = build_fan_control_group_policy(feature_config)
+        for controller in policy.controllers:
+            signal_surface = fan_controller_trend_signal_surface(
+                entry_id=area_config.hass_config.entry_id,
+                area_id=area_config.id,
+                area_name=area_config.name,
+                controller=controller,
+                device_identifier=device_identifier,
+                device_name=area_config.name,
+            )
+            if signal_surface is not None:
+                surfaces.append(signal_surface)
+        return surfaces
 
 
 def _fan_group_surface_unique_id(

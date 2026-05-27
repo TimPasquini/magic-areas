@@ -4,9 +4,14 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.components.trend.const import DOMAIN as TREND_DOMAIN
 from homeassistant.const import (
     EntityCategory,
     STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
 )
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.dispatcher import dispatcher_send
@@ -18,8 +23,15 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     build_fan_control_group_policy,
     FanControlGroupPolicy,
     FanControllerRole,
+    FanDetectionMode,
     LEGACY_FAN_SENSOR_KEY,
     FanPolicySignals,
+)
+from custom_components.magic_areas.core.controls.fan_signals import (
+    fan_controller_trend_signal_surface,
+)
+from custom_components.magic_areas.core.managed_surface_registry import (
+    resolve_managed_surface_entity_id,
 )
 from custom_components.magic_areas.features.config.readers import (
     fan_groups_config,
@@ -33,6 +45,7 @@ from custom_components.magic_areas.core.aggregates import resolve_aggregate_enti
 from custom_components.magic_areas.core.runtime_model import (
     ControlGroupPolicyId,
 )
+from homeassistant.helpers import entity_registry as er
 from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from custom_components.magic_areas.switch.base import ControlSwitchBase
 
@@ -57,6 +70,8 @@ class FanControlSwitch(ControlSwitchBase):
     _area_sensor_entity_id: str | None
     _fan_group_entity_id: str | None
     _controller_sensor_entity_ids: tuple[str, ...]
+    _controller_trend_signal_unique_ids: dict[str, str]
+    _controller_trend_signal_entity_ids: dict[str, str]
 
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
@@ -87,6 +102,21 @@ class FanControlSwitch(ControlSwitchBase):
                 }
             )
         )
+        self._controller_trend_signal_unique_ids = {}
+        for controller in self.policy.controllers:
+            if controller.detection_mode is not FanDetectionMode.THRESHOLD_TREND:
+                continue
+            signal_surface = fan_controller_trend_signal_surface(
+                entry_id=area_config.hass_config.entry_id,
+                area_id=area_config.id,
+                area_name=area_config.name,
+                controller=controller,
+            )
+            if signal_surface is not None:
+                self._controller_trend_signal_unique_ids[controller.controller_id] = (
+                    signal_surface.unique_id
+                )
+        self._controller_trend_signal_entity_ids = {}
         self._last_states = []
 
     async def async_added_to_hass(self) -> None:
@@ -125,6 +155,15 @@ class FanControlSwitch(ControlSwitchBase):
         for index, entity_id in enumerate(self._controller_sensor_entity_ids):
             self._track_state_change(
                 f"fan_controller_sensor_state_change_{index}",
+                entity_id,
+                self.aggregate_sensor_state_changed,
+            )
+        self._controller_trend_signal_entity_ids = (
+            self._resolve_controller_trend_signal_entity_ids()
+        )
+        for controller_id, entity_id in self._controller_trend_signal_entity_ids.items():
+            self._track_state_change(
+                f"fan_controller_trend_signal_state_change_{controller_id}",
                 entity_id,
                 self.aggregate_sensor_state_changed,
             )
@@ -199,6 +238,10 @@ class FanControlSwitch(ControlSwitchBase):
             )
             for entity_id in self._controller_sensor_entity_ids
         }
+        trend_states = {
+            controller_id: self._read_trend_signal_state(entity_id)
+            for controller_id, entity_id in self._controller_trend_signal_entity_ids.items()
+        }
 
         fan_state = (
             self.hass.states.get(self._fan_group_entity_id)
@@ -213,6 +256,7 @@ class FanControlSwitch(ControlSwitchBase):
                 fan_group_entity_id=self._fan_group_entity_id,
                 fan_group_state=fan_state.state if fan_state else None,
                 sensor_values=sensor_values,
+                trend_states=trend_states,
             ),
             is_enabled=self.is_on,
         )
@@ -225,6 +269,29 @@ class FanControlSwitch(ControlSwitchBase):
         self._publish_fan_runtime_states()
         if self.platform is not None:
             self.async_write_ha_state()
+
+    def _resolve_controller_trend_signal_entity_ids(self) -> dict[str, str]:
+        """Resolve managed Trend helper entity IDs for threshold+trend controllers."""
+        entity_registry = er.async_get(self.hass)
+        resolved: dict[str, str] = {}
+        for controller_id, unique_id in self._controller_trend_signal_unique_ids.items():
+            entity_id = resolve_managed_surface_entity_id(
+                self.hass,
+                entity_registry,
+                unique_id=unique_id,
+                entity_domain=BINARY_SENSOR_DOMAIN,
+                config_entry_domain=TREND_DOMAIN,
+            )
+            if entity_id is not None:
+                resolved[controller_id] = entity_id
+        return resolved
+
+    def _read_trend_signal_state(self, entity_id: str) -> bool | None:
+        """Read a native Trend helper binary state."""
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            return None
+        return state.state == STATE_ON
 
     def _write_policy_debug_attributes(self) -> None:
         """Expose fan controller evaluation details for troubleshooting."""

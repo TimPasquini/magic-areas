@@ -1,8 +1,9 @@
 # Fan And Cover Default Automation Plan
 
 Status: in progress. Fan controller policy, multi-role runtime consumption,
-controller-role options-flow pages, and fan-derived area states are implemented.
-Threshold + trend support and cover automation remain open.
+controller-role options-flow pages, fan-derived area states, and fan
+threshold+trend helper support are implemented. Odor fallback runtime and cover
+automation remain open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -431,7 +432,7 @@ Notes:
 - Runtime still uses the legacy single-threshold adapter. Stage 3 is where the
   switch runtime should consume controller-list evaluation.
 - The initial pure model supports threshold + hysteresis. Threshold + trend is
-  still deferred to Stage 6.
+  implemented in Stage 6.
 
 ### Stage 3: Fan Runtime Integration
 
@@ -485,8 +486,7 @@ Notes:
 - Cooling submissions also synchronize the existing legacy fan-group keys so the
   current Cooling runtime adapter remains compatible until runtime consumes the
   multi-role controller configs directly.
-- Detection mode is currently `threshold` only. `threshold_trend` remains a Stage
-  6 addition.
+- Detection mode now supports `threshold` and `threshold_trend`.
 
 Acceptance:
 
@@ -523,16 +523,32 @@ Acceptance:
 
 Tasks:
 
-- Design reusable threshold/trend signal support for sensor-controller features.
-- Use humidity as the first concrete case.
-- Prefer native HA helpers where they can provide trend/rate evidence.
-- Keep Magic Areas responsible for interpreting the helper signal.
+- [x] Design reusable threshold/trend signal support for sensor-controller
+  features.
+- [x] Use humidity as the first concrete case.
+- [x] Prefer native HA helpers where they can provide trend/rate evidence.
+- [x] Keep Magic Areas responsible for interpreting the helper signal.
+- [x] Expose `threshold_trend` in the fan controller options-flow detection-mode
+  selector.
+
+Notes:
+
+- Fan controllers that select `threshold_trend` declare a Magic Areas-managed
+  native Trend helper for the controller sensor.
+- Runtime resolves the managed Trend helper by managed-surface unique ID and
+  passes the helper's binary state into fan policy evaluation.
+- The trend signal supplements threshold/hysteresis. It can activate or hold a
+  controller only when the sensor is already inside the hysteresis band; it does
+  not activate a fan from below the clear threshold.
+- Magic Areas interprets the native helper signal. Home Assistant owns trend
+  calculation and helper lifecycle.
 
 Acceptance:
 
-- Humidity threshold-only mode is tested.
-- Humidity threshold+trend mode is tested.
-- Trend/rate signal supplements threshold/hysteresis rather than replacing it.
+- [x] Humidity threshold-only mode is tested.
+- [x] Humidity threshold+trend mode is tested.
+- [x] Trend/rate signal supplements threshold/hysteresis rather than replacing
+  it.
 
 ### Stage 7: Odor/VOC Fallback Runtime
 
@@ -665,8 +681,7 @@ Acceptance:
 - Fan controller model replaces current single-threshold fan runtime.
 - Cooling preserves current default behavior.
 - Humidity and odor controllers are implemented with threshold + hysteresis.
-- Threshold + trend path is implemented for humidity or documented with evidence
-  if native helpers prove unsuitable.
+- Threshold + trend path is implemented for humidity.
 - Fan-derived visible area states are implemented.
 - Fan config-flow exposes role/controller pages.
 - Cover presets are implemented for eligible window-light cover classes.

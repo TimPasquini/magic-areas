@@ -790,6 +790,12 @@
         "post_clear_hold": "Run for a fixed time after the room state clears"
       }
     },
+    "fan_detection_mode": {
+      "options": {
+        "threshold": "Threshold",
+        "threshold_trend": "Threshold plus rising trend"
+      }
+    },
     "fan_sensor_unavailable_behavior": {
       "options": {
         "clear_reason": "Clear this fan reason",

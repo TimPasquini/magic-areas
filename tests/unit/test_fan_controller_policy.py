@@ -29,6 +29,7 @@ def _controller(
     *,
     members: tuple[str, ...] = ("fan.room",),
     sensor_entity_id: str = "sensor.room",
+    detection_mode: FanDetectionMode = FanDetectionMode.THRESHOLD,
     on_threshold: float = 50.0,
     hysteresis: float = 5.0,
     active_states: tuple[str, ...] = (AreaStates.OCCUPIED,),
@@ -43,7 +44,7 @@ def _controller(
         controller_id=controller_id,
         members=members,
         sensor_entity_id=sensor_entity_id,
-        detection_mode=FanDetectionMode.THRESHOLD,
+        detection_mode=detection_mode,
         on_threshold=on_threshold,
         hysteresis=hysteresis,
         active_states=active_states,
@@ -105,6 +106,49 @@ def test_controller_holds_inside_hysteresis_band_when_previously_active() -> Non
 
     assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
     assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_threshold_trend_controller_activates_inside_hysteresis_band_when_rising() -> None:
+    """Threshold+trend supplements threshold evidence without replacing clear bounds."""
+    controller = _controller(
+        FanControllerRole.HUMIDITY,
+        detection_mode=FanDetectionMode.THRESHOLD_TREND,
+        on_threshold=60.0,
+        hysteresis=5.0,
+    )
+
+    result = evaluate_fan_controllers(
+        (controller,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": 57.0},
+        trend_states={FanControllerRole.HUMIDITY.value: True},
+    )
+
+    assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
+    assert result.active_reasons[0].reason.startswith(
+        "active_trend_rising_inside_hysteresis"
+    )
+    assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_threshold_trend_controller_does_not_activate_below_clear_band() -> None:
+    """A rising trend alone is not enough when the sensor is below clear threshold."""
+    controller = _controller(
+        FanControllerRole.HUMIDITY,
+        detection_mode=FanDetectionMode.THRESHOLD_TREND,
+        on_threshold=60.0,
+        hysteresis=5.0,
+    )
+
+    result = evaluate_fan_controllers(
+        (controller,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": 54.0},
+        trend_states={FanControllerRole.HUMIDITY.value: True},
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["humidity"]
 
 
 def test_shared_fan_stays_on_until_all_reasons_clear() -> None:

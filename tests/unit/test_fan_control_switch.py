@@ -42,6 +42,8 @@ def mock_area_config() -> AreaConfig:
     config.icon = None
     config.floor_id = None
     config.area_type = "interior"
+    config.hass_config = MagicMock()
+    config.hass_config.entry_id = "entry-1"
     return cast(AreaConfig, config)
 
 
@@ -432,6 +434,63 @@ async def test_run_logic_uses_persisted_role_controller_sensors_and_members(
     attrs = switch._attr_extra_state_attributes
     assert attrs["active_fan_reasons"] == ["humidity"]
     assert attrs["target_fan_entities"] == ["fan.bathroom"]
+
+
+@pytest.mark.asyncio
+async def test_run_logic_uses_threshold_trend_signal_state(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+) -> None:
+    """Threshold+trend fan roles consume the managed Trend helper state."""
+    mock_coordinator.data.feature_configs = {
+        MagicAreasFeatures.FAN_GROUPS.value: {
+            CONF_FAN_GROUPS_CONTROLLERS: {
+                FanControllerRole.HUMIDITY.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "sensor.bathroom_humidity",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: (
+                        FanDetectionMode.THRESHOLD_TREND.value
+                    ),
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 60,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 5,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                    ),
+                }
+            }
+        }
+    }
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._attr_is_on = True
+    switch._fan_group_entity_id = "fan.all_bathroom_fans"
+    switch._controller_trend_signal_entity_ids = {
+        FanControllerRole.HUMIDITY.value: "binary_sensor.bathroom_humidity_rising"
+    }
+    switch._attr_name = "Test Switch"
+
+    def get_state(entity_id: str) -> State | None:
+        if entity_id == "sensor.bathroom_humidity":
+            return State(entity_id, "57")
+        if entity_id == "binary_sensor.bathroom_humidity_rising":
+            return State(entity_id, STATE_ON)
+        if entity_id == "fan.all_bathroom_fans":
+            return State(entity_id, STATE_OFF)
+        return None
+
+    mock_hass.states.get.side_effect = get_state
+
+    await switch.run_logic([AreaStates.OCCUPIED.value])
+
+    mock_hass.services.async_call.assert_awaited_once_with(
+        "fan",
+        "turn_on",
+        {"entity_id": "fan.bathroom"},
+        blocking=False,
+    )
+    assert switch._attr_extra_state_attributes["active_fan_reasons"] == ["humidity"]
 
 
 @pytest.mark.asyncio

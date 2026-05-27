@@ -12,8 +12,13 @@ from custom_components.magic_areas.config_keys.area import CONF_CLIMATE_CONTROL_
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
+    SignalHelperSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.core.controls.policies.fan import (
+    FanControllerRole,
+    FanDetectionMode,
+)
 
 from .feature_module_contracts_testkit import get_module, make_area_config, make_coordinator, make_snapshot
 
@@ -48,6 +53,58 @@ def test_fan_groups_module_builds_group_and_control_switch() -> None:
     assert helper_surfaces[0].domain == "group"
     assert helper_surfaces[0].options["group_type"] == FAN_DOMAIN
     assert helper_surfaces[0].options["entities"] == ["fan.ceiling_1"]
+
+
+def test_fan_groups_module_declares_threshold_trend_signal_surface() -> None:
+    """Threshold+trend fan role config should compile to a managed Trend helper."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.FAN_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.FAN_GROUPS: {
+                "controllers": {
+                    FanControllerRole.HUMIDITY.value: {
+                        "members": ["fan.bathroom"],
+                        "sensor_entity_id": "sensor.bathroom_humidity",
+                        "detection_mode": FanDetectionMode.THRESHOLD_TREND.value,
+                        "on_threshold": 60.0,
+                        "hysteresis": 5.0,
+                        "active_states": ["occupied"],
+                        "clear_behavior": "run_until_clear",
+                    }
+                }
+            }
+        },
+        entities={FAN_DOMAIN: [{"entity_id": "fan.bathroom"}]},
+    )
+    module = get_module("fan_groups")
+
+    surfaces = module.desired_managed_surfaces(area_config, snapshot)
+
+    signal_surfaces = [
+        surface for surface in surfaces if isinstance(surface, SignalHelperSurface)
+    ]
+    assert len(signal_surfaces) == 1
+    surface = signal_surfaces[0]
+    assert surface.unique_id == (
+        "magic_areas:entry-1:area-1:signals:signal_helper:"
+        "trend_fan_controller_humidity"
+    )
+    assert surface.domain == "trend"
+    assert surface.title == "Magic Areas Signals Kitchen Trend Fan Controller Humidity"
+    assert surface.source_entity_id == "sensor.bathroom_humidity"
+    assert surface.options == {
+        "name": "Magic Areas Signals Kitchen Trend Fan Controller Humidity",
+        "entity_id": "sensor.bathroom_humidity",
+        "invert": False,
+        "max_samples": 4,
+        "min_samples": 2,
+        "min_gradient": 0.0,
+        "sample_duration": 0,
+    }
+    assert surface.area_id == "area-1"
+    assert surface.device_identifier == ("magic_areas", "magic_area_device_area-1")
+    assert surface.device_name == "Kitchen"
 
 
 def test_fan_groups_module_registers_default_control_group() -> None:

@@ -719,7 +719,12 @@ def _fan_controller_schema(saved: Mapping[str, object]) -> vol.Schema:
                     CONF_FAN_CONTROLLER_DETECTION_MODE,
                     FanDetectionMode.THRESHOLD.value,
                 ),
-            ): vol.In([FanDetectionMode.THRESHOLD.value]),
+            ): vol.In(
+                [
+                    FanDetectionMode.THRESHOLD.value,
+                    FanDetectionMode.THRESHOLD_TREND.value,
+                ]
+            ),
             vol.Optional(
                 CONF_FAN_CONTROLLER_ON_THRESHOLD,
                 default=saved.get(CONF_FAN_CONTROLLER_ON_THRESHOLD, 0.0),
@@ -777,8 +782,12 @@ def _fan_controller_selectors(flow: "OptionsFlowHandler") -> SelectorMap:
             flow.all_entities, multiple=False
         ),
         CONF_FAN_CONTROLLER_DETECTION_MODE: build_selector_select(
-            options=[FanDetectionMode.THRESHOLD.value],
+            options=[
+                FanDetectionMode.THRESHOLD.value,
+                FanDetectionMode.THRESHOLD_TREND.value,
+            ],
             multiple=False,
+            translation_key="fan_detection_mode",
         ),
         CONF_FAN_CONTROLLER_ON_THRESHOLD: build_selector_number(
             min_value=0,
