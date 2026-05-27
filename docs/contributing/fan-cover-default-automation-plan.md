@@ -3,8 +3,9 @@
 Status: in progress. Fan controller policy, multi-role runtime consumption,
 controller-role options-flow pages, fan-derived area states, and fan
 threshold+trend helper support are implemented. Sensor-driven odor control and
-explicit room-state odor fallback are implemented. Cover preset configuration is
-implemented. Cover runtime automation remains open.
+explicit room-state odor fallback are implemented. Cover preset configuration and
+runtime cover preset policy are implemented. Cover/adaptive scenario coverage
+remains open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -608,16 +609,28 @@ Acceptance:
 
 Tasks:
 
-- Implement policy evaluation for cover presets.
-- Use existing native cover helper groups as targets.
-- Add manual movement detection and hold.
-- Keep cover policy from directly commanding lights.
+- [x] Implement policy evaluation for cover presets.
+- [x] Use existing native cover helper groups as targets.
+- [x] Add manual movement detection and hold.
+- [x] Keep cover policy from directly commanding lights.
+
+Notes:
+
+- Cover automation now evaluates the configured preset model through a
+  control-group policy adapter.
+- Privacy/Sleep and Media/Accent presets take precedence over Daylight.
+- Runtime actions target the native cover helper groups for configured eligible
+  cover classes.
+- Manual cover-helper state changes start a hold window. State changes expected
+  from Magic Areas service calls do not start that hold.
+- Cover policy emits cover service calls only; light behavior remains owned by
+  light/adaptive switching policy responding to changed room brightness.
 
 Acceptance:
 
-- Unit tests cover daylight open, privacy block, media close, release behavior,
-  and manual hold.
-- Cover control switch gates automatic movement.
+- [x] Unit tests cover daylight open, privacy block, media close, release
+  behavior, and manual hold.
+- [x] Cover control switch gates automatic movement.
 
 ### Stage 10: Cover + Adaptive Switching Scenario Coverage
 

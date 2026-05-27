@@ -5,6 +5,14 @@ from custom_components.magic_areas.core.controls.policies.climate import (
     ClimatePolicySignals,
     build_climate_control_group_policy,
 )
+from custom_components.magic_areas.core.controls.policies.cover import (
+    CoverGroupsConfig,
+    CoverPolicySignals,
+    CoverPresetAction,
+    CoverPresetConfig,
+    CoverPresetRole,
+    build_cover_control_group_policy,
+)
 from custom_components.magic_areas.core.controls import (
     ControlActionType,
     ControlGroupContext,
@@ -89,3 +97,33 @@ def test_media_policy_adapter_evaluates_from_canonical_context() -> None:
     assert decision.actions[0].target_entity_ids == (
         "media_player.living_room_group",
     )
+
+
+def test_cover_policy_adapter_evaluates_from_canonical_context() -> None:
+    """Cover adapter should evaluate context and emit cover helper action."""
+    policy = build_cover_control_group_policy(
+        CoverGroupsConfig(
+            automation_device_classes=("blind",),
+            manual_hold_seconds=900,
+            presets=(
+                CoverPresetConfig(
+                    role=CoverPresetRole.DAYLIGHT,
+                    action=CoverPresetAction.OPEN,
+                    states=(AreaStates.OCCUPIED.value,),
+                ),
+            ),
+        )
+    )
+    decision = policy.evaluate(
+        ControlGroupContext(
+            group_id="cover_groups_kitchen",
+            current_states=(AreaStates.OCCUPIED.value,),
+            signals=CoverPolicySignals(
+                cover_group_entity_ids={"blind": "cover.kitchen_blinds"},
+                cover_group_states={"cover.kitchen_blinds": "closed"},
+            ),
+        )
+    )
+
+    assert decision.action_type == ControlActionType.ACTIVATE
+    assert decision.actions[0].target_entity_ids == ("cover.kitchen_blinds",)
