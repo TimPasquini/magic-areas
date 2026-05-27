@@ -2,8 +2,8 @@
 
 Status: in progress. Fan controller policy, multi-role runtime consumption,
 controller-role options-flow pages, fan-derived area states, and fan
-threshold+trend helper support are implemented. Odor fallback runtime and cover
-automation remain open.
+threshold+trend helper support are implemented. Sensor-driven odor control and
+explicit room-state odor fallback are implemented. Cover automation remains open.
 
 Target branch: `fan-cover-default-automation`
 
@@ -554,14 +554,25 @@ Acceptance:
 
 Tasks:
 
-- Add odor sensor threshold behavior.
-- Add explicit fallback runtime behavior for rooms without odor/VOC sensors.
-- Keep fallback mode opt-in and visible in config.
+- [x] Add odor sensor threshold behavior.
+- [x] Add explicit fallback runtime behavior for rooms without odor/VOC sensors.
+- [x] Keep fallback mode opt-in and visible in config.
+
+Notes:
+
+- Sensor-driven odor uses the same controller contract as cooling and humidity:
+  selected members, selected signal, detection mode, thresholds, room-state gates,
+  clear behavior, and suppression.
+- Rooms without an odor/VOC sensor can select `room_state` detection. This mode
+  intentionally ignores sensor threshold fields and runs from configured room
+  states only.
+- Runtime now feeds previous active controller IDs back into policy evaluation so
+  hysteresis holds work in the switch path, not only in pure policy tests.
 
 Acceptance:
 
-- Sensor-driven odor and fallback odor runtime are independently tested.
-- Odor reason coexists with humidity and cooling.
+- [x] Sensor-driven odor and fallback odor runtime are independently tested.
+- [x] Odor reason coexists with humidity and cooling.
 
 ### Stage 8: Cover Preset Config Model
 

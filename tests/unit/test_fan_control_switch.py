@@ -544,3 +544,53 @@ async def test_run_logic_publishes_fan_runtime_area_states(
         "fan_groups",
         [AreaStates.ODOR.value],
     )
+
+
+@pytest.mark.asyncio
+async def test_run_logic_supports_sensorless_odor_room_state_fallback(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+) -> None:
+    """Sensorless odor fallback should run from room-state evidence."""
+    mock_coordinator.data.feature_configs = {
+        MagicAreasFeatures.FAN_GROUPS.value: {
+            CONF_FAN_GROUPS_CONTROLLERS: {
+                FanControllerRole.ODOR.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: (
+                        FanDetectionMode.ROOM_STATE.value
+                    ),
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 0,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 0,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.OCCUPANCY_ONLY.value
+                    ),
+                }
+            }
+        }
+    }
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._attr_is_on = True
+    switch._fan_group_entity_id = "fan.all_bathroom_fans"
+    switch._attr_name = "Test Switch"
+
+    def get_state(entity_id: str) -> State | None:
+        if entity_id == "fan.all_bathroom_fans":
+            return State(entity_id, STATE_OFF)
+        return None
+
+    mock_hass.states.get.side_effect = get_state
+
+    await switch.run_logic([AreaStates.OCCUPIED.value])
+
+    mock_hass.services.async_call.assert_awaited_once_with(
+        "fan",
+        "turn_on",
+        {"entity_id": "fan.bathroom"},
+        blocking=False,
+    )
+    assert switch._attr_extra_state_attributes["active_fan_reasons"] == ["odor"]

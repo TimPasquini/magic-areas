@@ -78,6 +78,14 @@ class FanControlGroupPolicy(ControlGroupPolicy):
                 current_states=context.current_states,
                 sensor_values=sensor_values,
                 trend_states=signals.trend_states,
+                previously_active_controller_ids=(
+                    tuple(
+                        reason.controller_id
+                        for reason in self.last_evaluation.active_reasons
+                    )
+                )
+                if self.last_evaluation is not None
+                else (),
             )
             self.last_evaluation = evaluation
             return fan_controller_evaluation_to_control_group(
@@ -116,6 +124,7 @@ class FanDetectionMode(StrEnum):
 
     THRESHOLD = "threshold"
     THRESHOLD_TREND = "threshold_trend"
+    ROOM_STATE = "room_state"
 
 
 class FanClearBehavior(StrEnum):
@@ -362,6 +371,19 @@ def _evaluate_fan_controller(
             reason="inactive_required_state_not_met",
         )
 
+    if controller.detection_mode is FanDetectionMode.ROOM_STATE:
+        if any(state in current_states for state in controller.active_states):
+            return FanControllerReason(
+                controller_id=controller.controller_id,
+                members=controller.members,
+                reason="active_room_state_fallback",
+            )
+        return FanControllerReason(
+            controller_id=controller.controller_id,
+            members=controller.members,
+            reason="inactive_required_state_not_met",
+        )
+
     sensor_value = (
         sensor_values.get(controller.sensor_entity_id)
         if controller.sensor_entity_id
@@ -520,14 +542,15 @@ def _controller_from_mapping(
     sensor_entity_id = raw_controller.get(CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID)
     sensor_entity_id = str(sensor_entity_id) if sensor_entity_id else None
 
-    if not members or not sensor_entity_id:
-        return None
-
     detection_mode = _enum_or_default(
         FanDetectionMode,
         raw_controller.get(CONF_FAN_CONTROLLER_DETECTION_MODE),
         FanDetectionMode.THRESHOLD,
     )
+    if not members:
+        return None
+    if detection_mode is not FanDetectionMode.ROOM_STATE and not sensor_entity_id:
+        return None
     clear_behavior = _enum_or_default(
         FanClearBehavior,
         raw_controller.get(CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR),

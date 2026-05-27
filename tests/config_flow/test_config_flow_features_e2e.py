@@ -31,6 +31,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_ENABLED_FEATURES,
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
+    CONF_FAN_CONTROLLER_DETECTION_MODE,
     CONF_FAN_CONTROLLER_HYSTERESIS,
     CONF_FAN_CONTROLLER_MEMBERS,
     CONF_FAN_CONTROLLER_ON_THRESHOLD,
@@ -72,6 +73,7 @@ from custom_components.magic_areas.core.control_intents import (
 from custom_components.magic_areas.core.controls.policies.fan import (
     FanClearBehavior,
     FanControllerRole,
+    FanDetectionMode,
     FanSensorUnavailableBehavior,
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
@@ -758,6 +760,7 @@ async def test_options_flow_fan_groups_uses_constrained_selectors(
     active_states_selector = selectors[CONF_FAN_CONTROLLER_ACTIVE_STATES]
     setpoint_selector = selectors[CONF_FAN_CONTROLLER_ON_THRESHOLD]
     unavailable_selector = selectors[CONF_FAN_CONTROLLER_SENSOR_UNAVAILABLE_BEHAVIOR]
+    detection_selector = selectors[CONF_FAN_CONTROLLER_DETECTION_MODE]
 
     assert members_selector.config["multiple"] is True
     assert active_states_selector.config["mode"] == "dropdown"
@@ -775,6 +778,9 @@ async def test_options_flow_fan_groups_uses_constrained_selectors(
     assert unavailable_selector.config["translation_key"] == (
         "fan_sensor_unavailable_behavior"
     )
+    assert detection_selector.config["translation_key"] == "fan_detection_mode"
+    detection_options = cast(list[str], detection_selector.config["options"])
+    assert FanDetectionMode.ROOM_STATE.value in detection_options
 
 
 async def test_options_flow_fan_groups_stores_independent_controller_roles(
@@ -833,6 +839,48 @@ async def test_options_flow_fan_groups_stores_independent_controller_roles(
     assert humidity[CONF_FAN_CONTROLLER_HYSTERESIS] == 5.0
     assert humidity[CONF_FAN_CONTROLLER_SUPPRESS_STATES] == ["sleep"]
     assert humidity[CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR] == "run_until_clear"
+
+
+async def test_options_flow_fan_groups_stores_sensorless_odor_fallback(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Odor role should allow explicit room-state-only fallback without a sensor."""
+    config_entry = init_integration
+    er = async_get_er(hass)
+    fan_entry = er.async_get_or_create(
+        "fan",
+        "test",
+        "bathroom_fan",
+        suggested_object_id="bathroom_fan",
+    )
+    await hass.async_block_till_done()
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups_odor",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FAN_CONTROLLER_MEMBERS: [fan_entry.entity_id],
+            CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "",
+            CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.ROOM_STATE.value,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED],
+            CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: FanClearBehavior.OCCUPANCY_ONLY,
+        },
+    )
+    result = await _finish_options_flow(hass, result)
+    assert result["type"] == FlowResultType.MENU
+
+    odor = config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.FAN_GROUPS][
+        CONF_FAN_GROUPS_CONTROLLERS
+    ][FanControllerRole.ODOR.value]
+    assert odor[CONF_FAN_CONTROLLER_MEMBERS] == [fan_entry.entity_id]
+    assert odor[CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID] == ""
+    assert odor[CONF_FAN_CONTROLLER_DETECTION_MODE] == FanDetectionMode.ROOM_STATE.value
+    assert odor[CONF_FAN_CONTROLLER_ACTIVE_STATES] == ["occupied"]
 
 
 async def test_options_flow_area_aware_media_player_uses_entity_selector(

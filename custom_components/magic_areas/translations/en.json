@@ -345,7 +345,7 @@
       },
       "feature_conf_fan_groups_odor": {
         "title": "Odor and air-quality fan automation",
-        "description": "Run selected fans from an air-quality signal such as VOC, particulate, gas, or another odor proxy.",
+        "description": "Run selected fans from an air-quality signal such as VOC, particulate, gas, or another odor proxy. If you do not have an odor sensor, select room-state-only detection to run from the configured room states instead.",
         "data": {
           "members": "Fans",
           "sensor_entity_id": "Air-quality sensor",
@@ -360,7 +360,7 @@
         },
         "data_description": {
           "members": "Fans this odor or air-quality rule may control.",
-          "sensor_entity_id": "VOC, particulate, gas, air-quality, or comparable sensor.",
+          "sensor_entity_id": "VOC, particulate, gas, air-quality, or comparable sensor. Leave empty only when using room-state-only detection.",
           "active_states": "Room states where odor or air-quality control may start.",
           "clear_behavior": "Sensor-based odor control normally runs until the air-quality condition clears."
         }
@@ -793,7 +793,8 @@
     "fan_detection_mode": {
       "options": {
         "threshold": "Threshold",
-        "threshold_trend": "Threshold plus rising trend"
+        "threshold_trend": "Threshold plus rising trend",
+        "room_state": "Room state only (no sensor)"
       }
     },
     "fan_sensor_unavailable_behavior": {

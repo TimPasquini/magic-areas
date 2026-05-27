@@ -8,10 +8,12 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     FanControllerRole,
     FanDetectionMode,
     FanSensorUnavailableBehavior,
+    FanPolicySignals,
     evaluate_fan_controllers,
     fan_controller_evaluation_to_control_group,
     legacy_cooling_controller,
 )
+from custom_components.magic_areas.core.controls.control_group import ControlGroupContext
 from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
@@ -257,6 +259,45 @@ def test_sensor_unavailable_behavior_is_per_controller() -> None:
     assert result.turn_off_entity_ids == ()
 
 
+def test_odor_controller_can_use_room_state_fallback_without_sensor() -> None:
+    """Sensorless odor fallback is explicit room-state based control."""
+    odor = _controller(
+        FanControllerRole.ODOR,
+        sensor_entity_id="",
+        detection_mode=FanDetectionMode.ROOM_STATE,
+        active_states=(AreaStates.OCCUPIED,),
+    )
+
+    result = evaluate_fan_controllers(
+        (odor,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={},
+    )
+
+    assert [reason.controller_id for reason in result.active_reasons] == ["odor"]
+    assert result.active_reasons[0].reason == "active_room_state_fallback"
+    assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_room_state_fallback_clears_when_required_state_is_absent() -> None:
+    """Sensorless fallback does not run when its configured room state is absent."""
+    odor = _controller(
+        FanControllerRole.ODOR,
+        sensor_entity_id="",
+        detection_mode=FanDetectionMode.ROOM_STATE,
+        active_states=(AreaStates.OCCUPIED,),
+    )
+
+    result = evaluate_fan_controllers(
+        (odor,),
+        current_states=(AreaStates.CLEAR,),
+        sensor_values={},
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["odor"]
+
+
 def test_sensor_unavailable_can_hold_previously_active_reason() -> None:
     """A controller can hold its reason while waiting for sensor restoration."""
     humidity = _controller(
@@ -273,6 +314,57 @@ def test_sensor_unavailable_can_hold_previously_active_reason() -> None:
 
     assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
     assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_policy_adapter_passes_previous_active_reasons_for_hysteresis_hold() -> None:
+    """Runtime policy adapter should preserve hysteresis across evaluations."""
+    policy = build_fan_control_group_policy(
+        {
+            CONF_FAN_GROUPS_CONTROLLERS: {
+                FanControllerRole.HUMIDITY.value: {
+                    CONF_FAN_CONTROLLER_MEMBERS: ["fan.bathroom"],
+                    CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "sensor.bathroom_humidity",
+                    CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.THRESHOLD.value,
+                    CONF_FAN_CONTROLLER_ON_THRESHOLD: 60,
+                    CONF_FAN_CONTROLLER_HYSTERESIS: 5,
+                    CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
+                    CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
+                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                    ),
+                }
+            }
+        }
+    )
+
+    first_decision = policy.evaluate(
+        ControlGroupContext(
+            group_id="fan_groups_bathroom",
+            current_states=(AreaStates.OCCUPIED,),
+            signals=FanPolicySignals(
+                sensor_value=None,
+                fan_group_entity_id="fan.bathroom_group",
+                fan_group_state="off",
+                sensor_values={"sensor.bathroom_humidity": 65.0},
+            ),
+            is_enabled=True,
+        )
+    )
+    second_decision = policy.evaluate(
+        ControlGroupContext(
+            group_id="fan_groups_bathroom",
+            current_states=(AreaStates.OCCUPIED,),
+            signals=FanPolicySignals(
+                sensor_value=None,
+                fan_group_entity_id="fan.bathroom_group",
+                fan_group_state="on",
+                sensor_values={"sensor.bathroom_humidity": 57.0},
+            ),
+            is_enabled=True,
+        )
+    )
+
+    assert first_decision.reason.startswith("active_threshold_reached")
+    assert second_decision.reason.startswith("active_hysteresis_hold")
 
 
 def test_legacy_fan_config_maps_to_cooling_controller() -> None:

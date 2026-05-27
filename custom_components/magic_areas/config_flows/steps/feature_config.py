@@ -723,6 +723,7 @@ def _fan_controller_schema(saved: Mapping[str, object]) -> vol.Schema:
                 [
                     FanDetectionMode.THRESHOLD.value,
                     FanDetectionMode.THRESHOLD_TREND.value,
+                    FanDetectionMode.ROOM_STATE.value,
                 ]
             ),
             vol.Optional(
@@ -785,6 +786,7 @@ def _fan_controller_selectors(flow: "OptionsFlowHandler") -> SelectorMap:
             options=[
                 FanDetectionMode.THRESHOLD.value,
                 FanDetectionMode.THRESHOLD_TREND.value,
+                FanDetectionMode.ROOM_STATE.value,
             ],
             multiple=False,
             translation_key="fan_detection_mode",
