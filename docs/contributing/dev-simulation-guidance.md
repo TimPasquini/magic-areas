@@ -5,9 +5,31 @@ Assistant fake-house environment. Keep it current when changing simulation
 coverage, fake-house setup, scenario scripts, or room-control behavior that needs
 human inspection.
 
-This is durable contributor guidance, not a temporary feature plan. The active
-adaptive switching feature work is tracked separately in
-`docs/contributing/lighting-adaptive-switching-plan.md`.
+This is durable contributor guidance, not a temporary feature plan. Active and
+deferred simulation work is tracked in
+`docs/contributing/master-architecture-roadmap-plan.md`.
+
+Live fake-house scenarios are real-time behavior checks, not unit-test
+substitutes. Preserve the default 30-second cycle for normal live validation and
+derive behavior waits from configured Magic Areas timing or documented
+fake-house runtime constants.
+
+## Real-Time Simulation Rules
+
+- The default live simulation cycle is 30 seconds.
+- Minute-based Magic Areas behavior must use real elapsed simulation time. With
+  the seeded defaults, one configured minute is represented by two complete
+  30-second cycles.
+- Immediate Home Assistant propagation waits and behavioral timer waits are
+  separate concepts. Use setup/checkpoint settling only for immediate state,
+  service, and helper propagation.
+- Do not use `checkpoint_settle_seconds` as a substitute for clear, extended,
+  sleep, manual-hold, post-clear-hold, dwell, attribution, unavailable-sensor,
+  or helper-sampling behavior.
+- Name behavioral waits after the configured behavior and derive them from
+  `SimulationTiming` or documented fake-house runtime constants.
+- Setup Room is reserved for config-flow and manual setup validation. Do not use
+  it for active simulation scenarios or scenario checkpoints.
 
 ## Purpose
 
@@ -21,7 +43,7 @@ behavior depends on signals changing together over time:
 - Adaptive Lighting switch/control state
 - native HA helper output
 - labels, groups, and reconciled helper membership
-- future cover, fan, media, and cross-domain control signals
+- cover, fan, media, and cross-domain control signals
 
 Many defects only show up when those signals interact in sequence. The project
 therefore uses two complementary simulation layers:
@@ -194,7 +216,12 @@ Current room matrix:
 - Adaptive Ambient Room
 - Adaptive Manual Light Room
 - Adaptive Lighting Room
+- Fan Room
+- Cover Room
 - Outdoor Test
+
+Setup Room is seeded separately as the config-flow/manual-setup surface and is
+not part of the active simulation room matrix.
 
 The fake-house rooms use deterministic input helpers and template entities. The
 sun/daylight-style rooms use `binary_sensor.outdoor_bright`, not real `sun.sun`,
@@ -206,18 +233,29 @@ state-tracking workflow.
 
 ## Live Simulation Scenarios
 
-Live scenarios are implemented in `scripts/ha_dev_simulate.py` and driven through
-real HA websocket/service calls.
+The public CLI remains `scripts/ha_dev_simulate.py`. Implementation lives under
+`scripts/ha_dev_simulation/`:
+
+- `scenarios/lights.py`: control matrix and light-specific scenarios
+- `scenarios/fan_cover.py`: Fan Room and Cover Room scenario
+- `scenarios/living_room.py`: wall-clock living-room demonstration
+- `client.py`, `timing.py`, `expectations.py`, `reset.py`, and `traces.py`:
+  shared live-simulation support
+- `runner.py`: connection, tracing, and scenario dispatch
+
+All scenarios use real HA websocket/service calls.
 
 Current scenarios:
 
 ```bash
 ./scripts/ha_dev_simulate.sh --scenario living-room-demo
 ./scripts/ha_dev_simulate.sh --scenario control-matrix
+./scripts/ha_dev_simulate.sh --scenario disabled-light-controls
 ./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
 ./scripts/ha_dev_simulate.sh --scenario manual-override
 ./scripts/ha_dev_simulate.sh --scenario presence-hold
 ./scripts/ha_dev_simulate.sh --scenario adaptive-lighting-manual-release
+./scripts/ha_dev_simulate.sh --scenario fan-cover-matrix
 ```
 
 Current live-simulation coverage:
@@ -232,6 +270,9 @@ Current live-simulation coverage:
 - Startup unknown/unavailable in-room brightness behavior is covered on the main
   control matrix: advisory rooms with unusable light-state binaries still follow
   occupied lighting cues instead of suppressing turn-on.
+- Disabled Magic Areas light-control switch behavior is covered by the
+  `disabled-light-controls` scenario: room occupancy state updates while
+  configured lights and native light groups stay off.
 - Adaptive brightness behavior turns overhead lights off when configured outside
   context and timing gates are satisfied.
 - Adaptive outside-context negative cases are asserted for outside binary not
@@ -261,6 +302,44 @@ Current live-simulation coverage:
 - Adaptive Lighting manual-control release is asserted by observing the real HA
   `call_service` event for `adaptive_lighting.set_manual_control` with
   `manual_control: false` after Magic Areas control resets.
+- Fan Room is configured as the live fan validation surface with fan groups and
+  presence hold enabled.
+- Cover Room is configured as the live cover validation surface with blind,
+  shade, curtain, shutter, and window cover groups plus excluded garage/door
+  covers and presence hold enabled.
+- Fan live simulation asserts humidity threshold activation, VOC threshold odor
+  activation, fan-derived `humid`/`odor` area states, and humidity+odor overlap
+  on the same fan. Explicit room-state odor fallback remains covered at lower
+  test layers.
+- Fan live simulation asserts that the disabled fan-control switch blocks
+  automatic fan movement and that sleep suppresses the configured humidity
+  controller until sleep clears.
+- Fan live simulation asserts the managed humidity Trend helper exists and that
+  `threshold_trend` detection can turn the fan on inside the humidity hysteresis
+  band.
+- Fan live simulation asserts humidity `hold_then_clear` unavailable-sensor
+  expiry.
+- Fan live simulation asserts humidity `post_clear_hold` by waiting the real
+  seeded one-minute clear window, then the configured post-clear hold duration.
+- Fan live simulation asserts VOC `hold_until_restored` unavailable-sensor
+  behavior by holding the odor fan active until the VOC sensor returns below
+  threshold.
+- Cover live simulation asserts Daylight open, Sleep/Privacy close,
+  Media/Accent close/release, dark-context no-open, and manual close hold
+  behavior against real fake-house cover entities. Cover Room includes separate
+  eligible cover helpers so scoped manual hold is visible across independent
+  cover groups.
+- Cover live simulation asserts that the disabled cover-control switch blocks
+  automatic cover movement and that manual cover hold expiry schedules a policy
+  reevaluation that reclaims the held cover.
+- Cover live simulation asserts eligible blind/shade/curtain/shutter/window
+  helpers are automated while excluded garage/door covers do not move, and that
+  simultaneous blind/shade manual holds remain scoped and release after expiry.
+- Cover live simulation asserts the cover scenario alongside the room bright/dark
+  signal so daylight-open blocking is validated against real room context.
+- The `fan-cover-matrix` scenario has been run successfully against the live dev
+  container after forced bootstrap refresh and simulator timing repair, using the
+  default 30-second cycle.
 - Pytest scenario coverage asserts that configured in-room light brightness
   increases block ambient-rise adaptive off decisions.
 - Pytest scenario coverage asserts that adopted Adaptive Lighting brightness
@@ -279,13 +358,11 @@ Current high-value gaps:
   light runtime does not implement a standalone manual-override timer; current
   live coverage verifies clear/reclaim release paths.
 - Adaptive Lighting `adopt_existing` mode is not covered live.
-- Disabled Magic Areas light-control switch behavior is not asserted live.
 - Ambient-rise false positives from Adaptive Lighting brightness changes are
   covered in pytest scenarios but not yet in the live fake-house script.
 - Ambient-rise false positives from neighboring/spill-over lights are not
   covered.
-- Cover, fan, media, and other future control-domain overlap cases are not
-  covered.
+- Media and other future control-domain overlap cases are not covered.
 - Config flow and frontend behavior are not automated by the fake-house
   simulation.
 - Reconciliation behavior after entity/helper/group membership changes is not
@@ -313,7 +390,8 @@ When adding live simulation coverage:
 
 1. Add deterministic fake entities to `dev/ha/seed/packages/fake_house.yaml`.
 2. Add room/config definitions to `scripts/ha_dev_bootstrap.py`.
-3. Add scenario-driving logic to `scripts/ha_dev_simulate.py`.
+3. Add scenario-driving logic to the appropriate module under
+   `scripts/ha_dev_simulation/scenarios/`.
 4. Add useful trace entities and expected-state evaluations.
 5. Run bootstrap before simulation to ensure the real HA instance matches code.
 6. Update `dev/ha/README.md` when commands, rooms, scenarios, or local-state
@@ -341,12 +419,18 @@ Simulation should preserve that boundary:
 
 The simulation model should remain extensible beyond lights.
 
-Covers/blinds are a strong future target because occupancy behavior depends on
-privacy, daylight, indoor brightness, outdoor brightness, and time-like context.
-Opening blinds on occupancy may be correct during daytime and wrong at night.
+Covers/blinds are covered by the Cover Room live scenario for initial daylight,
+privacy, media/accent, dark-context, scoped manual-hold behavior, simultaneous
+blind/shade holds, eligible blind/shade/curtain/shutter/window helpers, and
+excluded garage/door covers. Future coverage should add richer daylight/time-like
+context.
 
-Fans are another future target because bathroom behavior can involve humidity,
-odor, timed holds, threshold triggers, trend/rate triggers, and binary triggers.
+Fans are covered by the Fan Room live scenario for humidity threshold behavior,
+VOC odor threshold behavior, overlapping fan reasons, managed Trend helper
+threshold-trend behavior, humidity unavailable `hold_then_clear` expiry,
+humidity `post_clear_hold` after the real clear window, and VOC unavailable
+`hold_until_restored` behavior. Room-state odor fallback is covered at lower test
+layers.
 
 Native helpers are part of the intended architecture. Scenario tests should
 cover Magic Areas consuming helper outputs rather than recreating every helper
