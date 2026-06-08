@@ -13,8 +13,8 @@ from custom_components.magic_areas.core.config import (
     normalize_feature_config,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from tests.helpers import (
-    get_basic_config_entry_data,
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

@@ -65,8 +65,8 @@ from custom_components.magic_areas.coordinator.pipeline.entity_ingestion import 
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
 from tests.helpers.entities import setup_mock_entities
-from tests.helpers import (
-    get_basic_config_entry_data,
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
     init_integration,
     shutdown_integration,
 )

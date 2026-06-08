@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.magic_areas.area_state import AreaStates
 from tests.helpers.assertions import assert_state
 from tests.helpers.waits import wait_for_state
-from tests.helpers import (
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

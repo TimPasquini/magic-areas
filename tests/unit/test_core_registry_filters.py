@@ -25,7 +25,7 @@ from custom_components.magic_areas.coordinator.pipeline.lifecycle import (
     _runtime_snapshot,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

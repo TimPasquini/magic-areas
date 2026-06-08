@@ -2058,8 +2058,8 @@ Test-helper preparation progress:
 - [x] `6.2.6` Extract service helpers.
 - [x] `6.2.7` Extract registry helpers.
 - [x] `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
-- `6.2.9` Reduce the remaining package facade to compatibility re-exports or
-  delete it after imports migrate.
+- [x] `6.2.9` Reduce the remaining package facade to compatibility re-exports
+  or delete it after imports migrate.
 
 Test-helper extraction progress:
 
@@ -2195,13 +2195,34 @@ Test-helper extraction progress:
   now shows only `init_integration`, `shutdown_integration`, and
   `get_basic_config_entry_data` entering through the facade. A manual CRG
   update refreshed the graph to `387` files, `3593` nodes, and `27965` edges.
+- `6.2.9` final config/lifecycle batch: all remaining callers now import
+  `get_basic_config_entry_data` from `tests.helpers.config_entries` and
+  `init_integration` / `shutdown_integration` from
+  `tests.helpers.lifecycle`.
+- Source search and a manual CRG update both confirmed zero active facade
+  symbol callers before deletion. `tests/helpers/__init__.py` and its obsolete
+  facade-only contract test were then removed. Responsibility modules remain
+  directly importable through the `tests.helpers` namespace package.
 
 #### 6.3. Test Helper Validation
 
-- `6.3.1` Run `./scripts/validate.sh` after each helper-family move.
-- `6.3.2` Rebuild CRG at phase exit.
-- `6.3.3` Confirm helper hub degrees are reduced.
-- [ ] `6.3.4` Run a final `./scripts/validate.sh` at phase exit.
+- [x] `6.3.1` Run `./scripts/validate.sh` after each helper-family move.
+- [x] `6.3.2` Rebuild CRG at phase exit.
+- [ ] `6.3.3` Confirm helper hub degrees are reduced.
+- [x] `6.3.4` Run a final `./scripts/validate.sh` at phase exit.
+
+Test-helper phase-exit progress:
+
+- The full phase-exit CRG rebuild indexed `385` files, `3583` nodes, and
+  `27982` edges. The deleted facade and facade-contract test are absent.
+- `6.3.3` remains open because direct helper functions are still legitimate
+  high-degree test utilities. For example, `assert_state` now has degree
+  `462`, compared with `458` before extraction. The facade coupling was
+  removed, but the underlying helper call volume did not decrease; the
+  roadmap must not claim otherwise.
+- Final `./scripts/validate.sh` passed: Ruff reported no issues, mypy reported
+  no issues across `373` source files, and pytest passed all `1429` tests in
+  `41.49` seconds.
 
 ### 7. Manual Dead-Code Audit
 

@@ -20,7 +20,7 @@ from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers.assertions import assert_state
 from tests.helpers.waits import wait_for_state
 from tests.helpers.services import async_mock_service
-from tests.helpers import (
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

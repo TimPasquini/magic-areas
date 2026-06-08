@@ -33,8 +33,8 @@ from tests.helpers.assertions import (
 )
 from tests.helpers.waits import wait_for_state
 from tests.helpers.entities import setup_mock_entities
-from tests.helpers import (
-    get_basic_config_entry_data,
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

@@ -24,6 +24,7 @@ from custom_components.magic_areas.light_groups import (
     LightGroupRuntimeController,
 )
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.config_entries import get_basic_config_entry_data
 from tests.helpers.entities import setup_mock_entities
 from tests.mocks import MockBinarySensor, MockLight
 
@@ -43,8 +44,6 @@ def get_light_group_runtime(
 @pytest.fixture(name="light_edge_cases_config_entry")
 def mock_config_entry_light_edge_cases() -> MockConfigEntry:
     """Fixture for mock configuration entry."""
-    from tests.helpers import get_basic_config_entry_data
-
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data.update(
         {
@@ -66,8 +65,6 @@ def mock_config_entry_light_edge_cases() -> MockConfigEntry:
 @pytest.fixture(name="light_edge_cases_config_entry_limited")
 def mock_config_entry_light_edge_cases_limited() -> MockConfigEntry:
     """Fixture for mock configuration entry with limited features/states."""
-    from tests.helpers import get_basic_config_entry_data
-
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data.update(
         {

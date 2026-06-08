@@ -21,13 +21,9 @@ from custom_components.magic_areas.const import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
-    get_basic_config_entry_data,
-    shutdown_integration,
-)
-from tests.helpers import (
-    init_integration as init_integration_helper,
-)
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import shutdown_integration
+from tests.helpers.lifecycle import init_integration as init_integration_helper
 
 
 @pytest.fixture(name="sensor_config_entry")

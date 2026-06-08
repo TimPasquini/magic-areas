@@ -27,13 +27,9 @@ from tests.helpers.assertions import (
     assert_state,
 )
 from tests.helpers.waits import wait_for_state
-from tests.helpers import (
-    get_basic_config_entry_data,
-    shutdown_integration,
-)
-from tests.helpers import (
-    init_integration as init_integration_helper,
-)
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import shutdown_integration
+from tests.helpers.lifecycle import init_integration as init_integration_helper
 from tests.mocks import MockBinarySensor, MockLight
 
 _LOGGER = logging.getLogger(__name__)
