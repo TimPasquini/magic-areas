@@ -248,11 +248,17 @@ async def setup_mock_entities(
 
     all_entities: list[Entity] = []
     entity_area_map: dict[str, MockAreaIds] = {}
+    seen_unique_ids: set[str] = set()
 
     for area_id, entity_list in area_entity_map.items():
         for entity in entity_list:
             all_entities.append(entity)
             assert entity.unique_id is not None
+            if entity.unique_id in seen_unique_ids:
+                raise AssertionError(
+                    f"Duplicate entity unique_id {entity.unique_id!r}"
+                )
+            seen_unique_ids.add(entity.unique_id)
             entity_area_map[entity.unique_id] = area_id
 
     # Setup entities
@@ -279,9 +285,20 @@ async def setup_mock_entities(
         assert entity.unique_id is not None
 
         entity_entry = entity_registry.async_get(entity.entity_id)
-        if entity_entry:
-            entity_registry.async_update_entity(
-                entity.entity_id,
-                area_id=entity_area_map[entity.unique_id].value,
+        if not entity_entry:
+            raise AssertionError(
+                f"Entity registry entry {entity.entity_id} was not created"
+            )
+        expected_area_id = entity_area_map[entity.unique_id].value
+        entity_registry.async_update_entity(
+            entity.entity_id,
+            area_id=expected_area_id,
+        )
+        updated_entry = entity_registry.async_get(entity.entity_id)
+        assert updated_entry is not None
+        if updated_entry.area_id != expected_area_id:
+            raise AssertionError(
+                f"Entity {entity.entity_id} area assignment failed: "
+                f"expected {expected_area_id!r}, got {updated_entry.area_id!r}"
             )
     await hass.async_block_till_done()

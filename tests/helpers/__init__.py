@@ -14,12 +14,7 @@ from tests.helpers.assertions import (
 from tests.helpers.config_entries import (
     get_basic_config_entry_data as get_basic_config_entry_data,
 )
-from tests.helpers.entities import (
-    mock_integration as mock_integration,
-    mock_platform as mock_platform,
-    setup_mock_entities as setup_mock_entities,
-    setup_test_component_platform as setup_test_component_platform,
-)
+from tests.helpers.entities import setup_mock_entities as setup_mock_entities
 from tests.helpers.lifecycle import (
     drain_hass as drain_hass,
     init_integration as init_integration,
@@ -33,7 +28,6 @@ from tests.helpers.waits import (
 )
 
 __all__ = [
-    "VirtualClock",
     "assert_attribute",
     "assert_in_attribute",
     "assert_state",
@@ -43,17 +37,13 @@ __all__ = [
     "get_basic_config_entry_data",
     "immediate_call_factory",
     "init_integration",
-    "mock_integration",
-    "mock_platform",
     "setup_mock_entities",
-    "setup_test_component_platform",
     "shutdown_integration",
     "wait_for_attribute",
     "wait_for_state",
     "wait_until",
 ]
 
-VirtualClock = _helpers_timing.VirtualClock
 create_area_state_change_event = _helpers_timing.create_area_state_change_event
 immediate_call_factory = _helpers_timing.immediate_call_factory
 

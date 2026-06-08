@@ -1103,7 +1103,9 @@ Responsibilities:
 - `config_entries.py`: config-entry builders and default data.
 - `entities.py`: mock entity setup helpers.
 - `services.py`: service mocks and logging helpers.
-- `registries.py`: area/floor/device/entity registry helpers.
+- `registries.py`: shared area/floor registry setup helpers. Keep
+  scenario-specific device/entity registry mutations local unless repeated
+  patterns justify a narrow helper.
 
 Migration rules:
 
@@ -2071,9 +2073,8 @@ Test-helper extraction progress:
   mypy found no issues across `366` source files, and pytest passed `1415`
   tests in `40.73s`.
 - `6.2.2`: complete. `wait_for_state`, `wait_until`, and
-  `wait_for_attribute` moved unchanged to `tests/helpers/waits.py` and remain
-  available from `tests.helpers`. `drain_hass` remains for the lifecycle
-  extraction in `6.2.4`.
+  `wait_for_attribute` moved to `tests/helpers/waits.py` and remain available
+  from `tests.helpers`. `drain_hass` remains in the lifecycle family.
 - Wait-family validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `367` source files, and pytest passed `1415` tests in
   `39.96s`.
@@ -2100,10 +2101,10 @@ Test-helper extraction progress:
   no issues across `370` source files, and pytest passed `1419` tests in
   `40.25s`.
 - `6.2.5`: complete. `setup_test_component_platform`, `mock_integration`,
-  `mock_platform`, and `setup_mock_entities` moved unchanged to
+  `mock_platform`, and `setup_mock_entities` moved to
   `tests/helpers/entities.py` as the complete entity-platform setup dependency
-  closure. Existing imports remain supported through exact compatibility
-  re-exports, with direct facade identity contracts for all four functions.
+  closure. The public `setup_mock_entities` import remains supported through
+  the compatibility facade.
 - Entity-helper validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `371` source files, and pytest passed `1420` tests in
   `44.74s`.
@@ -2127,10 +2128,9 @@ Test-helper extraction progress:
   `1423` tests in `46.18s`.
 - `6.2.8`: complete. The remaining `tests/helpers/__init__.py` facade defines
   no functions or classes and contains only compatibility re-exports. Its
-  public surface is now explicit through `__all__`, covering `18` established
+  public surface is explicit through `__all__`, covering `14` actively used
   helper names. Direct contracts verify the complete export set and exact
-  function/class identity, including the three timing helpers that previously
-  lacked facade coverage.
+  function identity.
 - The audit found that the facade remains heavily used: `init_integration`,
   `get_basic_config_entry_data`, and `shutdown_integration` each have at least
   `46` import sites, with other helper families also imported broadly.
@@ -2140,6 +2140,15 @@ Test-helper extraction progress:
 - Facade-audit validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `374` source files, and pytest passed `1425` tests in
   `48.42s`.
+- Post-audit hardening corrected the skipped behavioral contracts across
+  `6.2.1` through `6.2.8`. Wait timeouts now consistently raise
+  `AssertionError` and accept explicit timeout values; entity setup rejects
+  duplicate unique IDs and verifies registry creation and area assignment;
+  direct tests cover assertion, wait, service, platform setup, config builder,
+  entity setup, and registry failure branches. Unused compatibility exports
+  (`VirtualClock`, `setup_test_component_platform`, `mock_integration`, and
+  `mock_platform`) were removed from the facade while their internal
+  implementations remain available from their responsibility modules.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.

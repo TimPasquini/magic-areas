@@ -44,9 +44,9 @@ def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, object]:
         AssertionError: If the area_id is not found in MOCK_AREAS.
 
     Example:
-        Create a config entry for the bedroom area:
+        Create a config entry for the master bedroom area:
 
-        >>> config_data = get_basic_config_entry_data(MockAreaIds.BEDROOM)
+        >>> config_data = get_basic_config_entry_data(MockAreaIds.MASTER_BEDROOM)
         >>> config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
         >>> # Now add features to config_data if needed
         >>> config_data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {...}}

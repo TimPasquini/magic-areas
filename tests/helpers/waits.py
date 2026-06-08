@@ -16,28 +16,33 @@ from tests.helpers.assertions import assert_state
 
 
 async def wait_for_state(
-    hass: HomeAssistant, entity_id: str, expected_state: str
+    hass: HomeAssistant,
+    entity_id: str,
+    expected_state: str,
+    *,
+    timeout: float = 2.0,
 ) -> None:
     """Wait for an entity to reach a specific state, with timeout.
 
     Asynchronously waits for an entity to transition to an expected state.
     This is useful for testing state changes that happen asynchronously (e.g.,
     after a service call or automation trigger). The function subscribes to
-    state-change events and waits up to 2 seconds.
+    state-change events and waits up to the provided timeout.
 
     Args:
         hass: The Home Assistant instance.
         entity_id: The entity ID to monitor (e.g., 'light.kitchen',
             'binary_sensor.occupancy').
         expected_state: The state value to wait for (e.g., 'on', 'off', '25').
+        timeout: Maximum seconds to wait. Default: 2 seconds.
 
     Raises:
         AssertionError: If the entity doesn't reach the expected state within
-            the timeout (2 seconds).
+            the timeout.
 
     Note:
-        The timeout is 2 seconds. If you need longer waits, use VirtualClock
-        for deterministic timing tests.
+        The default timeout is 2 seconds. Pass a shorter timeout for negative
+        tests or a longer timeout for slow asynchronous flows.
 
     Example:
         Wait for a light to turn on after calling a service:
@@ -67,7 +72,11 @@ async def wait_for_state(
     if state and state.state == expected_state and not state_reached.done():
         state_reached.set_result(None)
     try:
-        await asyncio.wait_for(state_reached, timeout=2.0)
+        await asyncio.wait_for(state_reached, timeout=timeout)
+    except TimeoutError as err:
+        raise AssertionError(
+            f"{entity_id} did not reach state {expected_state!r}"
+        ) from err
     finally:
         unsub()
     await hass.async_block_till_done()
@@ -127,6 +136,11 @@ async def wait_for_attribute(
         attribute_reached.set_result(None)
     try:
         await asyncio.wait_for(attribute_reached, timeout=timeout)
+    except TimeoutError as err:
+        raise AssertionError(
+            f"{entity_id} did not reach attribute {attribute_key!r}="
+            f"{expected_value!r}"
+        ) from err
     finally:
         unsub()
     await hass.async_block_till_done()
