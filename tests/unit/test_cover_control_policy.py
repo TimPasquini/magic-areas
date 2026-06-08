@@ -1,6 +1,13 @@
 """Unit tests for cover automation policy."""
 
-from homeassistant.const import SERVICE_CLOSE_COVER, SERVICE_OPEN_COVER, STATE_CLOSED
+from unittest.mock import Mock
+
+import pytest
+from homeassistant.const import (
+    SERVICE_CLOSE_COVER,
+    SERVICE_OPEN_COVER,
+    STATE_CLOSED,
+)
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import ControlActionType
@@ -102,6 +109,19 @@ def test_cover_policy_accent_release_restores_daylight() -> None:
     assert decision.role is CoverPresetRole.DAYLIGHT
 
 
+def test_cover_policy_blocks_daylight_open_when_daylight_not_allowed() -> None:
+    """Daylight preset should not open covers when runtime says daylight is invalid."""
+    decision = evaluate_cover_presets(
+        _config(),
+        current_states=(AreaStates.OCCUPIED.value,),
+        daylight_open_allowed=False,
+    )
+
+    assert decision.action is CoverPresetAction.NONE
+    assert decision.role is None
+    assert decision.reason == "daylight_open_blocked"
+
+
 def test_cover_policy_manual_hold_blocks_action() -> None:
     """Manual hold should prevent immediate reversal."""
     decision = evaluate_cover_presets(
@@ -141,6 +161,47 @@ def test_cover_decision_targets_cover_helpers_only() -> None:
     )
 
 
+def test_cover_decision_skips_helpers_under_manual_hold() -> None:
+    """Scoped manual hold should suppress only the changed cover helper."""
+    decision = evaluate_cover_presets(
+        _config(),
+        current_states=(AreaStates.OCCUPIED.value,),
+    )
+    control_decision = cover_preset_decision_to_control_group(
+        decision=decision,
+        cover_group_entity_ids={
+            "blind": "cover.kitchen_blinds",
+            "shade": "cover.kitchen_shades",
+        },
+        cover_group_states={
+            "cover.kitchen_blinds": STATE_CLOSED,
+            "cover.kitchen_shades": STATE_CLOSED,
+        },
+        manual_hold_entity_ids=("cover.kitchen_blinds",),
+    )
+
+    assert control_decision.action_type is ControlActionType.ACTIVATE
+    assert control_decision.actions[0].service == SERVICE_OPEN_COVER
+    assert control_decision.actions[0].target_entity_ids == ("cover.kitchen_shades",)
+
+
+def test_cover_decision_noops_when_all_helpers_are_under_manual_hold() -> None:
+    """Manual hold should no-op when every otherwise actionable helper is held."""
+    decision = evaluate_cover_presets(
+        _config(),
+        current_states=(AreaStates.OCCUPIED.value,),
+    )
+    control_decision = cover_preset_decision_to_control_group(
+        decision=decision,
+        cover_group_entity_ids={"blind": "cover.kitchen_blinds"},
+        cover_group_states={"cover.kitchen_blinds": STATE_CLOSED},
+        manual_hold_entity_ids=("cover.kitchen_blinds",),
+    )
+
+    assert control_decision.action_type is ControlActionType.NOOP
+    assert control_decision.reason == "daylight_preset_matched_manual_hold_active"
+
+
 def test_cover_decision_closes_for_privacy() -> None:
     """Close decisions should use the close-cover service."""
     decision = evaluate_cover_presets(
@@ -156,30 +217,45 @@ def test_cover_decision_closes_for_privacy() -> None:
     assert control_decision.actions[0].service == SERVICE_CLOSE_COVER
 
 
-async def test_cover_switch_manual_state_change_starts_hold() -> None:
+async def test_cover_switch_manual_state_change_starts_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Unexpected cover group movement should start a manual hold."""
     switch = object.__new__(CoverControlSwitch)
     switch._manual_hold_seconds = 900
-    switch._manual_hold_until_monotonic = 0.0
+    switch._manual_hold_until_monotonic = {}
+    switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = set()
+    schedule_check = Mock()
+    monkeypatch.setattr(switch, "_schedule_next_manual_hold_expiry_check", schedule_check)
 
     await switch.cover_group_state_changed(
         _Event("cover.kitchen_blinds", "open", "closed")  # type: ignore[arg-type]
     )
 
+    schedule_check.assert_called_once_with()
     assert switch._manual_hold_active()
+    assert switch._manual_hold_active("cover.kitchen_blinds")
+    assert not switch._manual_hold_active("cover.kitchen_shades")
+    assert switch._manual_hold_entity_ids() == ["cover.kitchen_blinds"]
 
 
-async def test_cover_switch_expected_state_change_does_not_start_hold() -> None:
+async def test_cover_switch_expected_state_change_does_not_start_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Magic Areas cover commands should not be treated as manual movement."""
     switch = object.__new__(CoverControlSwitch)
     switch._manual_hold_seconds = 900
-    switch._manual_hold_until_monotonic = 0.0
+    switch._manual_hold_until_monotonic = {}
+    switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = {"cover.kitchen_blinds"}
+    schedule_check = Mock()
+    monkeypatch.setattr(switch, "_schedule_next_manual_hold_expiry_check", schedule_check)
 
     await switch.cover_group_state_changed(
         _Event("cover.kitchen_blinds", "open", "closed")  # type: ignore[arg-type]
     )
 
+    schedule_check.assert_not_called()
     assert not switch._manual_hold_active()
     assert switch._expected_cover_group_state_changes == set()

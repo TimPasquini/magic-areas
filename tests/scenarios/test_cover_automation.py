@@ -320,6 +320,34 @@ async def test_manual_cover_movement_is_not_immediately_reversed(
     assert cover_group_state.state == STATE_CLOSED
 
 
+async def test_dark_context_blocks_daylight_cover_open(
+    hass: HomeAssistant,
+    cover_scenario: MockCover,
+) -> None:
+    """Occupied dark/night context should not open covers through Daylight."""
+    _ = cover_scenario
+    await _enable_cover_control(hass)
+
+    await _emit_area_state_transition(
+        hass,
+        new_states=[AreaStates.SLEEP],
+        current_states=[AreaStates.OCCUPIED, AreaStates.SLEEP],
+    )
+    await wait_for_state(hass, _cover_group_entity_id(), STATE_CLOSED)
+
+    await _emit_area_state_transition(
+        hass,
+        new_states=[AreaStates.DARK],
+        lost_states=[AreaStates.SLEEP],
+        current_states=[AreaStates.OCCUPIED, AreaStates.DARK],
+    )
+    await hass.async_block_till_done()
+
+    cover_group_state = hass.states.get(_cover_group_entity_id())
+    assert cover_group_state is not None
+    assert cover_group_state.state == STATE_CLOSED
+
+
 async def test_cover_opening_can_support_adaptive_light_off(
     hass: HomeAssistant,
     cover_light_scenario: dict[str, object],

@@ -111,6 +111,8 @@ these areas if missing:
 - Adaptive Ambient Room
 - Adaptive Manual Light Room
 - Adaptive Lighting Room
+- Fan Room
+- Cover Room
 - Setup Room
 - Outdoor Test
 
@@ -121,7 +123,8 @@ covers classic/inhibit behavior, advisory behavior, adaptive behavior with
 deterministic fake daylight, explicit outside binary, outside lux contrast,
 startup unknown/unavailable light-state fallback, ambient-rise gating, and a
 manual in-room light contamination case before a room that uses Magic
-Areas-managed Adaptive Lighting configs.
+Areas-managed Adaptive Lighting configs. Fan Room and Cover Room are dedicated
+active simulation rooms for fan and cover automation behavior.
 
 `Setup Room` is intentionally different from the simulation matrix rooms. It is
 seeded with representative entities for the major Magic Areas configuration
@@ -179,6 +182,11 @@ It also creates fake entities useful for Magic Areas setup:
 - fake indoor/outdoor lux controls
 - template sensors/binary sensors derived from those controls
 - template lights backed by input booleans
+- a dedicated fan validation room with occupancy/sleep/accent, humidity, VOC,
+  illuminance, and a template exhaust fan
+- a dedicated cover validation room with occupancy/sleep/accent, illuminance,
+  eligible blind/shade/curtain/shutter/window template covers, and excluded
+  garage/door template covers
 - an unconfigured setup room with lights, fan, cover, media player, climate,
   illuminance, temperature, humidity, health, door/window, BLE-source, occupancy,
   sleep, and accent entities

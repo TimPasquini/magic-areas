@@ -82,6 +82,8 @@ class CoverPolicySignals:
     cover_group_entity_ids: Mapping[str, str]
     cover_group_states: Mapping[str, str | None]
     manual_hold_active: bool = False
+    manual_hold_entity_ids: tuple[str, ...] = ()
+    daylight_open_allowed: bool = True
 
     @classmethod
     def from_signals(cls, signals: object) -> CoverPolicySignals:
@@ -113,11 +115,13 @@ class CoverControlGroupPolicy(ControlGroupPolicy):
             self.config,
             current_states=context.current_states,
             manual_hold_active=signals.manual_hold_active,
+            daylight_open_allowed=signals.daylight_open_allowed,
         )
         return cover_preset_decision_to_control_group(
             decision=decision,
             cover_group_entity_ids=signals.cover_group_entity_ids,
             cover_group_states=signals.cover_group_states,
+            manual_hold_entity_ids=signals.manual_hold_entity_ids,
         )
 
 
@@ -167,6 +171,7 @@ def evaluate_cover_presets(
     *,
     current_states: Sequence[str],
     manual_hold_active: bool = False,
+    daylight_open_allowed: bool = True,
 ) -> CoverPresetDecision:
     """Evaluate configured cover presets and return the selected action."""
     if manual_hold_active:
@@ -190,6 +195,15 @@ def evaluate_cover_presets(
 
     daylight = presets.get(CoverPresetRole.DAYLIGHT)
     if daylight and _preset_matches(daylight, current_state_set):
+        if (
+            daylight.action is CoverPresetAction.OPEN
+            and not daylight_open_allowed
+        ):
+            return CoverPresetDecision(
+                action=CoverPresetAction.NONE,
+                role=None,
+                reason="daylight_open_blocked",
+            )
         return CoverPresetDecision(
             action=daylight.action,
             role=CoverPresetRole.DAYLIGHT,
@@ -208,6 +222,7 @@ def cover_preset_decision_to_control_group(
     decision: CoverPresetDecision,
     cover_group_entity_ids: Mapping[str, str],
     cover_group_states: Mapping[str, str | None],
+    manual_hold_entity_ids: Sequence[str] = (),
 ) -> ControlGroupDecision:
     """Translate a cover preset decision into cover service actions."""
     if decision.action is CoverPresetAction.NONE:
@@ -216,11 +231,22 @@ def cover_preset_decision_to_control_group(
             reason=decision.reason,
         )
 
-    targets = tuple(sorted(set(cover_group_entity_ids.values())))
+    held_targets = {str(entity_id) for entity_id in manual_hold_entity_ids}
+    targets = tuple(
+        sorted(
+            entity_id
+            for entity_id in set(cover_group_entity_ids.values())
+            if entity_id not in held_targets
+        )
+    )
     if not targets:
         return ControlGroupDecision(
             action_type=ControlActionType.NOOP,
-            reason=f"{decision.reason}_no_cover_targets",
+            reason=(
+                f"{decision.reason}_manual_hold_active"
+                if held_targets
+                else f"{decision.reason}_no_cover_targets"
+            ),
         )
 
     if decision.action is CoverPresetAction.OPEN:

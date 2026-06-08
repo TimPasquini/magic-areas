@@ -251,9 +251,12 @@ def _room_dev_area(room: DevRoom) -> DevArea:
 
 def _light_group_mode_options(room: DevRoom) -> dict[str, object]:
     """Return light-group brightness behavior options for one dev room."""
-    options: dict[str, object] = {
-        "brightness_mode": room.brightness_mode,
-    }
+    return {"brightness_mode": room.brightness_mode}
+
+
+def _light_group_brightness_detail_options(room: DevRoom) -> dict[str, object]:
+    """Return advisory/adaptive brightness detail options for one dev room."""
+    options: dict[str, object] = {}
     if room.brightness_mode in {"advisory", "adaptive"}:
         options["inside_bright_entity"] = room.light_entity
         if room.outside_bright_entity:
@@ -280,6 +283,28 @@ def _light_group_mode_options(room: DevRoom) -> dict[str, object]:
             }
         )
     return options
+
+
+def _light_group_brightness_options_steps(room: DevRoom) -> tuple[OptionsStep, ...]:
+    """Return brightness options-flow steps for one dev room."""
+    steps = [
+        OptionsStep(
+            step_id="feature_conf_light_groups_brightness",
+            user_input=_light_group_mode_options(room),
+        )
+    ]
+    if room.brightness_mode in {"advisory", "adaptive"}:
+        steps.append(
+            OptionsStep(
+                step_id=(
+                    "feature_conf_light_groups_brightness_advisory"
+                    if room.brightness_mode == "advisory"
+                    else "feature_conf_light_groups_brightness_adaptive"
+                ),
+                user_input=_light_group_brightness_detail_options(room),
+            )
+        )
+    return tuple(steps)
 
 
 def _light_group_adaptive_lighting_options(room: DevRoom) -> dict[str, object]:
@@ -356,10 +381,7 @@ def _room_magic_area(room: DevRoom) -> DevMagicArea:
                 step_id="select_features",
                 user_input={"light_groups": True, "presence_hold": True},
             ),
-            OptionsStep(
-                step_id="feature_conf_light_groups_brightness",
-                user_input=_light_group_mode_options(room),
-            ),
+            *_light_group_brightness_options_steps(room),
             OptionsStep(
                 step_id="feature_conf_light_groups_adaptive_lighting",
                 user_input=_light_group_adaptive_lighting_options(room),
@@ -376,8 +398,185 @@ def _room_magic_area(room: DevRoom) -> DevMagicArea:
     )
 
 
+def _fan_room_magic_area() -> DevMagicArea:
+    """Build the Magic Areas config/options flow plan for fan validation."""
+    return DevMagicArea(
+        name="Fan Room",
+        options_steps=(
+            OptionsStep(
+                step_id="area_config",
+                user_input={
+                    "type": "interior",
+                    "include_entities": [],
+                    "exclude_entities": [],
+                    "reload_on_registry_change": True,
+                    "ignore_diagnostic_entities": True,
+                },
+            ),
+            OptionsStep(
+                step_id="presence_tracking",
+                user_input={
+                    "presence_device_platforms": ["binary_sensor"],
+                    "presence_sensor_device_class": ["motion", "occupancy", "presence"],
+                    "keep_only_entities": [],
+                    "clear_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="secondary_states",
+                user_input={
+                    "dark_entity": "binary_sensor.fan_room_light",
+                    "sleep_entity": "binary_sensor.fan_room_sleep",
+                    "accent_entity": "binary_sensor.fan_room_accent",
+                    "sleep_timeout": 1,
+                    "extended_time": 1,
+                    "extended_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="select_features",
+                user_input={"fan_groups": True, "presence_hold": True},
+            ),
+            OptionsStep(
+                step_id="feature_conf_fan_groups_humidity",
+                user_input={
+                    "members": ["fan.fan_room_exhaust"],
+                    "sensor_entity_id": "sensor.fan_room_humidity",
+                    "detection_mode": "threshold_trend",
+                    "on_threshold": 60.0,
+                    "hysteresis": 5.0,
+                    "active_states": ["occupied", "extended"],
+                    "suppress_states": ["sleep"],
+                    "clear_behavior": "post_clear_hold",
+                    "post_clear_hold_seconds": 4,
+                    "sensor_unavailable_behavior": "hold_then_clear",
+                },
+            ),
+            OptionsStep(
+                step_id="feature_conf_fan_groups_odor",
+                user_input={
+                    "members": ["fan.fan_room_exhaust"],
+                    "sensor_entity_id": "sensor.fan_room_voc",
+                    "detection_mode": "threshold",
+                    "on_threshold": 500.0,
+                    "hysteresis": 100.0,
+                    "active_states": ["occupied", "extended"],
+                    "suppress_states": [],
+                    "clear_behavior": "run_until_clear",
+                    "post_clear_hold_seconds": 0,
+                    "sensor_unavailable_behavior": "hold_until_restored",
+                },
+            ),
+            OptionsStep(
+                step_id="feature_conf_presence_hold",
+                user_input={"presence_hold_timeout": 0},
+            ),
+        ),
+    )
+
+
+def _cover_room_magic_area() -> DevMagicArea:
+    """Build the Magic Areas config/options flow plan for cover validation."""
+    return DevMagicArea(
+        name="Cover Room",
+        options_steps=(
+            OptionsStep(
+                step_id="area_config",
+                user_input={
+                    "type": "interior",
+                    "include_entities": [],
+                    "exclude_entities": [],
+                    "reload_on_registry_change": True,
+                    "ignore_diagnostic_entities": True,
+                },
+            ),
+            OptionsStep(
+                step_id="presence_tracking",
+                user_input={
+                    "presence_device_platforms": ["binary_sensor"],
+                    "presence_sensor_device_class": ["motion", "occupancy", "presence"],
+                    "keep_only_entities": [],
+                    "clear_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="secondary_states",
+                user_input={
+                    "dark_entity": "binary_sensor.cover_room_light",
+                    "sleep_entity": "binary_sensor.cover_room_sleep",
+                    "accent_entity": "binary_sensor.cover_room_accent",
+                    "sleep_timeout": 1,
+                    "extended_time": 1,
+                    "extended_timeout": 1,
+                },
+            ),
+            OptionsStep(
+                step_id="select_features",
+                user_input={"cover_groups": True, "presence_hold": True},
+            ),
+            OptionsStep(
+                step_id="feature_conf_cover_groups_settings",
+                user_input={
+                    "automation_device_classes": [
+                        "blind",
+                        "curtain",
+                        "shade",
+                        "shutter",
+                        "window",
+                    ],
+                    "manual_hold_seconds": 2,
+                    "daylight_action": "open",
+                    "daylight_states": ["occupied", "extended"],
+                    "privacy_action": "close",
+                    "privacy_states": ["sleep"],
+                    "accent_action": "close",
+                    "accent_states": ["accented"],
+                },
+            ),
+            OptionsStep(
+                step_id="feature_conf_presence_hold",
+                user_input={"presence_hold_timeout": 0},
+            ),
+        ),
+    )
+
+
 DEV_AREAS: tuple[DevArea, ...] = (
     *(_room_dev_area(room) for room in DEV_ROOMS),
+    DevArea(
+        name="Fan Room",
+        aliases=("fan_room",),
+        entity_ids=(
+            "binary_sensor.fan_room_occupancy",
+            "binary_sensor.fan_room_sleep",
+            "binary_sensor.fan_room_accent",
+            "binary_sensor.fan_room_light",
+            "sensor.fan_room_illuminance",
+            "sensor.fan_room_humidity",
+            "sensor.fan_room_voc",
+            "input_select.fan_room_humidity_availability",
+            "input_select.fan_room_voc_availability",
+            "fan.fan_room_exhaust",
+        ),
+    ),
+    DevArea(
+        name="Cover Room",
+        aliases=("cover_room",),
+        entity_ids=(
+            "binary_sensor.cover_room_occupancy",
+            "binary_sensor.cover_room_sleep",
+            "binary_sensor.cover_room_accent",
+            "binary_sensor.cover_room_light",
+            "sensor.cover_room_illuminance",
+            "cover.cover_room_blinds",
+            "cover.cover_room_shades",
+            "cover.cover_room_curtains",
+            "cover.cover_room_shutters",
+            "cover.cover_room_window",
+            "cover.cover_room_garage",
+            "cover.cover_room_door",
+        ),
+    ),
     DevArea(
         name="Setup Room",
         aliases=("setup_room",),
@@ -417,6 +616,8 @@ DEV_AREAS: tuple[DevArea, ...] = (
 
 DEV_MAGIC_AREAS: tuple[DevMagicArea, ...] = (
     *(_room_magic_area(room) for room in DEV_ROOMS),
+    _fan_room_magic_area(),
+    _cover_room_magic_area(),
     DevMagicArea(name="Interior", flow_name="(Meta) Interior"),
     DevMagicArea(name="Exterior", flow_name="(Meta) Exterior"),
     DevMagicArea(name="Global", flow_name="(Meta) Global"),
@@ -458,6 +659,20 @@ def _initial_boolean_entities() -> list[str]:
             "input_boolean.setup_room_blinds_open",
             "input_boolean.setup_room_heater",
             "input_boolean.setup_room_speaker_power",
+            "input_boolean.fan_room_occupancy",
+            "input_boolean.fan_room_sleep",
+            "input_boolean.fan_room_accent",
+            "input_boolean.fan_room_exhaust_power",
+            "input_boolean.cover_room_occupancy",
+            "input_boolean.cover_room_sleep",
+            "input_boolean.cover_room_accent",
+            "input_boolean.cover_room_blinds_open",
+            "input_boolean.cover_room_shades_open",
+            "input_boolean.cover_room_curtains_open",
+            "input_boolean.cover_room_shutters_open",
+            "input_boolean.cover_room_window_open",
+            "input_boolean.cover_room_garage_open",
+            "input_boolean.cover_room_door_open",
         ]
     )
     return entities
@@ -500,6 +715,42 @@ def _initial_service_calls() -> tuple[dict[str, object], ...]:
                 "service": "set_value",
                 "target": {"entity_id": "input_number.setup_room_humidity"},
                 "service_data": {"value": 45},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.fan_room_lux"},
+                "service_data": {"value": 350},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.fan_room_humidity"},
+                "service_data": {"value": 45},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.fan_room_voc"},
+                "service_data": {"value": 0},
+            },
+            {
+                "domain": "input_select",
+                "service": "select_option",
+                "target": {"entity_id": "input_select.fan_room_humidity_availability"},
+                "service_data": {"option": "available"},
+            },
+            {
+                "domain": "input_select",
+                "service": "select_option",
+                "target": {"entity_id": "input_select.fan_room_voc_availability"},
+                "service_data": {"option": "available"},
+            },
+            {
+                "domain": "input_number",
+                "service": "set_value",
+                "target": {"entity_id": "input_number.cover_room_lux"},
+                "service_data": {"value": 350},
             },
         ]
     )
@@ -608,7 +859,9 @@ class HomeAssistantRest:
                 body = response.read()
         except HTTPError as err:
             detail = err.read().decode(errors="replace")
-            raise RuntimeError(f"POST {path} failed: {err.code} {detail}") from err
+            raise RuntimeError(
+                f"POST {path} failed: {err.code} payload={payload} {detail}"
+            ) from err
         if not body:
             return {}
         result = json.loads(body)
@@ -845,6 +1098,8 @@ def _route_options_step(
 ) -> Mapping[str, object]:
     """Route from the options root menu to a concrete form step."""
     current_step_id = current_result.get("step_id")
+    if current_result.get("type") == "form" and current_step_id == step_id:
+        return current_result
     if step_id.startswith("feature_conf_light_groups_"):
         if current_step_id != "feature_conf_light_groups":
             result = _post_options_flow(
@@ -853,6 +1108,28 @@ def _route_options_step(
             if result.get("type") != "menu":
                 return result
     elif current_step_id == "feature_conf_light_groups":
+        result = _post_options_flow(rest, flow_id, {"next_step_id": "show_menu"})
+        if result.get("type") != "menu":
+            return result
+    if step_id.startswith("feature_conf_fan_groups_"):
+        if current_step_id != "feature_conf_fan_groups":
+            result = _post_options_flow(
+                rest, flow_id, {"next_step_id": "feature_conf_fan_groups"}
+            )
+            if result.get("type") != "menu":
+                return result
+    elif current_step_id == "feature_conf_fan_groups":
+        result = _post_options_flow(rest, flow_id, {"next_step_id": "show_menu"})
+        if result.get("type") != "menu":
+            return result
+    if step_id.startswith("feature_conf_cover_groups_"):
+        if current_step_id != "feature_conf_cover_groups":
+            result = _post_options_flow(
+                rest, flow_id, {"next_step_id": "feature_conf_cover_groups"}
+            )
+            if result.get("type") != "menu":
+                return result
+    elif current_step_id == "feature_conf_cover_groups":
         result = _post_options_flow(rest, flow_id, {"next_step_id": "show_menu"})
         if result.get("type") != "menu":
             return result
@@ -887,7 +1164,7 @@ async def configure_magic_area_options(
         )
 
     flow_id = _flow_id(result)
-    for options_step in dev_magic_area.options_steps:
+    for index, options_step in enumerate(dev_magic_area.options_steps):
         result = _route_options_step(rest, flow_id, options_step.step_id, result)
         if result.get("type") != "form":
             raise RuntimeError(
@@ -895,6 +1172,14 @@ async def configure_magic_area_options(
                 f"{options_step.step_id}: {result}"
             )
         result = _post_options_flow(rest, flow_id, options_step.user_input)
+        if result.get("type") == "form":
+            next_step = (
+                dev_magic_area.options_steps[index + 1]
+                if index + 1 < len(dev_magic_area.options_steps)
+                else None
+            )
+            if next_step is not None and result.get("step_id") == next_step.step_id:
+                continue
         if result.get("type") not in {"menu", "create_entry"}:
             raise RuntimeError(
                 f"Unexpected options submit result for {dev_magic_area.name}/"
@@ -905,11 +1190,13 @@ async def configure_magic_area_options(
                 f"Options flow finished before final step for {dev_magic_area.name}"
             )
 
-    result = _post_options_flow(rest, flow_id, {"next_step_id": "finish"})
-    if result.get("type") != "create_entry":
-        raise RuntimeError(
-            f"Unexpected options finish result for {dev_magic_area.name}: {result}"
-        )
+    menu_options = result.get("menu_options")
+    if not isinstance(menu_options, list) or "finish" in menu_options:
+        result = _post_options_flow(rest, flow_id, {"next_step_id": "finish"})
+        if result.get("type") != "create_entry":
+            raise RuntimeError(
+                f"Unexpected options finish result for {dev_magic_area.name}: {result}"
+            )
     print(f"configured magic area options: {dev_magic_area.name}")
 
 
@@ -918,9 +1205,12 @@ async def ensure_magic_areas(
     rest: HomeAssistantRest,
     *,
     force_options: bool,
+    only_magic_area: str | None,
 ) -> None:
     """Create/configure the dev Magic Areas entries."""
     for dev_magic_area in DEV_MAGIC_AREAS:
+        if only_magic_area is not None and dev_magic_area.name != only_magic_area:
+            continue
         entry_id, created = await ensure_magic_area_entry(client, rest, dev_magic_area)
         await configure_magic_area_options(
             client,
@@ -949,6 +1239,7 @@ async def bootstrap(args: argparse.Namespace) -> None:
                 client,
                 rest,
                 force_options=args.force_magic_area_options,
+                only_magic_area=args.only_magic_area,
             )
         if not args.skip_initial_states:
             await apply_initial_states(client)
@@ -984,6 +1275,10 @@ def parse_args() -> argparse.Namespace:
         "--force-magic-area-options",
         action="store_true",
         help="Overwrite existing dev Magic Areas options through options flows",
+    )
+    parser.add_argument(
+        "--only-magic-area",
+        help="Only create/configure the named Magic Areas config entry.",
     )
     return parser.parse_args()
 

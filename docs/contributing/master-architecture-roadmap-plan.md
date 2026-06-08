@@ -2007,6 +2007,21 @@ Simulator validation progress:
   scan found no failed checkpoints, simulator failures, tracebacks, errors, or
   exceptions.
 
+Post-Phase 5 roadmap integrity audit on 2026-06-07:
+
+- Reexamined every checked Phase 0 through Phase 5 work area against the current
+  implementation, tests, durable guidance, retained live-simulation logs, and
+  retained frontend artifact text.
+- Confirmed that the Phase 1 fan/cover runtime, config-flow, fake-house,
+  bootstrap, and focused test changes were complete but had remained
+  uncommitted while later roadmap and simulator work proceeded.
+- Focused fan/cover verification passed `34` selected tests.
+- `./scripts/validate.sh` passed Ruff, mypy across `365` source files, and
+  `1415` pytest tests in `47.42s`.
+- No checked roadmap item was reopened by the audit. IDE configuration and local
+  assistant metadata are not roadmap deliverables and remain outside the
+  roadmap-related commit scope.
+
 ### 6. Test Helper Architecture Cleanup
 
 #### 6.1. Preparation

@@ -31,12 +31,16 @@ For current implementation state, use:
 
 ## Required commands
 
-Run these before commit:
+Run the full Python validation before commit:
 
 ```bash
-uv run --extra dev --extra test ruff check custom_components tests scripts
-uv run --extra dev --extra test mypy custom_components tests scripts
-uv run --extra dev --extra test pytest tests -q
+./scripts/validate.sh
+```
+
+Use the basic validation path for a quick static pass:
+
+```bash
+./scripts/validate_basic.sh
 ```
 
 If a change affects room-control behavior, fake-house simulation, scenario

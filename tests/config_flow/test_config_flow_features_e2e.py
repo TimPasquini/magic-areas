@@ -1,5 +1,6 @@
 """End-to-end feature configuration options-flow tests."""
 
+from copy import deepcopy
 from typing import Protocol, cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
@@ -12,7 +13,7 @@ from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.helpers.entity_registry import async_get as async_get_er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -853,6 +854,68 @@ async def test_options_flow_fan_groups_stores_independent_controller_roles(
     assert humidity[CONF_FAN_CONTROLLER_HYSTERESIS] == 5.0
     assert humidity[CONF_FAN_CONTROLLER_SUPPRESS_STATES] == ["sleep"]
     assert humidity[CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR] == "run_until_clear"
+
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups_odor",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_FAN_CONTROLLER_MEMBERS: [fan_entry.entity_id],
+            CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID: "",
+            CONF_FAN_CONTROLLER_DETECTION_MODE: FanDetectionMode.ROOM_STATE.value,
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED],
+            CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: FanClearBehavior.OCCUPANCY_ONLY,
+        },
+    )
+    result = await _finish_options_flow(hass, result)
+    assert result["type"] == FlowResultType.MENU
+
+    controllers = config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.FAN_GROUPS
+    ][CONF_FAN_GROUPS_CONTROLLERS]
+    assert controllers[FanControllerRole.HUMIDITY.value] == humidity
+    assert controllers[FanControllerRole.ODOR.value][
+        CONF_FAN_CONTROLLER_MEMBERS
+    ] == [fan_entry.entity_id]
+
+
+async def test_options_flow_fan_groups_invalid_values_stay_on_form_without_persisting(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Invalid fan values should keep the flow active without persisting."""
+    config_entry = init_integration
+    result = await _open_feature_config_step(
+        hass,
+        config_entry,
+        MagicAreasFeatures.FAN_GROUPS,
+        "feature_conf_fan_groups_cooling",
+    )
+    options_before_submit = deepcopy(dict(config_entry.options))
+    flow_id = result["flow_id"]
+
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            flow_id,
+            user_input={
+                CONF_FAN_CONTROLLER_ACTIVE_STATES: ["not-a-real-area-state"],
+                CONF_FAN_CONTROLLER_ON_THRESHOLD: 72,
+            },
+        )
+
+    assert dict(config_entry.options) == options_before_submit
+
+    result = await hass.config_entries.options.async_configure(
+        flow_id,
+        user_input={
+            CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED],
+            CONF_FAN_CONTROLLER_ON_THRESHOLD: 72,
+        },
+    )
+    assert result["type"] == FlowResultType.MENU
 
 
 async def test_options_flow_fan_groups_stores_sensorless_odor_fallback(

@@ -21,6 +21,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_CONTROLLER_HYSTERESIS,
     CONF_FAN_CONTROLLER_MEMBERS,
     CONF_FAN_CONTROLLER_ON_THRESHOLD,
+    CONF_FAN_CONTROLLER_POST_CLEAR_HOLD_SECONDS,
     CONF_FAN_CONTROLLER_SENSOR_ENTITY_ID,
     CONF_FAN_GROUPS_CONTROLLERS,
 )
@@ -37,6 +38,7 @@ def _controller(
     active_states: tuple[str, ...] = (AreaStates.OCCUPIED,),
     suppress_states: tuple[str, ...] = (),
     clear_behavior: FanClearBehavior = FanClearBehavior.OCCUPANCY_ONLY,
+    post_clear_hold_seconds: int = 0,
     sensor_unavailable_behavior: FanSensorUnavailableBehavior = (
         FanSensorUnavailableBehavior.CLEAR_REASON
     ),
@@ -52,6 +54,7 @@ def _controller(
         active_states=active_states,
         suppress_states=suppress_states,
         clear_behavior=clear_behavior,
+        post_clear_hold_seconds=post_clear_hold_seconds,
         sensor_unavailable_behavior=sensor_unavailable_behavior,
     )
 
@@ -230,6 +233,68 @@ def test_run_until_clear_ignores_area_clear_until_sensor_clears() -> None:
     assert result.turn_on_entity_ids == ("fan.room",)
 
 
+def test_post_clear_hold_keeps_reason_active_while_hold_is_current() -> None:
+    """Post-clear hold keeps a previously active reason running until expiry."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        clear_behavior=FanClearBehavior.POST_CLEAR_HOLD,
+        post_clear_hold_seconds=120,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.CLEAR,),
+        sensor_values={"sensor.room": 40.0},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        post_clear_hold_controller_ids=(FanControllerRole.HUMIDITY,),
+    )
+
+    assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
+    assert result.active_reasons[0].reason == "active_post_clear_hold"
+    assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_post_clear_hold_clears_after_hold_expires() -> None:
+    """Post-clear hold clears once runtime no longer reports an active hold."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        clear_behavior=FanClearBehavior.POST_CLEAR_HOLD,
+        post_clear_hold_seconds=120,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.CLEAR,),
+        sensor_values={"sensor.room": 40.0},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        post_clear_hold_controller_ids=(),
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["humidity"]
+    assert result.turn_off_entity_ids == ("fan.room",)
+
+
+def test_post_clear_hold_does_not_apply_after_state_gate_restores() -> None:
+    """Runtime hold IDs are ignored after the controller state gate restores."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        clear_behavior=FanClearBehavior.POST_CLEAR_HOLD,
+        post_clear_hold_seconds=120,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": 40.0},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        post_clear_hold_controller_ids=(FanControllerRole.HUMIDITY,),
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["humidity"]
+
+
 def test_sensor_unavailable_behavior_is_per_controller() -> None:
     """One unavailable sensor does not clear a fan needed by another controller."""
     humidity = _controller(
@@ -316,8 +381,69 @@ def test_sensor_unavailable_can_hold_previously_active_reason() -> None:
     assert result.turn_on_entity_ids == ("fan.room",)
 
 
-def test_policy_adapter_passes_previous_active_reasons_for_hysteresis_hold() -> None:
-    """Runtime policy adapter should preserve hysteresis across evaluations."""
+def test_sensor_unavailable_hold_then_clear_holds_until_runtime_expiry() -> None:
+    """hold_then_clear preserves a prior active reason only while the hold is active."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        sensor_unavailable_behavior=FanSensorUnavailableBehavior.HOLD_THEN_CLEAR,
+        post_clear_hold_seconds=30,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": None},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        unavailable_hold_controller_ids=(FanControllerRole.HUMIDITY,),
+    )
+
+    assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
+    assert result.active_reasons[0].reason == "active_sensor_unavailable_hold_then_clear"
+    assert result.turn_on_entity_ids == ("fan.room",)
+
+
+def test_sensor_unavailable_hold_then_clear_clears_after_runtime_expiry() -> None:
+    """hold_then_clear clears once runtime no longer reports an active hold."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        sensor_unavailable_behavior=FanSensorUnavailableBehavior.HOLD_THEN_CLEAR,
+        post_clear_hold_seconds=30,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": None},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        unavailable_hold_controller_ids=(),
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["humidity"]
+
+
+def test_sensor_unavailable_hold_then_clear_cancels_when_sensor_recovers() -> None:
+    """hold_then_clear no longer applies after the sensor reports a value."""
+    humidity = _controller(
+        FanControllerRole.HUMIDITY,
+        sensor_unavailable_behavior=FanSensorUnavailableBehavior.HOLD_THEN_CLEAR,
+        post_clear_hold_seconds=30,
+    )
+
+    result = evaluate_fan_controllers(
+        (humidity,),
+        current_states=(AreaStates.OCCUPIED,),
+        sensor_values={"sensor.room": 40.0},
+        previously_active_controller_ids=(FanControllerRole.HUMIDITY,),
+        unavailable_hold_controller_ids=(FanControllerRole.HUMIDITY,),
+    )
+
+    assert result.active_reasons == ()
+    assert [reason.controller_id for reason in result.inactive_reasons] == ["humidity"]
+
+
+def test_policy_adapter_passes_runtime_post_clear_hold() -> None:
+    """Runtime policy adapter should honor active post-clear hold IDs."""
     policy = build_fan_control_group_policy(
         {
             CONF_FAN_GROUPS_CONTROLLERS: {
@@ -329,8 +455,9 @@ def test_policy_adapter_passes_previous_active_reasons_for_hysteresis_hold() -> 
                     CONF_FAN_CONTROLLER_HYSTERESIS: 5,
                     CONF_FAN_CONTROLLER_ACTIVE_STATES: [AreaStates.OCCUPIED.value],
                     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR: (
-                        FanClearBehavior.RUN_UNTIL_CLEAR.value
+                        FanClearBehavior.POST_CLEAR_HOLD.value
                     ),
+                    CONF_FAN_CONTROLLER_POST_CLEAR_HOLD_SECONDS: 120,
                 }
             }
         }
@@ -352,19 +479,20 @@ def test_policy_adapter_passes_previous_active_reasons_for_hysteresis_hold() -> 
     second_decision = policy.evaluate(
         ControlGroupContext(
             group_id="fan_groups_bathroom",
-            current_states=(AreaStates.OCCUPIED,),
+            current_states=(AreaStates.CLEAR,),
             signals=FanPolicySignals(
                 sensor_value=None,
                 fan_group_entity_id="fan.bathroom_group",
                 fan_group_state="on",
-                sensor_values={"sensor.bathroom_humidity": 57.0},
+                sensor_values={"sensor.bathroom_humidity": 40.0},
+                post_clear_hold_controller_ids=(FanControllerRole.HUMIDITY,),
             ),
             is_enabled=True,
         )
     )
 
     assert first_decision.reason.startswith("active_threshold_reached")
-    assert second_decision.reason.startswith("active_hysteresis_hold")
+    assert second_decision.reason == "active_post_clear_hold"
 
 
 def test_legacy_fan_config_maps_to_cooling_controller() -> None:

@@ -915,11 +915,12 @@ async def _handle_fan_controller_form(
         try:
             validated = dict(schema(dict(user_input)))
         except vol.MultipleInvalid:
+            error_values = {**saved, **dict(user_input)}
             return flow.async_show_form(
                 step_id=step_id,
                 data_schema=flow._build_schema_from_vol(
                     schema,
-                    saved_options=saved,
+                    saved_options=error_values,
                     selectors=_fan_controller_selectors(flow),
                 ),
                 errors=invalid_input_error(),

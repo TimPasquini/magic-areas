@@ -78,6 +78,8 @@ class FanControlGroupPolicy(ControlGroupPolicy):
                 current_states=context.current_states,
                 sensor_values=sensor_values,
                 trend_states=signals.trend_states,
+                post_clear_hold_controller_ids=signals.post_clear_hold_controller_ids,
+                unavailable_hold_controller_ids=signals.unavailable_hold_controller_ids,
                 previously_active_controller_ids=(
                     tuple(
                         reason.controller_id
@@ -197,6 +199,8 @@ class FanPolicySignals:
     fan_group_state: str | None
     sensor_values: Mapping[str, float | None] | None = None
     trend_states: Mapping[str, bool | None] | None = None
+    post_clear_hold_controller_ids: Sequence[str] = ()
+    unavailable_hold_controller_ids: Sequence[str] = ()
 
     @classmethod
     def from_signals(cls, signals: object) -> FanPolicySignals:
@@ -290,11 +294,15 @@ def evaluate_fan_controllers(
     current_states: Sequence[str],
     sensor_values: Mapping[str, float | None],
     trend_states: Mapping[str, bool | None] | None = None,
+    post_clear_hold_controller_ids: Sequence[str] = (),
+    unavailable_hold_controller_ids: Sequence[str] = (),
     previously_active_controller_ids: Sequence[str] = (),
 ) -> FanControllerEvaluation:
     """Evaluate fan controllers and aggregate per-entity service intent."""
     current_state_set = {str(state) for state in current_states}
     previous_active = {str(controller_id) for controller_id in previously_active_controller_ids}
+    post_clear_hold = {str(controller_id) for controller_id in post_clear_hold_controller_ids}
+    unavailable_hold = {str(controller_id) for controller_id in unavailable_hold_controller_ids}
     current_trend_states = trend_states or {}
 
     active: list[FanControllerReason] = []
@@ -308,6 +316,8 @@ def evaluate_fan_controllers(
             sensor_values=sensor_values,
             trend_states=current_trend_states,
             was_active=controller.controller_id in previous_active,
+            post_clear_hold_active=controller.controller_id in post_clear_hold,
+            unavailable_hold_active=controller.controller_id in unavailable_hold,
         )
         if reason.reason.startswith("suppressed"):
             suppressed.append(reason)
@@ -341,6 +351,8 @@ def _evaluate_fan_controller(
     sensor_values: Mapping[str, float | None],
     trend_states: Mapping[str, bool | None],
     was_active: bool,
+    post_clear_hold_active: bool,
+    unavailable_hold_active: bool,
 ) -> FanControllerReason:
     """Evaluate one fan controller reason."""
     suppressing_states = tuple(
@@ -353,6 +365,20 @@ def _evaluate_fan_controller(
             reason=f"suppressed_by_state ({', '.join(suppressing_states)})",
         )
 
+    state_gate_met = any(state in current_states for state in controller.active_states)
+    state_gate_cleared = AreaStates.CLEAR in current_states or not state_gate_met
+
+    if (
+        state_gate_cleared
+        and controller.clear_behavior is FanClearBehavior.POST_CLEAR_HOLD
+        and post_clear_hold_active
+    ):
+        return FanControllerReason(
+            controller_id=controller.controller_id,
+            members=controller.members,
+            reason="active_post_clear_hold",
+        )
+
     if AreaStates.CLEAR in current_states and (
         controller.clear_behavior is not FanClearBehavior.RUN_UNTIL_CLEAR
     ):
@@ -362,8 +388,10 @@ def _evaluate_fan_controller(
             reason="inactive_area_clear",
         )
 
-    if controller.clear_behavior is FanClearBehavior.OCCUPANCY_ONLY and not any(
-        state in current_states for state in controller.active_states
+    if (
+        controller.clear_behavior
+        in {FanClearBehavior.OCCUPANCY_ONLY, FanClearBehavior.POST_CLEAR_HOLD}
+        and not state_gate_met
     ):
         return FanControllerReason(
             controller_id=controller.controller_id,
@@ -390,7 +418,11 @@ def _evaluate_fan_controller(
         else None
     )
     if sensor_value is None:
-        return _evaluate_unavailable_controller(controller, was_active=was_active)
+        return _evaluate_unavailable_controller(
+            controller,
+            was_active=was_active,
+            unavailable_hold_active=unavailable_hold_active,
+        )
 
     if sensor_value >= controller.on_threshold:
         return FanControllerReason(
@@ -440,8 +472,21 @@ def _evaluate_unavailable_controller(
     controller: FanControllerConfig,
     *,
     was_active: bool,
+    unavailable_hold_active: bool,
 ) -> FanControllerReason:
     """Evaluate one controller with an unavailable sensor."""
+    if (
+        was_active
+        and controller.sensor_unavailable_behavior
+        is FanSensorUnavailableBehavior.HOLD_THEN_CLEAR
+        and unavailable_hold_active
+    ):
+        return FanControllerReason(
+            controller_id=controller.controller_id,
+            members=controller.members,
+            reason="active_sensor_unavailable_hold_then_clear",
+        )
+
     if (
         was_active
         and controller.sensor_unavailable_behavior

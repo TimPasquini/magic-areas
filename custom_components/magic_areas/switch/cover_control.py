@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from time import monotonic
 from typing import TYPE_CHECKING
 
 from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.const import EntityCategory
 from homeassistant.core import Event, EventStateChangedData
+from homeassistant.helpers.event import async_call_later
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
     from custom_components.magic_areas.core.controls import ControlGroupDecision
     from custom_components.magic_areas.core.runtime_model import AreaConfig
 
+from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
     resolve_area_presence_states,
@@ -46,7 +49,8 @@ class CoverControlSwitch(ControlSwitchBase):
     _cover_group_entity_ids: dict[str, str]
     _last_states: list[str]
     _manual_hold_seconds: int
-    _manual_hold_until_monotonic: float
+    _manual_hold_until_monotonic: dict[str, float]
+    _manual_hold_timer_cancel: Callable[[], None] | None
     _expected_cover_group_state_changes: set[str]
 
     def __init__(
@@ -59,7 +63,8 @@ class CoverControlSwitch(ControlSwitchBase):
         self._cover_group_entity_ids = {}
         self._last_states = []
         self._manual_hold_seconds = config.manual_hold_seconds
-        self._manual_hold_until_monotonic = 0.0
+        self._manual_hold_until_monotonic = {}
+        self._manual_hold_timer_cancel = None
         self._expected_cover_group_state_changes = set()
 
     async def async_added_to_hass(self) -> None:
@@ -105,7 +110,10 @@ class CoverControlSwitch(ControlSwitchBase):
             return
 
         if self._manual_hold_seconds > 0:
-            self._manual_hold_until_monotonic = monotonic() + self._manual_hold_seconds
+            self._manual_hold_until_monotonic[entity_id] = (
+                monotonic() + self._manual_hold_seconds
+            )
+            self._schedule_next_manual_hold_expiry_check()
 
     async def run_logic(self, states: list[str]) -> None:
         """Run cover control logic."""
@@ -129,7 +137,8 @@ class CoverControlSwitch(ControlSwitchBase):
             signals=CoverPolicySignals(
                 cover_group_entity_ids=self._cover_group_entity_ids,
                 cover_group_states=group_states,
-                manual_hold_active=self._manual_hold_active(),
+                manual_hold_entity_ids=tuple(self._manual_hold_entity_ids()),
+                daylight_open_allowed=AreaStates.DARK not in current_states,
             ),
             is_enabled=self.is_on,
         )
@@ -139,6 +148,7 @@ class CoverControlSwitch(ControlSwitchBase):
             logger=_LOGGER,
         )
         self._write_policy_debug_attributes()
+        self._schedule_next_manual_hold_expiry_check()
         if self.platform is not None:
             self.async_write_ha_state()
 
@@ -153,9 +163,47 @@ class CoverControlSwitch(ControlSwitchBase):
             self._expected_cover_group_state_changes.update(action.target_entity_ids)
         await super()._execute_decision(decision, blocking=blocking)
 
-    def _manual_hold_active(self) -> bool:
+    def _manual_hold_active(self, entity_id: str | None = None) -> bool:
         """Return whether manual cover movement is currently holding automation."""
-        return monotonic() < self._manual_hold_until_monotonic
+        return bool(self._manual_hold_entity_ids(entity_id))
+
+    def _manual_hold_entity_ids(self, entity_id: str | None = None) -> list[str]:
+        """Return cover helper entity IDs currently under manual hold."""
+        now = monotonic()
+        for held_entity_id, deadline in tuple(self._manual_hold_until_monotonic.items()):
+            if now >= deadline:
+                self._manual_hold_until_monotonic.pop(held_entity_id, None)
+
+        if entity_id is not None:
+            return [entity_id] if entity_id in self._manual_hold_until_monotonic else []
+        return sorted(self._manual_hold_until_monotonic)
+
+    def _schedule_next_manual_hold_expiry_check(self) -> None:
+        """Re-run cover policy when the next manual hold expires."""
+        if self._manual_hold_timer_cancel is not None:
+            self._manual_hold_timer_cancel()
+            self._manual_hold_timer_cancel = None
+
+        self._manual_hold_entity_ids()
+        if not self._manual_hold_until_monotonic:
+            return
+
+        delay = max(min(self._manual_hold_until_monotonic.values()) - monotonic(), 0.0)
+        self._manual_hold_timer_cancel = async_call_later(
+            self.hass,
+            delay,
+            self._manual_hold_expiry_check,
+        )
+
+    async def _manual_hold_expiry_check(self, _now: object) -> None:
+        """Reevaluate cover policy after a manual hold timer expires."""
+        self._manual_hold_timer_cancel = None
+        states = resolve_area_presence_states(
+            hass=self.hass,
+            area_id=self._area_id,
+            cached_states=self._last_states,
+        )
+        await self.run_logic(states)
 
     def _resolve_cover_group_entity_ids(self) -> dict[str, str]:
         """Resolve native cover group helpers for configured automation classes."""
@@ -185,9 +233,17 @@ class CoverControlSwitch(ControlSwitchBase):
             {
                 "cover_automation_targets": dict(self._cover_group_entity_ids),
                 "manual_cover_hold_active": self._manual_hold_active(),
+                "manual_cover_hold_entities": self._manual_hold_entity_ids(),
             }
         )
         self._attr_extra_state_attributes = attrs
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Cancel pending manual-hold timers when removed from Home Assistant."""
+        if self._manual_hold_timer_cancel is not None:
+            self._manual_hold_timer_cancel()
+            self._manual_hold_timer_cancel = None
+        await super().async_will_remove_from_hass()
 
 
 __all__ = ["CoverControlSwitch"]

@@ -1,6 +1,8 @@
 """Fan Control switch."""
 
 import logging
+from collections.abc import Callable
+from time import monotonic
 from typing import TYPE_CHECKING
 
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
@@ -15,17 +17,21 @@ from homeassistant.const import (
 )
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.dispatcher import dispatcher_send
+from homeassistant.helpers.event import async_call_later
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.core.controls.policies.fan import (
     build_fan_control_group_policy,
+    FanClearBehavior,
     FanControlGroupPolicy,
+    FanControllerConfig,
     FanControllerRole,
     FanDetectionMode,
     LEGACY_FAN_SENSOR_KEY,
     FanPolicySignals,
+    FanSensorUnavailableBehavior,
 )
 from custom_components.magic_areas.core.controls.fan_signals import (
     fan_controller_trend_signal_surface,
@@ -72,6 +78,9 @@ class FanControlSwitch(ControlSwitchBase):
     _controller_sensor_entity_ids: tuple[str, ...]
     _controller_trend_signal_unique_ids: dict[str, str]
     _controller_trend_signal_entity_ids: dict[str, str]
+    _post_clear_hold_until_monotonic: dict[str, float]
+    _unavailable_hold_until_monotonic: dict[str, float]
+    _hold_timer_cancel: Callable[[], None] | None
 
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
@@ -117,6 +126,9 @@ class FanControlSwitch(ControlSwitchBase):
                     signal_surface.unique_id
                 )
         self._controller_trend_signal_entity_ids = {}
+        self._post_clear_hold_until_monotonic = {}
+        self._unavailable_hold_until_monotonic = {}
+        self._hold_timer_cancel = None
         self._last_states = []
 
     async def async_added_to_hass(self) -> None:
@@ -242,6 +254,15 @@ class FanControlSwitch(ControlSwitchBase):
             controller_id: self._read_trend_signal_state(entity_id)
             for controller_id, entity_id in self._controller_trend_signal_entity_ids.items()
         }
+        current_states = resolve_area_presence_states(
+            hass=self.hass,
+            area_id=self._area_id,
+            cached_states=states,
+        )
+        self._refresh_controller_hold_deadlines(
+            current_states=current_states,
+            sensor_values=sensor_values,
+        )
 
         fan_state = (
             self.hass.states.get(self._fan_group_entity_id)
@@ -250,13 +271,19 @@ class FanControlSwitch(ControlSwitchBase):
         )
         context = ControlGroupContext(
             group_id=f"fan_groups_{self._area_id}",
-            current_states=tuple(states),
+            current_states=tuple(current_states),
             signals=FanPolicySignals(
                 sensor_value=sensor_value,
                 fan_group_entity_id=self._fan_group_entity_id,
                 fan_group_state=fan_state.state if fan_state else None,
                 sensor_values=sensor_values,
                 trend_states=trend_states,
+                post_clear_hold_controller_ids=tuple(
+                    self._active_hold_ids(self._post_clear_hold_until_monotonic)
+                ),
+                unavailable_hold_controller_ids=tuple(
+                    self._active_hold_ids(self._unavailable_hold_until_monotonic)
+                ),
             ),
             is_enabled=self.is_on,
         )
@@ -267,8 +294,122 @@ class FanControlSwitch(ControlSwitchBase):
         )
         self._write_policy_debug_attributes()
         self._publish_fan_runtime_states()
+        self._schedule_next_hold_expiry_check()
         if self.platform is not None:
             self.async_write_ha_state()
+
+    def _refresh_controller_hold_deadlines(
+        self,
+        *,
+        current_states: list[str],
+        sensor_values: dict[str, float | None],
+    ) -> None:
+        """Start, keep, or clear per-controller fan hold timers."""
+        now = monotonic()
+        previously_active = {
+            reason.controller_id
+            for reason in self.policy.last_evaluation.active_reasons
+        } if self.policy.last_evaluation is not None else set()
+        current_state_set = {str(state) for state in current_states}
+
+        for controller in self.policy.controllers:
+            controller_id = str(controller.controller_id)
+            was_active = controller_id in previously_active
+            hold_seconds = max(controller.post_clear_hold_seconds, 0)
+            gate_cleared = self._controller_state_gate_cleared(
+                controller,
+                current_state_set=current_state_set,
+            )
+
+            if (
+                controller.clear_behavior is FanClearBehavior.POST_CLEAR_HOLD
+                and gate_cleared
+                and was_active
+                and hold_seconds > 0
+            ):
+                self._post_clear_hold_until_monotonic.setdefault(
+                    controller_id,
+                    now + hold_seconds,
+                )
+            elif not gate_cleared:
+                self._post_clear_hold_until_monotonic.pop(controller_id, None)
+
+            sensor_value = (
+                sensor_values.get(controller.sensor_entity_id)
+                if controller.sensor_entity_id
+                else None
+            )
+            if (
+                controller.sensor_unavailable_behavior
+                is FanSensorUnavailableBehavior.HOLD_THEN_CLEAR
+                and sensor_value is None
+                and was_active
+                and hold_seconds > 0
+            ):
+                self._unavailable_hold_until_monotonic.setdefault(
+                    controller_id,
+                    now + hold_seconds,
+                )
+            elif sensor_value is not None:
+                self._unavailable_hold_until_monotonic.pop(controller_id, None)
+
+        self._drop_expired_holds(now)
+
+    @staticmethod
+    def _controller_state_gate_cleared(
+        controller: FanControllerConfig,
+        *,
+        current_state_set: set[str],
+    ) -> bool:
+        """Return whether the controller's area-state gate is currently cleared."""
+        state_gate_met = any(
+            state in current_state_set for state in controller.active_states
+        )
+        return AreaStates.CLEAR in current_state_set or not state_gate_met
+
+    def _active_hold_ids(self, holds: dict[str, float]) -> list[str]:
+        """Return controller IDs whose hold deadlines have not expired."""
+        self._drop_expired_holds(monotonic())
+        return sorted(holds)
+
+    def _drop_expired_holds(self, now: float) -> None:
+        """Remove expired controller hold deadlines."""
+        for holds in (
+            self._post_clear_hold_until_monotonic,
+            self._unavailable_hold_until_monotonic,
+        ):
+            for controller_id, deadline in tuple(holds.items()):
+                if now >= deadline:
+                    holds.pop(controller_id, None)
+
+    def _schedule_next_hold_expiry_check(self) -> None:
+        """Re-run fan policy when the next fan hold expires."""
+        if self._hold_timer_cancel is not None:
+            self._hold_timer_cancel()
+            self._hold_timer_cancel = None
+
+        deadlines = tuple(self._post_clear_hold_until_monotonic.values()) + tuple(
+            self._unavailable_hold_until_monotonic.values()
+        )
+        if not deadlines:
+            return
+
+        delay = max(min(deadlines) - monotonic(), 0.0)
+        self._hold_timer_cancel = async_call_later(
+            self.hass,
+            delay,
+            self._hold_expiry_check,
+        )
+
+    async def _hold_expiry_check(self, _now: object) -> None:
+        """Reevaluate fan policy after a hold timer expires."""
+        self._hold_timer_cancel = None
+        states = resolve_area_presence_states(
+            hass=self.hass,
+            area_id=self._area_id,
+            cached_states=self._last_states,
+        )
+        await self.run_logic(states)
 
     def _resolve_controller_trend_signal_entity_ids(self) -> dict[str, str]:
         """Resolve managed Trend helper entity IDs for threshold+trend controllers."""
@@ -312,6 +453,12 @@ class FanControlSwitch(ControlSwitchBase):
                     reason.controller_id for reason in evaluation.inactive_reasons
                 ],
                 "target_fan_entities": list(evaluation.target_fan_entity_ids),
+                "post_clear_hold_fan_reasons": self._active_hold_ids(
+                    self._post_clear_hold_until_monotonic
+                ),
+                "unavailable_hold_fan_reasons": self._active_hold_ids(
+                    self._unavailable_hold_until_monotonic
+                ),
             }
         )
         self._attr_extra_state_attributes = attrs
@@ -334,3 +481,10 @@ class FanControlSwitch(ControlSwitchBase):
             "fan_groups",
             states,
         )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up fan hold timer on entity removal."""
+        if self._hold_timer_cancel is not None:
+            self._hold_timer_cancel()
+            self._hold_timer_cancel = None
+        await super().async_will_remove_from_hass()

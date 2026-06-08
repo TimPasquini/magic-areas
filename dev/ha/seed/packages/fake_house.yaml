@@ -257,8 +257,62 @@ input_boolean:
   setup_room_speaker_power:
     name: Setup Room Speaker Power
     icon: mdi:speaker
+  fan_room_occupancy:
+    name: Fan Room Occupancy
+    icon: mdi:motion-sensor
+  fan_room_sleep:
+    name: Fan Room Sleep Mode
+    icon: mdi:sleep
+  fan_room_accent:
+    name: Fan Room Accent Mode
+    icon: mdi:air-filter
+  fan_room_exhaust_power:
+    name: Fan Room Exhaust Power
+    icon: mdi:fan
+  cover_room_occupancy:
+    name: Cover Room Occupancy
+    icon: mdi:motion-sensor
+  cover_room_sleep:
+    name: Cover Room Sleep Mode
+    icon: mdi:sleep
+  cover_room_accent:
+    name: Cover Room Accent Mode
+    icon: mdi:television-ambient-light
+  cover_room_blinds_open:
+    name: Cover Room Blinds Open
+    icon: mdi:blinds
+  cover_room_shades_open:
+    name: Cover Room Shades Open
+    icon: mdi:roller-shade
+  cover_room_curtains_open:
+    name: Cover Room Curtains Open
+    icon: mdi:curtains
+  cover_room_shutters_open:
+    name: Cover Room Shutters Open
+    icon: mdi:window-shutter
+  cover_room_window_open:
+    name: Cover Room Window Open
+    icon: mdi:window-open-variant
+  cover_room_garage_open:
+    name: Cover Room Garage Open
+    icon: mdi:garage
+  cover_room_door_open:
+    name: Cover Room Door Open
+    icon: mdi:door
 
 input_select:
+  fan_room_humidity_availability:
+    name: Fan Room Humidity Availability
+    options:
+      - available
+      - unavailable
+    initial: available
+  fan_room_voc_availability:
+    name: Fan Room VOC Availability
+    options:
+      - available
+      - unavailable
+    initial: available
   startup_unknown_room_light_availability:
     name: Startup Unknown Room Light Availability
     options:
@@ -394,6 +448,34 @@ input_number:
     step: 1
     mode: slider
     unit_of_measurement: "%"
+  fan_room_lux:
+    name: Fan Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
+  fan_room_humidity:
+    name: Fan Room Humidity
+    min: 0
+    max: 100
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+  fan_room_voc:
+    name: Fan Room VOC
+    min: 0
+    max: 1000
+    step: 10
+    mode: slider
+    unit_of_measurement: ppb
+  cover_room_lux:
+    name: Cover Room Lux
+    min: 0
+    max: 3000
+    step: 10
+    mode: slider
+    unit_of_measurement: lx
   outdoor_lux:
     name: Outdoor Lux
     min: 0
@@ -646,6 +728,34 @@ template:
         unique_id: ma_dev_setup_room_smoke
         device_class: smoke
         state: "{{ is_state('input_boolean.setup_room_smoke', 'on') }}"
+      - name: Fan Room Occupancy
+        unique_id: ma_dev_fan_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.fan_room_occupancy', 'on') }}"
+      - name: Fan Room Sleep
+        unique_id: ma_dev_fan_room_sleep
+        state: "{{ is_state('input_boolean.fan_room_sleep', 'on') }}"
+      - name: Fan Room Accent
+        unique_id: ma_dev_fan_room_accent
+        state: "{{ is_state('input_boolean.fan_room_accent', 'on') }}"
+      - name: Fan Room Light
+        unique_id: ma_dev_fan_room_light
+        device_class: light
+        state: "{{ states('input_number.fan_room_lux') | float(0) > 900 }}"
+      - name: Cover Room Occupancy
+        unique_id: ma_dev_cover_room_occupancy
+        device_class: occupancy
+        state: "{{ is_state('input_boolean.cover_room_occupancy', 'on') }}"
+      - name: Cover Room Sleep
+        unique_id: ma_dev_cover_room_sleep
+        state: "{{ is_state('input_boolean.cover_room_sleep', 'on') }}"
+      - name: Cover Room Accent
+        unique_id: ma_dev_cover_room_accent
+        state: "{{ is_state('input_boolean.cover_room_accent', 'on') }}"
+      - name: Cover Room Light
+        unique_id: ma_dev_cover_room_light
+        device_class: light
+        state: "{{ states('input_number.cover_room_lux') | float(0) > 900 }}"
       - name: Outdoor Bright
         unique_id: ma_dev_outdoor_bright
         device_class: light
@@ -756,6 +866,31 @@ template:
       - name: Setup Room BLE Source
         unique_id: ma_dev_setup_room_ble_source
         state: "setup-room-tracker"
+      - name: Fan Room Illuminance
+        unique_id: ma_dev_fan_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.fan_room_lux') | float(0) }}"
+      - name: Fan Room Humidity
+        unique_id: ma_dev_fan_room_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        availability: "{{ is_state('input_select.fan_room_humidity_availability', 'available') }}"
+        state: "{{ states('input_number.fan_room_humidity') | float(45) }}"
+      - name: Fan Room VOC
+        unique_id: ma_dev_fan_room_voc
+        state_class: measurement
+        unit_of_measurement: ppb
+        availability: "{{ is_state('input_select.fan_room_voc_availability', 'available') }}"
+        state: "{{ states('input_number.fan_room_voc') | float(0) }}"
+      - name: Cover Room Illuminance
+        unique_id: ma_dev_cover_room_illuminance
+        device_class: illuminance
+        state_class: measurement
+        unit_of_measurement: lx
+        state: "{{ states('input_number.cover_room_lux') | float(0) }}"
       - name: Outdoor Illuminance
         unique_id: ma_dev_outdoor_illuminance
         device_class: illuminance
@@ -1225,6 +1360,19 @@ template:
             target:
               entity_id:
                 - input_boolean.setup_room_fan_power
+      - unique_id: ma_dev_fan_room_exhaust
+        name: Fan Room Exhaust
+        state: "{{ is_state('input_boolean.fan_room_exhaust_power', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.fan_room_exhaust_power
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.fan_room_exhaust_power
   - cover:
       - unique_id: ma_dev_setup_room_blinds
         name: Setup Room Blinds
@@ -1245,6 +1393,139 @@ template:
             target:
               entity_id:
                 - input_boolean.setup_room_blinds_open
+      - unique_id: ma_dev_cover_room_blinds
+        name: Cover Room Blinds
+        device_class: blind
+        state: "{{ 'open' if is_state('input_boolean.cover_room_blinds_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_blinds_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_blinds_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_blinds_open
+      - unique_id: ma_dev_cover_room_shades
+        name: Cover Room Shades
+        device_class: shade
+        state: "{{ 'open' if is_state('input_boolean.cover_room_shades_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_shades_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_shades_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_shades_open
+      - unique_id: ma_dev_cover_room_curtains
+        name: Cover Room Curtains
+        device_class: curtain
+        state: "{{ 'open' if is_state('input_boolean.cover_room_curtains_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_curtains_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_curtains_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_curtains_open
+      - unique_id: ma_dev_cover_room_shutters
+        name: Cover Room Shutters
+        device_class: shutter
+        state: "{{ 'open' if is_state('input_boolean.cover_room_shutters_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_shutters_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_shutters_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_shutters_open
+      - unique_id: ma_dev_cover_room_window
+        name: Cover Room Window
+        device_class: window
+        state: "{{ 'open' if is_state('input_boolean.cover_room_window_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_window_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_window_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_window_open
+      - unique_id: ma_dev_cover_room_garage
+        name: Cover Room Garage
+        device_class: garage
+        state: "{{ 'open' if is_state('input_boolean.cover_room_garage_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_garage_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_garage_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_garage_open
+      - unique_id: ma_dev_cover_room_door
+        name: Cover Room Door
+        device_class: door
+        state: "{{ 'open' if is_state('input_boolean.cover_room_door_open', 'on') else 'closed' }}"
+        open_cover:
+          - action: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.cover_room_door_open
+        close_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_door_open
+        stop_cover:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - input_boolean.cover_room_door_open
 
 climate:
   - platform: generic_thermostat
