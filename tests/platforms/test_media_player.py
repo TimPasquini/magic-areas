@@ -42,10 +42,10 @@ from tests.helpers.assertions import (
     assert_in_attribute,
     assert_state,
 )
+from tests.helpers.entities import setup_mock_entities
 from tests.helpers import (
     get_basic_config_entry_data,
     init_integration as init_integration_helper,
-    setup_mock_entities,
     shutdown_integration,
 )
 from tests.mocks import MockBinarySensor, MockMediaPlayer

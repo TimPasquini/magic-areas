@@ -2188,6 +2188,13 @@ Test-helper extraction progress:
   `init_integration`, `shutdown_integration`,
   `get_basic_config_entry_data`, and `setup_mock_entities`. A manual CRG
   update refreshed the graph after the batch.
+- `6.2.9` entity batch: all `setup_mock_entities` callers now import directly
+  from `tests.helpers.entities`. The package facade remains available while
+  lifecycle and config-entry callers migrate.
+- The entity batch reduced facade-using files from `56` to `55`. Source search
+  now shows only `init_integration`, `shutdown_integration`, and
+  `get_basic_config_entry_data` entering through the facade. A manual CRG
+  update refreshed the graph to `387` files, `3593` nodes, and `27965` edges.
 
 #### 6.3. Test Helper Validation
 

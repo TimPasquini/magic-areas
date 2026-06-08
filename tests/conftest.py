@@ -37,10 +37,10 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
 from tests.helpers_timing import immediate_call_factory
+from tests.helpers.entities import setup_mock_entities
 from tests.helpers import (
     get_basic_config_entry_data,
     init_integration as init_integration_helper,
-    setup_mock_entities,
     shutdown_integration,
 )
 from tests.helpers.registries import setup_mock_areas

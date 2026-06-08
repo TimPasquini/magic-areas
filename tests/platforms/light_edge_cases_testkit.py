@@ -24,7 +24,7 @@ from custom_components.magic_areas.light_groups import (
     LightGroupRuntimeController,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import setup_mock_entities
+from tests.helpers.entities import setup_mock_entities
 from tests.mocks import MockBinarySensor, MockLight
 
 
