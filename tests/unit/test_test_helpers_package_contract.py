@@ -1,7 +1,14 @@
 """Contracts for the shared test-helper compatibility facade."""
 
 from tests import helpers
-from tests.helpers import assertions, config_entries, entities, lifecycle, waits
+from tests.helpers import (
+    assertions,
+    config_entries,
+    entities,
+    lifecycle,
+    services,
+    waits,
+)
 
 
 def test_assertion_helpers_are_exact_compatibility_reexports() -> None:
@@ -42,3 +49,8 @@ def test_entity_helpers_are_exact_compatibility_reexports() -> None:
     assert helpers.mock_integration is entities.mock_integration
     assert helpers.mock_platform is entities.mock_platform
     assert helpers.setup_mock_entities is entities.setup_mock_entities
+
+
+def test_service_helpers_are_exact_compatibility_reexports() -> None:
+    """Legacy imports should resolve to the extracted service functions."""
+    assert helpers.async_mock_service is services.async_mock_service

@@ -2053,7 +2053,7 @@ Test-helper preparation progress:
 - [x] `6.2.3` Extract config-entry builders.
 - [x] `6.2.4` Extract lifecycle helpers.
 - [x] `6.2.5` Extract entity setup helpers.
-- `6.2.6` Extract service helpers.
+- [x] `6.2.6` Extract service helpers.
 - `6.2.7` Extract registry helpers.
 - `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
 - `6.2.9` Reduce the remaining package facade to compatibility re-exports or
@@ -2107,6 +2107,13 @@ Test-helper extraction progress:
 - Entity-helper validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `371` source files, and pytest passed `1420` tests in
   `44.74s`.
+- `6.2.6`: complete. `async_mock_service` moved unchanged to
+  `tests/helpers/services.py` and remains available from `tests.helpers`
+  through an exact compatibility re-export. The direct facade contract covers
+  the extracted service helper.
+- Service-helper validation passed `./scripts/validate.sh`: Ruff passed, mypy
+  found no issues across `372` source files, and pytest passed `1421` tests in
+  `47.80s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.
