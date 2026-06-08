@@ -2055,14 +2055,16 @@ Test-helper preparation progress:
 - `6.2.5` Extract entity setup helpers.
 - `6.2.6` Extract service helpers.
 - `6.2.7` Extract registry helpers.
-- `6.2.8` Audit remaining `tests/helpers.py`.
-- `6.2.9` Convert remaining file to compatibility re-export or delete.
+- `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
+- `6.2.9` Reduce the remaining package facade to compatibility re-exports or
+  delete it after imports migrate.
 
 Test-helper extraction progress:
 
-- `6.2.1`: complete. `tests/helpers.py` was converted to the compatibility
-  package `tests/helpers/__init__.py`, and `assert_state`,
-  `assert_attribute`, and `assert_in_attribute` moved unchanged to
+- `6.2.1`: complete. The package conversion required by the target structure
+  occurred before the first family move: `tests/helpers.py` became the
+  compatibility facade `tests/helpers/__init__.py`. `assert_state`,
+  `assert_attribute`, and `assert_in_attribute` then moved unchanged to
   `tests/helpers/assertions.py`. Existing `from tests.helpers import ...`
   imports remain supported.
 - Assertion-family validation passed `./scripts/validate.sh`: Ruff passed,
@@ -2075,6 +2077,17 @@ Test-helper extraction progress:
 - Wait-family validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `367` source files, and pytest passed `1415` tests in
   `39.96s`.
+- Post-extraction audit corrected the first batch to restore the original
+  assertion guards, comments, and helper documentation exactly. Direct
+  contract tests now verify that every extracted assertion and wait helper is
+  the same function object exported by the `tests.helpers` compatibility
+  facade.
+- Corrective validation passed `./scripts/validate.sh`: Ruff passed, mypy found
+  no issues across `368` source files, and pytest passed `1417` tests in
+  `40.32s`.
+- `6.2.9` remains open, but its scope is now explicit: after the remaining
+  families move, reduce `tests/helpers/__init__.py` to re-exports only or
+  remove the facade if all callers have migrated.
 
 #### 6.3. Test Helper Validation
 

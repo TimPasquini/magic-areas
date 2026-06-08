@@ -1,44 +1,8 @@
-"""Common test helpers for magic-areas integration.
+"""Compatibility facade for shared Magic Areas test helpers.
 
-This module provides comprehensive testing utilities organized into functional categories:
-
-MODULE ORGANIZATION:
-    1. Integration Setup Helpers: Configure and initialize the magic-areas integration
-       - setup_test_component_platform: Create mock test component platforms
-       - mock_integration: Register mock integrations in Home Assistant
-       - mock_platform: Register mock platforms for testing
-       - async_mock_service: Set up fake services with call logging
-
-    2. Test Setup Helpers: Initialization and teardown of full test environments
-       - init_integration: Set up areas, registries, and config entries
-       - shutdown_integration: Cleanly unload the integration
-       - setup_mock_entities: Register mock entities with areas
-
-    3. Async/Timing Helpers: Manage asyncio virtual time for deterministic testing
-       - VirtualClock: Virtual clock class for time-based tests
-
-    4. Configuration Helpers: Create and manage test configuration
-       - get_basic_config_entry_data: Generate default config entry data
-
-    5. State Management Helpers: Verify and wait for entity state changes
-       - assert_state: Verify an entity's current state
-       - assert_attribute: Check specific entity attributes
-       - assert_in_attribute: Verify attribute contains expected value
-       - wait_for_state: Async wait for entity state change
-       - immediate_call_factory: Create timer callback factories
-
-USAGE PATTERNS:
-    - Fixtures use init_integration() to set up the full test environment with areas
-    - Mock entities are created with setup_mock_entities() for component testing
-    - State assertions use assert_state() and wait_for_state() for verification
-    - Virtual clock enables deterministic timing tests without real delays
-
-INTEGRATION FLOW:
-    1. Use setup_test_component_platform() to register mock component platforms
-    2. Use init_integration() to initialize areas, registries, and config entries
-    3. Use setup_mock_entities() to register mock entities in specified areas
-    4. Use assert_state() and wait_for_state() to verify entity state changes
-    5. Use shutdown_integration() to cleanly unload and verify cleanup
+Responsibility-focused implementations live in sibling modules such as
+``assertions`` and ``waits``. Existing ``from tests.helpers import ...`` imports
+remain supported while the remaining helper families are extracted.
 """
 
 import logging

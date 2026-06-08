@@ -18,7 +18,36 @@ from tests.helpers.assertions import assert_state
 async def wait_for_state(
     hass: HomeAssistant, entity_id: str, expected_state: str
 ) -> None:
-    """Wait for an entity to reach a specific state."""
+    """Wait for an entity to reach a specific state, with timeout.
+
+    Asynchronously waits for an entity to transition to an expected state.
+    This is useful for testing state changes that happen asynchronously (e.g.,
+    after a service call or automation trigger). The function subscribes to
+    state-change events and waits up to 2 seconds.
+
+    Args:
+        hass: The Home Assistant instance.
+        entity_id: The entity ID to monitor (e.g., 'light.kitchen',
+            'binary_sensor.occupancy').
+        expected_state: The state value to wait for (e.g., 'on', 'off', '25').
+
+    Raises:
+        AssertionError: If the entity doesn't reach the expected state within
+            the timeout (2 seconds).
+
+    Note:
+        The timeout is 2 seconds. If you need longer waits, use VirtualClock
+        for deterministic timing tests.
+
+    Example:
+        Wait for a light to turn on after calling a service:
+
+        >>> hass.async_create_task(
+        ...     hass.services.async_call("light", "turn_on", ...)
+        ... )
+        >>> await wait_for_state(hass, "light.kitchen", "on")
+
+    """
     state = hass.states.get(entity_id)
     if state and state.state == expected_state:
         return
@@ -43,7 +72,9 @@ async def wait_for_state(
         unsub()
     await hass.async_block_till_done()
 
-    assert_state(hass.states.get(entity_id), expected_state)
+    # Final check to raise assertion error if still not matching
+    state = hass.states.get(entity_id)
+    assert_state(state, expected_state)
 
 
 async def wait_until(
@@ -52,7 +83,7 @@ async def wait_until(
     *,
     timeout: float = 2.0,
 ) -> None:
-    """Wait until a predicate succeeds while draining the Home Assistant loop."""
+    """Wait until predicate returns True while draining the HA loop."""
     deadline = monotonic() + timeout
     while monotonic() < deadline:
         if predicate():
