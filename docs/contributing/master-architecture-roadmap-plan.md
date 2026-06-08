@@ -2052,7 +2052,7 @@ Test-helper preparation progress:
 - [x] `6.2.2` Extract wait helpers.
 - [x] `6.2.3` Extract config-entry builders.
 - [x] `6.2.4` Extract lifecycle helpers.
-- `6.2.5` Extract entity setup helpers.
+- [x] `6.2.5` Extract entity setup helpers.
 - `6.2.6` Extract service helpers.
 - `6.2.7` Extract registry helpers.
 - `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
@@ -2099,6 +2099,14 @@ Test-helper extraction progress:
 - Lifecycle validation passed `./scripts/validate.sh`: Ruff passed, mypy found
   no issues across `370` source files, and pytest passed `1419` tests in
   `40.25s`.
+- `6.2.5`: complete. `setup_test_component_platform`, `mock_integration`,
+  `mock_platform`, and `setup_mock_entities` moved unchanged to
+  `tests/helpers/entities.py` as the complete entity-platform setup dependency
+  closure. Existing imports remain supported through exact compatibility
+  re-exports, with direct facade identity contracts for all four functions.
+- Entity-helper validation passed `./scripts/validate.sh`: Ruff passed, mypy
+  found no issues across `371` source files, and pytest passed `1420` tests in
+  `44.74s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.
