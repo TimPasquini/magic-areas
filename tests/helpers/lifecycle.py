@@ -3,15 +3,13 @@
 import logging
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import ATTR_FLOOR_ID
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.area_registry import async_get as async_get_ar
-from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.const import DOMAIN
-from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
+from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
+from tests.helpers.registries import setup_mock_areas
 
 _LOGGER = logging.getLogger("tests.helpers")
 
@@ -64,23 +62,7 @@ async def init_integration(
     if not areas:
         areas = [DEFAULT_MOCK_AREA]
 
-    area_registry = async_get_ar(hass)
-    floor_registry = async_get_fr(hass)
-
-    # Register areas
-    for area in areas:
-        area_object = MOCK_AREAS[area]
-        floor_id: str | None = None
-
-        if area_object[ATTR_FLOOR_ID]:
-            assert area_object[ATTR_FLOOR_ID] is not None
-            floor_name = str(area_object[ATTR_FLOOR_ID])
-            floor_entry = floor_registry.async_get_floor_by_name(floor_name)
-            if not floor_entry:
-                floor_entry = floor_registry.async_create(floor_name)
-            assert floor_entry is not None
-            floor_id = floor_entry.floor_id
-        area_registry.async_create(name=area.value, floor_id=floor_id)
+    setup_mock_areas(hass, areas)
 
     for config_entry in config_entries:
         if hass.config_entries.async_get_entry(config_entry.entry_id):

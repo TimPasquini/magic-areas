@@ -2054,7 +2054,7 @@ Test-helper preparation progress:
 - [x] `6.2.4` Extract lifecycle helpers.
 - [x] `6.2.5` Extract entity setup helpers.
 - [x] `6.2.6` Extract service helpers.
-- `6.2.7` Extract registry helpers.
+- [x] `6.2.7` Extract registry helpers.
 - `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
 - `6.2.9` Reduce the remaining package facade to compatibility re-exports or
   delete it after imports migrate.
@@ -2114,6 +2114,17 @@ Test-helper extraction progress:
 - Service-helper validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `372` source files, and pytest passed `1421` tests in
   `47.80s`.
+- `6.2.7`: complete. Shared mock area/floor registration moved to
+  `tests/helpers/registries.py`. `init_integration` and both duplicated
+  fixture setup paths now use `setup_mock_areas`, while preserving each
+  caller's existing area selection and meta-area filtering. Entity-to-area
+  registry assignment remains with entity setup in `tests/helpers/entities.py`;
+  scenario-specific device/entity registry operations remain test-local rather
+  than expanding the global helper surface.
+- Registry-helper tests cover shared-floor reuse, area floor assignment, and
+  areas without floors. Full validation passed `./scripts/validate.sh`: Ruff
+  passed, mypy found no issues across `374` source files, and pytest passed
+  `1423` tests in `46.18s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.

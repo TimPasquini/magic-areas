@@ -20,10 +20,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_FLOOR_ID
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.area_registry import async_get as async_get_ar
-from homeassistant.helpers.floor_registry import async_get as async_get_fr
 
 from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
@@ -46,6 +43,7 @@ from tests.helpers import (
     setup_mock_entities,
     shutdown_integration,
 )
+from tests.helpers.registries import setup_mock_areas
 from tests.mocks import MockBinarySensor, MockLight
 
 _LOGGER = logging.getLogger(__name__)
@@ -332,22 +330,8 @@ async def init_integration_fixture(
 ) -> AsyncGenerator[MockConfigEntry]:
     """Set up the integration."""
 
-    # Setup area registry
-    area_registry = async_get_ar(hass)
-    floor_registry = async_get_fr(hass)
-
     # We assume DEFAULT_MOCK_AREA for the basic mock_config_entry
-    area = DEFAULT_MOCK_AREA
-    area_object = MOCK_AREAS[area]
-    floor_id: str | None = None
-
-    if area_object[ATTR_FLOOR_ID]:
-        floor_name = str(area_object[ATTR_FLOOR_ID])
-        floor_entry = floor_registry.async_get_floor_by_name(floor_name)
-        if not floor_entry:
-            floor_entry = floor_registry.async_create(floor_name)
-        floor_id = floor_entry.floor_id
-    area_registry.async_create(name=area.value, floor_id=floor_id)
+    setup_mock_areas(hass, [DEFAULT_MOCK_AREA])
 
     if not hass.config_entries.async_get_entry(mock_config_entry.entry_id):
         mock_config_entry.add_to_hass(hass)
@@ -395,24 +379,15 @@ async def init_integration_all_areas(
 ) -> AsyncGenerator[list[MockConfigEntry]]:
     """Set up integration with all areas and meta-areas."""
 
-    area_registry = async_get_ar(hass)
-    floor_registry = async_get_fr(hass)
-
     # Create areas in registry
-    for area_enum in MockAreaIds:
-        area_object = MOCK_AREAS[area_enum]
-        if area_object[CONF_TYPE] == AreaType.META:
-            continue
-
-        floor_id: str | None = None
-        if area_object[ATTR_FLOOR_ID]:
-            floor_name = str(area_object[ATTR_FLOOR_ID])
-            floor_entry = floor_registry.async_get_floor_by_name(floor_name)
-            if not floor_entry:
-                floor_entry = floor_registry.async_create(floor_name)
-            floor_id = floor_entry.floor_id
-
-        area_registry.async_create(name=area_enum.value, floor_id=floor_id)
+    setup_mock_areas(
+        hass,
+        [
+            area_enum
+            for area_enum in MockAreaIds
+            if MOCK_AREAS[area_enum][CONF_TYPE] != AreaType.META
+        ],
+    )
 
     # Add and setup all config entries
     for entry in all_areas_with_meta_config_entry:
