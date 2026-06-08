@@ -2026,14 +2026,30 @@ Post-Phase 5 roadmap integrity audit on 2026-06-07:
 
 #### 6.1. Preparation
 
-- `6.1.1` Rebuild CRG before test-helper cleanup.
-- `6.1.2` Identify all imports of `tests.helpers`.
-- `6.1.3` Decide whether first pass keeps compatibility re-exports.
+- [x] `6.1.1` Rebuild CRG before test-helper cleanup.
+- [x] `6.1.2` Identify all imports of `tests.helpers`.
+- [x] `6.1.3` Decide whether first pass keeps compatibility re-exports.
+
+Test-helper preparation progress:
+
+- `6.1.1`: complete. The pre-extraction CRG rebuild indexed `377` files,
+  `3551` nodes, and `27657` edges. `assert_state` was the largest hub at degree
+  `458`; `shutdown_integration`, `wait_for_state`,
+  `get_basic_config_entry_data`, and `setup_mock_entities` were also major
+  helper hubs or bridges.
+- `6.1.2`: complete. Imports span conftest, scenario, snapshot, integration,
+  platform, and unit suites. The most imported symbols are `init_integration`
+  (`47` import sites), `get_basic_config_entry_data` and
+  `shutdown_integration` (`46` each), `setup_mock_entities` (`24`), and
+  `assert_state` (`23`).
+- `6.1.3`: complete. The first pass keeps explicit compatibility re-exports
+  from `tests.helpers` while implementation moves into responsibility-focused
+  modules. This avoids broad import churn during semantic-preserving moves.
 
 #### 6.2. Helper Family Extraction
 
-- `6.2.1` Extract assertion helpers.
-- `6.2.2` Extract wait helpers.
+- [x] `6.2.1` Extract assertion helpers.
+- [x] `6.2.2` Extract wait helpers.
 - `6.2.3` Extract config-entry builders.
 - `6.2.4` Extract lifecycle helpers.
 - `6.2.5` Extract entity setup helpers.
@@ -2041,6 +2057,24 @@ Post-Phase 5 roadmap integrity audit on 2026-06-07:
 - `6.2.7` Extract registry helpers.
 - `6.2.8` Audit remaining `tests/helpers.py`.
 - `6.2.9` Convert remaining file to compatibility re-export or delete.
+
+Test-helper extraction progress:
+
+- `6.2.1`: complete. `tests/helpers.py` was converted to the compatibility
+  package `tests/helpers/__init__.py`, and `assert_state`,
+  `assert_attribute`, and `assert_in_attribute` moved unchanged to
+  `tests/helpers/assertions.py`. Existing `from tests.helpers import ...`
+  imports remain supported.
+- Assertion-family validation passed `./scripts/validate.sh`: Ruff passed,
+  mypy found no issues across `366` source files, and pytest passed `1415`
+  tests in `40.73s`.
+- `6.2.2`: complete. `wait_for_state`, `wait_until`, and
+  `wait_for_attribute` moved unchanged to `tests/helpers/waits.py` and remain
+  available from `tests.helpers`. `drain_hass` remains for the lifecycle
+  extraction in `6.2.4`.
+- Wait-family validation passed `./scripts/validate.sh`: Ruff passed, mypy
+  found no issues across `367` source files, and pytest passed `1415` tests in
+  `39.96s`.
 
 #### 6.3. Test Helper Validation
 

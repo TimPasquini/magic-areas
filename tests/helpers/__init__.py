@@ -41,11 +41,9 @@ INTEGRATION FLOW:
     5. Use shutdown_integration() to cleanly unload and verify cleanup
 """
 
-import asyncio
 import logging
 import pathlib
-from time import monotonic
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import NoReturn, cast
 from unittest.mock import Mock
 
@@ -54,12 +52,9 @@ from homeassistant import loader
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_FLOOR_ID, ATTR_NAME, CONF_PLATFORM
 from homeassistant.core import (
-    Event,
-    EventStateChangedData,
     HomeAssistant,
     ServiceCall,
     ServiceResponse,
-    State,
     SupportsResponse,
     callback,
 )
@@ -67,7 +62,6 @@ from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity_registry import async_get as async_get_er
-from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.floor_registry import async_get as async_get_fr
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.setup import async_setup_component
@@ -91,6 +85,16 @@ from custom_components.magic_areas.defaults import (
 )
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
 from tests import helpers_timing as _helpers_timing
+from tests.helpers.assertions import (
+    assert_attribute as assert_attribute,
+    assert_in_attribute as assert_in_attribute,
+    assert_state as assert_state,
+)
+from tests.helpers.waits import (
+    wait_for_attribute as wait_for_attribute,
+    wait_for_state as wait_for_state,
+    wait_until as wait_until,
+)
 from tests.mocks import MockModule, MockPlatform
 
 _LOGGER = logging.getLogger(__name__)
@@ -642,245 +646,10 @@ def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, object]:
     return data
 
 
-# ============================================================================
-# STATE MANAGEMENT HELPERS
-# ============================================================================
-# Helpers for verifying and waiting for entity state changes.
-
-
-def assert_state(entity_state: State | None, expected_value: str) -> None:
-    """Assert that an entity's state matches an expected value.
-
-    Verifies that an entity exists and has the exact state specified. Use this
-    for immediate state checks after an action.
-
-    Args:
-        entity_state: The State object from hass.states.get(entity_id), or None
-            if the entity doesn't exist.
-        expected_value: The expected state value as a string (e.g., 'on', 'off',
-            '20' for temperature, 'unknown').
-
-    Raises:
-        AssertionError: If entity_state is None or state doesn't match
-            expected_value.
-
-    Example:
-        Verify a light is on:
-
-        >>> state = hass.states.get("light.kitchen")
-        >>> assert_state(state, "on")
-
-    """
-
-    assert entity_state is not None
-    assert entity_state.state == expected_value
-
-
-def assert_attribute(
-    entity_state: State | None, attribute_key: str, expected_value: str
-) -> None:
-    """Assert that an entity attribute equals an expected value.
-
-    Verifies that an entity has a specific attribute with an exact value. The
-    expected value is converted to a string for comparison, allowing type-
-    flexible assertions.
-
-    Args:
-        entity_state: The State object from hass.states.get(entity_id), or None
-            if the entity doesn't exist.
-        attribute_key: The name of the attribute to check (e.g., 'brightness',
-            'temperature', 'color_mode').
-        expected_value: The expected attribute value as a string.
-
-    Raises:
-        AssertionError: If entity_state is None, the attribute doesn't exist,
-            or the value doesn't match expected_value.
-
-    Example:
-        Verify light brightness:
-
-        >>> state = hass.states.get("light.bedroom")
-        >>> assert_attribute(state, "brightness", "200")
-
-    """
-
-    assert entity_state is not None
-    assert hasattr(entity_state, "attributes")
-    assert attribute_key in entity_state.attributes
-    assert str(entity_state.attributes[attribute_key]) == expected_value
-
-
-def assert_in_attribute(
-    entity_state: State | None,
-    attribute_key: str,
-    expected_value: str,
-    negate: bool = False,
-) -> None:
-    """Assert that an attribute contains (or doesn't contain) an expected value.
-
-    Verifies that a specific substring or item exists (or doesn't exist) in an
-    entity attribute. Useful for checking if a value is in a list or string
-    attribute.
-
-    Args:
-        entity_state: The State object from hass.states.get(entity_id), or None
-            if the entity doesn't exist.
-        attribute_key: The name of the attribute to check (e.g., 'supported_modes',
-            'friendly_name').
-        expected_value: The value to search for in the attribute.
-        negate: If True, assert the value is NOT in the attribute; if False,
-            assert it IS in the attribute. Default: False.
-
-    Raises:
-        AssertionError: If entity_state is None, the attribute doesn't exist,
-            or the value presence doesn't match the assertion.
-
-    Example:
-        Verify a device's supported modes:
-
-        >>> state = hass.states.get("climate.living_room")
-        >>> assert_in_attribute(state, "supported_modes", "heat")
-        >>> assert_in_attribute(state, "supported_modes", "cool")
-        >>> # Verify a mode is NOT supported:
-        >>> assert_in_attribute(state, "supported_modes", "auto", negate=True)
-
-    """
-
-    assert entity_state is not None
-    assert hasattr(entity_state, "attributes")
-    assert attribute_key in entity_state.attributes
-
-    if negate:
-        assert expected_value not in entity_state.attributes[attribute_key]
-    else:
-        assert expected_value in entity_state.attributes[attribute_key]
-
-
-async def wait_for_state(
-    hass: HomeAssistant, entity_id: str, expected_state: str
-) -> None:
-    """Wait for an entity to reach a specific state, with timeout.
-
-    Asynchronously waits for an entity to transition to an expected state.
-    This is useful for testing state changes that happen asynchronously (e.g.,
-    after a service call or automation trigger). The function subscribes to
-    state-change events and waits up to 2 seconds.
-
-    Args:
-        hass: The Home Assistant instance.
-        entity_id: The entity ID to monitor (e.g., 'light.kitchen',
-            'binary_sensor.occupancy').
-        expected_state: The state value to wait for (e.g., 'on', 'off', '25').
-
-    Raises:
-        AssertionError: If the entity doesn't reach the expected state within
-            the timeout (2 seconds).
-
-    Note:
-        The timeout is 2 seconds. If you need longer waits, use VirtualClock
-        for deterministic timing tests.
-
-    Example:
-        Wait for a light to turn on after calling a service:
-
-        >>> hass.async_create_task(
-        ...     hass.services.async_call("light", "turn_on", ...)
-        ... )
-        >>> await wait_for_state(hass, "light.kitchen", "on")
-
-    """
-    state = hass.states.get(entity_id)
-    if state and state.state == expected_state:
-        return
-
-    state_reached = asyncio.get_running_loop().create_future()
-
-    @callback
-    def _on_state_change(event: Event[EventStateChangedData]) -> None:
-        new_state = event.data.get("new_state")
-        if not new_state or new_state.state != expected_state:
-            return
-        if not state_reached.done():
-            state_reached.set_result(None)
-
-    unsub = async_track_state_change_event(hass, [entity_id], _on_state_change)
-    state = hass.states.get(entity_id)
-    if state and state.state == expected_state and not state_reached.done():
-        state_reached.set_result(None)
-    try:
-        await asyncio.wait_for(state_reached, timeout=2.0)
-    finally:
-        unsub()
-    await hass.async_block_till_done()
-
-    # Final check to raise assertion error if still not matching
-    state = hass.states.get(entity_id)
-    assert_state(state, expected_state)
-
-
 async def drain_hass(hass: HomeAssistant, *, cycles: int = 2) -> None:
     """Flush pending loop work without real-time sleeps."""
     for _ in range(cycles):
         await hass.async_block_till_done()
-
-
-async def wait_until(
-    hass: HomeAssistant,
-    predicate: Callable[[], bool],
-    *,
-    timeout: float = 2.0,
-) -> None:
-    """Wait until predicate returns True while draining the HA loop."""
-    deadline = monotonic() + timeout
-    while monotonic() < deadline:
-        if predicate():
-            return
-        await hass.async_block_till_done()
-    raise AssertionError("Timed out waiting for expected condition")
-
-
-async def wait_for_attribute(
-    hass: HomeAssistant,
-    entity_id: str,
-    attribute_key: str,
-    expected_value: object,
-    *,
-    timeout: float = 2.0,
-) -> None:
-    """Wait for an entity attribute to reach an expected value."""
-    state = hass.states.get(entity_id)
-    if state and state.attributes.get(attribute_key) == expected_value:
-        return
-
-    attribute_reached = asyncio.get_running_loop().create_future()
-
-    @callback
-    def _on_state_change(event: Event[EventStateChangedData]) -> None:
-        new_state = event.data.get("new_state")
-        if not new_state:
-            return
-        if new_state.attributes.get(attribute_key) != expected_value:
-            return
-        if not attribute_reached.done():
-            attribute_reached.set_result(None)
-
-    unsub = async_track_state_change_event(hass, [entity_id], _on_state_change)
-    state = hass.states.get(entity_id)
-    if (
-        state
-        and state.attributes.get(attribute_key) == expected_value
-        and not attribute_reached.done()
-    ):
-        attribute_reached.set_result(None)
-    try:
-        await asyncio.wait_for(attribute_reached, timeout=timeout)
-    finally:
-        unsub()
-    await hass.async_block_till_done()
-
-    state = hass.states.get(entity_id)
-    assert state is not None
-    assert state.attributes.get(attribute_key) == expected_value
 
 
 # Timing/callback/event payload helpers are re-exported from

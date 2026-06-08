@@ -8,7 +8,7 @@ This directory contains the integration's automated test suite.
 tests/
 ├── conftest.py            # Shared fixtures and integration setup helpers
 ├── const.py               # Test constants and common area definitions
-├── helpers.py             # Test utilities used across suites
+├── helpers/               # Responsibility-focused shared test utilities
 ├── mocks.py               # Mock entity implementations
 ├── unit/                  # Pure/core contract tests
 ├── integration/           # Config-entry, coordinator, lifecycle tests
