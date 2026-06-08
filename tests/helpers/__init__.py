@@ -14,7 +14,7 @@ from unittest.mock import Mock
 import voluptuous as vol
 from homeassistant import loader
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.const import ATTR_FLOOR_ID, ATTR_NAME, CONF_PLATFORM
+from homeassistant.const import ATTR_FLOOR_ID, CONF_PLATFORM
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -31,21 +31,8 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys.area import (
-    CONF_CLEAR_TIMEOUT,
-    CONF_ENABLED_FEATURES,
-    CONF_EXCLUDE_ENTITIES,
-    CONF_EXTENDED_TIMEOUT,
-    CONF_ID,
-    CONF_INCLUDE_ENTITIES,
-    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
-    CONF_TYPE,
-)
 from custom_components.magic_areas.const import (
     DOMAIN,
-)
-from custom_components.magic_areas.defaults import (
-    DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
 )
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
 from tests import helpers_timing as _helpers_timing
@@ -53,6 +40,9 @@ from tests.helpers.assertions import (
     assert_attribute as assert_attribute,
     assert_in_attribute as assert_in_attribute,
     assert_state as assert_state,
+)
+from tests.helpers.config_entries import (
+    get_basic_config_entry_data as get_basic_config_entry_data,
 )
 from tests.helpers.waits import (
     wait_for_attribute as wait_for_attribute,
@@ -548,66 +538,6 @@ async def setup_mock_entities(
                 area_id=entity_area_map[entity.unique_id].value,
             )
     await hass.async_block_till_done()
-
-
-# ============================================================================
-# CONFIGURATION HELPERS
-# ============================================================================
-# Helpers to create and manage test configuration.
-
-
-def get_basic_config_entry_data(area_id: MockAreaIds) -> dict[str, object]:
-    """Create basic config entry data for a test area.
-
-    Generates a minimal but valid configuration dictionary for an area that
-    can be used with MockConfigEntry. This is the primary factory function
-    for creating test configurations.
-
-    Args:
-        area_id: The MockAreaIds enum value identifying the area.
-
-    Returns:
-        dict[str, Any]: A configuration dictionary with:
-            - ATTR_NAME: Human-readable area name
-            - CONF_ID: Area ID string
-            - CONF_CLEAR_TIMEOUT: Timeout in seconds (set to 0 for testing)
-            - CONF_EXTENDED_TIMEOUT: Extended timeout in seconds (5 seconds)
-            - CONF_TYPE: Area type from MOCK_AREAS
-            - CONF_EXCLUDE_ENTITIES: Empty list (no excluded entities)
-            - CONF_INCLUDE_ENTITIES: Empty list (no extra entities)
-            - CONF_PRESENCE_SENSOR_DEVICE_CLASS: Default presence sensor class
-            - CONF_ENABLED_FEATURES: Empty dict (can add features later)
-
-    Raises:
-        AssertionError: If the area_id is not found in MOCK_AREAS.
-
-    Example:
-        Create a config entry for the bedroom area:
-
-        >>> config_data = get_basic_config_entry_data(MockAreaIds.BEDROOM)
-        >>> config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-        >>> # Now add features to config_data if needed
-        >>> config_data[CONF_ENABLED_FEATURES] = {CONF_FEATURE_LIGHT_GROUPS: {...}}
-
-    """
-
-    area_data = MOCK_AREAS.get(area_id, None)
-
-    assert area_data is not None
-
-    data = {
-        ATTR_NAME: area_id.title(),
-        CONF_ID: area_id.value,
-        CONF_CLEAR_TIMEOUT: 0,
-        CONF_EXTENDED_TIMEOUT: 5,
-        CONF_TYPE: area_data[CONF_TYPE],
-        CONF_EXCLUDE_ENTITIES: [],
-        CONF_INCLUDE_ENTITIES: [],
-        CONF_PRESENCE_SENSOR_DEVICE_CLASS: DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
-        CONF_ENABLED_FEATURES: {},
-    }
-
-    return data
 
 
 async def drain_hass(hass: HomeAssistant, *, cycles: int = 2) -> None:

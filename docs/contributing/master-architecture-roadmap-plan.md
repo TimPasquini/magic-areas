@@ -2050,7 +2050,7 @@ Test-helper preparation progress:
 
 - [x] `6.2.1` Extract assertion helpers.
 - [x] `6.2.2` Extract wait helpers.
-- `6.2.3` Extract config-entry builders.
+- [x] `6.2.3` Extract config-entry builders.
 - `6.2.4` Extract lifecycle helpers.
 - `6.2.5` Extract entity setup helpers.
 - `6.2.6` Extract service helpers.
@@ -2085,6 +2085,12 @@ Test-helper extraction progress:
 - Corrective validation passed `./scripts/validate.sh`: Ruff passed, mypy found
   no issues across `368` source files, and pytest passed `1417` tests in
   `40.32s`.
+- `6.2.3`: complete. `get_basic_config_entry_data` moved unchanged to
+  `tests/helpers/config_entries.py` and remains available from
+  `tests.helpers`. The direct facade contract now verifies the re-export.
+- Config-entry validation passed `./scripts/validate.sh`: Ruff passed, mypy
+  found no issues across `369` source files, and pytest passed `1418` tests in
+  `39.90s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.
