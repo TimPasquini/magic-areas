@@ -1,6 +1,7 @@
 """Contracts for the shared test-helper compatibility facade."""
 
 from tests import helpers
+from tests import helpers_timing
 from tests.helpers import (
     assertions,
     config_entries,
@@ -9,6 +10,32 @@ from tests.helpers import (
     services,
     waits,
 )
+
+EXPECTED_COMPATIBILITY_EXPORTS = {
+    "VirtualClock",
+    "assert_attribute",
+    "assert_in_attribute",
+    "assert_state",
+    "async_mock_service",
+    "create_area_state_change_event",
+    "drain_hass",
+    "get_basic_config_entry_data",
+    "immediate_call_factory",
+    "init_integration",
+    "mock_integration",
+    "mock_platform",
+    "setup_mock_entities",
+    "setup_test_component_platform",
+    "shutdown_integration",
+    "wait_for_attribute",
+    "wait_for_state",
+    "wait_until",
+}
+
+
+def test_compatibility_facade_has_an_explicit_public_surface() -> None:
+    """The audited facade should expose only intentional compatibility names."""
+    assert set(helpers.__all__) == EXPECTED_COMPATIBILITY_EXPORTS
 
 
 def test_assertion_helpers_are_exact_compatibility_reexports() -> None:
@@ -54,3 +81,13 @@ def test_entity_helpers_are_exact_compatibility_reexports() -> None:
 def test_service_helpers_are_exact_compatibility_reexports() -> None:
     """Legacy imports should resolve to the extracted service functions."""
     assert helpers.async_mock_service is services.async_mock_service
+
+
+def test_timing_helpers_are_exact_compatibility_reexports() -> None:
+    """Legacy imports should resolve to the timing helper implementations."""
+    assert helpers.VirtualClock is helpers_timing.VirtualClock
+    assert (
+        helpers.create_area_state_change_event
+        is helpers_timing.create_area_state_change_event
+    )
+    assert helpers.immediate_call_factory is helpers_timing.immediate_call_factory

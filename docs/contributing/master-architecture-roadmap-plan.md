@@ -2055,7 +2055,7 @@ Test-helper preparation progress:
 - [x] `6.2.5` Extract entity setup helpers.
 - [x] `6.2.6` Extract service helpers.
 - [x] `6.2.7` Extract registry helpers.
-- `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
+- [x] `6.2.8` Audit remaining `tests/helpers/__init__.py` facade.
 - `6.2.9` Reduce the remaining package facade to compatibility re-exports or
   delete it after imports migrate.
 
@@ -2125,6 +2125,21 @@ Test-helper extraction progress:
   areas without floors. Full validation passed `./scripts/validate.sh`: Ruff
   passed, mypy found no issues across `374` source files, and pytest passed
   `1423` tests in `46.18s`.
+- `6.2.8`: complete. The remaining `tests/helpers/__init__.py` facade defines
+  no functions or classes and contains only compatibility re-exports. Its
+  public surface is now explicit through `__all__`, covering `18` established
+  helper names. Direct contracts verify the complete export set and exact
+  function/class identity, including the three timing helpers that previously
+  lacked facade coverage.
+- The audit found that the facade remains heavily used: `init_integration`,
+  `get_basic_config_entry_data`, and `shutdown_integration` each have at least
+  `46` import sites, with other helper families also imported broadly.
+  Therefore caller migration or facade deletion remains isolated to `6.2.9`;
+  `setup_mock_areas` intentionally remains a direct registry-module import
+  rather than expanding the compatibility API.
+- Facade-audit validation passed `./scripts/validate.sh`: Ruff passed, mypy
+  found no issues across `374` source files, and pytest passed `1425` tests in
+  `48.42s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.
