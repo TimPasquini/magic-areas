@@ -2140,18 +2140,30 @@ Test-helper extraction progress:
 - Facade-audit validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `374` source files, and pytest passed `1425` tests in
   `48.42s`.
-- Post-audit hardening corrected the skipped behavioral contracts across
-  `6.2.1` through `6.2.8`. Wait timeouts now consistently raise
-  `AssertionError` and accept explicit timeout values; entity setup rejects
-  duplicate unique IDs and verifies registry creation and area assignment;
-  direct tests cover assertion, wait, service, platform setup, config builder,
-  entity setup, and registry failure branches. Unused compatibility exports
-  (`VirtualClock`, `setup_test_component_platform`, `mock_integration`, and
-  `mock_platform`) were removed from the facade while their internal
-  implementations remain available from their responsibility modules.
-- `6.2.9` remains open, but its scope is now explicit: after the remaining
-  families move, reduce `tests/helpers/__init__.py` to re-exports only or
-  remove the facade if all callers have migrated.
+- Post-extraction hardening for `6.2.1` through `6.2.8` is complete.
+- `6.2.1` through `6.2.8` hardening: direct behavioral and facade-contract
+  tests now cover the extracted assertion, wait, config-entry,
+  lifecycle-adjacent platform setup, entity setup, service, registry, and
+  compatibility-export contracts, including failure paths.
+- `6.2.2` hardening: `wait_for_state` and `wait_for_attribute` now accept
+  explicit timeout values, consistently convert timeout failures to
+  `AssertionError`, and are tested for listener cleanup.
+- `6.2.3` hardening: the stale `MockAreaIds.BEDROOM` documentation example now
+  uses the valid `MockAreaIds.MASTER_BEDROOM` identifier.
+- `6.2.5` hardening: `setup_mock_entities` now rejects duplicate unique IDs and
+  verifies both registry-entry creation and persisted area assignment.
+- `6.2.7` hardening: the roadmap and implementation boundary now define
+  `registries.py` as shared area/floor setup only; scenario-specific
+  device/entity registry mutations remain local unless repetition justifies a
+  narrow helper.
+- `6.2.9` partial progress: the unused compatibility-export decision is
+  complete. `VirtualClock`, `setup_test_component_platform`,
+  `mock_integration`, and `mock_platform` were removed from the package facade
+  while their implementations remain available from their responsibility
+  modules.
+- `6.2.9` remains open only for migrating the actively used facade imports and
+  then either retaining `tests/helpers/__init__.py` as a minimal compatibility
+  facade or deleting it once no callers require it.
 
 #### 6.3. Test Helper Validation
 
