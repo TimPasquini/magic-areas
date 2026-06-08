@@ -19,8 +19,8 @@ from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers.assertions import assert_state
 from tests.helpers.waits import wait_for_state
+from tests.helpers.services import async_mock_service
 from tests.helpers import (
-    async_mock_service,
     init_integration as init_integration_helper,
     shutdown_integration,
 )

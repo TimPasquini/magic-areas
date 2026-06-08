@@ -255,7 +255,7 @@ async def test_setup_mock_entities_fails_when_registry_entry_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Entity setup should fail if HA does not create a registry entry."""
-    from tests.helpers import entities as entity_helpers
+    import tests.helpers.entities as entity_helpers
 
     class MissingRegistry:
         def async_get(self, entity_id: str) -> None:
@@ -281,7 +281,7 @@ async def test_setup_mock_entities_fails_when_area_assignment_does_not_stick(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Entity setup should verify the registry accepted the area update."""
-    from tests.helpers import entities as entity_helpers
+    import tests.helpers.entities as entity_helpers
 
     class NoopUpdateRegistry:
         def __init__(self) -> None:

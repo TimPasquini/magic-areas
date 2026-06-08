@@ -2178,6 +2178,16 @@ Test-helper extraction progress:
 - The assertion/wait batch reduced files importing from the facade from `76`
   to `59`. A manual incremental CRG update processed `39` changed files and
   refreshed the graph to `387` files, `3593` nodes, and `27943` edges.
+- `6.2.9` utility/submodule batch: callers of `async_mock_service` and
+  `drain_hass` now import from their service and lifecycle modules; callers of
+  `immediate_call_factory` and `create_area_state_change_event` now import
+  from `tests.helpers_timing`. Helper contract tests now import responsibility
+  modules directly instead of retrieving modules through the package facade.
+- The utility/submodule batch reduced facade-using files from `59` to `56`.
+  Source search now shows only four facade-export names in active use:
+  `init_integration`, `shutdown_integration`,
+  `get_basic_config_entry_data`, and `setup_mock_entities`. A manual CRG
+  update refreshed the graph after the batch.
 
 #### 6.3. Test Helper Validation
 

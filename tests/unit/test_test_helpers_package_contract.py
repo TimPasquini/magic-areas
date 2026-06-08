@@ -2,14 +2,12 @@
 
 from tests import helpers
 from tests import helpers_timing
-from tests.helpers import (
-    assertions,
-    config_entries,
-    entities,
-    lifecycle,
-    services,
-    waits,
-)
+import tests.helpers.assertions as assertions
+import tests.helpers.config_entries as config_entries
+import tests.helpers.entities as entities
+import tests.helpers.lifecycle as lifecycle
+import tests.helpers.services as services
+import tests.helpers.waits as waits
 
 EXPECTED_COMPATIBILITY_EXPORTS = {
     "assert_attribute",
