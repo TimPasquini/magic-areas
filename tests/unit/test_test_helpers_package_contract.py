@@ -1,7 +1,7 @@
 """Contracts for the shared test-helper compatibility facade."""
 
 from tests import helpers
-from tests.helpers import assertions, config_entries, waits
+from tests.helpers import assertions, config_entries, lifecycle, waits
 
 
 def test_assertion_helpers_are_exact_compatibility_reexports() -> None:
@@ -24,3 +24,10 @@ def test_config_entry_helpers_are_exact_compatibility_reexports() -> None:
         helpers.get_basic_config_entry_data
         is config_entries.get_basic_config_entry_data
     )
+
+
+def test_lifecycle_helpers_are_exact_compatibility_reexports() -> None:
+    """Legacy imports should resolve to the extracted lifecycle functions."""
+    assert helpers.init_integration is lifecycle.init_integration
+    assert helpers.shutdown_integration is lifecycle.shutdown_integration
+    assert helpers.drain_hass is lifecycle.drain_hass

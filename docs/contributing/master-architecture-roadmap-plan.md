@@ -2051,7 +2051,7 @@ Test-helper preparation progress:
 - [x] `6.2.1` Extract assertion helpers.
 - [x] `6.2.2` Extract wait helpers.
 - [x] `6.2.3` Extract config-entry builders.
-- `6.2.4` Extract lifecycle helpers.
+- [x] `6.2.4` Extract lifecycle helpers.
 - `6.2.5` Extract entity setup helpers.
 - `6.2.6` Extract service helpers.
 - `6.2.7` Extract registry helpers.
@@ -2091,6 +2091,14 @@ Test-helper extraction progress:
 - Config-entry validation passed `./scripts/validate.sh`: Ruff passed, mypy
   found no issues across `369` source files, and pytest passed `1418` tests in
   `39.90s`.
+- `6.2.4`: complete. `init_integration`, `shutdown_integration`, and
+  `drain_hass` moved unchanged to `tests/helpers/lifecycle.py` and remain
+  available from `tests.helpers`. The original `tests.helpers` logger name is
+  preserved for lifecycle log messages, and the direct facade contract covers
+  all three exports.
+- Lifecycle validation passed `./scripts/validate.sh`: Ruff passed, mypy found
+  no issues across `370` source files, and pytest passed `1419` tests in
+  `40.25s`.
 - `6.2.9` remains open, but its scope is now explicit: after the remaining
   families move, reduce `tests/helpers/__init__.py` to re-exports only or
   remove the facade if all callers have migrated.
