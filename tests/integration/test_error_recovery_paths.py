@@ -15,8 +15,8 @@ from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.assertions import assert_state
 from tests.helpers import (
-    assert_state,
     get_basic_config_entry_data,
     init_integration as init_integration_helper,
     shutdown_integration,

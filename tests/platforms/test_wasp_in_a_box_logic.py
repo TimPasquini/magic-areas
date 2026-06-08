@@ -14,12 +14,14 @@ from custom_components.magic_areas.const import (
     ATTR_PRESENCE_SENSORS,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_attribute,
     assert_in_attribute,
     assert_state,
-    wait_for_state,
+)
+from tests.helpers.waits import (
     wait_for_attribute,
+    wait_for_state,
 )
 from tests.mocks import MockBinarySensor
 

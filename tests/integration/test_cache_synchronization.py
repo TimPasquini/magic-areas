@@ -12,9 +12,11 @@ from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import DOMAIN
 
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_in_attribute,
     assert_state,
+)
+from tests.helpers import (
     get_basic_config_entry_data,
     init_integration as init_integration_helper,
     shutdown_integration,

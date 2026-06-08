@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from tests.const import MockAreaIds
-from tests.helpers import assert_state
+from tests.helpers.assertions import assert_state
 from tests.mocks import MockBinarySensor
 
 _LOGGER = logging.getLogger(__name__)

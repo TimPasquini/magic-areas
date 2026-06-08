@@ -21,8 +21,8 @@ from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
 )
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.assertions import assert_state
 from tests.helpers import (
-    assert_state,
     get_basic_config_entry_data,
     setup_mock_entities,
     shutdown_integration,

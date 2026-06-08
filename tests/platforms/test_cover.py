@@ -27,12 +27,12 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 
 
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
     get_basic_config_entry_data,
     init_integration as init_integration_helper,
     setup_mock_entities,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.mocks import MockCover
 

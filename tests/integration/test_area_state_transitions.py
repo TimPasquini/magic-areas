@@ -9,7 +9,10 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.const import ATTR_PRESENCE_SENSORS, ATTR_STATES
 from custom_components.magic_areas.enums import MagicAreasEvents
-from tests.helpers import assert_in_attribute, assert_state
+from tests.helpers.assertions import (
+    assert_in_attribute,
+    assert_state,
+)
 from tests.mocks import MockBinarySensor
 
 pytest_plugins = ("tests.integration.area_state_testkit",)

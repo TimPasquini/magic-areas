@@ -22,12 +22,12 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_ACT_ON_STATE_CHANGE,
 )
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
     create_area_state_change_event,
     get_basic_config_entry_data,
     setup_mock_entities,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.helpers import (
     init_integration as init_integration_helper,

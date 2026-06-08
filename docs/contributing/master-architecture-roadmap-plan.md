@@ -2164,6 +2164,20 @@ Test-helper extraction progress:
 - `6.2.9` remains open only for migrating the actively used facade imports and
   then either retaining `tests/helpers/__init__.py` as a minimal compatibility
   facade or deleting it once no callers require it.
+- `6.2.9` migration strategy: incrementally migrate callers to
+  responsibility-focused modules while retaining the compatibility facade.
+  After each bounded helper-family batch, manually update CRG and confirm the
+  remaining callers with both graph data and source search. Delete the facade
+  only after both checks report no active callers.
+- `6.2.9` assertion/wait batch: all callers of `assert_state`,
+  `assert_attribute`, and `assert_in_attribute` now import from
+  `tests.helpers.assertions`; all callers of `wait_for_state`,
+  `wait_for_attribute`, and `wait_until` now import from
+  `tests.helpers.waits`. The facade remains intact for compatibility while
+  other helper families migrate.
+- The assertion/wait batch reduced files importing from the facade from `76`
+  to `59`. A manual incremental CRG update processed `39` changed files and
+  refreshed the graph to `387` files, `3593` nodes, and `27943` edges.
 
 #### 6.3. Test Helper Validation
 

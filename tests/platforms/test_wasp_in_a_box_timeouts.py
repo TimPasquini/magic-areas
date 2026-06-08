@@ -13,7 +13,12 @@ from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     ATTR_WASP,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import assert_attribute, assert_state, drain_hass, wait_for_attribute
+from tests.helpers.assertions import (
+    assert_attribute,
+    assert_state,
+)
+from tests.helpers.waits import wait_for_attribute
+from tests.helpers import drain_hass
 from tests.mocks import MockBinarySensor
 
 pytest_plugins = ("tests.platforms.wasp_in_a_box_testkit",)

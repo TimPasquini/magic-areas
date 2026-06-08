@@ -17,7 +17,8 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import assert_state, wait_for_state
+from tests.helpers.assertions import assert_state
+from tests.helpers.waits import wait_for_state
 from tests.mocks import MockBinarySensor, MockFan, MockSensor
 
 pytest_plugins = ("tests.platforms.fan_testkit",)

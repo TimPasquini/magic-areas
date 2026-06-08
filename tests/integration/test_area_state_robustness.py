@@ -13,11 +13,11 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.magic_areas.area_state import AreaStates
+from tests.helpers.assertions import assert_state
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
-    assert_state,
     init_integration as init_integration_helper,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.mocks import MockBinarySensor
 

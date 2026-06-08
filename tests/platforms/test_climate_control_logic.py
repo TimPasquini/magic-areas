@@ -18,9 +18,11 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_attribute,
     assert_state,
+)
+from tests.helpers.waits import (
     wait_for_attribute,
     wait_for_state,
 )

@@ -17,10 +17,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
     init_integration as init_integration_helper,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.mocks import MockFan, MockSensor
 

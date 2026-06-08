@@ -31,12 +31,12 @@ from custom_components.magic_areas.config_keys.area import (
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasEvents, MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
     get_basic_config_entry_data,
     init_integration,
     setup_mock_entities,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.mocks import MockBinarySensor, MockCover, MockLight
 

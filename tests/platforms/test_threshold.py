@@ -29,10 +29,10 @@ from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers import (
     init_integration as init_integration_helper,
 )
+from tests.helpers.waits import wait_for_state
 from tests.helpers import (
     setup_mock_entities,
     shutdown_integration,
-    wait_for_state,
 )
 from tests.mocks import MockSensor
 
