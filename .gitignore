@@ -9,7 +9,8 @@ __pycache__
 # misc
 .coverage
 .vscode
-.idea
+/.idea/
+/.claude/
 coverage.xml
 *.swp
 old/*
@@ -23,3 +24,4 @@ config/*
 
 # Local diagram artifacts (kept intentionally untracked)
 docs/diagrams/
+/.codex
