@@ -147,7 +147,8 @@ Compared to the fork baseline, the suite now covers:
 ### Supporting fixtures and utilities
 
 - `tests/conftest.py`: shared fixtures and integration setup helpers.
-- `tests/helpers.py`: integration and registry setup helpers.
+- `tests/helpers/`: responsibility-focused assertion, wait, lifecycle,
+  config-entry, entity, platform-loader, service, and registry helpers.
 - `tests/mocks.py`: updated mocks for stable entity behavior.
 - `tests/const.py`: test constants and mock area definitions.
 - `tests/integration/test_diagnostics.py`: diagnostics output and redaction.

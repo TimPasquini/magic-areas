@@ -92,12 +92,24 @@ async def wait_until(
     *,
     timeout: float = 2.0,
 ) -> None:
-    """Wait until predicate returns True while draining the HA loop."""
+    """Wait until predicate returns True while cooperatively draining HA."""
     deadline = monotonic() + timeout
     while monotonic() < deadline:
         if predicate():
             return
         await hass.async_block_till_done()
+        remaining = deadline - monotonic()
+        if remaining > 0:
+            pause_complete = hass.loop.create_future()
+            handle = hass.loop.call_at(
+                hass.loop.time() + min(0.01, remaining),
+                pause_complete.set_result,
+                None,
+            )
+            try:
+                await pause_complete
+            finally:
+                handle.cancel()
     raise AssertionError("Timed out waiting for expected condition")
 
 

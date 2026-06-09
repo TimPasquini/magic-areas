@@ -14,7 +14,7 @@ def setup_mock_areas(
     hass: HomeAssistant,
     areas: Sequence[MockAreaIds],
 ) -> None:
-    """Register mock areas and their configured floors."""
+    """Register mock areas and reconcile their configured floors."""
     area_registry = async_get_ar(hass)
     floor_registry = async_get_fr(hass)
 
@@ -30,4 +30,9 @@ def setup_mock_areas(
                 floor_entry = floor_registry.async_create(floor_name)
             assert floor_entry is not None
             floor_id = floor_entry.floor_id
+        area_entry = area_registry.async_get_area_by_name(area.value)
+        if area_entry:
+            if area_entry.floor_id != floor_id:
+                area_registry.async_update(area_entry.id, floor_id=floor_id)
+            continue
         area_registry.async_create(name=area.value, floor_id=floor_id)

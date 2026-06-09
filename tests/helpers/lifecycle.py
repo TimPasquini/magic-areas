@@ -11,7 +11,56 @@ from custom_components.magic_areas.const import DOMAIN
 from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
 from tests.helpers.registries import setup_mock_areas
 
-_LOGGER = logging.getLogger("tests.helpers")
+_LOGGER = logging.getLogger(__name__)
+
+
+def register_config_entries(
+    hass: HomeAssistant,
+    config_entries: list[MockConfigEntry],
+) -> None:
+    """Add missing config entries to Home Assistant exactly once."""
+    for config_entry in config_entries:
+        if not hass.config_entries.async_get_entry(config_entry.entry_id):
+            config_entry.add_to_hass(hass)
+
+
+async def setup_config_entries(
+    hass: HomeAssistant,
+    config_entries: list[MockConfigEntry],
+    *,
+    areas: list[MockAreaIds] | None = None,
+    start_hass: bool = False,
+) -> None:
+    """Register areas and set up config entries through HA's entry API."""
+    setup_mock_areas(hass, areas or [DEFAULT_MOCK_AREA])
+
+    for config_entry in config_entries:
+        if not hass.config_entries.async_get_entry(config_entry.entry_id):
+            config_entry.add_to_hass(hass)
+        if config_entry.state is not ConfigEntryState.LOADED:
+            assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    if start_hass:
+        await hass.async_start()
+        await hass.async_block_till_done()
+
+    for config_entry in config_entries:
+        assert config_entry.state is ConfigEntryState.LOADED
+
+
+async def unload_config_entries(
+    hass: HomeAssistant,
+    config_entries: list[MockConfigEntry],
+) -> None:
+    """Unload loaded config entries and drain pending Home Assistant work."""
+    for config_entry in config_entries:
+        if config_entry.state is ConfigEntryState.LOADED:
+            assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    for config_entry in config_entries:
+        assert config_entry.state is ConfigEntryState.NOT_LOADED
 
 
 async def init_integration(
@@ -64,10 +113,7 @@ async def init_integration(
 
     setup_mock_areas(hass, areas)
 
-    for config_entry in config_entries:
-        if hass.config_entries.async_get_entry(config_entry.entry_id):
-            continue
-        config_entry.add_to_hass(hass)
+    register_config_entries(hass, config_entries)
 
     assert await async_setup_component(hass, DOMAIN, {})
     await hass.async_block_till_done()
@@ -116,14 +162,9 @@ async def shutdown_integration(
     """
 
     _LOGGER.info("Unloading integration.")
-    for config_entry in config_entries:
-        await hass.config_entries.async_unload(config_entry.entry_id)
-        await hass.async_block_till_done()
+    await unload_config_entries(hass, config_entries)
 
     assert not hass.data.get(DOMAIN)
-
-    for config_entry in config_entries:
-        assert config_entry.state is ConfigEntryState.NOT_LOADED
     _LOGGER.info("Integration unloaded.")
 
 

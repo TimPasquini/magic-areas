@@ -37,12 +37,14 @@ from tests.helpers.assertions import (
 )
 from tests.helpers.config_entries import get_basic_config_entry_data
 from tests.helpers.entities import (
-    mock_integration,
-    mock_platform,
     setup_mock_entities,
-    setup_test_component_platform,
 )
 from tests.helpers.lifecycle import drain_hass, init_integration, shutdown_integration
+from tests.helpers.platforms import (
+    mock_integration,
+    mock_platform,
+    setup_test_component_platform,
+)
 from tests.helpers.registries import setup_mock_areas
 from tests.helpers.services import async_mock_service
 from tests.helpers.waits import wait_for_attribute, wait_for_state, wait_until
@@ -233,6 +235,44 @@ async def test_wait_until_returns_when_predicate_becomes_true(
         return attempts > 1
 
     await wait_until(hass, predicate)
+
+
+async def test_wait_until_yields_while_no_ha_work_is_pending(
+    hass: HomeAssistant,
+) -> None:
+    """An idle HA loop should not turn predicate polling into a busy spin."""
+    ticker_runs = 0
+
+    async def ticker() -> None:
+        nonlocal ticker_runs
+        while ticker_runs < 3:
+            await asyncio.sleep(0)
+            ticker_runs += 1
+
+    ticker_task = asyncio.create_task(ticker())
+
+    with pytest.raises(AssertionError, match="Timed out"):
+        await wait_until(hass, lambda: False, timeout=0.02)
+    await ticker_task
+
+    assert ticker_runs == 3
+
+
+async def test_wait_until_observes_delayed_async_work(
+    hass: HomeAssistant,
+) -> None:
+    """Cooperative polling should observe state changed by a delayed task."""
+    ready = False
+
+    async def set_ready() -> None:
+        nonlocal ready
+        await asyncio.sleep(0.01)
+        ready = True
+
+    task = asyncio.create_task(set_ready())
+
+    await wait_until(hass, lambda: ready, timeout=0.1)
+    await task
 
 
 async def test_mock_service_supports_schema_response_and_call_logging(

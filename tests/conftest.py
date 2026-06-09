@@ -41,9 +41,10 @@ from tests.helpers.entities import setup_mock_entities
 from tests.helpers.config_entries import get_basic_config_entry_data
 from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
+    setup_config_entries,
     shutdown_integration,
+    unload_config_entries,
 )
-from tests.helpers.registries import setup_mock_areas
 from tests.mocks import MockBinarySensor, MockLight
 
 _LOGGER = logging.getLogger(__name__)
@@ -329,22 +330,15 @@ async def init_integration_fixture(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> AsyncGenerator[MockConfigEntry]:
     """Set up the integration."""
-
-    # We assume DEFAULT_MOCK_AREA for the basic mock_config_entry
-    setup_mock_areas(hass, [DEFAULT_MOCK_AREA])
-
-    if not hass.config_entries.async_get_entry(mock_config_entry.entry_id):
-        mock_config_entry.add_to_hass(hass)
-
-    await hass.config_entries.async_setup(mock_config_entry.entry_id)
-    await hass.async_block_till_done()
-    await hass.async_start()
-    await hass.async_block_till_done()
+    await setup_config_entries(
+        hass,
+        [mock_config_entry],
+        start_hass=True,
+    )
 
     yield mock_config_entry
 
-    await hass.config_entries.async_unload(mock_config_entry.entry_id)
-    await hass.async_block_till_done()
+    await unload_config_entries(hass, [mock_config_entry])
 
 
 @pytest.fixture(name="_setup_integration_basic")
@@ -353,20 +347,6 @@ async def setup_integration(
     mock_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[None]:
     """Set up integration with basic config."""
-    # This fixture is kept for backward compatibility with other tests,
-    # but it now uses the new mock_config_entry fixture
-
-    # We need to manually call the helper init because the new init_integration fixture
-    # is designed to be used directly, but this fixture wraps the old helper.
-    # However, since mock_config_entry already adds itself to hass, we need to be careful.
-
-    # The old helper init_integration does:
-    # 1. Register areas
-    # 2. Add config entries to hass (if not already added)
-    # 3. async_setup_component(hass, DOMAIN, {})
-
-    # Since mock_config_entry adds itself to hass, step 2 is partially done.
-
     await init_integration_helper(hass, [mock_config_entry])
     yield
     await shutdown_integration(hass, [mock_config_entry])
@@ -378,32 +358,21 @@ async def init_integration_all_areas(
     all_areas_with_meta_config_entry: list[MockConfigEntry],
 ) -> AsyncGenerator[list[MockConfigEntry]]:
     """Set up integration with all areas and meta-areas."""
-
-    # Create areas in registry
-    setup_mock_areas(
+    areas = [
+        area_enum
+        for area_enum in MockAreaIds
+        if MOCK_AREAS[area_enum][CONF_TYPE] != AreaType.META
+    ]
+    await setup_config_entries(
         hass,
-        [
-            area_enum
-            for area_enum in MockAreaIds
-            if MOCK_AREAS[area_enum][CONF_TYPE] != AreaType.META
-        ],
+        all_areas_with_meta_config_entry,
+        areas=areas,
+        start_hass=True,
     )
-
-    # Add and setup all config entries
-    for entry in all_areas_with_meta_config_entry:
-        entry.add_to_hass(hass)
-        await hass.config_entries.async_setup(entry.entry_id)
-
-    await hass.async_block_till_done()
-    await hass.async_start()
-    await hass.async_block_till_done()
 
     yield all_areas_with_meta_config_entry
 
-    # Unload
-    for entry in all_areas_with_meta_config_entry:
-        await hass.config_entries.async_unload(entry.entry_id)
-    await hass.async_block_till_done()
+    await unload_config_entries(hass, all_areas_with_meta_config_entry)
 
 
 @pytest.fixture

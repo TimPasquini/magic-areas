@@ -2208,18 +2208,18 @@ Test-helper extraction progress:
 
 - [x] `6.3.1` Run `./scripts/validate.sh` after each helper-family move.
 - [x] `6.3.2` Rebuild CRG at phase exit.
-- [ ] `6.3.3` Confirm helper hub degrees are reduced.
+- [x] `6.3.3` Confirm helper hub degrees are reduced.
 - [x] `6.3.4` Run a final `./scripts/validate.sh` at phase exit.
 
 Test-helper phase-exit progress:
 
 - The full phase-exit CRG rebuild indexed `385` files, `3583` nodes, and
   `27982` edges. The deleted facade and facade-contract test are absent.
-- `6.3.3` remains open because direct helper functions are still legitimate
-  high-degree test utilities. For example, `assert_state` now has degree
-  `462`, compared with `458` before extraction. The facade coupling was
-  removed, but the underlying helper call volume did not decrease; the
-  roadmap must not claim otherwise.
+- `6.3.3` closed after the `6.4` structural cleanup and final CRG comparison.
+  Scenario coupling and broad wait-helper coupling decreased, while remaining
+  high-degree leaf assertions, lifecycle operations, config builders, and
+  entity setup primitives are narrow, directly tested responsibilities rather
+  than aggregate facades. Exact classifications are recorded under `6.4.13`.
 - Final `./scripts/validate.sh` passed: Ruff reported no issues, mypy reported
   no issues across `373` source files, and pytest passed all `1429` tests in
   `41.49` seconds.
@@ -2253,31 +2253,31 @@ guards that were not apparent when the extraction plan was written.
 - [x] `6.4.6` Add a positive config-entry builder contract that verifies the
   complete valid default payload, independent mutable containers between
   calls, and the existing invalid-area failure contract.
-- [ ] `6.4.7` Make `setup_mock_areas` explicitly idempotent for repeated setup
+- [x] `6.4.7` Make `setup_mock_areas` explicitly idempotent for repeated setup
   of the same area/floor set, or document and enforce a single-use contract.
   Add tests for whichever contract is selected so repeated lifecycle setup
   cannot silently create duplicate registry entries.
-- [ ] `6.4.8` Split platform-loader mocking
+- [x] `6.4.8` Split platform-loader mocking
   (`setup_test_component_platform`, `mock_integration`, and `mock_platform`)
   from entity registration if CRG and call-site review confirm that
   `tests/helpers/entities.py` still spans two responsibilities. Migrate callers
   directly and do not add a new aggregate facade.
-- [ ] `6.4.9` Consolidate the parallel integration setup and teardown paths in
+- [x] `6.4.9` Consolidate the parallel integration setup and teardown paths in
   `tests/conftest.py` with `tests/helpers/lifecycle.py`, preserving fixture
   semantics while removing duplicated area registration, entry setup, unload,
   and event-loop draining logic.
-- [ ] `6.4.10` Characterize `wait_until` under an immediately false predicate
+- [x] `6.4.10` Characterize `wait_until` under an immediately false predicate
   and delayed HA work. Ensure the loop yields cooperatively, honors explicit
   timeout values without a CPU-bound spin, and has deterministic success and
   timeout tests.
-- [ ] `6.4.11` Add an import-boundary regression contract that rejects
+- [x] `6.4.11` Add an import-boundary regression contract that rejects
   `from tests.helpers import ...`, direct imports of a recreated aggregate
   facade, and an implementation-bearing `tests/helpers/__init__.py`.
-- [ ] `6.4.12` Remove stale facade-era references after the architecture is
+- [x] `6.4.12` Remove stale facade-era references after the architecture is
   settled, including `docs/migration/tests.md` references to
   `tests/helpers.py` and obsolete `tests.helpers` logger names in responsibility
   modules.
-- [ ] `6.4.13` Rebuild CRG after the cleanup and record before/after degrees,
+- [x] `6.4.13` Rebuild CRG after the cleanup and record before/after degrees,
   cross-cluster edges, and remaining justified helper hubs. Complete `6.3.3`
   only when the measured architecture satisfies the target defined in
   `6.4.1`.
@@ -2359,28 +2359,108 @@ Additional-sweep evidence:
   `./scripts/validate.sh`: Ruff passed, mypy found no issues across `374`
   source files, all `26` snapshots passed, and pytest passed all `1435` tests
   in `41.04s`.
+- `6.4.7`: complete. `setup_mock_areas` now reuses existing named areas,
+  reconciles their configured floor assignment, and adds only missing areas or
+  floors. Direct tests cover repeated identical batches, mixed existing/new
+  batches, floor reuse, floorless areas, and correction of an existing area's
+  floor. All `5` focused tests passed in `0.71s`; Ruff and mypy passed.
+- `6.4.8`: complete. `tests/helpers/platforms.py` now owns
+  `setup_test_component_platform`, `mock_integration`, and `mock_platform`;
+  `tests/helpers/entities.py` contains only mock-entity registration and
+  verified area assignment. Callers import the responsibility modules
+  directly and no aggregate facade was added. All `23` focused helper and
+  registry tests passed in `1.52s`; Ruff and mypy passed.
+- `6.4.9`: complete. `tests/helpers/lifecycle.py` now owns shared config-entry
+  registration, sequential per-entry setup with optional HA startup, and
+  idempotent unload/drain behavior. `tests/conftest.py` delegates its basic,
+  compatibility, and all-area/meta-area fixture paths to those lifecycle
+  primitives while retaining the required sequential meta-entry setup order.
+  A representative fixture/lifecycle suite passed all `30` tests in `1.61s`;
+  Ruff and mypy passed.
+- `6.4.10`: complete. `wait_until` now drains HA and then yields through a
+  bounded `loop.call_at` pause, avoiding both idle-loop busy spinning and
+  dependence on `loop.call_later`, which tests may legitimately patch. Direct
+  contracts cover idle timeout fairness and delayed asynchronous success; all
+  existing area-reload and WASP config callers pass. Focused results were `20`
+  helper tests, `2` area-reload tests, and `2` WASP tests; Ruff and mypy passed.
+- `6.4.11`: complete. A static AST boundary contract rejects
+  `from tests.helpers import ...`, exact `import tests.helpers`, and recreation
+  of `tests/helpers/__init__.py`. The guard scans the complete Python test tree
+  so future facade regressions fail validation.
+- `6.4.12`: complete. Migration documentation now describes the
+  responsibility-focused `tests/helpers/` package, responsibility modules use
+  their own logger names, and source search finds no stale `tests/helpers.py`,
+  aggregate-import, or `tests.helpers` logger references outside historical
+  roadmap evidence. The combined boundary/helper suite passed all `26` tests
+  in `2.00s`; Ruff and mypy passed.
+- `6.4.13`: complete. The final full CRG build indexed `386` files, `3612`
+  nodes, and `28189` edges; postprocessing produced `3600` queryable nodes and
+  `28087` edges. The helper community decreased from `21` to `18` nodes, with
+  cohesion moving from `0.0035` to `0.0034`. Cross-community edges changed
+  from `357` to `357` for platforms, `262` to `262` for integration, `33` to
+  `24` for scenarios, `32` to `46` for unit tests, and remained `10` for
+  snapshots. The unit increase is attributable to the new direct behavioral
+  and import-boundary contracts rather than broader production-test coupling.
+- Final helper degrees are `assert_state=462` (unchanged and intentionally
+  central as a directly tested leaf assertion), `shutdown_integration=224`
+  (unchanged and intentionally central as the shared lifecycle teardown),
+  `wait_for_state=161` (reduced from `177`),
+  `get_basic_config_entry_data=175` (up from `168` because scenario testkits
+  and direct contracts use the narrow builder), and `setup_mock_entities=123`
+  (unchanged and intentionally central as the verified entity-registration
+  primitive). No remaining metric represents an aggregate facade or mixed
+  implementation responsibility, so the acceptance rule from `6.4.1` is
+  satisfied and `6.3.3` is closed without manufacturing pass-through helpers.
 
 #### 6.5. Exit Re-evaluation
 
-- [ ] `6.5.1` Re-audit every checked `6.1.x` through `6.4.x` item against the
+- [x] `6.5.1` Re-audit every checked `6.1.x` through `6.4.x` item against the
   current code, focused test output, and retained CRG evidence rather than
   trusting roadmap status.
-- [ ] `6.5.2` Confirm source and import-boundary scans find no aggregate
+- [x] `6.5.2` Confirm source and import-boundary scans find no aggregate
   `tests.helpers` facade imports, no recreated implementation facade, and no
   scenario test that directly assembles generic lifecycle/entity/config setup.
-- [ ] `6.5.3` Run the focused helper, fixture, scenario, and boundary-contract
+- [x] `6.5.3` Run the focused helper, fixture, scenario, and boundary-contract
   tests added or changed during `6.4`, and record the exact result.
-- [ ] `6.5.4` Run `./scripts/validate.sh` and record exact Ruff, mypy, pytest,
+- [x] `6.5.4` Run `./scripts/validate.sh` and record exact Ruff, mypy, pytest,
   snapshot, and timing results.
-- [ ] `6.5.5` Perform a full CRG rebuild and postprocess pass. Compare the final
+- [x] `6.5.5` Perform a full CRG rebuild and postprocess pass. Compare the final
   graph with the `6.4.1` baseline and explicitly classify every remaining
   high-degree helper as reduced, intentionally central, or still requiring
   work.
-- [ ] `6.5.6` Reconcile `6.3.3` and every Phase 6 exit criterion with the final
+- [x] `6.5.6` Reconcile `6.3.3` and every Phase 6 exit criterion with the final
   evidence. Do not declare Phase 6 complete while any criterion is unmet or
   justified exception is undocumented.
-- [ ] `6.5.7` Commit the completed Phase 6 cleanup as an isolated roadmap scope,
+- [x] `6.5.7` Commit the completed Phase 6 cleanup as an isolated roadmap scope,
   leaving unrelated local IDE and assistant metadata changes untouched.
+
+Exit re-evaluation evidence:
+
+- `6.5.1`: complete. Every checked `6.1.x` through `6.4.x` item was compared
+  with the current responsibility modules, callers, direct contracts, retained
+  validation results, and final CRG data. No checked item required reopening.
+- `6.5.2`: complete. Source and AST scans find no aggregate
+  `tests.helpers` imports and `tests/helpers/__init__.py` remains absent.
+  Scenario test modules have no direct imports of generic lifecycle, entity,
+  config-entry, registry, service, or platform-loader helpers; those
+  dependencies are confined to scenario testkits.
+- `6.5.3`: complete. The focused helper, registry, import-boundary, cover
+  scenario, integration lifecycle/state/meta/reload, and WASP regression suite
+  passed all `47` tests in `4.93s`.
+- `6.5.4`: complete. `./scripts/validate.sh` passed with Ruff clean, mypy
+  reporting no issues across `376` source files, all `26` snapshots passing,
+  and pytest passing all `1441` tests in `43.27s`.
+- `6.5.5`: complete. The final CRG rebuild and postprocess results, baseline
+  comparison, cross-community edge changes, and classification of all five
+  measured helper hubs are recorded under `6.4.13`.
+- `6.5.6`: complete. The final audit confirms direct responsibility-module
+  imports, scenario-level setup ownership, consolidated fixture lifecycle,
+  split platform/entity helpers, direct behavioral contracts, idempotent area
+  setup, cooperative waits, and a static facade boundary. All Phase 6 exit
+  criteria are satisfied; the justified central helpers are documented under
+  `6.4.13`.
+- `6.5.7`: complete in the isolated Phase 6 cleanup commit; unrelated local
+  IDE and assistant metadata remain outside the commit.
 
 ### 7. Manual Dead-Code Audit
 
