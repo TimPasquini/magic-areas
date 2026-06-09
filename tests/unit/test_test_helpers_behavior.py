@@ -2,16 +2,34 @@
 
 import asyncio
 from typing import cast
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import voluptuous as vol
 from homeassistant import loader
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import ATTR_NAME, EVENT_STATE_CHANGED
 from homeassistant.core import HomeAssistant, State, SupportsResponse
+from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.entity_registry import async_get as async_get_er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from tests.const import MockAreaIds
+from custom_components.magic_areas.config_keys.area import (
+    CONF_CLEAR_TIMEOUT,
+    CONF_ENABLED_FEATURES,
+    CONF_EXCLUDE_ENTITIES,
+    CONF_EXTENDED_TIMEOUT,
+    CONF_ID,
+    CONF_INCLUDE_ENTITIES,
+    CONF_PRESENCE_SENSOR_DEVICE_CLASS,
+    CONF_TYPE,
+)
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.defaults import (
+    DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
+)
+from tests.const import MOCK_AREAS, MockAreaIds
 from tests.helpers.assertions import (
     assert_attribute,
     assert_in_attribute,
@@ -19,13 +37,16 @@ from tests.helpers.assertions import (
 )
 from tests.helpers.config_entries import get_basic_config_entry_data
 from tests.helpers.entities import (
+    mock_integration,
+    mock_platform,
     setup_mock_entities,
     setup_test_component_platform,
 )
+from tests.helpers.lifecycle import drain_hass, init_integration, shutdown_integration
 from tests.helpers.registries import setup_mock_areas
 from tests.helpers.services import async_mock_service
 from tests.helpers.waits import wait_for_attribute, wait_for_state, wait_until
-from tests.mocks import MockLight
+from tests.mocks import MockLight, MockModule, MockPlatform
 
 
 def test_assertion_helpers_cover_success_failure_and_negation() -> None:
@@ -53,6 +74,95 @@ def test_config_entry_builder_rejects_unknown_areas() -> None:
     """Unknown area identifiers should fail instead of producing partial data."""
     with pytest.raises(AssertionError):
         get_basic_config_entry_data(cast(MockAreaIds, "missing"))
+
+
+def test_config_entry_builder_returns_complete_independent_defaults() -> None:
+    """Valid config payloads should be complete and avoid shared containers."""
+    first = get_basic_config_entry_data(MockAreaIds.KITCHEN)
+    second = get_basic_config_entry_data(MockAreaIds.KITCHEN)
+
+    assert first == {
+        ATTR_NAME: "Kitchen",
+        CONF_ID: MockAreaIds.KITCHEN.value,
+        CONF_CLEAR_TIMEOUT: 0,
+        CONF_EXTENDED_TIMEOUT: 5,
+        CONF_TYPE: MOCK_AREAS[MockAreaIds.KITCHEN][CONF_TYPE],
+        CONF_EXCLUDE_ENTITIES: [],
+        CONF_INCLUDE_ENTITIES: [],
+        CONF_PRESENCE_SENSOR_DEVICE_CLASS: DEFAULT_PRESENCE_DEVICE_SENSOR_CLASS,
+        CONF_ENABLED_FEATURES: {},
+    }
+    assert first[CONF_EXCLUDE_ENTITIES] is not second[CONF_EXCLUDE_ENTITIES]
+    assert first[CONF_INCLUDE_ENTITIES] is not second[CONF_INCLUDE_ENTITIES]
+    assert first[CONF_ENABLED_FEATURES] is not second[CONF_ENABLED_FEATURES]
+
+
+async def test_lifecycle_helpers_handle_preadded_entry_and_cleanup(
+    hass: HomeAssistant,
+) -> None:
+    """Lifecycle helpers should load and unload one already-registered entry."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=get_basic_config_entry_data(MockAreaIds.KITCHEN),
+    )
+    config_entry.add_to_hass(hass)
+
+    await init_integration(
+        hass,
+        [config_entry],
+        areas=[MockAreaIds.KITCHEN],
+    )
+
+    assert config_entry.state.name == ConfigEntryState.LOADED.name
+    assert hass.config_entries.async_entries(DOMAIN) == [config_entry]
+    assert (
+        async_get_ar(hass).async_get_area_by_name(MockAreaIds.KITCHEN.value)
+        is not None
+    )
+    assert config_entry.runtime_data is not None
+
+    await shutdown_integration(hass, [config_entry])
+
+    assert config_entry.state.name == ConfigEntryState.NOT_LOADED.name
+    assert not hass.data.get(DOMAIN)
+
+
+async def test_init_integration_requires_loaded_entry_state(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Initialization should reject entries that never reach LOADED."""
+    import tests.helpers.lifecycle as lifecycle_helpers
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=get_basic_config_entry_data(MockAreaIds.KITCHEN),
+    )
+    config_entry.add_to_hass(hass)
+    monkeypatch.setattr(
+        lifecycle_helpers,
+        "async_setup_component",
+        AsyncMock(return_value=True),
+    )
+
+    with pytest.raises(AssertionError):
+        await init_integration(
+            hass,
+            [config_entry],
+            areas=[MockAreaIds.KITCHEN],
+        )
+
+    assert config_entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def test_drain_hass_runs_requested_cycle_count() -> None:
+    """Loop draining should execute exactly the requested number of cycles."""
+    hass = Mock(spec=HomeAssistant)
+    hass.async_block_till_done = AsyncMock()
+
+    await drain_hass(cast(HomeAssistant, hass), cycles=3)
+
+    assert hass.async_block_till_done.await_count == 3
 
 
 async def test_wait_helpers_cover_immediate_and_event_success(
@@ -186,6 +296,40 @@ async def test_mock_service_honors_explicit_response_mode_and_exception(
             blocking=True,
         )
     assert len(calls) == 1
+
+
+def test_mock_integration_registers_custom_component_and_blocks_platform_imports(
+    hass: HomeAssistant,
+) -> None:
+    """Mock integrations should populate HA caches and block unknown platforms."""
+    module = MockModule("direct_mock")
+
+    integration = mock_integration(hass, module=module, built_in=False)
+    module_cache = cast(dict[str, object], hass.data[loader.DATA_COMPONENTS])
+
+    assert integration.pkg_path == f"{loader.PACKAGE_CUSTOM_COMPONENTS}.direct_mock"
+    assert hass.data[loader.DATA_INTEGRATIONS]["direct_mock"] is integration
+    assert module_cache["direct_mock"] is module
+    with pytest.raises(ImportError, match="direct_mock.sensor"):
+        integration._import_platform("sensor")  # pylint: disable=protected-access
+
+
+def test_mock_platform_reuses_integration_and_populates_platform_cache(
+    hass: HomeAssistant,
+) -> None:
+    """Platform registration should preserve an existing integration object."""
+    integration = mock_integration(
+        hass,
+        module=MockModule("direct_platform"),
+    )
+    platform = MockPlatform()
+
+    mock_platform(hass, "direct_platform.light", platform)
+    module_cache = cast(dict[str, object], hass.data[loader.DATA_COMPONENTS])
+
+    assert hass.data[loader.DATA_INTEGRATIONS]["direct_platform"] is integration
+    assert module_cache["direct_platform.light"] is platform
+    assert "light.py" in integration._top_level_files  # pylint: disable=protected-access
 
 
 def test_component_platform_supports_config_entries_and_custom_components(

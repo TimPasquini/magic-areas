@@ -2231,26 +2231,26 @@ the compatibility facade, but it did not satisfy every original exit criterion.
 A post-phase implementation audit also exposed responsibilities and regression
 guards that were not apparent when the extraction plan was written.
 
-- [ ] `6.4.1` Establish a fresh CRG baseline for the responsibility modules and
+- [x] `6.4.1` Establish a fresh CRG baseline for the responsibility modules and
   define a meaningful hub-reduction target. Measure cross-cluster coupling and
   broad setup dependencies in addition to raw call fan-in so that ubiquitous
   leaf assertions are not replaced with pass-through wrappers solely to lower
   a metric.
-- [ ] `6.4.2` Build a cover scenario testkit that owns cover-scenario config
+- [x] `6.4.2` Build a cover scenario testkit that owns cover-scenario config
   construction, mock-entity setup, integration lifecycle, and state-wait
   operations.
-- [ ] `6.4.3` Migrate `tests/scenarios/test_cover_automation.py` to the cover
+- [x] `6.4.3` Migrate `tests/scenarios/test_cover_automation.py` to the cover
   scenario testkit, then audit every scenario test so scenario modules consume
   scenario-level operations rather than assembling broad platform/setup
   helpers directly.
-- [ ] `6.4.4` Add direct behavioral contracts for `init_integration`,
+- [x] `6.4.4` Add direct behavioral contracts for `init_integration`,
   `shutdown_integration`, and `drain_hass`, including successful setup,
   duplicate-entry handling, unload cleanup, entry-state assertions, and the
   requested number of drain cycles.
-- [ ] `6.4.5` Add direct behavioral contracts for `mock_integration` and
+- [x] `6.4.5` Add direct behavioral contracts for `mock_integration` and
   `mock_platform`, covering built-in and custom-component registration,
   integration reuse, platform cache placement, and failure behavior.
-- [ ] `6.4.6` Add a positive config-entry builder contract that verifies the
+- [x] `6.4.6` Add a positive config-entry builder contract that verifies the
   complete valid default payload, independent mutable containers between
   calls, and the existing invalid-area failure contract.
 - [ ] `6.4.7` Make `setup_mock_areas` explicitly idempotent for repeated setup
@@ -2304,6 +2304,61 @@ Additional-sweep evidence:
   `tests/helpers.py` module.
 - `wait_until` repeatedly drains HA until a wall-clock deadline, but its direct
   tests do not prove cooperative behavior when no HA work is pending.
+
+`6.4.1` baseline and acceptance target:
+
+- A fresh full CRG build indexed `385` files, `3595` nodes, and `28084` edges.
+  The postprocessed graph contains `3583` queryable nodes and `27982` edges.
+- The extracted helper community has `21` nodes and cohesion `0.0035`.
+  Cross-community coupling is `357` edges to `platforms-setup`, `262` to
+  `integration-area`, `33` to `scenarios-light`, `32` to `unit-area`, and `10`
+  to `snapshots-snapshot`.
+- Current helper degrees are `assert_state=462`,
+  `shutdown_integration=224`, `wait_for_state=177`,
+  `get_basic_config_entry_data=168`, and `setup_mock_entities=123`.
+- Leaf assertions, waits, and data builders may remain high fan-in when they
+  expose one narrow behavior and have direct contracts. Phase 6 will not add
+  pass-through wrappers merely to reduce those degrees.
+- Broad setup/orchestration dependencies must improve structurally: scenario
+  test modules must have zero direct imports of generic entity, config-entry,
+  registry, service, or lifecycle helpers; platform-loader mocking must no
+  longer share an implementation module with entity registration; and
+  `conftest.py` lifecycle fixtures must delegate shared setup/teardown behavior
+  instead of maintaining parallel implementations.
+- At `6.4.13`, compare all five helper degrees and the helper-community
+  cross-community edge counts with this baseline. Any metric that does not
+  decrease must be tied to a narrow, directly tested responsibility and
+  documented as intentionally central before `6.3.3` can close.
+- `6.4.2`: complete. `tests/scenarios/cover_scenario_testkit.py` now owns cover
+  and cover/light config construction, mock-entity setup, integration
+  lifecycle, control enablement, room-state transitions, and state waits
+  through typed `OneRoomCoverScenario` and `CoverLightScenario` surfaces.
+- `6.4.3`: complete. `tests/scenarios/test_cover_automation.py` now contains
+  behavioral setup fixtures and assertions only; it has no direct generic
+  helper imports. The scenario-suite audit found no `test_*.py` module directly
+  importing generic entity, config-entry, lifecycle, registry, or service
+  helpers. Focused Ruff and mypy passed, and all `5` cover scenario tests
+  passed in `1.03s`.
+- `6.4.4`: complete. Direct lifecycle contracts now cover setup with an entry
+  already registered in Home Assistant, singular entry registration, area
+  creation, runtime-data initialization, loaded/unloaded entry states, domain
+  cleanup, failure when setup does not load the entry, and exact
+  `drain_hass(cycles=...)` behavior. The combined helper and cover-scenario
+  suite passed all `20` tests in `1.21s`; focused Ruff and mypy passed.
+- `6.4.5`: complete. Direct loader contracts cover custom-component package
+  registration, integration and component cache placement, intentional
+  platform-import failure, reuse of an existing integration, platform cache
+  placement, and top-level platform-file registration. The focused helper
+  suite passed all `17` tests in `1.18s`; Ruff and mypy passed.
+- `6.4.6`: complete. The config-entry builder contract now verifies the entire
+  valid default payload and proves that exclusion, inclusion, and enabled-
+  feature containers are independent between calls while retaining the
+  invalid-area failure contract. The focused helper suite passed all `18`
+  tests in `1.12s`; Ruff and mypy passed.
+- The completed `6.4.1` through `6.4.6` batch passed
+  `./scripts/validate.sh`: Ruff passed, mypy found no issues across `374`
+  source files, all `26` snapshots passed, and pytest passed all `1435` tests
+  in `41.04s`.
 
 #### 6.5. Exit Re-evaluation
 
