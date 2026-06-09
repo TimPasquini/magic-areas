@@ -2224,6 +2224,109 @@ Test-helper phase-exit progress:
   no issues across `373` source files, and pytest passed all `1429` tests in
   `41.49` seconds.
 
+#### 6.4. Missed Opportunity Cleanup
+
+The first Phase 6 pass completed the mechanical module extraction and removed
+the compatibility facade, but it did not satisfy every original exit criterion.
+A post-phase implementation audit also exposed responsibilities and regression
+guards that were not apparent when the extraction plan was written.
+
+- [ ] `6.4.1` Establish a fresh CRG baseline for the responsibility modules and
+  define a meaningful hub-reduction target. Measure cross-cluster coupling and
+  broad setup dependencies in addition to raw call fan-in so that ubiquitous
+  leaf assertions are not replaced with pass-through wrappers solely to lower
+  a metric.
+- [ ] `6.4.2` Build a cover scenario testkit that owns cover-scenario config
+  construction, mock-entity setup, integration lifecycle, and state-wait
+  operations.
+- [ ] `6.4.3` Migrate `tests/scenarios/test_cover_automation.py` to the cover
+  scenario testkit, then audit every scenario test so scenario modules consume
+  scenario-level operations rather than assembling broad platform/setup
+  helpers directly.
+- [ ] `6.4.4` Add direct behavioral contracts for `init_integration`,
+  `shutdown_integration`, and `drain_hass`, including successful setup,
+  duplicate-entry handling, unload cleanup, entry-state assertions, and the
+  requested number of drain cycles.
+- [ ] `6.4.5` Add direct behavioral contracts for `mock_integration` and
+  `mock_platform`, covering built-in and custom-component registration,
+  integration reuse, platform cache placement, and failure behavior.
+- [ ] `6.4.6` Add a positive config-entry builder contract that verifies the
+  complete valid default payload, independent mutable containers between
+  calls, and the existing invalid-area failure contract.
+- [ ] `6.4.7` Make `setup_mock_areas` explicitly idempotent for repeated setup
+  of the same area/floor set, or document and enforce a single-use contract.
+  Add tests for whichever contract is selected so repeated lifecycle setup
+  cannot silently create duplicate registry entries.
+- [ ] `6.4.8` Split platform-loader mocking
+  (`setup_test_component_platform`, `mock_integration`, and `mock_platform`)
+  from entity registration if CRG and call-site review confirm that
+  `tests/helpers/entities.py` still spans two responsibilities. Migrate callers
+  directly and do not add a new aggregate facade.
+- [ ] `6.4.9` Consolidate the parallel integration setup and teardown paths in
+  `tests/conftest.py` with `tests/helpers/lifecycle.py`, preserving fixture
+  semantics while removing duplicated area registration, entry setup, unload,
+  and event-loop draining logic.
+- [ ] `6.4.10` Characterize `wait_until` under an immediately false predicate
+  and delayed HA work. Ensure the loop yields cooperatively, honors explicit
+  timeout values without a CPU-bound spin, and has deterministic success and
+  timeout tests.
+- [ ] `6.4.11` Add an import-boundary regression contract that rejects
+  `from tests.helpers import ...`, direct imports of a recreated aggregate
+  facade, and an implementation-bearing `tests/helpers/__init__.py`.
+- [ ] `6.4.12` Remove stale facade-era references after the architecture is
+  settled, including `docs/migration/tests.md` references to
+  `tests/helpers.py` and obsolete `tests.helpers` logger names in responsibility
+  modules.
+- [ ] `6.4.13` Rebuild CRG after the cleanup and record before/after degrees,
+  cross-cluster edges, and remaining justified helper hubs. Complete `6.3.3`
+  only when the measured architecture satisfies the target defined in
+  `6.4.1`.
+
+Additional-sweep evidence:
+
+- The original Phase 6 exit criterion that scenario tests depend on scenario
+  helpers is not yet satisfied:
+  `tests/scenarios/test_cover_automation.py` directly imports four generic
+  helper families.
+- Direct helper contracts do not currently exercise `init_integration`,
+  `shutdown_integration`, `drain_hass`, `mock_integration`, or `mock_platform`.
+  The valid output of `get_basic_config_entry_data` is also only covered
+  indirectly.
+- `tests/helpers/entities.py` is still a `304`-line mixed boundary containing
+  both HA loader/platform mocking and mock-entity registration.
+- `tests/conftest.py` contains lifecycle fixture paths that independently
+  register areas, set up entries, unload entries, and drain HA alongside the
+  extracted lifecycle helpers.
+- `setup_mock_areas` reuses existing floors but unconditionally creates areas;
+  no contract currently defines behavior when the same area is set up twice.
+- The facade was deleted without a static boundary guard against its
+  reintroduction. `docs/migration/tests.md` also still describes the deleted
+  `tests/helpers.py` module.
+- `wait_until` repeatedly drains HA until a wall-clock deadline, but its direct
+  tests do not prove cooperative behavior when no HA work is pending.
+
+#### 6.5. Exit Re-evaluation
+
+- [ ] `6.5.1` Re-audit every checked `6.1.x` through `6.4.x` item against the
+  current code, focused test output, and retained CRG evidence rather than
+  trusting roadmap status.
+- [ ] `6.5.2` Confirm source and import-boundary scans find no aggregate
+  `tests.helpers` facade imports, no recreated implementation facade, and no
+  scenario test that directly assembles generic lifecycle/entity/config setup.
+- [ ] `6.5.3` Run the focused helper, fixture, scenario, and boundary-contract
+  tests added or changed during `6.4`, and record the exact result.
+- [ ] `6.5.4` Run `./scripts/validate.sh` and record exact Ruff, mypy, pytest,
+  snapshot, and timing results.
+- [ ] `6.5.5` Perform a full CRG rebuild and postprocess pass. Compare the final
+  graph with the `6.4.1` baseline and explicitly classify every remaining
+  high-degree helper as reduced, intentionally central, or still requiring
+  work.
+- [ ] `6.5.6` Reconcile `6.3.3` and every Phase 6 exit criterion with the final
+  evidence. Do not declare Phase 6 complete while any criterion is unmet or
+  justified exception is undocumented.
+- [ ] `6.5.7` Commit the completed Phase 6 cleanup as an isolated roadmap scope,
+  leaving unrelated local IDE and assistant metadata changes untouched.
+
 ### 7. Manual Dead-Code Audit
 
 #### 7.1. Audit Guardrails
