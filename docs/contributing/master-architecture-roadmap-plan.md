@@ -2462,6 +2462,39 @@ Exit re-evaluation evidence:
 - `6.5.7`: complete in the isolated Phase 6 cleanup commit; unrelated local
   IDE and assistant metadata remain outside the commit.
 
+Explicit exit re-evaluation:
+
+- `6.5.1` was rerun against the committed tree. All responsibility modules,
+  lifecycle delegation primitives, idempotent registry behavior, cooperative
+  wait implementation, scenario testkit, and static boundary contract remain
+  present. No checked `6.1.x` through `6.4.x` item required reopening.
+- `6.5.2` source scans again found no aggregate `tests.helpers` import, no
+  `tests/helpers/__init__.py`, and no scenario test module directly importing
+  generic lifecycle, entity, config-entry, registry, service, or
+  platform-loader setup helpers.
+- `6.5.3` reran the complete focused helper, registry, boundary, cover
+  scenario, integration lifecycle/state/meta/reload, and WASP regression set.
+  All `47` tests passed in `4.52s`.
+- `6.5.4` reran `./scripts/validate.sh`: Ruff passed, mypy found no issues
+  across `376` source files, all `26` snapshots passed, and pytest passed all
+  `1441` tests in `37.06s`.
+- `6.5.5` performed a fresh full CRG build: `388` files, `3621` nodes, and
+  `28256` edges; the query graph contains `3609` indexed rows and `28154`
+  edges. The helper community contains `24` nodes with cohesion `0.0054`.
+  Cross-community edges are `357` to platforms, `262` to integration, `50` to
+  unit tests, `24` to scenarios, and `10` to snapshots.
+- Final helper degrees remain `assert_state=462`,
+  `shutdown_integration=224`, `get_basic_config_entry_data=175`,
+  `wait_for_state=161`, and `setup_mock_entities=123`. The scenario and wait
+  reductions remain intact. The other hubs remain narrow, directly tested
+  shared utilities; the increased unit coupling represents direct behavioral
+  and boundary contracts rather than restored facade coupling.
+- `6.5.6` found every Phase 6 exit criterion still satisfied with no
+  undocumented exception or remaining helper-architecture work.
+- `6.5.7` verified commit `9bd9a76` contains exactly the roadmap,
+  documentation, fixture, helper, and helper-contract files belonging to the
+  Phase 6 cleanup.
+
 ### 7. Manual Dead-Code Audit
 
 #### 7.1. Audit Guardrails
