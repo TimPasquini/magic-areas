@@ -359,18 +359,6 @@ class MockToggleEntity(MockEntity, ToggleEntity):
         await super().async_added_to_hass()
         self.async_write_ha_state()
 
-    def last_call(self, method: str | None = None) -> tuple[str, dict[str, Any]] | None:
-        """Return the last call."""
-        if not self.calls:
-            return None
-        if method is None:
-            return self.calls[-1]
-        try:
-            return next(call for call in reversed(self.calls) if call[0] == method)
-        except StopIteration:
-            return None
-
-
 class MockLight(MockToggleEntity, LightEntity):
     """Mock light class."""
 

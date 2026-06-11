@@ -1253,11 +1253,3 @@ def _managed_ambient_rise_state(host: _LightGroupHost) -> str | None:
         return None
     state_value = getattr(state, "state", None)
     return state_value if isinstance(state_value, str) else None
-
-
-def _managed_ambient_rise_met(host: _LightGroupHost) -> bool | None:
-    """Return managed Trend helper state when the helper has a usable value."""
-    state = _managed_ambient_rise_state(host)
-    if state is None or state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
-        return None
-    return state == STATE_ON

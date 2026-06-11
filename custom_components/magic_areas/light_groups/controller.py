@@ -58,7 +58,6 @@ from custom_components.magic_areas.light_groups.policy import (
     light_action_to_control_group,
 )
 from custom_components.magic_areas.light_groups.runtime import (
-    evaluate_state_change,
     handle_area_state_change,
     handle_group_state_change,
     setup_group,
@@ -275,18 +274,6 @@ class LightGroupRuntimeController:
     def group_state_changed(self, event: Event[EventStateChangedData]) -> bool:
         """Handle native helper state changes."""
         return handle_group_state_change(self, event)
-
-    def state_change_primary(
-        self, states_tuple: tuple[list[str], list[str], list[str]]
-    ) -> bool:
-        """Handle primary state changes."""
-        return evaluate_state_change(self, states_tuple, is_primary=True)
-
-    def state_change_secondary(
-        self, states_tuple: tuple[list[str], list[str], list[str]]
-    ) -> bool:
-        """Handle secondary state changes."""
-        return evaluate_state_change(self, states_tuple, is_primary=False)
 
     def _dispatch_light_action(
         self,

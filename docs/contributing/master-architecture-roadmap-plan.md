@@ -2499,34 +2499,88 @@ Explicit exit re-evaluation:
 
 #### 7.1. Audit Guardrails
 
-- `7.1.1` Do not remove HA entry points based only on CRG.
-- `7.1.2` Do not remove HA entity properties based only on CRG.
-- `7.1.3` Do not remove pytest fixtures based only on CRG.
-- `7.1.4` Do not remove feature registry-dispatched classes/methods based only on CRG.
-- `7.1.5` Do not remove HA interface mock methods based only on CRG.
+- [x] `7.1.1` Do not remove HA entry points based only on CRG.
+- [x] `7.1.2` Do not remove HA entity properties based only on CRG.
+- [x] `7.1.3` Do not remove pytest fixtures based only on CRG.
+- [x] `7.1.4` Do not remove feature registry-dispatched classes/methods based only on CRG.
+- [x] `7.1.5` Do not remove HA interface mock methods based only on CRG.
 
 #### 7.2. Initial Candidate Audit
 
-- `7.2.1` Audit `AggregateKind`.
-- `7.2.2` Audit `ControlActionType`.
-- `7.2.3` Audit `ControlRuntimeEffectType`.
-- `7.2.4` Audit `ControlGroupPolicyId`.
-- `7.2.5` Audit `GroupMetadataKey`.
-- `7.2.6` Audit `FeatureRegistration`.
-- `7.2.7` Audit `IntentReason`.
-- `7.2.8` Audit `ControlTargetKind`.
-- `7.2.9` Audit `ControlTargetPrecision`.
-- `7.2.10` Audit `VirtualClock`.
+- [x] `7.2.1` Audit `AggregateKind`.
+- [x] `7.2.2` Audit `ControlActionType`.
+- [x] `7.2.3` Audit `ControlRuntimeEffectType`.
+- [x] `7.2.4` Audit `ControlGroupPolicyId`.
+- [x] `7.2.5` Audit `GroupMetadataKey`.
+- [x] `7.2.6` Audit `FeatureRegistration`.
+- [x] `7.2.7` Audit `IntentReason`.
+- [x] `7.2.8` Audit `ControlTargetKind`.
+- [x] `7.2.9` Audit `ControlTargetPrecision`.
+- [x] `7.2.10` Audit `VirtualClock`.
 
 #### 7.3. Dead-Code Validation
 
-- `7.3.1` Search direct references with `rg`.
-- `7.3.2` Search string/serialized references.
-- `7.3.3` Check registry and HA callback conventions.
-- `7.3.4` Remove only small proven groups.
-- `7.3.5` Document rationale for retained dynamic/contract symbols.
-- `7.3.6` Run `./scripts/validate.sh` after each removal batch.
-- [ ] `7.3.7` Run a final `./scripts/validate.sh` at phase exit.
+- [x] `7.3.1` Search direct references with `rg`.
+- [x] `7.3.2` Search string/serialized references.
+- [x] `7.3.3` Check registry and HA callback conventions.
+- [x] `7.3.4` Remove only small proven groups.
+- [x] `7.3.5` Document rationale for retained dynamic/contract symbols.
+- [x] `7.3.6` Run `./scripts/validate.sh` after each removal batch.
+- [x] `7.3.7` Run a final `./scripts/validate.sh` at phase exit.
+
+Expanded-audit correction:
+
+- The initial pass completed the ten named candidate reviews but did not audit
+  the complete CRG candidate population. The correction below expanded the
+  review to every candidate and preserves the evidence in
+  `docs/contributing/phase-7-dead-code-audit.md`.
+- [x] `7.3.8` Export and inventory the complete current CRG dead-code candidate
+  set rather than limiting review to the ten initial plausible targets.
+- [x] `7.3.9` Classify every candidate by framework/dynamic false-positive
+  category or by concrete suspicion requiring source review.
+- [x] `7.3.10` Investigate every remaining plausible candidate with direct,
+  serialized, registry, callback, fixture, and test-reference evidence.
+- [x] `7.3.11` Review whether dynamically retained symbols have adequate
+  contract coverage and add focused tests where the retention mechanism is not
+  already proven.
+- [x] `7.3.12` Rebuild CRG after all removal batches and confirm removed symbols
+  are absent while retained dynamic contracts are documented.
+- [x] `7.3.13` Preserve a durable candidate-disposition inventory with enough
+  detail to reproduce the audit.
+- [x] `7.3.14` Commit the completed Phase 7 audit and removals as an isolated
+  roadmap scope.
+
+Dead-code audit evidence:
+
+- The candidate audit combined CRG results with direct symbol searches,
+  serialized/string-value searches, registry construction, callback return
+  paths, pytest conventions, and Home Assistant interface review. CRG output
+  alone was not treated as deletion proof.
+- `AggregateKind` is retained because aggregate policy and runtime assembly
+  distinguish standard and health definitions through it, with direct tests.
+- `ControlActionType` and `ControlRuntimeEffectType` are retained as active
+  policy, decision, runtime-effect, and executor contracts across light, fan,
+  cover, climate, and media control paths.
+- `ControlGroupPolicyId` and `GroupMetadataKey` are retained as serialized
+  configuration and registry contracts. Their values are consumed by schemas,
+  builders, feature modules, runtime selectors, switches, and tests.
+- `FeatureRegistration` is retained. Although CRG reports the class as
+  unreferenced, `FEATURE_REGISTRATIONS` constructs it and its records are
+  directly consumed by the feature-catalog contract tests.
+- `IntentReason`, `ControlTargetKind`, and `ControlTargetPrecision` are retained
+  as active pure-engine decision and execution-target contracts with runtime
+  consumers and direct behavioral coverage.
+- CRG also reports the nested `immediate_call` and `cancel` callbacks in
+  `tests/helpers_timing.py` as dead. They are retained because the factory
+  returns `immediate_call`, Home Assistant invokes it as a patched callback
+  scheduler, and callers receive `cancel` as the cancellation contract.
+- Eight proven-dead symbols were removed. The complete removal rationale,
+  retained-candidate inventory, coverage review, CRG rebuild evidence, and
+  validation results are recorded in
+  `docs/contributing/phase-7-dead-code-audit.md`.
+- The rebuilt graph reduced the candidate set from `298` to `287`. All eight
+  removed symbols are absent; the additional three-node reduction consists of
+  the methods owned by the removed `VirtualClock` class.
 
 ### 8. Options-Flow Structural Follow-Up
 

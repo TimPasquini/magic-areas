@@ -138,14 +138,6 @@ class ConfigBase:
 
         return vol.Schema(mapped)
 
-    @staticmethod
-    def _errors_from_validation(
-        validation: vol.MultipleInvalid,
-    ) -> dict[str, str]:
-        """Return errors mapping from voluptuous validation."""
-        return errors_from_validation(validation)
-
-
 def invalid_input_error() -> dict[str, str]:
     """Return standard invalid-input error payload for flow forms."""
     return {"base": "invalid_input"}

@@ -117,11 +117,3 @@ def get_module(feature_name: str) -> FeatureModule:
     if not _is_feature_module(module):  # pragma: no cover
         pytest.fail(f"{class_name} does not implement FeatureModule contract")
     return module
-
-
-def group_ids_for_area(snapshot: MagicMock, area_id: str) -> set[str]:
-    """Collect policy group ids for a specific area from snapshot registry."""
-    return {
-        group.definition.group_id
-        for group in snapshot.group_registry.get_for_area(area_id)
-    }

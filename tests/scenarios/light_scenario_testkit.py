@@ -17,7 +17,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import HomeAssistant, State
+from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
@@ -129,10 +129,6 @@ class OneRoomLightScenario:
             f"{SWITCH_DOMAIN}.magic_areas_light_groups_"
             f"{DEFAULT_MOCK_AREA}_light_control"
         )
-
-    def light_group_state(self) -> State | None:
-        """Return the current HA state for the policy light group."""
-        return self.hass.states.get(self.light_group_entity_id)
 
     def adaptive_guards(self) -> dict[str, object]:
         """Return the latest adaptive guard diagnostics from the light group."""
