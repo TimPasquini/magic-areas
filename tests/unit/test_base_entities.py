@@ -3,12 +3,18 @@
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock, patch
 
-
-from custom_components.magic_areas.entity import BinaryMagicEntity, MagicEntity, MagicGroupEntity
-from custom_components.magic_areas.enums import MagicAreasFeatures
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.core import HomeAssistant
+
+from custom_components.magic_areas.components import MAGIC_DEVICE_ID_PREFIX
+from custom_components.magic_areas.const import DOMAIN
+from custom_components.magic_areas.entity import (
+    BinaryMagicEntity,
+    MagicEntity,
+    MagicGroupEntity,
+)
+from custom_components.magic_areas.enums import MagicAreasFeatures
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
@@ -65,6 +71,28 @@ class MockBinaryMagicEntity(BinaryMagicEntity):
 
 class TestMagicGroupEntity:
     """Tests for MagicGroupEntity base class."""
+
+    def test_magic_entity_exposes_ha_entity_contracts(self) -> None:
+        """Base entities are coordinator-driven and identify their area device."""
+        area_config = Mock()
+        area_config.id = "test_area"
+        area_config.slug = "test_area"
+        area_config.name = "Test Area"
+        area_config.icon = None
+        area_config.hass_config = None
+        area_config.is_meta.return_value = False
+        coordinator = Mock()
+        coordinator.last_update_success = True
+        coordinator.data = None
+
+        entity = MockMagicEntity(area_config, coordinator)
+
+        assert entity.should_poll is False
+        assert entity.feature_info.id is MagicAreasFeatures.LIGHT_GROUPS
+        assert entity.device_info["identifiers"] == {
+            (DOMAIN, f"{MAGIC_DEVICE_ID_PREFIX}test_area")
+        }
+        assert entity.device_info["name"] == "Test Area"
 
     def test_stores_member_entity_ids(self) -> None:
         """Should store member entity IDs."""

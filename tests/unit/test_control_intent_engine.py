@@ -49,6 +49,7 @@ def test_evaluate_intent_allows_executable_target_without_constraints() -> None:
     assert decision.target_entity_ids == ("light.lamp", "light.soft_lamp")
     assert decision.reason is IntentReason.INTENT_ALLOWED
     assert decision.reason_detail == "sleep_state_active"
+    assert not decision.is_noop
 
 
 def test_evaluate_intent_noops_when_constraint_blocks_control() -> None:
@@ -160,6 +161,25 @@ def test_evaluate_intent_returns_surviving_subset_after_suppression() -> None:
         "sleep_suppression",
         "accent_suppression",
     )
+
+
+def test_evaluate_intent_noops_for_empty_target() -> None:
+    """Targets without an execution surface should not reach an adapter."""
+    target = _target()
+
+    assert not target.is_executable
+
+    decision = evaluate_intent(
+        ControlIntent(
+            intent_id="empty_light_target",
+            action=IntentAction.ACTIVATE,
+            target=target,
+        )
+    )
+
+    assert decision.is_noop
+    assert decision.reason is IntentReason.EMPTY_TARGET
+    assert decision.target_entity_ids == ()
 
 
 def test_engine_module_has_no_homeassistant_imports() -> None:

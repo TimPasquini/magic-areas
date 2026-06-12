@@ -28,10 +28,7 @@ from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_light_group_id,
 )
 from custom_components.magic_areas.enums import LightGroupCategory, MagicAreasFeatures
-from custom_components.magic_areas.features.base import (
-    BaseFeatureModule,
-    FeatureConfigDict,
-)
+from custom_components.magic_areas.features.base import BaseFeatureModule
 from custom_components.magic_areas.features.control_builders import (
     CategorizedGroupSpec,
     ControlGroupDefinition,
@@ -262,7 +259,7 @@ class LightGroupsFeatureModule(BaseFeatureModule):
         area_config: AreaConfig,
         coordinator: MagicAreasCoordinator,
         light_entities: list[str],
-        feature_config: FeatureConfigDict,
+        feature_config: dict[str, object],
     ) -> tuple[list[Entity], list[ControlGroupDefinition]]:
         specs = [
             CategorizedGroupSpec(

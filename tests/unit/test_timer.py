@@ -38,3 +38,34 @@ async def test_reusable_timer_skips_stale_callback(hass: HomeAssistant) -> None:
         await first_action(datetime.now(UTC))
 
     assert calls == []
+
+
+async def test_reusable_timer_runs_current_callback(hass: HomeAssistant) -> None:
+    """Test the current scheduled callback fires and clears the active handle."""
+    calls: list[datetime] = []
+    scheduled: dict[str, Callable[[datetime], Awaitable[None]]] = {}
+
+    async def _callback(now: datetime) -> None:
+        calls.append(now)
+
+    def _fake_async_call_later(
+        hass_obj: HomeAssistant,
+        delay: float,
+        action: Callable[[datetime], Awaitable[None]],
+    ) -> Callable[[], None]:
+        del hass_obj, delay
+        scheduled["action"] = action
+        return lambda: None
+
+    timer = ReusableTimer(hass, 1, _callback)
+
+    with patch(
+        "custom_components.magic_areas.helpers.async_call_later",
+        side_effect=_fake_async_call_later,
+    ):
+        timer.start()
+        now = datetime.now(UTC)
+        await scheduled["action"](now)
+
+    assert calls == [now]
+    assert timer._handle is None

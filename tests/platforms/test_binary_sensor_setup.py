@@ -1,13 +1,14 @@
 """Test binary_sensor platform setup with coordinator data conditions."""
 
 from collections.abc import Iterable
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.binary_sensor import (
+    _build_platform_base_entities,
     async_setup_entry,
     create_wasp_in_a_box_sensor,
     create_ble_tracker_sensor,
@@ -101,3 +102,27 @@ def test_create_ble_tracker_sensor_returns_empty_when_feature_disabled() -> None
     # Should return empty list (line 158)
     assert result == []
     assert isinstance(result, list)
+
+
+def test_build_platform_base_entities_selects_meta_area_sensor() -> None:
+    """Meta-area setup should build only the meta-area state sensor."""
+    area_config = MagicMock()
+    area_config.is_meta.return_value = True
+    coordinator = MagicMock()
+    data = MagicMock()
+    meta_entity = MagicMock(spec=Entity)
+
+    with (
+        patch(
+            "custom_components.magic_areas.binary_sensor.MetaAreaStateBinarySensor",
+            return_value=meta_entity,
+        ) as meta_sensor,
+        patch(
+            "custom_components.magic_areas.binary_sensor.AreaStateBinarySensor"
+        ) as area_sensor,
+    ):
+        entities = _build_platform_base_entities(area_config, coordinator, data)
+
+    assert entities == [meta_entity]
+    meta_sensor.assert_called_once_with(area_config, coordinator)
+    area_sensor.assert_not_called()

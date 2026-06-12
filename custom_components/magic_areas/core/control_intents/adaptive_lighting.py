@@ -284,7 +284,6 @@ class AdaptiveLightingCoordinationReason(StrEnum):
     SLEEP_CLEARED = "sleep_cleared"
     ACCENT_ACTIVE = "accent_active"
     ACCENT_CLEARED = "accent_cleared"
-    MANUAL_OVERRIDE_COOLDOWN_ACTIVE = "manual_override_cooldown_active"
     MANUAL_OVERRIDE_COOLDOWN_EXPIRED = "manual_override_cooldown_expired"
 
 

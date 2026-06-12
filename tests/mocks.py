@@ -2,7 +2,6 @@
 
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import datetime
 from functools import cached_property
 from typing import Any, Final
 from unittest.mock import AsyncMock
@@ -47,7 +46,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.entity import Entity, ToggleEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -85,11 +84,6 @@ class MockEntity(Entity):
     # Note: capability_attributes and device_class are defined by domain-specific
     # entity classes (LightEntity, FanEntity, etc.) with appropriate types.
     # MockEntity does not override them to avoid type conflicts.
-
-    @cached_property
-    def device_info(self) -> DeviceInfo | None:
-        """Info how it links to a device."""
-        return self._handle("device_info")
 
     @cached_property
     def entity_category(self) -> EntityCategory | None:
@@ -481,11 +475,6 @@ class MockSensor(MockEntity, SensorEntity):
     def device_class(self) -> SensorDeviceClass | None:
         """Return the class of this sensor."""
         return self._handle("device_class")
-
-    @cached_property
-    def last_reset(self) -> datetime:
-        """Return the last_reset of this sensor."""
-        return self._handle("last_reset")
 
     @cached_property
     def suggested_display_precision(self) -> int:

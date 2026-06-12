@@ -107,3 +107,25 @@ async def test_resettable_switch_turn_off_uses_single_write_path() -> None:
 
     mock_write.assert_called_once()
     mock_schedule.assert_not_called()
+
+
+def test_resettable_switch_clear_timers_cancels_active_timer() -> None:
+    """Removal cleanup should cancel the active timeout callback."""
+    switch = _TestResettableSwitch(_mock_area_config(), _mock_coordinator(), timeout=1)
+    cancel = Mock()
+    switch._timeout_callback = cancel
+
+    switch._clear_timers()
+
+    cancel.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_resettable_switch_timeout_turns_off_active_switch() -> None:
+    """The HA timer callback should turn off an active resettable switch."""
+    switch = _TestResettableSwitch(_mock_area_config(), _mock_coordinator(), timeout=1)
+    switch._attr_is_on = True
+    with patch.object(switch, "async_turn_off", new=AsyncMock()) as turn_off:
+        await switch._timeout_turn_off(None)
+
+    turn_off.assert_awaited_once_with()

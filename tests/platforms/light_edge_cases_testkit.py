@@ -1,7 +1,6 @@
 """Shared fixtures for light edge-case platform tests."""
 
 import pytest
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -26,7 +25,7 @@ from custom_components.magic_areas.light_groups import (
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers.config_entries import get_basic_config_entry_data
 from tests.helpers.entities import setup_mock_entities
-from tests.mocks import MockBinarySensor, MockLight
+from tests.mocks import MockLight
 
 
 def get_light_group_runtime(
@@ -90,13 +89,3 @@ async def setup_entities_light_edge_cases(hass: HomeAssistant) -> list[MockLight
     ]
     await setup_mock_entities(hass, LIGHT_DOMAIN, {DEFAULT_MOCK_AREA: lights})
     return lights
-
-
-@pytest.fixture(name="entities_binary_sensor_edge_cases")
-async def setup_entities_binary_sensor_edge_cases(
-    hass: HomeAssistant,
-) -> list[MockBinarySensor]:
-    """Create mock binary sensors."""
-    sensors = [MockBinarySensor(name="dark_sensor", unique_id="dark_sensor")]
-    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: sensors})
-    return sensors

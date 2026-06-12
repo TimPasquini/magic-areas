@@ -9,7 +9,11 @@ from homeassistant.core import EventBus, HomeAssistant
 from homeassistant.helpers.entity_registry import EVENT_ENTITY_REGISTRY_UPDATED
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas import async_setup_entry
+from custom_components.magic_areas import (
+    async_setup_entry,
+    async_unload_entry,
+    async_update_options,
+)
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.config_keys.area import CONF_RELOAD_ON_REGISTRY_CHANGE
 from custom_components.magic_areas.const import DOMAIN
@@ -17,6 +21,60 @@ from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers.config_entries import get_basic_config_entry_data
 
 EventCallback = Callable[[object], Awaitable[object]]
+
+
+async def test_async_update_options_reloads_config_entry(
+    hass: HomeAssistant,
+) -> None:
+    """The registered options listener should reload its config entry."""
+    config_entry = MockConfigEntry(domain=DOMAIN)
+
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        new=AsyncMock(return_value=True),
+    ) as async_reload:
+        await async_update_options(
+            hass,
+            cast(ConfigEntry[MagicAreasRuntimeData], config_entry),
+        )
+
+    async_reload.assert_awaited_once_with(config_entry.entry_id)
+
+
+async def test_async_unload_entry_cleans_runtime_resources(
+    hass: HomeAssistant,
+) -> None:
+    """The HA unload entry point should unload platforms and runtime resources."""
+    config_entry = MockConfigEntry(domain=DOMAIN)
+    listener = MagicMock()
+    coordinator = MagicMock()
+    coordinator.data.area_config.available_platforms.return_value = [
+        "binary_sensor",
+        "switch",
+    ]
+    coordinator.async_shutdown = AsyncMock()
+    config_entry.runtime_data = MagicAreasRuntimeData(
+        coordinator=coordinator,
+        listeners=[listener],
+    )
+
+    with patch.object(
+        hass.config_entries,
+        "async_unload_platforms",
+        new=AsyncMock(return_value=True),
+    ) as async_unload_platforms:
+        assert await async_unload_entry(
+            hass,
+            cast(ConfigEntry[MagicAreasRuntimeData], config_entry),
+        )
+
+    async_unload_platforms.assert_awaited_once_with(
+        config_entry,
+        ["binary_sensor", "switch"],
+    )
+    coordinator.async_shutdown.assert_awaited_once_with()
+    listener.assert_called_once_with()
 
 
 async def test_async_setup_entry_reload_skipped_before_start(

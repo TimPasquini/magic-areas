@@ -2530,10 +2530,15 @@ Explicit exit re-evaluation:
 
 Expanded-audit correction:
 
-- The initial pass completed the ten named candidate reviews but did not audit
-  the complete CRG candidate population. The correction below expanded the
-  review to every candidate and preserves the evidence in
-  `docs/contributing/phase-7-dead-code-audit.md`.
+- The initial pass completed the ten named candidate reviews and removed eight
+  proven-dead symbols, but the subsequent retained-candidate inventory used
+  broad file/path classifications instead of preserving per-symbol evidence.
+  The expanded audit therefore used a temporary per-symbol checklist. A later
+  review found that grouped evidence and missing candidate-specific coverage,
+  disposition, or rationale had caused incomplete entries to be marked
+  complete. Every record was reopened, repaired, and independently checked
+  against the final source tree, collected tests, and rebuilt graph before the
+  temporary checklist was retired.
 - [x] `7.3.8` Export and inventory the complete current CRG dead-code candidate
   set rather than limiting review to the ten initial plausible targets.
 - [x] `7.3.9` Classify every candidate by framework/dynamic false-positive
@@ -2545,17 +2550,20 @@ Expanded-audit correction:
   already proven.
 - [x] `7.3.12` Rebuild CRG after all removal batches and confirm removed symbols
   are absent while retained dynamic contracts are documented.
-- [x] `7.3.13` Preserve a durable candidate-disposition inventory with enough
-  detail to reproduce the audit.
-- [x] `7.3.14` Commit the completed Phase 7 audit and removals as an isolated
-  roadmap scope.
+- [x] `7.3.13` Transfer lasting architectural rationale, coverage requirements,
+  and unresolved work from the temporary audit into this roadmap or the
+  appropriate durable documentation.
+- [x] `7.3.14` Retire the temporary audit checklist after its verified
+  conclusions have been transferred.
+- [ ] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
+  documentation changes as an isolated scope.
 
 Dead-code audit evidence:
 
-- The candidate audit combined CRG results with direct symbol searches,
-  serialized/string-value searches, registry construction, callback return
-  paths, pytest conventions, and Home Assistant interface review. CRG output
-  alone was not treated as deletion proof.
+- The reopened audit assigned a unique identity to all 287 baseline CRG
+  candidates. The final audit resolved every entry with exact direct-reference
+  and quoted-name searches, a framework/dynamic-contract classification, a
+  collected behavioral or contract test, a disposition, and a rationale.
 - `AggregateKind` is retained because aggregate policy and runtime assembly
   distinguish standard and health definitions through it, with direct tests.
 - `ControlActionType` and `ControlRuntimeEffectType` are retained as active
@@ -2574,13 +2582,39 @@ Dead-code audit evidence:
   `tests/helpers_timing.py` as dead. They are retained because the factory
   returns `immediate_call`, Home Assistant invokes it as a patched callback
   scheduler, and callers receive `cancel` as the cancellation contract.
-- Eight proven-dead symbols were removed. The complete removal rationale,
-  retained-candidate inventory, coverage review, CRG rebuild evidence, and
-  validation results are recorded in
-  `docs/contributing/phase-7-dead-code-audit.md`.
-- The rebuilt graph reduced the candidate set from `298` to `287`. All eight
-  removed symbols are absent; the additional three-node reduction consists of
-  the methods owned by the removed `VirtualClock` class.
+- The reopened audit removed 16 additional proven-dead candidate definitions:
+  the unreachable Wasp timer callback; duplicate `FeatureIcons`; five stale
+  options-flow settings/finish routes; two unused control-builder facade
+  functions; four obsolete feature protocol/base hooks; unused
+  `MockEntity.device_info` and `MockSensor.last_reset` overrides; and one
+  unused light edge-case fixture. Exact source and final-graph checks find none
+  of those symbols.
+- Retained candidates received focused behavioral coverage where framework
+  discovery alone was insufficient. Added contracts cover config-entry
+  callbacks, migration handlers, HA entity properties/services, timer
+  cancellation and expiry callbacks, bootstrap/simulator builders, pytest
+  fixtures, mock entity surfaces, scenario IDs, snapshots, and Adaptive
+  Lighting service/event callbacks. Direct tests were also added for
+  `default_feature_options`, `schema_from_default_options`, and the concrete
+  light runtime controller restore hook.
+- The final CRG rebuild parsed 388 files and produced 3,638 raw nodes and
+  28,626 raw edges. The query graph contains 3,624 indexed nodes and 28,524
+  indexed edges at branch `fan-cover-default-automation`, commit
+  `75e5fba329c1`. `find_dead_code` returned 253 candidates. Reconciliation
+  against the 287-item baseline found zero new candidates: 16 candidate
+  definitions are absent, and 18 retained definitions are no longer reported
+  because current callers or focused tests make them statically live.
+- Final `./scripts/validate.sh` passed Ruff, mypy across 377 source files, all
+  26 snapshots, and all 1,472 pytest tests in 38.48 seconds.
+- Durable rule: CRG dead-code output remains a candidate generator only.
+  Home Assistant entry points/entity interfaces, registry-dispatched feature
+  modules, callback-return contracts, serialized enums/keys, simulator
+  builders, and pytest fixtures require framework-aware reference review and
+  behavioral evidence before removal.
+- Coverage aggregation, removal-batch reconciliation, final-tree validation,
+  durable transfer, and temporary-checklist retirement are complete. No
+  unresolved Phase 7 implementation or coverage gap remains; only the isolated
+  Phase 7 commit is open.
 
 ### 8. Options-Flow Structural Follow-Up
 

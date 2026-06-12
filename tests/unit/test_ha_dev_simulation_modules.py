@@ -15,6 +15,16 @@ import pytest
 sys.modules.setdefault("websockets", ModuleType("websockets"))
 
 from scripts import ha_dev_simulate
+from scripts.ha_dev_bootstrap import (
+    DEV_AREAS,
+    DEV_MAGIC_AREAS,
+    INITIAL_SERVICE_CALLS,
+    DevRoom,
+    _cover_room_magic_area,
+    _fan_room_magic_area,
+    _room_dev_area,
+    _room_magic_area,
+)
 from scripts.ha_dev_simulation.client import get_states
 from scripts.ha_dev_simulation import cli
 from scripts.ha_dev_simulation.entities import (
@@ -27,6 +37,7 @@ from scripts.ha_dev_simulation.preflight import preflight_fan_cover_options
 from scripts.ha_dev_simulation.reset import reset_fake_house
 from scripts.ha_dev_simulation.timing import SimulationTiming
 from scripts.ha_dev_simulation.traces import trace_entities
+from scripts.ha_dev_simulation.scenarios import lights
 
 
 class RecordingClient:
@@ -146,6 +157,133 @@ def test_simulation_timing_preserves_real_cycle_calculations() -> None:
     assert timing.configured_minutes_timeout(1.0) == 65.0
     assert timing.configured_seconds_timeout(4.0) == 9.0
     assert timing.runtime_poll_seconds == 0.5
+
+
+def test_dev_room_properties_drive_area_and_magic_area_plans() -> None:
+    """Room-derived entity IDs should remain aligned across bootstrap plans."""
+    room = DevRoom(
+        name="Test Room",
+        slug="test_room",
+        dark_entity="binary_sensor.outdoor_bright",
+        second_light_slug="sleep_light",
+        include_accent=False,
+    )
+
+    assert room.occupancy_entity == "binary_sensor.test_room_occupancy"
+    assert room.sleep_entity == "binary_sensor.test_room_sleep"
+    assert room.accent_entity == ""
+    assert room.light_entity == "binary_sensor.test_room_light"
+    assert room.illuminance_entity == "sensor.test_room_illuminance"
+    assert room.overhead_light == "light.test_room_overhead"
+    assert room.second_light == "light.test_room_sleep_light"
+    assert room.resolved_dark_entity == "binary_sensor.outdoor_bright"
+
+    area = _room_dev_area(room)
+    assert area.entity_ids == (
+        room.occupancy_entity,
+        room.sleep_entity,
+        room.light_entity,
+        room.illuminance_entity,
+        room.overhead_light,
+        room.second_light,
+    )
+
+    magic_area = _room_magic_area(room)
+    secondary_step = next(
+        step for step in magic_area.options_steps if step.step_id == "secondary_states"
+    )
+    assert secondary_step.user_input["dark_entity"] == room.resolved_dark_entity
+    assert secondary_step.user_input["accent_entity"] == ""
+
+
+def test_bootstrap_builders_feed_exported_fake_house_contracts() -> None:
+    """Special rooms and reset calls should be present in exported bootstrap data."""
+    assert _fan_room_magic_area() in DEV_MAGIC_AREAS
+    assert _cover_room_magic_area() in DEV_MAGIC_AREAS
+    assert any(area.name == "Fan Room" for area in DEV_AREAS)
+    assert any(area.name == "Cover Room" for area in DEV_AREAS)
+    assert INITIAL_SERVICE_CALLS[0]["domain"] == "input_boolean"
+    target_entity_ids = {
+        target["entity_id"]
+        for call in INITIAL_SERVICE_CALLS
+        if isinstance((target := call.get("target")), dict)
+        and isinstance(target.get("entity_id"), str)
+    }
+    assert "input_number.fan_room_humidity" in target_entity_ids
+
+
+@pytest.mark.asyncio
+async def test_adaptive_lighting_manual_release_executes_clear_trigger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The service-event waiter should execute the real clear-room trigger."""
+    actions: list[tuple[str, object]] = []
+
+    class _Timing:
+        async def settle_setup(self) -> None:
+            return None
+
+        async def settle_checkpoint(self) -> None:
+            return None
+
+        async def wait_configured_minutes(self, minutes: float) -> None:
+            actions.append(("wait_minutes", minutes))
+
+        def configured_minutes_event_timeout(
+            self, minutes: float, *, event_margin_seconds: float
+        ) -> float:
+            return minutes + event_margin_seconds
+
+    class _Evaluation:
+        def __init__(self, *, output_path: Path | None) -> None:
+            del output_path
+
+        async def evaluate(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def write(self) -> None:
+            return None
+
+    async def record_boolean(
+        _client: object, entity_id: str, enabled: bool
+    ) -> None:
+        actions.append((entity_id, enabled))
+
+    async def wait_for_event(
+        _args: argparse.Namespace,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        trigger = kwargs["trigger"]
+        assert callable(trigger)
+        await trigger()
+        return {"lights": ["light.adaptive_lighting_room_overhead"]}
+
+    async def no_op(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "scripts.ha_dev_simulation.scenarios.lights.SimulationTiming.from_args",
+        lambda _args: _Timing(),
+    )
+    monkeypatch.setattr(lights, "ScenarioEvaluation", _Evaluation)
+    monkeypatch.setattr(lights, "reset_control_matrix", no_op)
+    monkeypatch.setattr(lights, "set_switch", no_op)
+    monkeypatch.setattr(lights, "set_input_boolean", record_boolean)
+    monkeypatch.setattr(lights, "call_service", no_op)
+    monkeypatch.setattr(lights, "set_light", no_op)
+    monkeypatch.setattr(lights, "wait_for_service_call_event", wait_for_event)
+
+    args = argparse.Namespace(
+        no_evaluation_file=True,
+        evaluation_file="unused.json",
+    )
+    await lights.adaptive_lighting_manual_release(RecordingClient(), args)  # type: ignore[arg-type]
+
+    assert (
+        "input_boolean.adaptive_lighting_room_occupancy",
+        False,
+    ) in actions
+    assert ("wait_minutes", 1) in actions
 
 
 def test_preflight_accepts_matching_seeded_options(tmp_path: Path) -> None:

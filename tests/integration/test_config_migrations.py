@@ -6,12 +6,22 @@ data loss or errors.
 """
 
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from custom_components.magic_areas.config_keys.area import (
+    CONF_ENABLED_FEATURES,
+    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
+    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
+    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
+)
 from custom_components.magic_areas.enums import MagicConfigEntryVersion
+from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.migrations import (
     CONFIG_MIGRATIONS,
     ConfigMigration,
+    _migrate_1_0_to_2_0,
+    _migrate_2_2_to_2_3,
     apply_applicable_migrations,
     get_applicable_migrations,
 )
@@ -94,6 +104,42 @@ class TestMigrationRegistry:
 
         assert applied == 2
         assert calls == ["1", "2"]
+
+    async def test_unique_id_migration_handler_delegates_to_canonical_migrator(
+        self,
+    ) -> None:
+        """The registered legacy handler should invoke unique-ID migration."""
+        hass = MagicMock()
+        entry = MagicMock()
+        with patch(
+            "custom_components.magic_areas.migrations.async_migrate_unique_ids",
+            new=AsyncMock(),
+        ) as migrate_unique_ids:
+            await _migrate_1_0_to_2_0(hass, entry)
+
+        migrate_unique_ids.assert_awaited_once_with(hass, entry)
+
+    async def test_light_group_option_migration_backfills_defaults(self) -> None:
+        """The 2.3 migration should persist missing adaptive-light defaults."""
+        light_config: dict[str, object] = {}
+        entry = MagicMock()
+        entry.options = {
+            CONF_ENABLED_FEATURES: {
+                MagicAreasFeatures.LIGHT_GROUPS.value: light_config,
+            }
+        }
+        hass = MagicMock()
+
+        await _migrate_2_2_to_2_3(hass, entry)
+
+        assert light_config[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] == "inhibit"
+        assert light_config[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] is False
+        assert light_config[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] == 120
+        assert light_config[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] == 20
+        hass.config_entries.async_update_entry.assert_called_once_with(
+            entry,
+            options=entry.options,
+        )
 
 
 class TestOldConfigLoading:

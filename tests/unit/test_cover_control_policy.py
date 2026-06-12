@@ -1,6 +1,6 @@
 """Unit tests for cover automation policy."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from homeassistant.const import (
@@ -259,3 +259,27 @@ async def test_cover_switch_expected_state_change_does_not_start_hold(
     schedule_check.assert_not_called()
     assert not switch._manual_hold_active()
     assert switch._expected_cover_group_state_changes == set()
+
+
+async def test_cover_manual_hold_expiry_rechecks_current_area_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The expiry callback should clear its handle and rerun cover policy."""
+    switch = object.__new__(CoverControlSwitch)
+    switch.hass = Mock()
+    switch._area_id = "cover-room"
+    switch._last_states = [AreaStates.OCCUPIED.value]
+    switch._manual_hold_timer_cancel = Mock()
+    run_logic = AsyncMock()
+    monkeypatch.setattr(switch, "run_logic", run_logic)
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.cover_control.resolve_area_presence_states",
+        lambda **_kwargs: [AreaStates.OCCUPIED.value, AreaStates.BRIGHT.value],
+    )
+
+    await switch._manual_hold_expiry_check(None)
+
+    assert switch._manual_hold_timer_cancel is None
+    run_logic.assert_awaited_once_with(
+        [AreaStates.OCCUPIED.value, AreaStates.BRIGHT.value]
+    )

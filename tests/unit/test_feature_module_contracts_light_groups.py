@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Protocol, cast
+from unittest.mock import Mock
+
+import pytest
 
 from custom_components.magic_areas.coordinator import MagicAreasData
 from custom_components.magic_areas.core.controls import GroupRegistry
@@ -21,6 +24,7 @@ from custom_components.magic_areas.core.runtime_model import (
     SignalHelperSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
+from custom_components.magic_areas.light_groups import LightGroupRuntimeController
 
 from .feature_module_contracts_testkit import (
     get_module,
@@ -50,7 +54,7 @@ class _LightGroupRuntimeModule(_ManagedAdaptiveLightingModule, Protocol):
         area_config: AreaConfig,
         coordinator: object,
         data: MagicAreasData,
-    ) -> list[object]:
+    ) -> list[LightGroupRuntimeController]:
         """Return non-entity light-group runtime controllers."""
         ...
 
@@ -257,6 +261,53 @@ def test_light_groups_module_exposes_adaptive_lighting_diagnostics_attribute() -
         "reason": "associated",
         "main_switch_entity_id": "switch.adaptive_lighting_ma_kitchen_all_lights",
     }
+
+
+@pytest.mark.asyncio
+async def test_light_group_runtime_controller_exposes_host_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concrete runtime controllers should satisfy the shared host protocol."""
+    area_config = make_area_config()
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.LIGHT_GROUPS},
+        feature_configs={
+            MagicAreasFeatures.LIGHT_GROUPS: {
+                "overhead_lights": ["light.overhead_1"],
+            }
+        },
+        entities={"light": [{"entity_id": "light.overhead_1"}]},
+    )
+    coordinator = make_coordinator(snapshot)
+    coordinator.hass.states.get.return_value.state = "on"
+    controller = next(
+        candidate
+        for candidate in _light_group_runtime_module().build_runtime_controllers(
+            area_config, coordinator, snapshot
+        )
+        if candidate.category == "overhead_lights"
+    )
+    native_helper = "light.magic_areas_native_kitchen_overhead"
+    monkeypatch.setattr(
+        controller,
+        "_control_target_entity_id",
+        Mock(return_value=native_helper),
+    )
+
+    assert controller.name == "Kitchen overhead_lights light runtime"
+    assert controller.unique_id == controller._native_control_target_unique_id
+    assert controller.entity_id == native_helper
+    assert controller.is_on is True
+    assert controller.controlling is True
+    assert controller._echo_state.owner_id == controller.unique_id
+    assert await controller.async_get_last_state() is None
+
+    remove_listener = Mock()
+    controller.track_group_listener(remove_listener, "contract_test")
+    assert controller._listener_registry.count == 1
+    controller.cleanup()
+    remove_listener.assert_called_once_with()
+    controller.async_write_ha_state()
 
 
 def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:

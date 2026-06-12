@@ -6,7 +6,12 @@ Tests verify the media player correctly handles:
 """
 
 import pytest
-from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+from typing import cast
+from homeassistant.components.media_player.const import (
+    DOMAIN as MEDIA_PLAYER_DOMAIN,
+    MediaPlayerEntityFeature,
+    MediaPlayerState,
+)
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant
@@ -16,6 +21,23 @@ from custom_components.magic_areas.media_player import (
     AreaAwareMediaPlayer,
 )
 from custom_components.magic_areas.const import ATTR_STATES
+
+
+def test_area_aware_media_player_exposes_media_entity_contract() -> None:
+    """State and supported features should satisfy HA's media entity contract."""
+    media_player = MagicMock(spec=AreaAwareMediaPlayer)
+    media_player._state = MediaPlayerState.IDLE
+
+    state_property = cast(property, AreaAwareMediaPlayer.__dict__["state"])
+    features_property = cast(
+        property, AreaAwareMediaPlayer.__dict__["supported_features"]
+    )
+    assert state_property.__get__(media_player) is MediaPlayerState.IDLE
+    supported = features_property.__get__(media_player)
+    assert supported == (
+        MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
+    )
 
 
 @pytest.mark.asyncio

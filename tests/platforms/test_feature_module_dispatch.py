@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -50,16 +49,6 @@ class FeatureModuleDouble:
     def config_schema(self) -> vol.Schema | None:  # pragma: no cover
         """Return the config schema for this feature."""
         return None
-
-    def option_steps(self) -> list[str]:  # pragma: no cover - not used in dispatch tests
-        """Return option step identifiers for this feature."""
-        return []
-
-    def validate_config(
-        self, config: Mapping[str, object]
-    ) -> dict[str, object]:  # pragma: no cover - not used
-        """Validate and normalize config for this feature."""
-        return dict(config)
 
     def is_enabled(self, data: object) -> bool:
         """Return whether this feature is enabled for the area."""

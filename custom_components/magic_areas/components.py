@@ -37,7 +37,6 @@ __all__ = [
 ]
 
 __all__ += [
-    "FeatureIcons",
     "MagicAreasConfigEntry",
     "MAGIC_AREAS_COMPONENTS",
     "MAGIC_AREAS_COMPONENTS_META",
@@ -79,15 +78,6 @@ class MetaAreaIcons(StrEnum):
     INTERIOR = "mdi:home-import-outline"
     EXTERIOR = "mdi:home-export-outline"
     GLOBAL = "mdi:home"
-
-
-class FeatureIcons(StrEnum):
-    """Icons for feature control switches."""
-
-    PRESENCE_HOLD_SWITCH = "mdi:car-brake-hold"
-    LIGHT_CONTROL_SWITCH = "mdi:lightbulb-auto-outline"
-    MEDIA_CONTROL_SWITCH = "mdi:auto-mode"
-    CLIMATE_CONTROL_SWITCH = "mdi:thermostat-auto"
 
 
 @dataclass

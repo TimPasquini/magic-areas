@@ -1,6 +1,7 @@
 """Runtime-level tests for adaptive light-group guard helpers."""
 
 from types import SimpleNamespace
+from collections.abc import Callable
 from typing import cast
 
 import pytest
@@ -11,8 +12,10 @@ from custom_components.magic_areas.light_groups.runtime import (
     _direct_light_output_changed,
     _inside_bright_met,
     _outside_context_ok,
+    _schedule_adaptive_bright_recheck_if_needed,
     _update_inside_lux_tracking,
 )
+from custom_components.magic_areas.area_state import AreaStates
 
 
 class _FakeStates:
@@ -31,6 +34,15 @@ class _FakeHost:
         self._ambient_rise_signal_unique_id: str | None = None
         self._last_direct_light_activity_monotonic: float | None = None
         self._ambient_rise_trend_contaminated = False
+        self._area_id = ""
+        self._last_known_area_states: list[str] = []
+        self._bright_since_monotonic: float | None = None
+        self.area_state_changed: Callable[
+            [str, tuple[list[str], list[str], list[str]]], bool
+        ] = lambda _area_id, _states: False
+        self.track_group_listener: Callable[[Callable[[], None], str], None] = (
+            lambda _remove, _name: None
+        )
 
 
 def _state(value: str, attributes: dict[str, object] | None = None) -> object:
@@ -342,6 +354,77 @@ def test_adaptive_bright_recheck_polls_managed_ambient_rise(
         _host(host),
         "bright_adaptive_waiting_ambient_rise",
     ) == 1.0
+
+
+def test_adaptive_bright_recheck_executes_scheduled_state_evaluation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scheduled recheck should evaluate the latest live area states."""
+    callbacks: list[object] = []
+    cancellations: list[bool] = []
+    state_changes: list[tuple[str, tuple[list[str], list[str], list[str]]]] = []
+    tracked: list[tuple[object, str]] = []
+    host = _FakeHost(
+        policy_config={"brightness_mode": "adaptive"},
+        states={},
+    )
+    host._area_id = "area-1"
+    host._last_known_area_states = [AreaStates.BRIGHT.value]
+    host._bright_since_monotonic = None
+
+    def call_later(_delay: float, callback: Callable[[], None]) -> object:
+        callbacks.append(callback)
+
+        def cancel() -> None:
+            cancellations.append(True)
+
+        return SimpleNamespace(cancel=cancel)
+
+    def area_state_changed(
+        area_id: str,
+        states: tuple[list[str], list[str], list[str]],
+    ) -> bool:
+        state_changes.append((area_id, states))
+        return True
+
+    def track_group_listener(remove: Callable[[], None], name: str) -> None:
+        tracked.append((remove, name))
+
+    host.hass.loop = SimpleNamespace(call_later=call_later)
+    host.area_state_changed = area_state_changed
+    host.track_group_listener = track_group_listener
+    monkeypatch.setattr(
+        "custom_components.magic_areas.light_groups.runtime.read_area_presence_states",
+        lambda _hass, _area_id: [
+            AreaStates.OCCUPIED.value,
+            AreaStates.BRIGHT.value,
+        ],
+    )
+
+    _schedule_adaptive_bright_recheck_if_needed(
+        _host(host),
+        "bright_adaptive_waiting_dwell",
+        [AreaStates.BRIGHT.value],
+    )
+
+    assert len(callbacks) == 1
+    assert len(tracked) == 1
+    assert tracked[0][1] == "adaptive_bright_recheck"
+    callback = cast(Callable[[], None], callbacks[0])
+    callback()
+    assert state_changes == [
+        (
+            "area-1",
+            (
+                [],
+                [],
+                [AreaStates.OCCUPIED.value, AreaStates.BRIGHT.value],
+            ),
+        )
+    ]
+    remove_listener = cast(Callable[[], None], tracked[0][0])
+    remove_listener()
+    assert cancellations == [True]
 
 
 def test_direct_light_output_changed_detects_on_and_brightness_increase() -> None:

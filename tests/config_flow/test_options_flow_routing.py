@@ -1,7 +1,11 @@
 """Tests for dynamic step routing in options flow."""
 
+from collections.abc import Awaitable, Callable, Mapping
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
+
+from homeassistant.config_entries import ConfigFlowResult
 
 from custom_components.magic_areas.config_flows import OptionsFlowHandler
 
@@ -23,6 +27,32 @@ async def test_options_flow_routes_feature_conf_step() -> None:
         # Verify async_step_feature_conf was called
         mock_handler.assert_called_once_with(None)
         assert result["type"] == "form"
+
+
+@pytest.mark.asyncio
+async def test_options_flow_dynamic_step_attribute_routes_feature_conf() -> None:
+    """HA-style dynamic step attributes should route through generic dispatch."""
+    config_entry: MagicMock = MagicMock()
+    config_entry.entry_id = "test_entry"
+    config_entry.options = {}
+    flow = OptionsFlowHandler(config_entry)
+
+    with patch.object(
+        flow, "async_step", new_callable=AsyncMock, return_value={"type": "form"}
+    ) as mock_router:
+        step = cast(
+            Callable[
+                [Mapping[str, object] | None],
+                Awaitable[ConfigFlowResult],
+            ],
+            flow.async_step_feature_conf_light_groups,
+        )
+        result = await step({"enabled": True})
+
+    mock_router.assert_awaited_once_with(
+        "feature_conf_light_groups", {"enabled": True}
+    )
+    assert result["type"] == "form"
 
 
 @pytest.mark.asyncio

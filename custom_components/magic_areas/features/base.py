@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol
 
 import voluptuous as vol
@@ -21,8 +21,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 type FeatureConfigValue = object
-type FeatureConfigMapping = Mapping[str, FeatureConfigValue]
-type FeatureConfigDict = dict[str, FeatureConfigValue]
 type FeatureOptionValidator = object
 
 
@@ -134,14 +132,6 @@ class FeatureModule(Protocol):
         """Return the config schema for this feature."""
         ...
 
-    def option_steps(self) -> list[str]:
-        """Return option step identifiers for this feature."""
-        ...
-
-    def validate_config(self, config: FeatureConfigMapping) -> FeatureConfigDict:
-        """Validate and normalize config for this feature."""
-        ...
-
     def is_enabled(self, data: MagicAreasData) -> bool:
         """Return whether this feature is enabled for the area."""
         ...
@@ -199,14 +189,6 @@ class BaseFeatureModule:
     def config_schema(self) -> vol.Schema | None:
         """Return the config schema for this feature."""
         return self.feature_schema
-
-    def option_steps(self) -> list[str]:
-        """Return option step identifiers for this feature."""
-        return []
-
-    def validate_config(self, config: FeatureConfigMapping) -> FeatureConfigDict:
-        """Validate and normalize config for this feature."""
-        return dict(config)
 
     def is_enabled(self, data: MagicAreasData) -> bool:
         """Return whether this feature is enabled for the area."""

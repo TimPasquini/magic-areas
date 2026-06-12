@@ -21,10 +21,8 @@ from custom_components.magic_areas.core.controls.registry import GroupRegistry
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
-    from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 
 TGroupEntity = TypeVar("TGroupEntity")
-EntitySnapshotDict = dict[str, str]
 _EXPECTED_GROUP_BUILD_ERRORS = (
     KeyError,
     TypeError,
@@ -82,109 +80,6 @@ def register_area_default_groups(
         definitions=definitions,
         policy_id=policy_id,
     )
-
-
-def build_primary_group_entities(
-    *,
-    area_config: AreaConfig,
-    coordinator: MagicAreasCoordinator,
-    source_domain: str,
-    entities_by_domain: dict[str, list[dict[str, str]]],
-    feature_id: MagicAreasFeatures,
-    policy_id: str,
-    build_group_id: Callable[[str], str],
-    group_entity_factory: Callable[[list[str]], Entity],
-    trigger_states: tuple[str, ...] = (),
-    control_switch_factory: Callable[[], Entity] | None = None,
-    group_registry: GroupRegistry,
-    logger: logging.Logger,
-    group_label: str,
-) -> list[Entity]:
-    """Build a primary control-group entity and register its definition."""
-    entities: list[Entity] = []
-    definitions: list[ControlGroupDefinition] = []
-
-    if source_domain not in entities_by_domain:
-        logger.debug("%s: No %s entities for area.", area_config.name, source_domain)
-    else:
-        member_ids = [entity["entity_id"] for entity in entities_by_domain[source_domain]]
-        if member_ids:
-            try:
-                entities.append(group_entity_factory(member_ids))
-                definitions.append(
-                    build_control_group_definition(
-                        group_id=build_group_id(area_config.id),
-                        members=member_ids,
-                        trigger_states=trigger_states,
-                        policy_id=policy_id,
-                        feature_id=feature_id,
-                    )
-                )
-            except _EXPECTED_GROUP_BUILD_ERRORS as exc:  # pragma: no cover
-                logger.exception(
-                    "%s: Error creating %s: %s",
-                    area_config.slug,
-                    group_label,
-                    str(exc),
-                )
-
-    register_area_default_groups(
-        area_id=area_config.id,
-        definitions=definitions,
-        policy_id=policy_id,
-        group_registry=group_registry,
-    )
-
-    if not area_config.is_meta() and control_switch_factory is not None:
-        try:
-            entities.append(control_switch_factory())
-        except _EXPECTED_GROUP_BUILD_ERRORS as exc:  # pragma: no cover
-            logger.exception(
-                "%s: Error loading %s control switch: %s",
-                area_config.name,
-                group_label,
-                str(exc),
-            )
-
-    return entities
-
-
-def build_partitioned_group_entities(
-    *,
-    area_config: AreaConfig,
-    coordinator: MagicAreasCoordinator,
-    source_domain: str,
-    entities_by_domain: dict[str, list[EntitySnapshotDict]],
-    partitions: list[str | None],
-    partition_key: str,
-    group_entity_factory: Callable[[str | None, list[EntitySnapshotDict]], Entity],
-    logger: logging.Logger,
-    group_label: str,
-) -> list[Entity]:
-    """Build grouped entities partitioned by a source attribute."""
-    if source_domain not in entities_by_domain:
-        logger.debug("%s: No %s entities for area.", area_config.name, source_domain)
-        return []
-
-    entities: list[Entity] = []
-    for partition in partitions:
-        partition_entities = [
-            entity
-            for entity in entities_by_domain[source_domain]
-            if entity.get(partition_key) == partition
-        ]
-        if not partition_entities:
-            continue
-        try:
-            entities.append(group_entity_factory(partition, partition_entities))
-        except _EXPECTED_GROUP_BUILD_ERRORS as exc:  # pragma: no cover
-            logger.exception(
-                "%s: Error creating %s: %s",
-                area_config.slug,
-                group_label,
-                str(exc),
-            )
-    return entities
 
 
 def build_control_switch_entities(
@@ -270,7 +165,5 @@ __all__ = [
     "build_categorized_group_entities",
     "build_control_switch_entities",
     "build_control_group_definition",
-    "build_partitioned_group_entities",
-    "build_primary_group_entities",
     "register_area_default_groups",
 ]

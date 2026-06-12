@@ -35,8 +35,6 @@ from custom_components.magic_areas.core.controls.builders import (
     CategorizedGroupSpec,
     build_categorized_group_entities,
     build_control_switch_entities,
-    build_partitioned_group_entities,
-    build_primary_group_entities,
     register_area_default_groups,
 )
 __all__ = [
@@ -54,8 +52,6 @@ __all__ = [
     "build_noop_decision",
     "build_categorized_group_entities",
     "build_control_switch_entities",
-    "build_partitioned_group_entities",
-    "build_primary_group_entities",
     "evaluate_and_execute_control_group_policy",
     "evaluate_and_execute_control_group_policy_sync",
     "execute_control_group_decision",

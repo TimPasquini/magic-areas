@@ -144,16 +144,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         """Configure a specific feature."""
         return await handle_feature_conf(self, user_input)
 
-    async def _update_options(self) -> config_entries.ConfigFlowResult:
-        """Compatibility close path for direct callers.
-
-        The root menu no longer exposes a final save action. Complete pages
-        persist when they are submitted, so users can close the flow without a
-        misleading Home Assistant completion prompt.
-        """
-        # noinspection PyTypeChecker
-        return self.async_create_entry(title="", data=_copy_options(self.area_options))
-
     async def _persist_options(self) -> None:
         """Persist the current staged options onto the config entry."""
         self.hass.config_entries.async_update_entry(
@@ -259,17 +249,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             on_success=self._persist_options_and_show_menu,
         )
 
-    async def async_step_area_config_settings(
-        self, user_input: Mapping[str, object] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Gather basic settings for the area."""
-        return await handle_area_config(
-            self,
-            user_input,
-            step_id="area_config_settings",
-            on_success=self._persist_options_and_show_menu,
-        )
-
     async def async_step_presence_tracking(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
@@ -278,17 +257,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             self,
             user_input,
             step_id="presence_tracking",
-            on_success=self._persist_options_and_show_menu,
-        )
-
-    async def async_step_presence_tracking_settings(
-        self, user_input: Mapping[str, object] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Gather presence tracking settings for the area."""
-        return await handle_presence_tracking(
-            self,
-            user_input,
-            step_id="presence_tracking_settings",
             on_success=self._persist_options_and_show_menu,
         )
 
@@ -303,17 +271,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             on_success=self._persist_options_and_show_menu,
         )
 
-    async def async_step_secondary_states_settings(
-        self, user_input: Mapping[str, object] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Gather secondary states settings for the area."""
-        return await handle_secondary_states(
-            self,
-            user_input,
-            step_id="secondary_states_settings",
-            on_success=self._persist_options_and_show_menu,
-        )
-
     async def async_step_custom_control_groups(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
@@ -325,34 +282,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
             on_success=self._persist_options_and_show_menu,
         )
 
-    async def async_step_custom_control_groups_settings(
-        self, user_input: Mapping[str, object] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Configure custom control groups for this area."""
-        return await handle_custom_control_groups(
-            self,
-            user_input,
-            step_id="custom_control_groups_settings",
-            on_success=self._persist_options_and_show_menu,
-        )
-
     async def async_step_select_features(
         self, user_input: Mapping[str, object] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Ask the user to select features to enable for the area."""
         return await handle_feature_selection(self, user_input)
-
-    async def async_step_finish(
-        self, user_input: Mapping[str, object] | None = None
-    ) -> config_entries.ConfigFlowResult:
-        """Save options and exit options flow."""
-        _LOGGER.debug(
-            "OptionsFlow: All features configured for area %s, saving config: %s",
-            self._area_config.name if self._area_config else "Unknown",
-            str(self.area_options),
-        )
-        # noinspection PyTypeChecker
-        return await self._update_options()
 
     async def async_step(
         self, step_id: str, user_input: Mapping[str, object] | None = None

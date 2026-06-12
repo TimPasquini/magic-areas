@@ -2,8 +2,24 @@
 
 from unittest.mock import MagicMock, Mock, patch
 
+from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
+
 from custom_components.magic_areas.area_state import AreaStates
-from custom_components.magic_areas.binary_sensor.presence import AreaStateBinarySensor
+from custom_components.magic_areas.binary_sensor.presence import (
+    AreaStateBinarySensor,
+    MetaAreaStateBinarySensor,
+)
+from custom_components.magic_areas.config_keys.area import (
+    CONF_SECONDARY_STATES,
+    CONF_SECONDARY_STATES_CALCULATION_MODE,
+)
+from custom_components.magic_areas.const import ATTR_STATES, DOMAIN
+from custom_components.magic_areas.core.runtime_model import (
+    build_presence_tracking_unique_id,
+)
+from custom_components.magic_areas.enums import CalculationMode
 
 
 def _area_config() -> Mock:
@@ -25,6 +41,20 @@ def _coordinator() -> Mock:
     coordinator.data.presence_sensors = ["binary_sensor.motion_1"]
     coordinator.async_add_listener = Mock(return_value=lambda: None)
     return coordinator
+
+
+def _meta_area_config() -> Mock:
+    area_config = _area_config()
+    area_config.id = "global"
+    area_config.slug = "global"
+    area_config.name = "Global"
+    area_config.config = {
+        CONF_SECONDARY_STATES: {
+            CONF_SECONDARY_STATES_CALCULATION_MODE: CalculationMode.ANY
+        }
+    }
+    area_config.is_meta.return_value = True
+    return area_config
 
 
 def test_area_state_changed_uses_scheduled_write_path() -> None:
@@ -169,3 +199,39 @@ def test_apply_sensor_inventory_update_tracks_added_sensors() -> None:
 
     assert entity._sensors == ["binary_sensor.motion_1"]
     mock_track.assert_called_once_with(["binary_sensor.motion_1"])
+
+
+def test_meta_secondary_states_read_registered_active_child_entities(
+    hass: HomeAssistant,
+) -> None:
+    """Meta secondary states should aggregate valid active child attributes."""
+    coordinator = _coordinator()
+    coordinator.hass = hass
+    coordinator.data.presence_sensors = []
+    coordinator.data.active_areas = ["kitchen", "bedroom", "office", "missing"]
+    entity = MetaAreaStateBinarySensor(_meta_area_config(), coordinator)
+    entity.hass = hass
+    registry = er.async_get(hass)
+
+    child_entity_ids: dict[str, str] = {}
+    for area_id in ("kitchen", "bedroom", "office"):
+        entry = registry.async_get_or_create(
+            domain=BINARY_SENSOR_DOMAIN,
+            platform=DOMAIN,
+            unique_id=build_presence_tracking_unique_id(area_id=area_id),
+            suggested_object_id=f"magic_areas_presence_tracking_{area_id}_area_state",
+        )
+        child_entity_ids[area_id] = entry.entity_id
+
+    hass.states.async_set(
+        child_entity_ids["kitchen"],
+        "on",
+        {ATTR_STATES: [AreaStates.DARK, AreaStates.SLEEP]},
+    )
+    hass.states.async_set(
+        child_entity_ids["bedroom"],
+        "off",
+        {ATTR_STATES: "invalid"},
+    )
+
+    assert entity._get_secondary_states() == [AreaStates.SLEEP, AreaStates.DARK]

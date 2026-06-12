@@ -2,8 +2,9 @@
 
 from datetime import UTC, datetime
 from enum import Enum
+from collections.abc import Callable
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntry
@@ -271,6 +272,42 @@ async def test_meta_coordinator_retries_until_meta_snapshot_available(
         await lifecycle.async_retry_reload("interior", "kitchen")
         await lifecycle.async_execute_reload("interior", "kitchen")
         assert lifecycle.reloading is True
+
+
+async def test_meta_reload_guard_callback_clears_stale_reloading_state(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """The registered 30-second guard clears a stale in-flight reload."""
+    area_config = _build_area_config(
+        area_id="interior",
+        area_type="meta",
+        hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
+    )
+    coordinator = MagicAreasCoordinator(
+        hass,
+        area_config,
+        cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
+    )
+    lifecycle = coordinator.lifecycle
+    assert lifecycle is not None
+
+    guard_callback: list[Callable[[], None]] = []
+
+    def _capture_guard(delay: float, callback: Callable[[], None]) -> MagicMock:
+        assert delay == 30.0
+        guard_callback.append(callback)
+        return MagicMock()
+
+    with (
+        patch.object(hass.config_entries, "async_schedule_reload"),
+        patch.object(hass.loop, "call_later", side_effect=_capture_guard),
+    ):
+        await lifecycle.async_execute_reload("interior", "kitchen")
+
+    assert lifecycle.reloading is True
+    assert len(guard_callback) == 1
+    guard_callback[0]()
+    assert lifecycle.reloading is False
 
 
 async def test_meta_coordinator_snapshot_ready_reloads_for_matching_child(

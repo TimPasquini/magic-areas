@@ -41,8 +41,6 @@ def _is_feature_module(value: object) -> TypeGuard[FeatureModule]:
             "configurable_on_meta",
             "configurable_on_global_meta",
             "config_schema",
-            "option_steps",
-            "validate_config",
             "is_enabled",
             "depends_on",
             "build_entities",

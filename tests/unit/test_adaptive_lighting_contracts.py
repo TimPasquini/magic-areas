@@ -221,6 +221,27 @@ def test_managed_adaptive_lighting_entry_ownership_requires_prefix_and_unique_id
     assert not is_managed_adaptive_lighting_entry(unrelated)
 
 
+def test_existing_adaptive_lighting_entry_name_falls_back_to_title() -> None:
+    """Existing entries without data names retain their HA title identity."""
+    entry = ExistingAdaptiveLightingConfigEntry(
+        entry_id="legacy-entry",
+        unique_id="MA Living Room overhead",
+        title="MA Living Room overhead",
+        data={},
+        options={},
+    )
+    unnamed_entry = ExistingAdaptiveLightingConfigEntry(
+        entry_id="unnamed-entry",
+        unique_id=None,
+        title="",
+        data={},
+        options={},
+    )
+
+    assert entry.name == "MA Living Room overhead"
+    assert unnamed_entry.name is None
+
+
 def test_managed_adaptive_lighting_entry_ownership_accepts_legacy_prefix() -> None:
     """Existing old-name MA-owned AL entries should still be cleaned up."""
     legacy = ExistingAdaptiveLightingConfigEntry(

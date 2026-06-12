@@ -559,6 +559,33 @@ async def test_run_logic_publishes_fan_runtime_area_states(
 
 
 @pytest.mark.asyncio
+async def test_fan_hold_expiry_rechecks_current_area_state(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+) -> None:
+    """The expiry callback should clear its handle and rerun fan policy."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._last_states = [AreaStates.OCCUPIED.value]
+    switch._hold_timer_cancel = MagicMock()
+
+    with (
+        patch(
+            "custom_components.magic_areas.switch.fan_control.resolve_area_presence_states",
+            return_value=[AreaStates.OCCUPIED.value, AreaStates.EXTENDED.value],
+        ),
+        patch.object(switch, "run_logic", new=AsyncMock()) as run_logic,
+    ):
+        await switch._hold_expiry_check(None)
+
+    assert switch._hold_timer_cancel is None
+    run_logic.assert_awaited_once_with(
+        [AreaStates.OCCUPIED.value, AreaStates.EXTENDED.value]
+    )
+
+
+@pytest.mark.asyncio
 async def test_fan_on_without_active_reason_publishes_no_room_condition_state(
     mock_area_config: AreaConfig,
     mock_coordinator: MagicAreasCoordinator,
