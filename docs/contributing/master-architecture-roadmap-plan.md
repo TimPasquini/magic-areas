@@ -2555,7 +2555,7 @@ Expanded-audit correction:
   appropriate durable documentation.
 - [x] `7.3.14` Retire the temporary audit checklist after its verified
   conclusions have been transferred.
-- [ ] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
+- [x] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
   documentation changes as an isolated scope.
 
 Dead-code audit evidence:
@@ -2613,8 +2613,9 @@ Dead-code audit evidence:
   behavioral evidence before removal.
 - Coverage aggregation, removal-batch reconciliation, final-tree validation,
   durable transfer, and temporary-checklist retirement are complete. No
-  unresolved Phase 7 implementation or coverage gap remains; only the isolated
-  Phase 7 commit is open.
+  unresolved Phase 7 implementation or coverage gap remains. Commit `b9f5063`
+  contains the isolated Phase 7 removals, tests, roadmap evidence, and
+  temporary-checklist retirement.
 
 ### 8. Options-Flow Structural Follow-Up
 
