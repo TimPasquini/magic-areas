@@ -2,6 +2,9 @@
 
 Repository guidance for coding agents and contributors.
 
+Read `REPOSITORY_WORK_NOTES.md` for the repository's execution, completion,
+validation, simulator, and plan-preservation contract.
+
 ## Project overview
 
 Magic Areas is a Home Assistant custom integration that builds presence-aware

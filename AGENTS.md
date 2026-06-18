@@ -1,6 +1,7 @@
 # Agent Guidelines
 
-**See [CLAUDE.md](./CLAUDE.md) for comprehensive project guidance.**
+**Read [CLAUDE.md](./CLAUDE.md) and
+[REPOSITORY_WORK_NOTES.md](./REPOSITORY_WORK_NOTES.md) before starting work.**
 
 This file exists for compatibility with GitHub Copilot and other AI coding assistants. All development guidance has been consolidated into `CLAUDE.md`, which includes:
 
@@ -16,4 +17,6 @@ This file exists for compatibility with GitHub Copilot and other AI coding assis
 
 The original comprehensive Home Assistant guidelines from this file have been distilled into the "Home Assistant Integration Patterns Reference" section of CLAUDE.md.
 
-For project-specific guidance, refactoring context, and development workflows, please refer to CLAUDE.md.
+`REPOSITORY_WORK_NOTES.md` records the execution, completion, validation, and
+simulator rules required to keep roadmap work aligned with actual code and
+runtime evidence.

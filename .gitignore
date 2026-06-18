@@ -16,7 +16,6 @@ coverage.xml
 old/*
 tmp/*
 temp/*
-stubs/*
 
 
 # Home Assistant configuration
