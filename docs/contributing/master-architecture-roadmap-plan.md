@@ -2555,7 +2555,7 @@ Expanded-audit correction:
   appropriate durable documentation.
 - [x] `7.3.14` Retire the temporary audit checklist after its verified
   conclusions have been transferred.
-- [ ] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
+- [x] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
   documentation changes as an isolated scope.
 
 Dead-code audit evidence:
@@ -2607,7 +2607,8 @@ Dead-code audit evidence:
   the canonical English tree.
 - The corrected final CRG rebuild parsed 389 files and produced 3,643 raw nodes
   and 28,673 raw edges. The query graph contains 3,629 indexed nodes and 28,570
-  indexed edges on branch `fan-cover-default-automation`.
+  indexed edges on branch `fan-cover-default-automation` at correction commit
+  `215dd25faf9a`.
   `find_dead_code` returned 251 candidates. Reconciliation against the
   287-item baseline found zero new candidates: 16 candidate definitions are
   absent, and 20 retained definitions are no longer reported because current
@@ -2627,7 +2628,7 @@ Dead-code audit evidence:
   retirement are complete. The original Phase 7 work remains in commit
   `b9f5063`; the completion-review correction adds the translation cleanup,
   recursive regression contract, corrected CRG reconciliation, and current
-  full-validation evidence.
+  full-validation evidence in isolated commit `215dd25`.
 
 ### 8. Options-Flow Structural Follow-Up
 
