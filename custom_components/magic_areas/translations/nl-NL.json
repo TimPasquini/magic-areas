@@ -22,7 +22,6 @@
                 "title": "Functieselectie",
                 "description": "Selecteer de functies die u voor dit gebied wilt inschakelen. Er verschijnt een nieuwe menuoptie voor het configureren van de functie als er configuratieopties voor die functie zijn.",
                 "data": {
-                    "climate_groups": "Maak klimaatgroepen",
                     "media_player_groups": "Maak mediaspelergroepen",
                     "light_groups": "Maak lichtgroepen",
                     "cover_groups": "Covergroepen maken",
@@ -35,15 +34,13 @@
             },
             "show_menu": {
                 "title": "Opties voor magische gebieden",
-                "description": "Magic Areas voert standaard basisaanwezigheidsdetectie uit, maar u kunt de volledige kracht ervan benutten door geavanceerde statustracking te configureren, uw aanwezigheidstrackingparameters af te stemmen en onze magische functies in te schakelen! Opties worden niet opgeslagen tenzij u 'Opslaan en afsluiten' selecteert.",
+                "description": "Magic Areas voert standaard basisaanwezigheidsdetectie uit, maar u kunt de volledige kracht ervan benutten door geavanceerde statustracking te configureren, uw aanwezigheidstrackingparameters af te stemmen en onze magische functies in te schakelen!",
                 "menu_options": {
                     "area_config": "Basisgebiedopties",
                     "secondary_states": "Geavanceerde tracking van gebiedsstatus",
                     "presence_tracking": "Opties voor aanwezigheidsregistratie",
                     "select_features": "Functieselectie",
-                    "finish": "Opslaan afsluiten",
                     "feature_conf_health": "Configureer de gezondheidssensor",
-                    "feature_conf_climate_groups": "Klimaatgroepen configureren",
                     "feature_conf_light_groups": "Lichtgroepen configureren",
                     "feature_conf_area_aware_media_player": "Configureer gebiedsbewuste mediaspeler",
                     "feature_conf_aggregates": "Configureer aggregaatsensoren",
@@ -117,16 +114,6 @@
                 "data_description": {
                     "aggregates_illuminance_threshold": "Magic Areas creëert een binaire lichtsensor die bijhoudt wanneer de totale verlichtingssterkte van het gebied deze drempel overschrijdt. Vereist dat de apparaatklasse 'verlichtingssterkte' wordt geselecteerd voor aggregatie. Stel in op 0 om uit te schakelen.",
                     "aggregates_illuminance_threshold_hysteresis": "[Hysteresis](https://www.home-assistant.io/integrations/threshold/#hysteresis) definieert hoe gevoelig de sensor is voor veranderingen in zijn waarde. Een waarde van nul zal de sensorstatus omkeren wanneer de verlichtingssterkte de bovenstaande drempelwaarde overschrijdt. Positieve waarden betekenen dat de sensor alleen van status verandert als de drempelwaarde wordt overschreden met een bepaald bedrag, uitgedrukt in percentage van de hierboven ingestelde drempelwaarde. Het kan handig zijn om deze waarde op te voeren als u deze sensor wilt gebruiken als lichtsensor voor zijn eigen gebied."
-                }
-            },
-            "feature_conf_climate_groups": {
-                "title": "Kenmerk: Klimaatgroepen",
-                "description": "Groepeer en beheer alle klimaatentiteiten in een gebied. Met deze functie kunnen klimaatentiteiten automatisch worden bestuurd op basis van de staat van een gebied.",
-                "data": {
-                    "turn_on_state": "Staat om de klimaatgroep in te schakelen."
-                },
-                "data_description": {
-                    "turn_on_state": "Klimaatapparaten worden in deze toestand 'aan' gezet en uitgeschakeld wanneer het gebied wordt ontruimd."
                 }
             },
             "secondary_states": {
@@ -207,11 +194,6 @@
             },
             "ble_tracker_monitor": {
                 "name": "BLE tracker Bezetting"
-            }
-        },
-        "climate": {
-            "climate_group": {
-                "name": "Thermostaten"
             }
         },
         "cover": {

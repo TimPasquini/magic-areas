@@ -22,7 +22,6 @@
                 "title": "Sélection des fonctionnalités",
                 "description": "Sélectionnez les fonctionnalités que vous souhaitez activer pour cette pièce. Une nouvelle option de menu apparaîtra pour configurer la fonctionnalité s'il y a des options de configuration pour cette fonctionnalité.",
                 "data": {
-                    "climate_groups": "Créer des groupes de climatisation",
                     "media_player_groups": "Créer des groupes de lecteurs multimédias",
                     "light_groups": "Créer des groupes de lumières",
                     "cover_groups": "Créer des groupes de couvertures",
@@ -37,15 +36,13 @@
             },
             "show_menu": {
                 "title": "Options des Zones Magiques",
-                "description": "Les Zones Magiques effectuent une détection de présence de base par défaut, mais vous pouvez libérer toute sa puissance en configurant un suivi d'état avancé, en ajustant les paramètres de suivi de présence et en activant nos fonctionnalités magiques ! Les options ne sont pas enregistrées sauf si vous sélectionnez `Enregistrer et quitter`.",
+                "description": "Les Zones Magiques effectuent une détection de présence de base par défaut, mais vous pouvez libérer toute sa puissance en configurant un suivi d'état avancé, en ajustant les paramètres de suivi de présence et en activant nos fonctionnalités magiques !",
                 "menu_options": {
                     "area_config": "Options de base de la pièce",
                     "secondary_states": "Suivi avancé de l'état de la pièce",
                     "presence_tracking": "Options de suivi de présence",
                     "select_features": "Sélection des fonctionnalités",
-                    "finish": "Enregistrer et quitter",
                     "feature_conf_health": "Configurer le capteur de santé",
-                    "feature_conf_climate_groups": "Configurer les groupes de climatisation",
                     "feature_conf_light_groups": "Configurer les groupes de lumières",
                     "feature_conf_area_aware_media_player": "Configurer le lecteur multimédia intelligent de la pièce",
                     "feature_conf_aggregates": "Configurer les capteurs agrégés",
@@ -123,16 +120,6 @@
                     "aggregates_illuminance_threshold_hysteresis": "[Hystérésis](https://www.home-assistant.io/integrations/threshold/#hysteresis) définit la sensibilité du capteur aux changements de sa valeur. Une valeur de zéro inversera l'état du capteur chaque fois que l'éclairement franchira le seuil ci-dessus. Les valeurs positives signifient que le capteur ne changera d'état que si le seuil est dépassé d'une certaine quantité, exprimée en pourcentage du seuil défini ci-dessus. L'augmentation de cette valeur peut être utile si vous essayez d'utiliser ce capteur comme capteur de lumière de sa propre pièce."
                 }
             },
-            "feature_conf_climate_groups": {
-                "title": "Fonctionnalité : Groupes de climatisation",
-                "description": "Regroupez et contrôlez toutes les entités de climatisation dans une pièce. Cette fonctionnalité permet de contrôler automatiquement les entités de climatisation en fonction de l'état d'une pièce.",
-                "data": {
-                    "turn_on_state": "État pour activer le groupe de climatisation."
-                },
-                "data_description": {
-                    "turn_on_state": "Les appareils de climatisation seront activés dans cet état et désactivés lorsque la pièce sera vidée."
-                }
-            },
             "secondary_states": {
                 "title": "Suivi avancé de l'état de la pièce",
                 "description": "Vous pouvez activer les [états secondaires](https://github.com/jseidl/hass-magic_areas/wiki/Area-State) pour une Pièce Magique en lui assignant une entité. Les états secondaires sont utilisés par les fonctionnalités pour allumer les lumières uniquement lorsqu'il fait sombre ou pour allumer uniquement les appareils de climatisation après une période `extended` ou pour ne pas envoyer de notifications à une pièce si elle est en mode `sleep`.",
@@ -200,28 +187,12 @@
                 }
             },
             "feature_conf_fan_groups": {
-                "data_description": {
-                    "required_state": "État que doit avoir la zone pour envisager d'allumer le groupe de ventilateurs.",
-                    "setpoint": "Nombre que le capteur agrégé suivi doit atteindre ou dépasser pour allumer le groupe de ventilateurs.",
-                    "tracked_device_class": "Sélectionner la classe de dispositif agrégée à suivre pour les changements de valeur."
-                },
-                "data": {
-                    "setpoint": "Point de consigne.",
-                    "tracked_device_class": "Classe de dispositif suivie.",
-                    "required_state": "État requis."
-                },
                 "description": "Grouper et contrôler toutes les entités de ventilateurs dans une zone. Cette fonctionnalité permet de contrôler automatiquement les entités de ventilateurs en fonction de l'état de la zone et si la valeur du capteur agrégé dépasse un seuil défini. Le contrôle des ventilateurs nécessite que la fonctionnalité des agrégats soit activée et que les classes de dispositifs correspondantes soient sélectionnées.",
                 "title": "Fonctionnalité : Groupes de ventilateurs"
             },
             "feature_conf_climate_control": {
                 "title": "Fonctionnalité : Contrôle climatique > Sélection d'entité",
-                "data_description": {
-                    "entity_id": "Entité climatique à contrôler."
-                },
-                "description": "Sélectionner l'entité climatique que vous souhaitez contrôler en fonction des états de la zone.",
-                "data": {
-                    "entity_id": "Entité climatique"
-                }
+                "description": "Sélectionner l'entité climatique que vous souhaitez contrôler en fonction des états de la zone."
             },
             "feature_conf_climate_control_select_presets": {
                 "title": "Fonctionnalité : Contrôle climatique > Mappage des préréglages",
@@ -316,11 +287,6 @@
                         }
                     }
                 }
-            }
-        },
-        "climate": {
-            "climate_group": {
-                "name": "Thermostats"
             }
         },
         "cover": {

@@ -37,13 +37,12 @@
             },
             "show_menu": {
                 "title": "Magic Areas Optionen",
-                "description": "Magic Areas führt standardmäßig eine einfache Anwesenheitserkennung durch. Das volle Potential von Magic Areas wird erst durch Verwendung der erweiterten Statusverfolgung und Anpassung der Anwesenheitsverfolgung freigeschaltet! Die Einstellungen werden erst durch `Speichern und beenden` gespeichert.",
+                "description": "Magic Areas führt standardmäßig eine einfache Anwesenheitserkennung durch. Das volle Potential von Magic Areas wird erst durch Verwendung der erweiterten Statusverfolgung und Anpassung der Anwesenheitsverfolgung freigeschaltet!",
                 "menu_options": {
                     "area_config": "Allgemeine Bereichsoptionen",
                     "secondary_states": "Erweiterte Statusverfolgung",
                     "presence_tracking": "Anwesenheitsverfolgung",
                     "select_features": "Funktionen auswählen",
-                    "finish": "Speichern und beenden",
                     "feature_conf_health": "Umweltsensoren konfigurieren",
                     "feature_conf_fan_groups": "Lüftergruppen konfigurieren",
                     "feature_conf_climate_control": "Klimasteuerung konfigurieren",
@@ -125,27 +124,11 @@
             },
             "feature_conf_fan_groups": {
                 "title": "Funktion: Lüftergruppen",
-                "description": "Alle Lüfter Entitäten eines Bereichs gruppieren. Mit dieser Funktion lassen sich Lüfter automatisch steuern – abhängig vom Status eines Bereichs und dem Wert eines Aggregatsensors (z. B. Temperatur). Wird ein definierter Schwellenwert überschritten, schaltet sich der Lüfter ein; fällt der Wert darunter, wird der Lüfter wieder ausgeschaltet. Für die Lüftersteuerung muss die Funktion `Aggregierte Sensoren` aktiviert und die passende Gerätekategorien ausgewählt sein.",
-                "data": {
-                    "required_state": "Erforderlicher Zustand",
-                    "tracked_device_class": "Überwachte Gerätekategorie",
-                    "setpoint": "Schwellwert"
-                },
-                "data_description": {
-                    "required_state": "Zustand, den der Bereich haben muss, damit die Lüftergruppe eingeschaltet wird.",
-                    "tracked_device_class": "Gerätekategorien, deren aggregierte Werte überwacht werden sollen.",
-                    "setpoint": "Wert, den der überwachte Aggregatsensor mindestens erreichen muss, damit die Lüftergruppe eingeschaltet wird."
-                }
+                "description": "Alle Lüfter Entitäten eines Bereichs gruppieren. Mit dieser Funktion lassen sich Lüfter automatisch steuern – abhängig vom Status eines Bereichs und dem Wert eines Aggregatsensors (z. B. Temperatur). Wird ein definierter Schwellenwert überschritten, schaltet sich der Lüfter ein; fällt der Wert darunter, wird der Lüfter wieder ausgeschaltet. Für die Lüftersteuerung muss die Funktion `Aggregierte Sensoren` aktiviert und die passende Gerätekategorien ausgewählt sein."
             },
             "feature_conf_climate_control": {
                 "title": "Funktion: Klimasteuerung > Auswahl der Entität",
-                "description": "Wähle die Klimaentität die anhand des Bereichszustands gesteuert werden soll.",
-                "data": {
-                    "entity_id": "Klimaentität"
-                },
-                "data_description": {
-                    "entity_id": "Klimaentität die gesteuert werden soll"
-                }
+                "description": "Wähle die Klimaentität die anhand des Bereichszustands gesteuert werden soll."
             },
             "feature_conf_climate_control_select_presets": {
                 "title": "Funktion: Klimasteuerung > Zuweisung von Presets",

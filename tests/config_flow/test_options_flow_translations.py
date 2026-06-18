@@ -3,14 +3,16 @@
 import json
 from pathlib import Path
 
+import pytest
 
-TRANSLATIONS_PATH = (
+
+TRANSLATIONS_DIR = (
     Path(__file__).parents[2]
     / "custom_components"
     / "magic_areas"
     / "translations"
-    / "en.json"
 )
+TRANSLATIONS_PATH = TRANSLATIONS_DIR / "en.json"
 
 
 def _options_step(step_id: str) -> dict[str, object]:
@@ -66,6 +68,62 @@ def test_root_menu_does_not_expose_final_save_action() -> None:
     assert "finish" not in menu_options
     assert "Done" not in menu_options.values()
     assert all("Save" not in label for label in menu_options.values())
+
+
+def _find_extra_translation_keys(
+    english: object,
+    localized: object,
+    *,
+    path: str,
+    extra_paths: list[str],
+) -> None:
+    """Collect localized translation keys absent from the canonical English tree."""
+    if not isinstance(localized, dict):
+        return
+
+    if not isinstance(english, dict):
+        extra_paths.append(path)
+        return
+
+    for key in sorted(set(localized) - set(english)):
+        extra_paths.append(f"{path}.{key}")
+
+    for key, value in localized.items():
+        if key not in english:
+            continue
+        _find_extra_translation_keys(
+            english[key],
+            value,
+            path=f"{path}.{key}",
+            extra_paths=extra_paths,
+        )
+
+
+@pytest.mark.parametrize(
+    "translation_path",
+    sorted(
+        path
+        for path in TRANSLATIONS_DIR.glob("*.json")
+        if path != TRANSLATIONS_PATH
+    ),
+    ids=lambda path: path.name,
+)
+def test_localized_translations_do_not_reference_removed_contracts(
+    translation_path: Path,
+) -> None:
+    """Localized files may be partial, but cannot retain keys removed from English."""
+    english = json.loads(TRANSLATIONS_PATH.read_text(encoding="utf-8"))
+    localized = json.loads(translation_path.read_text(encoding="utf-8"))
+    extra_paths: list[str] = []
+    _find_extra_translation_keys(
+        english,
+        localized,
+        path="<root>",
+        extra_paths=extra_paths,
+    )
+    assert not extra_paths, (
+        f"{translation_path.name} defines obsolete translation keys: {extra_paths}"
+    )
 
 
 def test_single_page_forms_explain_submit_saves_immediately() -> None:

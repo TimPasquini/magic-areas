@@ -22,7 +22,6 @@
                 "title": "Seleção de recursos",
                 "description": "Selecione os recursos que deseja ativar para esta área. Uma nova opção de menu aparecerá para configurar o recurso se houver opções de configuração para esse recurso.",
                 "data": {
-                    "climate_groups": "Crie grupos climáticos",
                     "media_player_groups": "Crie grupos de reprodutores de mídia",
                     "light_groups": "Crie grupos de luz",
                     "cover_groups": "Crie grupos de cobertura",
@@ -38,15 +37,13 @@
             },
             "show_menu": {
                 "title": "Opções de áreas mágicas",
-                "description": "O Magic Areas faz detecção básica de presença por padrão, mas você pode liberar todo o seu poder configurando o rastreamento de estado avançado, ajustando seus parâmetros de rastreamento de presença e ativando nossos recursos mágicos! As opções não são salvas a menos que você selecione `Salvar e Sair`.",
+                "description": "O Magic Areas faz detecção básica de presença por padrão, mas você pode liberar todo o seu poder configurando o rastreamento de estado avançado, ajustando seus parâmetros de rastreamento de presença e ativando nossos recursos mágicos!",
                 "menu_options": {
                     "area_config": "Opções básicas de área",
                     "secondary_states": "Rastreamento avançado do estado da área",
                     "presence_tracking": "Opções de rastreamento de presença",
                     "select_features": "Seleção de recursos",
-                    "finish": "Saída segura",
                     "feature_conf_health": "Configurar sensor de integridade",
-                    "feature_conf_climate_groups": "Configurar grupos climáticos",
                     "feature_conf_light_groups": "Configurar grupos de luz",
                     "feature_conf_area_aware_media_player": "Configurar reprodutor de mídia com reconhecimento de área",
                     "feature_conf_aggregates": "Configurar sensores agregados",
@@ -125,16 +122,6 @@
                     "aggregates_illuminance_threshold_hysteresis": "[Histerese](https://www.home-assistant.io/integrations/threshold/#hysteresis) define o quão sensível o sensor é a mudanças em seu valor. Um valor de zero inverterá o estado do sensor sempre que a iluminância cruzar o limite acima. Valores positivos significam que o sensor só mudará de estado se o limite for ultrapassado por uma determinada quantidade, expressa em porcentagem do limite definido acima. Aumentar esse valor pode ser útil se você estiver tentando usar esse sensor como o sensor de luz de sua própria área."
                 }
             },
-            "feature_conf_climate_groups": {
-                "title": "Matéria: Grupos Climáticos",
-                "description": "Agrupe e controle todas as entidades climáticas em uma área. Este recurso permite que as entidades climáticas sejam controladas automaticamente de acordo com o estado de uma área.",
-                "data": {
-                    "turn_on_state": "Estado para ativar o grupo climático."
-                },
-                "data_description": {
-                    "turn_on_state": "Os dispositivos climáticos serão ligados neste estado e desligados quando a área for limpa."
-                }
-            },
             "secondary_states": {
                 "title": "Rastreamento avançado do estado da área",
                 "description": "Você pode ativar [estados secundários](https://github.com/jseidl/hass-magic_areas/wiki/Area-State) para uma Área Mágica atribuindo uma entidade a ela. Os estados secundários são usados por recursos para acender as luzes somente quando está escuro ou apenas ligar dispositivos climáticos após um período de tempo “prolongado” ou não enviar notificações para uma área se ela estiver em “suspensão”.",
@@ -202,14 +189,8 @@
                 "description": "Rastreia sensores de rastreadores BLE e cria um sensor binário de `ocupação` correspondente para a área que é ativado quando o sensor do rastreador BLE tem um estado igual ao nome ou ID da área. **Este recurso _NÃO_ executa o rastreamento BLE por si só.**"
             },
             "feature_conf_climate_control": {
-                "data": {
-                    "entity_id": "Entidade de clima"
-                },
                 "title": "Recurso: Controle de Clima > Seleção de Entidade",
-                "description": "Selecione a entidade climática que você gostaria de controlar por meio de estados de área.",
-                "data_description": {
-                    "entity_id": "Entidade climática a ser controlada."
-                }
+                "description": "Selecione a entidade climática que você gostaria de controlar por meio de estados de área."
             },
             "feature_conf_climate_control_select_presets": {
                 "data": {
@@ -229,16 +210,6 @@
             },
             "feature_conf_fan_groups": {
                 "title": "Recurso: Grupo de ventiladores",
-                "data_description": {
-                    "setpoint": "Número que o sensor agregado rastreado deve ser igual ou maior para ligar o grupo de ventiladores.",
-                    "tracked_device_class": "Selecione qual classe de dispositivo de sensores agregados para rastrear por alterações de valor.",
-                    "required_state": "Estado em que a área deve estar para considerar ligar o grupo de ventiladores."
-                },
-                "data": {
-                    "required_state": "Estado requerido.",
-                    "setpoint": "Ponto de ajuste.",
-                    "tracked_device_class": "Classe de dispositivo rastreado."
-                },
                 "description": "Agrupe e controle todas as entidades de ventilador em uma área. Este recurso permite que as entidades de ventilador sejam controladas automaticamente de acordo com o estado de uma área e se o valor do sensor agregado cruza um ponto de ajuste. O controle do ventilador requer que o recurso de agregados esteja habilitado e as classes de dispositivos correspondentes selecionadas."
             },
             "feature_conf_wasp_in_a_box": {
@@ -341,11 +312,6 @@
                     "on": "Vespa em uma Caixa"
                 },
                 "name": "Vespa em uma Caixa"
-            }
-        },
-        "climate": {
-            "climate_group": {
-                "name": "Termostatos"
             }
         },
         "cover": {

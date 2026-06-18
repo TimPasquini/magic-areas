@@ -2555,7 +2555,7 @@ Expanded-audit correction:
   appropriate durable documentation.
 - [x] `7.3.14` Retire the temporary audit checklist after its verified
   conclusions have been transferred.
-- [x] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
+- [ ] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
   documentation changes as an isolated scope.
 
 Dead-code audit evidence:
@@ -2597,25 +2597,37 @@ Dead-code audit evidence:
   Lighting service/event callbacks. Direct tests were also added for
   `default_feature_options`, `schema_from_default_options`, and the concrete
   light runtime controller restore hook.
-- The final CRG rebuild parsed 388 files and produced 3,638 raw nodes and
-  28,626 raw edges. The query graph contains 3,624 indexed nodes and 28,524
-  indexed edges at branch `fan-cover-default-automation`, commit
-  `75e5fba329c1`. `find_dead_code` returned 253 candidates. Reconciliation
-  against the 287-item baseline found zero new candidates: 16 candidate
-  definitions are absent, and 18 retained definitions are no longer reported
-  because current callers or focused tests make them statically live.
+- The completion review found serialized residue from removed options-flow and
+  entity contracts in non-English translations. The correction removed the
+  obsolete `finish` route and false Save-and-Exit instructions from seven
+  locales; the deleted `climate_groups` feature key, configuration step, and
+  climate entity translation from affected locales; and parent fan/climate
+  form fields superseded by submenu steps. A recursive translation-contract
+  test now permits partial locales but rejects every localized key absent from
+  the canonical English tree.
+- The corrected final CRG rebuild parsed 389 files and produced 3,643 raw nodes
+  and 28,673 raw edges. The query graph contains 3,629 indexed nodes and 28,570
+  indexed edges on branch `fan-cover-default-automation`.
+  `find_dead_code` returned 251 candidates. Reconciliation against the
+  287-item baseline found zero new candidates: 16 candidate definitions are
+  absent, and 20 retained definitions are no longer reported because current
+  callers or focused tests make them statically live. The two entries omitted
+  from the earlier reconciliation were `default_feature_options` and
+  `schema_from_default_options`, made statically live by their committed direct
+  contract tests.
 - Final `./scripts/validate.sh` passed Ruff, mypy across 377 source files, all
-  26 snapshots, and all 1,472 pytest tests in 38.48 seconds.
+  26 snapshots, and all 1,480 pytest tests in 42.84 seconds.
 - Durable rule: CRG dead-code output remains a candidate generator only.
   Home Assistant entry points/entity interfaces, registry-dispatched feature
   modules, callback-return contracts, serialized enums/keys, simulator
   builders, and pytest fixtures require framework-aware reference review and
   behavioral evidence before removal.
-- Coverage aggregation, removal-batch reconciliation, final-tree validation,
-  durable transfer, and temporary-checklist retirement are complete. No
-  unresolved Phase 7 implementation or coverage gap remains. Commit `b9f5063`
-  contains the isolated Phase 7 removals, tests, roadmap evidence, and
-  temporary-checklist retirement.
+- Coverage aggregation, removal-batch reconciliation, serialized-contract
+  cleanup, final-tree validation, durable transfer, and temporary-checklist
+  retirement are complete. The original Phase 7 work remains in commit
+  `b9f5063`; the completion-review correction adds the translation cleanup,
+  recursive regression contract, corrected CRG reconciliation, and current
+  full-validation evidence.
 
 ### 8. Options-Flow Structural Follow-Up
 

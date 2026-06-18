@@ -37,13 +37,12 @@
       },
       "show_menu": {
         "title": "Opcje obszarów magicznych",
-        "description": "Magiczny Obszar domyślnie wykrywa obecność, ale można wykorzystać jego pełne możliwości konfigurując zaawansowane śledzenie stanu oraz dostosowując parametry śledzenia obecności i włączając magiczne funkcje! Ustawienia nie zostaną zapisane, dopóki nie naciśniesz przycisku `Zapisz i Wyjdź`.",
+        "description": "Magiczny Obszar domyślnie wykrywa obecność, ale można wykorzystać jego pełne możliwości konfigurując zaawansowane śledzenie stanu oraz dostosowując parametry śledzenia obecności i włączając magiczne funkcje!",
         "menu_options": {
           "area_config": "Podstawowe opcje obszaru",
           "secondary_states": "Zaawansowane śledzenie stanu obszaru",
           "presence_tracking": "Opcje śledzenia obecności",
           "select_features": "Wybór funkcji",
-          "finish": "Zapisz i Wyjdź",
           "feature_conf_health": "Skonfuguruj sensor zdrowia",
           "feature_conf_fan_groups": "Skonfiguruj grupy wentylatorów",
           "feature_conf_climate_control": "Skonfiguruj kontroler klimatu",
@@ -125,27 +124,11 @@
       },
       "feature_conf_fan_groups": {
         "title": "Grupy wentylatorów",
-        "description": "Grupowanie i sterowanie wszystkimi wentylatorami w danym obszarze. Ta funkcja umożliwia automatyczne sterowanie wentylatorami w zależności od stanu obszaru i od przekroczenia zagregowanej zadanej wartości sensorów. Sterowanie wentylatorami wymaga włączenia funkcji agregacji i wybrania odpowiednich klas urządzeń.",
-        "data": {
-          "required_state": "Wymagany stan.",
-          "tracked_device_class": "Klasa urządzenia śledzącego.",
-          "setpoint": "Wartość docelowa."
-        },
-        "data_description": {
-          "required_state": "Określ, jakie warunki musi spełniać obszar, aby można było włączyć grupę wentylatorów.",
-          "tracked_device_class": "Wybierz klasę zagregowanych urządzeń, której zmiany wartości chcesz śledzić.",
-          "setpoint": "Liczba równa lub większa od wartości śledzonego sensora zagregowanego, wymagana dla włączenia grupy wentylatorów."
-        }
+        "description": "Grupowanie i sterowanie wszystkimi wentylatorami w danym obszarze. Ta funkcja umożliwia automatyczne sterowanie wentylatorami w zależności od stanu obszaru i od przekroczenia zagregowanej zadanej wartości sensorów. Sterowanie wentylatorami wymaga włączenia funkcji agregacji i wybrania odpowiednich klas urządzeń."
       },
       "feature_conf_climate_control": {
         "title": "Sterowanie klimatem > Wybór encji",
-        "description": "Wybierz urządzenie klimatyczne, które chcesz sterować za pomocą stanów obszarów.",
-        "data": {
-          "entity_id": "Urządzenie klimatyczne"
-        },
-        "data_description": {
-          "entity_id": "Urządzenie klimatyczne do sterowania."
-        }
+        "description": "Wybierz urządzenie klimatyczne, które chcesz sterować za pomocą stanów obszarów."
       },
       "feature_conf_climate_control_select_presets": {
         "title": "Sterowanie klimatem > Mapowanie ustawień wstępnych",
