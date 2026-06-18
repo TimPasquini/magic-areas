@@ -145,6 +145,7 @@ room behavior.
 
 Primary docs and entry points:
 
+- `docs/contributing/workstation-bootstrap.md` for new-machine restoration
 - `dev/ha/README.md`
 - `dev/ha/AGENTS.md`
 - `scripts/ha_dev_start.sh`

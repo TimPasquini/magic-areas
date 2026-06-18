@@ -7,6 +7,13 @@ This guide covers local setup and the repo-standard commands for development.
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/)
 - Git
+- Docker Engine with the Compose plugin for live fake-house validation
+- `code-review-graph` for architecture and impact work
+
+For a new workstation, especially Fedora, use the complete ordered setup in
+`docs/contributing/workstation-bootstrap.md`. It includes restoration of the
+private nested fake-house repository and CRG MCP registration; the abbreviated
+setup below is only for an already provisioned machine.
 
 ## Initial setup
 
@@ -163,6 +170,7 @@ inspect them as needed, but do not commit generated diagram files.
 ## References
 
 - `CLAUDE.md` (repo workflow + standards)
+- `docs/contributing/workstation-bootstrap.md`
 - `docs/contributing/architecture.md`
 - `docs/contributing/dev-simulation-guidance.md`
 - `docs/contributing/runtime-boundaries.md`

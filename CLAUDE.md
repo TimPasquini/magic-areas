@@ -5,6 +5,10 @@ Repository guidance for coding agents and contributors.
 Read `REPOSITORY_WORK_NOTES.md` for the repository's execution, completion,
 validation, simulator, and plan-preservation contract.
 
+On a new workstation, follow
+`docs/contributing/workstation-bootstrap.md` to restore the Python environment,
+private fake-house state, Home Assistant container, and CRG/MCP integration.
+
 ## Project overview
 
 Magic Areas is a Home Assistant custom integration that builds presence-aware
@@ -26,6 +30,7 @@ For baseline deltas, use:
 
 For current implementation state, use:
 
+- `docs/contributing/workstation-bootstrap.md`
 - `docs/contributing/architecture.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/development.md`

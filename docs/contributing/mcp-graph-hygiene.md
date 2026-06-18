@@ -3,13 +3,18 @@
 This guide defines the minimum workflow to keep `code-review-graph` output
 trustworthy for architecture/risk decisions.
 
+For installation, Codex MCP registration, initial repository registration, and
+an explanation of full versus incremental builds, first read
+`docs/contributing/workstation-bootstrap.md`.
+
 ## Required Build Workflow
 
 Run from repository root:
 
 ```bash
-uv run code-review-graph build --repo .
-uv run code-review-graph postprocess --repo .
+code-review-graph build --repo .
+code-review-graph postprocess --repo .
+code-review-graph status --repo .
 ```
 
 Then refresh MCP views:

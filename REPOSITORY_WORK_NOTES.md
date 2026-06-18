@@ -96,6 +96,9 @@ the evidence came only from API calls, fixtures, or test clients.
 
 ## Repository State
 
+- Treat `docs/contributing/workstation-bootstrap.md` as the canonical
+  machine-migration and CRG setup path. A new agent should establish that
+  environment before assessing roadmap completion.
 - Track source inputs needed to reproduce validation, including handwritten
   type stubs.
 - Keep reproducible generated artifacts untracked.

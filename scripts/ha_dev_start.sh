@@ -7,4 +7,4 @@ cd "$repo_root/dev/ha"
 docker compose down --remove-orphans || true
 "$repo_root/scripts/ha_dev_clean_config.sh"
 "$repo_root/scripts/ha_dev_init.sh"
-exec docker compose up
+exec docker compose up "$@"

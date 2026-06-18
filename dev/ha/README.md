@@ -13,6 +13,10 @@ directory is mounted into the container as `/config/custom_components/magic_area
 - Docker with the Compose plugin.
 - Git, for the dev-only Adaptive Lighting component checkout.
 
+For complete Fedora/new-workstation setup, including restoration of the private
+nested state repository, use
+`docs/contributing/workstation-bootstrap.md` from the main repository root.
+
 ## Start
 
 From the repository root:
@@ -38,25 +42,34 @@ On first launch after each clean start, Home Assistant will run onboarding and
 ask you to create a local user. Runtime data is written to `dev/ha/config/` and
 is ignored by git.
 
-## Local Dev-State Tracking
+## Private Dev-State Tracking
 
 `dev/ha/config/` is ignored by the main Magic Areas repository, but it contains
-its own nested git repository for local tracking of the disposable HA dev
-instance state:
+its own private nested Git repository for tracking and migrating the disposable
+HA dev instance state:
 
 ```bash
 git -C dev/ha/config status
 git -C dev/ha/config commit -am "Describe local HA state change"
 ```
 
-This nested repo is intentionally local-only. It lets us diff and roll back the
-configured fake HA instance without adding `.storage` registry state, databases,
-or logs to the Magic Areas project history.
+Its remote is:
+
+```text
+https://github.com/TimPasquini/magic-areas-test-simulator.git
+```
+
+It lets us diff, migrate, and roll back the configured fake HA instance without
+adding private `.storage` state, databases, or logs to the public Magic Areas
+project history. Clone it directly into `dev/ha/config/` on a new workstation;
+do not make it a public main-repository submodule.
 
 The nested repo tracks deterministic state such as HA area/entity/label
 registries, Magic Areas config entries, `configuration.yaml`, packages, and
 blueprints. It ignores runtime churn such as logs, recorder databases, restore
-state, trace storage, caches, and local auth files.
+state, trace storage, and caches. Selected identity and authentication files are
+intentionally tracked in this private repository so the canonical simulator
+token survives workstation migration.
 
 `ha_dev_start.sh` and `ha_dev_reset.sh` preserve `dev/ha/config/.git` and
 `dev/ha/config/.gitignore` while rebuilding the clean HA config from seed files,
