@@ -15,6 +15,7 @@ docker compose run --rm --entrypoint /bin/sh homeassistant -c '
     ! -name .storage \
     ! -name .git \
     ! -name .gitignore \
+    ! -name migration \
     -exec rm -rf {} +
 
   mkdir -p /config/.storage
