@@ -2521,7 +2521,7 @@ Explicit exit re-evaluation:
 #### 7.3. Dead-Code Validation
 
 - [x] `7.3.1` Search direct references with `rg`.
-- [x] `7.3.2` Search string/serialized references.
+- [ ] `7.3.2` Search string/serialized references.
 - [x] `7.3.3` Check registry and HA callback conventions.
 - [x] `7.3.4` Remove only small proven groups.
 - [x] `7.3.5` Document rationale for retained dynamic/contract symbols.
@@ -2543,20 +2543,63 @@ Expanded-audit correction:
   set rather than limiting review to the ten initial plausible targets.
 - [x] `7.3.9` Classify every candidate by framework/dynamic false-positive
   category or by concrete suspicion requiring source review.
-- [x] `7.3.10` Investigate every remaining plausible candidate with direct,
+- [ ] `7.3.10` Investigate every remaining plausible candidate with direct,
   serialized, registry, callback, fixture, and test-reference evidence.
-- [x] `7.3.11` Review whether dynamically retained symbols have adequate
+- [ ] `7.3.11` Review whether dynamically retained symbols have adequate
   contract coverage and add focused tests where the retention mechanism is not
   already proven.
 - [x] `7.3.12` Rebuild CRG after all removal batches and confirm removed symbols
   are absent while retained dynamic contracts are documented.
-- [x] `7.3.13` Transfer lasting architectural rationale, coverage requirements,
+- [ ] `7.3.13` Transfer lasting architectural rationale, coverage requirements,
   and unresolved work from the temporary audit into this roadmap or the
   appropriate durable documentation.
 - [x] `7.3.14` Retire the temporary audit checklist after its verified
   conclusions have been transferred.
-- [x] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
+- [ ] `7.3.15` Commit the completed Phase 7 removals, tests, roadmap, and durable
   documentation changes as an isolated scope.
+
+#### 7.4. Completion-Scrutiny Corrections
+
+- [ ] `7.4.1` Correct the Wasp-in-a-Box timeout-unit contract. Configuration is
+  expressed as minutes, while `WaspStateUpdate.request_timer` and
+  `ReusableTimer` consume seconds; perform the conversion at one explicit
+  boundary and keep state-machine/entity documentation consistent.
+- [ ] `7.4.2` Add a behavioral timing contract that captures the delay passed
+  to the Wasp timer and proves a configured one-minute timeout schedules 60
+  seconds. Do not use the immediate-timer fixture for this duration assertion.
+- [ ] `7.4.3` Retain the existing timeout-expiry, cancellation-on-open, and
+  cancellation-on-reseen behavior tests, and confirm the unit correction does
+  not regress those behaviors.
+- [ ] `7.4.4` Remove or replace the stale
+  `next_step_id="finish"` fallback in `scripts/ha_dev_bootstrap.py`.
+  Bootstrap must treat the page-level persistence menu as the completed
+  options state and must not call the removed `async_step_finish` route.
+- [ ] `7.4.5` Add direct tests for `configure_magic_area_options` covering the
+  expected final menu and malformed/unexpected final responses. Assert that no
+  request targets the removed `finish` route.
+- [ ] `7.4.6` Repeat the direct and serialized-reference sweep for every Phase
+  7 removal across production code, tests, scripts, translations, and durable
+  documentation. Record and resolve every remaining runtime caller rather than
+  relying on symbol-definition absence.
+- [ ] `7.4.7` Reconstruct a durable candidate-by-candidate disposition for the
+  final CRG candidate set, or provide an equally reproducible generated
+  artifact and command. The evidence must map each candidate identity to its
+  retention/removal mechanism and relevant source or test evidence.
+- [ ] `7.4.8` Reconcile the reconstructed final candidate set with the
+  287-candidate baseline, the 16 removed definitions, and the 20 definitions
+  made statically live. Resolve any count or identity mismatch before closure.
+- [ ] `7.4.9` Rebuild CRG from the committed correction tree and record the
+  exact commit, raw/indexed graph metrics, and final candidate count.
+- [ ] `7.4.10` Run focused Wasp timing, options-flow, bootstrap, translation,
+  and simulator-module tests after the corrections.
+- [ ] `7.4.11` Run `./scripts/validate.sh` after all Phase 7 corrections and
+  record exact Ruff, mypy, snapshot, pytest, and timing results.
+- [ ] `7.4.12` Re-evaluate every checked `7.1.x` through `7.4.x` item against
+  the corrected committed tree and retained evidence. Do not mark Phase 7
+  complete while any implementation, caller, coverage, or auditability gap
+  remains.
+- [ ] `7.4.13` Commit the completed Phase 7 scrutiny corrections and durable
+  evidence as an isolated roadmap scope.
 
 Dead-code audit evidence:
 
