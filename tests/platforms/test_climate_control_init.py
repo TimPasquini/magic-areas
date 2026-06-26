@@ -1,6 +1,5 @@
 """Initialization contract tests for climate-control platform behavior."""
 
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
@@ -26,9 +25,7 @@ MOCK_CLIMATE_ENTITY_ID = f"{CLIMATE_DOMAIN}.mock_climate"
 CLIMATE_CONTROL_SWITCH_ENTITY_ID = (
     f"{SWITCH_DOMAIN}.magic_areas_climate_control_{DEFAULT_MOCK_AREA}"
 )
-AREA_SENSOR_ENTITY_ID = (
-    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-)
+AREA_SENSOR_ENTITY_ID = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
 
 
 async def test_climate_control_init(
@@ -56,4 +53,6 @@ async def test_climate_control_init(
         {ATTR_ENTITY_ID: MOCK_CLIMATE_ENTITY_ID, ATTR_PRESET_MODE: PRESET_ECO},
     )
     await hass.async_block_till_done()
-    assert_attribute(hass.states.get(MOCK_CLIMATE_ENTITY_ID), ATTR_PRESET_MODE, PRESET_ECO)
+    assert_attribute(
+        hass.states.get(MOCK_CLIMATE_ENTITY_ID), ATTR_PRESET_MODE, PRESET_ECO
+    )

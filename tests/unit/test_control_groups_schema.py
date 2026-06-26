@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 import voluptuous as vol
 
-from custom_components.magic_areas.schemas.control_groups import CUSTOM_CONTROL_GROUPS_SCHEMA
+from custom_components.magic_areas.schemas.control_groups import (
+    CUSTOM_CONTROL_GROUPS_SCHEMA,
+)
 
 
 def test_custom_control_groups_schema_rejects_duplicate_group_ids() -> None:

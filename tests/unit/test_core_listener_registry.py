@@ -158,8 +158,7 @@ class TestCleanupErrorHandling:
         """Test cleanup when all listeners raise."""
         registry = ListenerRegistry()
         remove_fns = [
-            MagicMock(side_effect=RuntimeError(f"error_{i}"))
-            for i in range(3)
+            MagicMock(side_effect=RuntimeError(f"error_{i}")) for i in range(3)
         ]
 
         for i, remove_fn in enumerate(remove_fns):
@@ -208,7 +207,9 @@ class TestLogging:
 
     def test_logger_name_affects_output(self) -> None:
         """Test that custom logger name is used."""
-        with patch("custom_components.magic_areas.core.listener_registry.logging") as mock_logging:
+        with patch(
+            "custom_components.magic_areas.core.listener_registry.logging"
+        ) as mock_logging:
             ListenerRegistry(logger_name="custom.logger")
             mock_logging.getLogger.assert_called_once_with("custom.logger")
 
@@ -295,6 +296,7 @@ class TestEdgeCases:
         def make_callback(name: str) -> Callable[[], None]:
             def callback() -> None:
                 call_order.append(name)
+
             return callback
 
         registry.track("first", make_callback("first"))

@@ -173,7 +173,10 @@ class FanControlSwitch(ControlSwitchBase):
         self._controller_trend_signal_entity_ids = (
             self._resolve_controller_trend_signal_entity_ids()
         )
-        for controller_id, entity_id in self._controller_trend_signal_entity_ids.items():
+        for (
+            controller_id,
+            entity_id,
+        ) in self._controller_trend_signal_entity_ids.items():
             self._track_state_change(
                 f"fan_controller_trend_signal_state_change_{controller_id}",
                 entity_id,
@@ -306,10 +309,14 @@ class FanControlSwitch(ControlSwitchBase):
     ) -> None:
         """Start, keep, or clear per-controller fan hold timers."""
         now = monotonic()
-        previously_active = {
-            reason.controller_id
-            for reason in self.policy.last_evaluation.active_reasons
-        } if self.policy.last_evaluation is not None else set()
+        previously_active = (
+            {
+                reason.controller_id
+                for reason in self.policy.last_evaluation.active_reasons
+            }
+            if self.policy.last_evaluation is not None
+            else set()
+        )
         current_state_set = {str(state) for state in current_states}
 
         for controller in self.policy.controllers:
@@ -415,7 +422,10 @@ class FanControlSwitch(ControlSwitchBase):
         """Resolve managed Trend helper entity IDs for threshold+trend controllers."""
         entity_registry = er.async_get(self.hass)
         resolved: dict[str, str] = {}
-        for controller_id, unique_id in self._controller_trend_signal_unique_ids.items():
+        for (
+            controller_id,
+            unique_id,
+        ) in self._controller_trend_signal_unique_ids.items():
             entity_id = resolve_managed_surface_entity_id(
                 self.hass,
                 entity_registry,

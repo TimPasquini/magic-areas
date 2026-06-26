@@ -7,7 +7,11 @@ from statistics import mean
 
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.sensor.const import SensorDeviceClass
-from homeassistant.const import ATTR_DEVICE_CLASS, UnitOfElectricCurrent, UnitOfTemperature
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    UnitOfElectricCurrent,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant
 
 from tests.mocks import MockSensor
@@ -33,7 +37,9 @@ async def test_aggregates_sensor_avg(
 
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
     assert aggregate_sensor_state is not None
-    assert round(float(aggregate_sensor_state.state), 2) == round(mean(entity_values), 2)
+    assert round(float(aggregate_sensor_state.state), 2) == round(
+        mean(entity_values), 2
+    )
 
     changed_values = []
     for mock_entity in entities_sensor_temperature_multiple:
@@ -54,7 +60,9 @@ async def test_aggregates_sensor_avg(
 
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
     assert aggregate_sensor_state is not None
-    assert round(float(aggregate_sensor_state.state), 2) == round(mean(changed_values), 2)
+    assert round(float(aggregate_sensor_state.state), 2) == round(
+        mean(changed_values), 2
+    )
 
 
 async def test_aggregates_sensor_sum(
@@ -63,7 +71,9 @@ async def test_aggregates_sensor_sum(
     _setup_integration_aggregates: object,
 ) -> None:
     """Current aggregate should track sum value."""
-    aggregate_sensor_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_kitchen_aggregate_current"
+    aggregate_sensor_id = (
+        f"{SENSOR_DOMAIN}.magic_areas_aggregates_kitchen_aggregate_current"
+    )
 
     entity_values = []
     for mock_entity in entities_sensor_current_multiple:
@@ -94,4 +104,6 @@ async def test_aggregates_sensor_sum(
 
     aggregate_sensor_state = hass.states.get(aggregate_sensor_id)
     assert aggregate_sensor_state is not None
-    assert round(float(aggregate_sensor_state.state), 2) == round(sum(changed_values), 2)
+    assert round(float(aggregate_sensor_state.state), 2) == round(
+        sum(changed_values), 2
+    )

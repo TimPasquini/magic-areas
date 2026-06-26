@@ -1,6 +1,5 @@
 """Tests for core meta area helpers."""
 
-
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.meta import aggregate_secondary_states
 

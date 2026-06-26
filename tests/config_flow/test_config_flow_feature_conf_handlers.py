@@ -78,7 +78,9 @@ async def test_options_flow_feature_conf_merge_options(
     flow = OptionsFlowHandler(config_entry)
     flow.hass = hass
     await flow.async_step_init()
-    flow.area_options[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.HEALTH: {"existing": 1}}
+    flow.area_options[CONF_ENABLED_FEATURES] = {
+        MagicAreasFeatures.HEALTH: {"existing": 1}
+    }
 
     feature_key = MagicAreasFeatures.HEALTH
     patched_feature = FeatureConfigStep(
@@ -157,6 +159,8 @@ async def test_options_flow_wasp_in_a_box_selector(
     assert result["type"] == FlowResultType.FORM
     assert result["data_schema"] is not None
     schema = result["data_schema"].schema
-    wasp_classes_validator = schema[vol.Optional(CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES)]
+    wasp_classes_validator = schema[
+        vol.Optional(CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES)
+    ]
     assert isinstance(wasp_classes_validator, SelectSelector)
     assert wasp_classes_validator.config["multiple"] is True

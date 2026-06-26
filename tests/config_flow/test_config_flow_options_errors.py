@@ -109,7 +109,9 @@ async def test_options_flow_secondary_states_exceptions(
     assert result["type"] == FlowResultType.FORM
 
 
-async def test_options_flow_unknown_step(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+async def test_options_flow_unknown_step(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
     """Unknown async_step ids should raise ValueError."""
     config_entry = init_integration
     flow = OptionsFlowHandler(config_entry)
@@ -155,7 +157,9 @@ async def test_options_flow_custom_control_groups_step_meta_area(
 ) -> None:
     """Meta-area options flow should allow custom control groups."""
     config_entry = next(
-        entry for entry in init_integration_all_areas if entry.data.get("type") == "meta"
+        entry
+        for entry in init_integration_all_areas
+        if entry.data.get("type") == "meta"
     )
 
     result = await start_options_flow(hass, config_entry)
@@ -178,4 +182,7 @@ async def test_options_flow_custom_control_groups_step_meta_area(
     )
     assert result["type"] == FlowResultType.MENU
     assert result["type"] == FlowResultType.MENU
-    assert config_entry.options["custom_control_groups"][0]["group_id"] == "control.meta_task"
+    assert (
+        config_entry.options["custom_control_groups"][0]["group_id"]
+        == "control.meta_task"
+    )

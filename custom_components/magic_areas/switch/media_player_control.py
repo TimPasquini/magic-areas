@@ -30,6 +30,7 @@ class MediaPlayerControlSwitch(ControlSwitchBase):
 
     policy: MediaControlPolicy
     media_player_group_id: str | None
+
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
     ) -> None:

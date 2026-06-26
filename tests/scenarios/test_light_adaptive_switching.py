@@ -58,10 +58,10 @@ async def _setup_adaptive_room(
     """Set up one occupied adaptive room with its overhead light already on."""
     _set_runtime_time(monkeypatch, now)
     config_overrides: dict[str, object] = {
-            CONF_LIGHT_GROUP_BRIGHTNESS_MODE: "adaptive",
-            CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS: dwell_seconds,
-            CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS: min_on_seconds,
-            CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE: outside_source,
+        CONF_LIGHT_GROUP_BRIGHTNESS_MODE: "adaptive",
+        CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS: dwell_seconds,
+        CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS: min_on_seconds,
+        CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE: outside_source,
     }
     if light_group_config_overrides:
         config_overrides.update(light_group_config_overrides)

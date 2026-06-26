@@ -12,8 +12,8 @@ This guide covers local setup and the repo-standard commands for development.
 
 For a new workstation, especially Fedora, use the complete ordered setup in
 `docs/contributing/workstation-bootstrap.md`. It includes restoration of the
-private nested fake-house repository and CRG MCP registration; the abbreviated
-setup below is only for an already provisioned machine.
+private companion fake-house simulator repository and CRG MCP registration; the
+abbreviated setup below is only for an already provisioned machine.
 
 ## Initial setup
 
@@ -21,11 +21,14 @@ setup below is only for an already provisioned machine.
 git clone <your-fork-or-origin>
 cd magic-areas
 uv sync --extra dev --extra test
+uv run --extra dev --extra test pre-commit install --install-hooks
 ```
 
 ## Required quality gates
 
-Run these before committing:
+The local hooks run Ruff fixes/formatting before commit and a full Ruff format
+check before push. Run these manually before committing larger changes or when
+you need the full validation signal:
 
 ```bash
 uv run --extra dev --extra test ruff check custom_components tests scripts
@@ -34,15 +37,15 @@ uv run --extra dev --extra test pytest tests -q
 ```
 
 Also review `docs/contributing/dev-simulation-guidance.md` before committing
-changes that affect room-control behavior, fake-house simulation, scenario
-scripts, Adaptive Lighting coordination, native helper reconciliation, or the
-expected interpretation of simulation results. Updating that guidance is part of
-the quality gate for this class of work, not optional cleanup.
+changes that affect room-control behavior, fake-house simulation expectations,
+Adaptive Lighting coordination, native helper reconciliation, or the expected
+interpretation of simulation results. Updating that guidance is part of the
+quality gate for this class of work, not optional cleanup.
 
-Optional formatting check:
+Formatting check:
 
 ```bash
-uv run --extra dev ruff format --check custom_components/magic_areas tests
+uv run --extra dev --extra test ruff format --check custom_components tests
 ```
 
 ## Common test commands
@@ -175,4 +178,3 @@ inspect them as needed, but do not commit generated diagram files.
 - `docs/contributing/dev-simulation-guidance.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/refactoring-guide.md`
-- `docs/contributing/repository-control-contract.md`

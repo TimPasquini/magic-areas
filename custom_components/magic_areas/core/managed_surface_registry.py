@@ -8,7 +8,9 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.magic_areas.core.runtime_model import is_managed_surface_unique_id
+from custom_components.magic_areas.core.runtime_model import (
+    is_managed_surface_unique_id,
+)
 
 
 def is_managed_surface_config_entry(

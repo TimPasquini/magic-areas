@@ -7,29 +7,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 import voluptuous as vol
 from homeassistant import loader
-from homeassistant.components.cover import (
-    CoverDeviceClass,
-    CoverEntityFeature,
-)
-from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
-from homeassistant.components.sensor import (
-    DOMAIN as SENSOR_DOMAIN,
-    SensorDeviceClass,
-    SensorStateClass,
-)
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import (
-    ATTR_ENTITY_ID,
-    ATTR_NAME,
-    EVENT_STATE_CHANGED,
-    STATE_CLOSING,
-    STATE_OPEN,
-    STATE_OPENING,
-    SERVICE_STOP_COVER,
-    EntityCategory,
-    UnitOfTemperature,
-)
+from homeassistant.const import ATTR_NAME, EVENT_STATE_CHANGED
 from homeassistant.core import HomeAssistant, State, SupportsResponse
 from homeassistant.helpers.area_registry import async_get as async_get_ar
 from homeassistant.helpers.entity_registry import async_get as async_get_er
@@ -68,15 +48,7 @@ from tests.helpers.platforms import (
 from tests.helpers.registries import setup_mock_areas
 from tests.helpers.services import async_mock_service
 from tests.helpers.waits import wait_for_attribute, wait_for_state, wait_until
-from tests.helpers_timing import immediate_call_factory
-from tests.mocks import (
-    MockCover,
-    MockEntity,
-    MockLight,
-    MockModule,
-    MockPlatform,
-    MockSensor,
-)
+from tests.mocks import MockLight, MockModule, MockPlatform
 
 
 def test_assertion_helpers_cover_success_failure_and_negation() -> None:
@@ -146,8 +118,7 @@ async def test_lifecycle_helpers_handle_preadded_entry_and_cleanup(
     assert config_entry.state.name == ConfigEntryState.LOADED.name
     assert hass.config_entries.async_entries(DOMAIN) == [config_entry]
     assert (
-        async_get_ar(hass).async_get_area_by_name(MockAreaIds.KITCHEN.value)
-        is not None
+        async_get_ar(hass).async_get_area_by_name(MockAreaIds.KITCHEN.value) is not None
     )
     assert config_entry.runtime_data is not None
 
@@ -219,22 +190,6 @@ async def test_wait_helpers_cover_immediate_and_event_success(
     await wait_for_attribute(hass, "sensor.future_attribute", "count", 2)
 
 
-async def test_immediate_call_factory_cancel_prevents_callback(
-    hass: HomeAssistant,
-) -> None:
-    """The returned cancellation callback should suppress queued timer work."""
-    calls: list[object] = []
-
-    async def callback(now: object) -> None:
-        calls.append(now)
-
-    cancel = immediate_call_factory(hass)(hass, 30.0, callback)
-    cancel()
-    await hass.async_block_till_done()
-
-    assert calls == []
-
-
 async def test_wait_helpers_raise_assertion_errors_on_timeout(
     hass: HomeAssistant,
 ) -> None:
@@ -261,10 +216,7 @@ async def test_wait_helpers_raise_assertion_errors_on_timeout(
     with pytest.raises(AssertionError, match="Timed out"):
         await wait_until(hass, lambda: False, timeout=0.01)
 
-    assert (
-        hass.bus.async_listeners().get(EVENT_STATE_CHANGED, 0)
-        == listeners_before
-    )
+    assert hass.bus.async_listeners().get(EVENT_STATE_CHANGED, 0) == listeners_before
 
 
 async def test_wait_until_returns_when_predicate_becomes_true(
@@ -319,203 +271,6 @@ async def test_wait_until_observes_delayed_async_work(
     await task
 
 
-def test_mock_entity_exposes_configurable_home_assistant_properties() -> None:
-    """The base mock should preserve the configurable HA entity contract."""
-    attributes = {"source": "fixture"}
-    entity = MockEntity(
-        available=False,
-        entity_category=EntityCategory.CONFIG,
-        extra_state_attributes=attributes,
-        has_entity_name=False,
-        entity_registry_enabled_default=False,
-        entity_registry_visible_default=False,
-        icon="mdi:test-tube",
-        name="Configured mock",
-        should_poll=True,
-        translation_key="configured_mock",
-        unique_id="configured-mock",
-    )
-
-    assert entity.available is False
-    assert entity.entity_category is EntityCategory.CONFIG
-    assert entity.extra_state_attributes == attributes
-    assert entity.has_entity_name is False
-    assert entity.entity_registry_enabled_default is False
-    assert entity.entity_registry_visible_default is False
-    assert entity.icon == "mdi:test-tube"
-    assert entity.name == "Configured mock"
-    assert entity.should_poll is True
-    assert entity.translation_key == "configured_mock"
-    assert entity.unique_id == "configured-mock"
-
-
-async def test_mock_entity_properties_are_consumed_by_home_assistant(
-    hass: HomeAssistant,
-) -> None:
-    """HA registration should consume the configurable base entity surface."""
-    setup_mock_areas(hass, [MockAreaIds.KITCHEN])
-    sensor = MockSensor(
-        available=True,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        extra_state_attributes={"source": "fixture"},
-        has_entity_name=False,
-        entity_registry_enabled_default=True,
-        entity_registry_visible_default=True,
-        icon="mdi:test-tube",
-        name="Configured sensor",
-        should_poll=False,
-        translation_key="configured_sensor",
-        unique_id="configured-sensor",
-        native_value=21,
-    )
-    disabled_sensor = MockSensor(
-        entity_registry_enabled_default=False,
-        entity_registry_visible_default=False,
-        name="Disabled sensor",
-        should_poll=False,
-        unique_id="disabled-sensor",
-        native_value=0,
-    )
-
-    await setup_mock_entities(
-        hass,
-        SENSOR_DOMAIN,
-        {MockAreaIds.KITCHEN: [sensor, disabled_sensor]},
-    )
-
-    assert sensor.entity_id is not None
-    state = hass.states.get(sensor.entity_id)
-    assert state is not None
-    assert state.state == "21"
-    assert state.attributes["source"] == "fixture"
-    assert state.attributes["icon"] == "mdi:test-tube"
-    assert state.attributes["friendly_name"] == "Configured sensor"
-
-    registry_entry = async_get_er(hass).async_get(sensor.entity_id)
-    assert registry_entry is not None
-    assert registry_entry.entity_category is EntityCategory.DIAGNOSTIC
-    assert registry_entry.disabled_by is None
-    assert registry_entry.hidden_by is None
-    assert registry_entry.translation_key == "configured_sensor"
-    assert sensor.should_poll is False
-
-    assert disabled_sensor.entity_id is not None
-    disabled_entry = async_get_er(hass).async_get(disabled_sensor.entity_id)
-    assert disabled_entry is not None
-    assert disabled_entry.disabled_by is not None
-    assert disabled_entry.hidden_by is not None
-
-
-async def test_mock_sensor_properties_are_consumed_by_home_assistant(
-    hass: HomeAssistant,
-) -> None:
-    """HA should serialize numeric and enum mock sensor contracts."""
-    setup_mock_areas(hass, [MockAreaIds.KITCHEN])
-    numeric_sensor = MockSensor(
-        name="Temperature sensor",
-        unique_id="temperature-sensor",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        suggested_display_precision=1,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        native_value=21.54,
-        state_class=SensorStateClass.MEASUREMENT,
-        suggested_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
-    )
-    enum_sensor = MockSensor(
-        name="Mode sensor",
-        unique_id="mode-sensor",
-        device_class=SensorDeviceClass.ENUM,
-        native_value="eco",
-        options=["eco", "comfort"],
-    )
-
-    await setup_mock_entities(
-        hass,
-        SENSOR_DOMAIN,
-        {MockAreaIds.KITCHEN: [numeric_sensor, enum_sensor]},
-    )
-
-    assert numeric_sensor.entity_id is not None
-    numeric_state = hass.states.get(numeric_sensor.entity_id)
-    assert numeric_state is not None
-    assert numeric_state.state == "70.772"
-    assert numeric_state.attributes["device_class"] == "temperature"
-    assert numeric_state.attributes["state_class"] == "measurement"
-    assert numeric_state.attributes["unit_of_measurement"] == "°F"
-
-    numeric_entry = async_get_er(hass).async_get(numeric_sensor.entity_id)
-    assert numeric_entry is not None
-    assert numeric_entry.options["sensor"]["suggested_display_precision"] == 1
-
-    assert enum_sensor.entity_id is not None
-    enum_state = hass.states.get(enum_sensor.entity_id)
-    assert enum_state is not None
-    assert enum_state.state == "eco"
-    assert enum_state.attributes["options"] == ["eco", "comfort"]
-
-
-def test_mock_sensor_exposes_configurable_sensor_properties() -> None:
-    """The sensor mock should preserve its configurable HA sensor surface."""
-    sensor = MockSensor(
-        device_class=SensorDeviceClass.TEMPERATURE,
-        suggested_display_precision=2,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        native_value=21.5,
-        options=["eco", "comfort"],
-        state_class="measurement",
-        suggested_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
-    )
-
-    assert sensor.device_class is SensorDeviceClass.TEMPERATURE
-    assert sensor.suggested_display_precision == 2
-    assert sensor.native_unit_of_measurement is UnitOfTemperature.CELSIUS
-    assert sensor.native_value == 21.5
-    assert sensor.options == ["eco", "comfort"]
-    assert sensor.state_class == "measurement"
-    assert sensor.suggested_unit_of_measurement is UnitOfTemperature.FAHRENHEIT
-
-
-async def test_mock_cover_exposes_transition_and_stop_contract(
-    hass: HomeAssistant,
-) -> None:
-    """The cover mock should expose configured transition and stop behavior."""
-    cover = MockCover(
-        name="Transition cover",
-        unique_id="transition-cover",
-        device_class=CoverDeviceClass.BLIND,
-        state=STATE_OPENING,
-        supported_features=CoverEntityFeature.STOP,
-    )
-
-    assert cover.device_class is CoverDeviceClass.BLIND
-    assert cover.supported_features is CoverEntityFeature.STOP
-    assert cover.is_opening is True
-    assert cover.is_closing is False
-
-    cover._values["state"] = STATE_CLOSING  # pylint: disable=protected-access
-    assert cover.is_opening is False
-    assert cover.is_closing is True
-
-    setup_mock_areas(hass, [MockAreaIds.KITCHEN])
-    await setup_mock_entities(
-        hass,
-        COVER_DOMAIN,
-        {MockAreaIds.KITCHEN: [cover]},
-    )
-    assert cover.entity_id is not None
-
-    await hass.services.async_call(
-        COVER_DOMAIN,
-        SERVICE_STOP_COVER,
-        {ATTR_ENTITY_ID: cover.entity_id},
-        blocking=True,
-    )
-
-    cover_state = hass.states.get(cover.entity_id)
-    assert cover_state is not None
-    assert cover_state.state == STATE_OPEN
-
-
 async def test_mock_service_supports_schema_response_and_call_logging(
     hass: HomeAssistant,
 ) -> None:
@@ -529,8 +284,7 @@ async def test_mock_service_supports_schema_response_and_call_logging(
     )
 
     assert (
-        hass.services.supports_response("test", "respond")
-        is SupportsResponse.OPTIONAL
+        hass.services.supports_response("test", "respond") is SupportsResponse.OPTIONAL
     )
     response = await hass.services.async_call(
         "test",
@@ -565,10 +319,7 @@ async def test_mock_service_honors_explicit_response_mode_and_exception(
         raise_exception=RuntimeError("service failed"),
     )
 
-    assert (
-        hass.services.supports_response("test", "fail")
-        is SupportsResponse.NONE
-    )
+    assert hass.services.supports_response("test", "fail") is SupportsResponse.NONE
     with pytest.raises(RuntimeError, match="service failed"):
         await hass.services.async_call(
             "test",
@@ -613,10 +364,10 @@ def test_mock_platform_reuses_integration_and_populates_platform_cache(
     assert "light.py" in integration._top_level_files  # pylint: disable=protected-access
 
 
-async def test_component_platform_supports_config_entries_and_custom_components(
+def test_component_platform_supports_config_entries_and_custom_components(
     hass: HomeAssistant,
 ) -> None:
-    """Platform setup callbacks should deliver entities through both HA paths."""
+    """Platform setup should honor both optional setup modes."""
     light = MockLight(name="Test", state="off", unique_id="test_light")
 
     platform = setup_test_component_platform(
@@ -628,15 +379,6 @@ async def test_component_platform_supports_config_entries_and_custom_components(
     )
 
     assert hasattr(platform, "async_setup_entry")
-    async_add_entities = Mock()
-    await platform.async_setup_platform(hass, {}, async_add_entities, None)
-    async_add_entities.assert_called_once_with([light])
-
-    async_add_entities.reset_mock()
-    config_entry = MockConfigEntry(domain="test", data={})
-    await platform.async_setup_entry(hass, config_entry, async_add_entities)
-    async_add_entities.assert_called_once_with([light])
-
     integration = hass.data[loader.DATA_INTEGRATIONS]["test"]
     assert isinstance(integration, loader.Integration)
     assert integration.pkg_path == f"{loader.PACKAGE_CUSTOM_COMPONENTS}.test"

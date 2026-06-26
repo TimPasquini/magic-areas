@@ -53,6 +53,38 @@ async def test_wasp_timeout_triggers_forget(
     assert_attribute(final, ATTR_BOX, STATE_OFF)
 
 
+async def test_one_minute_wasp_timeout_schedules_sixty_seconds(
+    hass: HomeAssistant,
+    entities_wasp_in_a_box: list[MockBinarySensor],
+    _setup_integration_wasp_in_a_box: None,
+) -> None:
+    """A configured one-minute timeout crosses the runtime boundary as 60 seconds."""
+    motion_sensor_entity_id = entities_wasp_in_a_box[0].entity_id
+    door_sensor_entity_id = entities_wasp_in_a_box[1].entity_id
+    scheduled_delays: list[float] = []
+
+    def capture_delay(
+        _hass_obj: object,
+        delay: float,
+        _callback: object,
+    ) -> Callable[[], None]:
+        scheduled_delays.append(delay)
+        return lambda: None
+
+    hass.states.async_set(motion_sensor_entity_id, STATE_ON)
+    hass.states.async_set(door_sensor_entity_id, STATE_OFF)
+    await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.magic_areas.helpers.async_call_later",
+        side_effect=capture_delay,
+    ):
+        hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
+        await hass.async_block_till_done()
+
+    assert scheduled_delays == [60]
+
+
 async def test_open_box_cancels_timer(
     hass: HomeAssistant,
     entities_wasp_in_a_box: list[MockBinarySensor],
@@ -75,7 +107,9 @@ async def test_open_box_cancels_timer(
 
     fired_callback: Callable[[object], object] | None = None
 
-    def capture_callback(_hass_obj: object, _delay: object, callback: object) -> Callable[[], None]:
+    def capture_callback(
+        _hass_obj: object, _delay: object, callback: object
+    ) -> Callable[[], None]:
         nonlocal fired_callback
         if callable(callback):
             fired_callback = callback

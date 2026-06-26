@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import inspect
 
-from custom_components.magic_areas.core.runtime_model.references import build_entity_references
+from custom_components.magic_areas.core.runtime_model.references import (
+    build_entity_references,
+)
 
 
 def test_build_entity_references_avoids_full_registry_scan() -> None:

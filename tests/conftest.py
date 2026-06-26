@@ -180,7 +180,9 @@ async def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
     # Set unique_id to match the area ID from the data
     area_id = data.get(CONF_ID, DEFAULT_MOCK_AREA.value)
     entry: MockConfigEntry = MockConfigEntry(
-        domain=DOMAIN, data=data, unique_id=area_id  # Add this line!
+        domain=DOMAIN,
+        data=data,
+        unique_id=area_id,  # Add this line!
     )
     entry.add_to_hass(hass)
     return entry
@@ -223,7 +225,9 @@ async def mock_config_entry_all_areas_with_meta_config_entry() -> list[MockConfi
         area_id = data.get(CONF_ID, area_entry.value)
         config_entries.append(
             MockConfigEntry(
-                domain=DOMAIN, data=data, unique_id=area_id  # Add this line!
+                domain=DOMAIN,
+                data=data,
+                unique_id=area_id,  # Add this line!
             )
         )
 

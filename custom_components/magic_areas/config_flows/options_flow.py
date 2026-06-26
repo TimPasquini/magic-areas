@@ -46,6 +46,7 @@ _ROOT_FEATURE_MENU_ORDER = (
     MagicAreasFeatures.WASP_IN_A_BOX.value,
 )
 
+
 def _coordinator_data_from_entry(
     config_entry: MagicAreasConfigEntry,
 ) -> MagicAreasData | None:
@@ -66,9 +67,7 @@ def _ordered_feature_menu_options(
     """Return enabled configurable feature steps in task-oriented order."""
     feature_registry = get_feature_config_steps()
     enabled_configurable = {
-        feature
-        for feature in enabled_features
-        if feature in feature_registry
+        feature for feature in enabled_features if feature in feature_registry
     }
 
     ordered = [
@@ -180,9 +179,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self._coordinator_data = coordinator_data
 
         area_name = self._area_config.name
-        _LOGGER.debug(
-            "OptionsFlow: Initializing options flow for area %s", area_name
-        )
+        _LOGGER.debug("OptionsFlow: Initializing options flow for area %s", area_name)
         _LOGGER.debug(
             "OptionsFlow: Options in config entry for area %s: %s",
             area_name,
@@ -209,12 +206,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         ]
         self.all_illuminance_entities = entity_collections["all_illuminance_entities"]
 
-        area_schema = META_AREA_SCHEMA if (self._area_config and self._area_config.is_meta()) else REGULAR_AREA_SCHEMA
+        area_schema = (
+            META_AREA_SCHEMA
+            if (self._area_config and self._area_config.is_meta())
+            else REGULAR_AREA_SCHEMA
+        )
         self.area_options = area_schema(_copy_options(self.config_entry.options))
 
-        _LOGGER.debug(
-            "%s: Loaded area options: %s", area_name, str(self.area_options)
-        )
+        _LOGGER.debug("%s: Loaded area options: %s", area_name, str(self.area_options))
         # noinspection PyTypeChecker
         return await self.async_step_show_menu()
 

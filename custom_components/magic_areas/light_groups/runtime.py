@@ -104,9 +104,6 @@ class _LightGroupHost(Protocol):
     def controlling(self) -> bool: ...
 
     @property
-    def is_on(self) -> bool | None: ...
-
-    @property
     def entity_id(self) -> str: ...
 
     @property
@@ -898,7 +895,9 @@ def _is_origin_light_attribute_change(origin_event: object | None) -> bool:
     )
 
 
-def _direct_light_output_changed(old_state: object | None, new_state: object | None) -> bool:
+def _direct_light_output_changed(
+    old_state: object | None, new_state: object | None
+) -> bool:
     """Return True when a light output change can affect in-room lux readings."""
     if old_state is None or new_state is None:
         return False
@@ -978,17 +977,15 @@ def _schedule_adaptive_bright_recheck_if_needed(
     if AreaStates.BRIGHT.value not in {str(state) for state in current_states}:
         return
 
-    delay = (
-        1.0
-        if ambient_poll_needed
-        else _adaptive_bright_recheck_delay(host, reason)
-    )
+    delay = 1.0 if ambient_poll_needed else _adaptive_bright_recheck_delay(host, reason)
     if delay is None:
         return
 
     def recheck() -> None:
         live_states = read_area_presence_states(host.hass, host._area_id)
-        recheck_states = list(live_states or host._last_known_area_states or current_states)
+        recheck_states = list(
+            live_states or host._last_known_area_states or current_states
+        )
         host.area_state_changed(
             host._area_id,
             ([], [], recheck_states),

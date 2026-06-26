@@ -1,6 +1,5 @@
 """Contract tests for Wasp-in-a-Box behavior and presence integration."""
 
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
@@ -40,9 +39,7 @@ async def test_wasp_in_a_box_logic(
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{DEFAULT_MOCK_AREA}"
     )
     motion_aggregate_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_motion"
-    door_aggregate_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_door"
-    )
+    door_aggregate_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_door"
 
     motion_sensor_state = hass.states.get(motion_sensor_entity_id)
     assert_state(motion_sensor_state, STATE_OFF)
@@ -120,9 +117,7 @@ async def test_wasp_in_a_box_as_presence(
     wasp_in_a_box_entity_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_wasp_in_a_box_{DEFAULT_MOCK_AREA}"
     )
-    area_state_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_state_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
 
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     hass.states.async_set(door_sensor_entity_id, STATE_ON)

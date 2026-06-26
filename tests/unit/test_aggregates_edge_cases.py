@@ -115,7 +115,9 @@ def test_min_entities_from_empty_config() -> None:
 
 def test_min_entities_from_config_with_explicit_value() -> None:
     """Test aggregate_min_entities with explicit min_entities value."""
-    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
+    from custom_components.magic_areas.config_keys.area import (
+        CONF_AGGREGATES_MIN_ENTITIES,
+    )
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -129,7 +131,9 @@ def test_min_entities_from_config_with_explicit_value() -> None:
 
 def test_min_entities_from_config_with_int() -> None:
     """Test aggregate_min_entities handles int value correctly."""
-    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
+    from custom_components.magic_areas.config_keys.area import (
+        CONF_AGGREGATES_MIN_ENTITIES,
+    )
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -143,7 +147,9 @@ def test_min_entities_from_config_with_int() -> None:
 
 def test_min_entities_from_config_with_string_int() -> None:
     """Test aggregate_min_entities handles string int value correctly."""
-    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
+    from custom_components.magic_areas.config_keys.area import (
+        CONF_AGGREGATES_MIN_ENTITIES,
+    )
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {
@@ -157,7 +163,9 @@ def test_min_entities_from_config_with_string_int() -> None:
 
 def test_min_entities_from_config_with_invalid_string() -> None:
     """Test aggregate_min_entities handles invalid string gracefully."""
-    from custom_components.magic_areas.config_keys.area import CONF_AGGREGATES_MIN_ENTITIES
+    from custom_components.magic_areas.config_keys.area import (
+        CONF_AGGREGATES_MIN_ENTITIES,
+    )
     from custom_components.magic_areas.enums import MagicAreasFeatures
 
     config = {

@@ -83,9 +83,7 @@ async def test_light_group_basic(
 
     mock_light_entity_id = entities_light_one[0].entity_id
     mock_motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
-    light_group_entity_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_entity_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     light_control_entity_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
     )
@@ -153,9 +151,7 @@ async def test_light_group_canonical_policy_transition_parity(
     _setup_integration_light_groups: None,
 ) -> None:
     """Native helper target preserves key transition behavior."""
-    light_group_entity_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_entity_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     legacy_policy_entity_id = (
         f"{LIGHT_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     )

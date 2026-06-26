@@ -1,6 +1,9 @@
 """Comprehensive platform feature testing to improve coverage."""
 
-from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN, BinarySensorDeviceClass
+from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorDeviceClass,
+)
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.const import LIGHT_LUX
 from homeassistant.core import HomeAssistant
@@ -42,7 +45,9 @@ async def test_aggregates_and_health_features_together(
             device_class=BinarySensorDeviceClass.CO,
         ),
     ]
-    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: health_sensors})
+    await setup_mock_entities(
+        hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: health_sensors}
+    )
 
     # Create mock illuminance sensors
     illuminance_sensors = [
@@ -56,7 +61,9 @@ async def test_aggregates_and_health_features_together(
         )
         for i in range(2)
     ]
-    await setup_mock_entities(hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: illuminance_sensors})
+    await setup_mock_entities(
+        hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: illuminance_sensors}
+    )
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
@@ -127,7 +134,9 @@ async def test_wasp_feature_requires_aggregation(
             device_class=BinarySensorDeviceClass.DOOR,
         ),
     ]
-    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: motion_sensors})
+    await setup_mock_entities(
+        hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: motion_sensors}
+    )
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {
@@ -164,7 +173,9 @@ async def test_aggregation_with_illuminance_threshold_creation(
             unit_of_measurement=LIGHT_LUX,
         )
     ]
-    await setup_mock_entities(hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: illuminance_sensors})
+    await setup_mock_entities(
+        hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: illuminance_sensors}
+    )
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     data[CONF_ENABLED_FEATURES] = {

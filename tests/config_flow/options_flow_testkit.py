@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigFlowResult
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+
 async def start_options_flow(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> ConfigFlowResult:

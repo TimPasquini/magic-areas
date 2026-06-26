@@ -20,7 +20,10 @@ async def test_options_flow_routes_feature_conf_step() -> None:
     flow = OptionsFlowHandler(config_entry)
 
     with patch.object(
-        flow, "async_step_feature_conf", new_callable=AsyncMock, return_value={"type": "form"}
+        flow,
+        "async_step_feature_conf",
+        new_callable=AsyncMock,
+        return_value={"type": "form"},
     ) as mock_handler:
         result = await flow.async_step("feature_conf_light_groups", user_input=None)
 
@@ -49,9 +52,7 @@ async def test_options_flow_dynamic_step_attribute_routes_feature_conf() -> None
         )
         result = await step({"enabled": True})
 
-    mock_router.assert_awaited_once_with(
-        "feature_conf_light_groups", {"enabled": True}
-    )
+    mock_router.assert_awaited_once_with("feature_conf_light_groups", {"enabled": True})
     assert result["type"] == "form"
 
 
@@ -65,7 +66,10 @@ async def test_options_flow_sets_feature_step_id_on_routing() -> None:
     flow = OptionsFlowHandler(config_entry)
 
     with patch.object(
-        flow, "async_step_feature_conf", new_callable=AsyncMock, return_value={"type": "form"}
+        flow,
+        "async_step_feature_conf",
+        new_callable=AsyncMock,
+        return_value={"type": "form"},
     ) as mock_handler:
         await flow.async_step(
             "feature_conf_climate_control", user_input={"test": "input"}
@@ -103,7 +107,10 @@ async def test_options_flow_routes_multiple_feature_steps() -> None:
     flow = OptionsFlowHandler(config_entry)
 
     with patch.object(
-        flow, "async_step_feature_conf", new_callable=AsyncMock, return_value={"type": "form"}
+        flow,
+        "async_step_feature_conf",
+        new_callable=AsyncMock,
+        return_value={"type": "form"},
     ) as mock_handler:
         # Test multiple different feature steps
         steps = [

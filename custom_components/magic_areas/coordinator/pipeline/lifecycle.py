@@ -459,17 +459,17 @@ class MetaAreaReloadManager:
 
     @property
     def reloading(self) -> bool:
-        """Return whether a reload has been scheduled/executed."""
+        """Return whether a meta-area reload is currently in flight."""
         return self._reloading
 
     @property
     def pending_reload_handle(self) -> asyncio.TimerHandle | None:
-        """Return current pending reload handle."""
+        """Return the currently scheduled meta reload callback, if any."""
         return self._pending_reload_handle
 
     @property
     def meta_data_retry_attempts(self) -> int:
-        """Return metadata retry attempts."""
+        """Return the current bounded meta snapshot retry attempt count."""
         return self._meta_data_retry_attempts
 
     def start(self) -> None:
@@ -959,9 +959,13 @@ def attach_registry_listeners(
 
     entity_filter = make_entity_registry_filter(hass, area_config.id)
     tracked_listeners.append(
-        hass.bus.async_listen(EVENT_ENTITY_REGISTRY_UPDATED, _handle_registry, entity_filter)
+        hass.bus.async_listen(
+            EVENT_ENTITY_REGISTRY_UPDATED, _handle_registry, entity_filter
+        )
     )
     device_filter = make_device_registry_filter(hass, area_config.id)
     tracked_listeners.append(
-        hass.bus.async_listen(EVENT_DEVICE_REGISTRY_UPDATED, _handle_registry, device_filter)
+        hass.bus.async_listen(
+            EVENT_DEVICE_REGISTRY_UPDATED, _handle_registry, device_filter
+        )
     )

@@ -113,6 +113,4 @@ def build_climate_control_group_id(*, area_id: str) -> str:
 
 def build_media_player_group_id(*, area_id: str) -> str:
     """Return stable media-player-group unique ID."""
-    return (
-        f"{ControlGroupPolicyId.MEDIA_PLAYER_GROUPS}_{area_id}_media_player_group"
-    )
+    return f"{ControlGroupPolicyId.MEDIA_PLAYER_GROUPS}_{area_id}_media_player_group"

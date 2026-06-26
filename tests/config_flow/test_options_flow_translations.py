@@ -7,10 +7,7 @@ import pytest
 
 
 TRANSLATIONS_DIR = (
-    Path(__file__).parents[2]
-    / "custom_components"
-    / "magic_areas"
-    / "translations"
+    Path(__file__).parents[2] / "custom_components" / "magic_areas" / "translations"
 )
 TRANSLATIONS_PATH = TRANSLATIONS_DIR / "en.json"
 
@@ -102,9 +99,7 @@ def _find_extra_translation_keys(
 @pytest.mark.parametrize(
     "translation_path",
     sorted(
-        path
-        for path in TRANSLATIONS_DIR.glob("*.json")
-        if path != TRANSLATIONS_PATH
+        path for path in TRANSLATIONS_DIR.glob("*.json") if path != TRANSLATIONS_PATH
     ),
     ids=lambda path: path.name,
 )
@@ -145,7 +140,9 @@ def test_single_page_forms_explain_submit_saves_immediately() -> None:
         assert "saved when you submit" in description
 
 
-def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> None:
+def test_area_states_light_source_copy_distinguishes_area_and_light_group_brightness() -> (
+    None
+):
     """The area-level bright/dark source should not imply it is the only light signal."""
     secondary_states = _options_step("secondary_states")
     data_description = secondary_states["data_description"]
@@ -169,12 +166,8 @@ def test_feature_selection_distinguishes_configurable_features() -> None:
     assert "convenient room-level groups" in description
     assert isinstance(data_description, dict)
     assert "turn those roles on and off" in data_description["light_groups"]
-    assert "room-level cover targets" in (
-        data_description["cover_groups"]
-    )
-    assert "room-level media-player target" in (
-        data_description["media_player_groups"]
-    )
+    assert "room-level cover targets" in (data_description["cover_groups"])
+    assert "room-level media-player target" in (data_description["media_player_groups"])
 
 
 def test_light_group_brightness_mode_uses_classic_label() -> None:

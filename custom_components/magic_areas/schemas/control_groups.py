@@ -50,13 +50,10 @@ def _validate_custom_control_groups_payload(
 
         if not isinstance(policy_id, str) or not policy_id:
             raise vol.Invalid(f"group {group_id} must include a valid policy_id")
-        if (
-            is_reserved_policy_id(policy_id)
-            and policy_id != str(ControlGroupPolicyId.CUSTOM_CONTROL_GROUP)
+        if is_reserved_policy_id(policy_id) and policy_id != str(
+            ControlGroupPolicyId.CUSTOM_CONTROL_GROUP
         ):
-            raise vol.Invalid(
-                f"group {group_id} uses reserved policy_id: {policy_id}"
-            )
+            raise vol.Invalid(f"group {group_id} uses reserved policy_id: {policy_id}")
 
         if not isinstance(metadata, dict):
             raise vol.Invalid(f"group {group_id} metadata must be an object")

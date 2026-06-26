@@ -74,7 +74,9 @@ async def build_snapshot(
     )
 
     enabled_features, feature_configs = _resolve_feature_config(area_config=area_config)
-    _register_custom_control_groups(area_config=area_config, group_registry=group_registry)
+    _register_custom_control_groups(
+        area_config=area_config, group_registry=group_registry
+    )
     entity_registry = er.async_get(hass)
     entity_references = _build_area_references(
         area_config=area_config, entity_registry=entity_registry

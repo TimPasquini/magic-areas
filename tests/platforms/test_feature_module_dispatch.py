@@ -13,7 +13,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.config_keys.area import CONF_CUSTOM_CONTROL_GROUPS
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.runtime_model import LabelSurface, ManagedSurface
+from custom_components.magic_areas.core.runtime_model import (
+    LabelSurface,
+    ManagedSurface,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.features.base import FeatureConfigStep
 from custom_components.magic_areas.features.dispatch import (
@@ -58,11 +61,15 @@ class FeatureModuleDouble:
         """Return feature dependencies required for this module."""
         return set(self.deps)
 
-    def desired_managed_surfaces(self, *_args: object, **_kwargs: object) -> list[ManagedSurface]:
+    def desired_managed_surfaces(
+        self, *_args: object, **_kwargs: object
+    ) -> list[ManagedSurface]:
         """Return managed surfaces for this feature."""
         return []
 
-    def config_flow_steps(self) -> list[FeatureConfigStep]:  # pragma: no cover - not used
+    def config_flow_steps(
+        self,
+    ) -> list[FeatureConfigStep]:  # pragma: no cover - not used
         """Return config flow steps for this feature."""
         return []
 
@@ -83,7 +90,9 @@ async def test_sensor_setup_dispatches_feature_modules(hass: HomeAssistant) -> N
     coordinator.data = data
     coordinator.async_refresh = AsyncMock()
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    )
     config_entry.runtime_data = MagicMock(coordinator=coordinator)
 
     module_entity = MagicMock(spec=Entity)
@@ -111,7 +120,9 @@ async def test_sensor_setup_dispatches_feature_modules(hass: HomeAssistant) -> N
 
 
 @pytest.mark.asyncio
-async def test_binary_sensor_setup_dispatches_feature_modules(hass: HomeAssistant) -> None:
+async def test_binary_sensor_setup_dispatches_feature_modules(
+    hass: HomeAssistant,
+) -> None:
     """Binary sensor setup should include feature module entities."""
     from custom_components.magic_areas.binary_sensor import async_setup_entry
 
@@ -129,7 +140,9 @@ async def test_binary_sensor_setup_dispatches_feature_modules(hass: HomeAssistan
     coordinator.data = data
     coordinator.async_refresh = AsyncMock()
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    )
     config_entry.runtime_data = MagicMock(coordinator=coordinator)
 
     presence_entity = MagicMock(spec=Entity)
@@ -169,7 +182,9 @@ async def test_binary_sensor_setup_dispatches_feature_modules(hass: HomeAssistan
 
 
 @pytest.mark.asyncio
-async def test_dependency_missing_skips_module_entities(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+async def test_dependency_missing_skips_module_entities(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
     """Modules with missing dependencies should not build entities."""
     from custom_components.magic_areas.sensor import async_setup_entry
 
@@ -184,7 +199,9 @@ async def test_dependency_missing_skips_module_entities(hass: HomeAssistant, cap
     coordinator.data = data
     coordinator.async_refresh = AsyncMock()
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    )
     config_entry.runtime_data = MagicMock(coordinator=coordinator)
 
     module_entity = MagicMock(spec=Entity)

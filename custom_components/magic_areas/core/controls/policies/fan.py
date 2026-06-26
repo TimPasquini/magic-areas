@@ -300,9 +300,15 @@ def evaluate_fan_controllers(
 ) -> FanControllerEvaluation:
     """Evaluate fan controllers and aggregate per-entity service intent."""
     current_state_set = {str(state) for state in current_states}
-    previous_active = {str(controller_id) for controller_id in previously_active_controller_ids}
-    post_clear_hold = {str(controller_id) for controller_id in post_clear_hold_controller_ids}
-    unavailable_hold = {str(controller_id) for controller_id in unavailable_hold_controller_ids}
+    previous_active = {
+        str(controller_id) for controller_id in previously_active_controller_ids
+    }
+    post_clear_hold = {
+        str(controller_id) for controller_id in post_clear_hold_controller_ids
+    }
+    unavailable_hold = {
+        str(controller_id) for controller_id in unavailable_hold_controller_ids
+    }
     current_trend_states = trend_states or {}
 
     active: list[FanControllerReason] = []
@@ -329,7 +335,9 @@ def evaluate_fan_controllers(
     all_targets = _sorted_unique(
         member for controller in controllers for member in controller.members
     )
-    active_targets = _sorted_unique(member for reason in active for member in reason.members)
+    active_targets = _sorted_unique(
+        member for reason in active for member in reason.members
+    )
     inactive_targets = tuple(
         entity_id for entity_id in all_targets if entity_id not in set(active_targets)
     )
@@ -535,7 +543,7 @@ def build_fan_policy(feature_config: Mapping[str, object]) -> FanControlPolicy:
 
 
 def build_fan_control_group_policy(
-    feature_config: Mapping[str, object]
+    feature_config: Mapping[str, object],
 ) -> FanControlGroupPolicy:
     """Build a canonical control-group policy adapter from feature config."""
     controllers = _controllers_from_feature_config(feature_config)

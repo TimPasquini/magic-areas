@@ -21,7 +21,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.config_flow import (
     ConfigBase,
-
     OptionsFlowHandler,
 )
 from custom_components.magic_areas.schemas.selectors import (
@@ -68,8 +67,6 @@ async def test_options_flow_feature_conf_invalid_input(
     assert result["errors"] == {"base": "invalid_input"}
 
 
-
-
 async def test_options_flow_climate_select_presets_no_entity(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
@@ -77,7 +74,9 @@ async def test_options_flow_climate_select_presets_no_entity(
     config_entry = cast(ConfigEntry[MagicAreasRuntimeData], init_integration)
     flow = OptionsFlowHandler(config_entry)
     flow.hass = hass
-    flow.area_options = {CONF_ENABLED_FEATURES: {MagicAreasFeatures.CLIMATE_CONTROL: {}}}
+    flow.area_options = {
+        CONF_ENABLED_FEATURES: {MagicAreasFeatures.CLIMATE_CONTROL: {}}
+    }
 
     result = await flow.async_step_feature_conf_climate_control_select_presets()
 

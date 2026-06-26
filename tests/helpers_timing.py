@@ -2,13 +2,65 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import functools
+from asyncio import get_running_loop
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime
+from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 
 from custom_components.magic_areas.area_state import AreaStates
+
+
+class VirtualClock:
+    """Provide a virtual clock for an asyncio event loop."""
+
+    def __init__(self) -> None:
+        """Initialize the clock with a simple time."""
+        self.vtime = 0.0
+
+    def virtual_time(self) -> float:
+        """Return the current virtual time."""
+        return self.vtime
+
+    def _virtual_select(
+        self,
+        orig_select: Callable[[float | None], object],
+        timeout: float | None,
+    ) -> object:
+        """Override select() to advance virtual time without blocking."""
+        if timeout is not None:
+            self.vtime += timeout
+        return orig_select(0)
+
+    @contextmanager
+    def patch_loop(self) -> Iterator[None]:
+        """Override methods of the current event loop for virtual time."""
+        loop = get_running_loop()
+        with (
+            patch.object(
+                loop._selector,  # pylint: disable=protected-access
+                "select",
+                new=functools.partial(
+                    self._virtual_select,
+                    loop._selector.select,  # pylint: disable=protected-access
+                ),
+            ),
+            patch.object(
+                loop,
+                "time",
+                new=self.virtual_time,
+            ),
+            patch.object(
+                loop,
+                "_clock_resolution",
+                new=0.1,
+            ),
+        ):
+            yield
 
 
 def immediate_call_factory(

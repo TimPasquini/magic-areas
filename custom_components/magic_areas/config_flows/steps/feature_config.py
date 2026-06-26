@@ -69,7 +69,10 @@ from custom_components.magic_areas.config_flows.base import (
     invalid_input_error,
 )
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.enums import MagicAreasFeatures, SelectorTranslationKeys
+from custom_components.magic_areas.enums import (
+    MagicAreasFeatures,
+    SelectorTranslationKeys,
+)
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_threshold_light_sensor_unique_id,
 )
@@ -186,12 +189,8 @@ _LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
 _LIGHT_GROUP_MENU_STEP = "feature_conf_light_groups"
 _LIGHT_GROUP_ROLES_STEP = "feature_conf_light_groups_roles"
 _LIGHT_GROUP_BRIGHTNESS_STEP = "feature_conf_light_groups_brightness"
-_LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP = (
-    "feature_conf_light_groups_brightness_advisory"
-)
-_LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP = (
-    "feature_conf_light_groups_brightness_adaptive"
-)
+_LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP = "feature_conf_light_groups_brightness_advisory"
+_LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP = "feature_conf_light_groups_brightness_adaptive"
 _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP = "feature_conf_light_groups_adaptive_lighting"
 _LIGHT_GROUP_SUBSTEPS = {
     _LIGHT_GROUP_MENU_STEP,
@@ -501,7 +500,10 @@ def _default_inside_bright_entity(
         DOMAIN,
         build_threshold_light_sensor_unique_id(area_id=area_config.id),
     )
-    if isinstance(threshold_entity, str) and threshold_entity in flow.all_binary_entities:
+    if (
+        isinstance(threshold_entity, str)
+        and threshold_entity in flow.all_binary_entities
+    ):
         return threshold_entity
 
     return ""
@@ -518,10 +520,7 @@ def _should_rerender_light_group_brightness_step(
         return False
     if CONF_LIGHT_GROUP_BRIGHTNESS_MODE not in validated:
         return False
-    return (
-        len(user_input) == 1
-        and CONF_LIGHT_GROUP_BRIGHTNESS_MODE in user_input
-    )
+    return len(user_input) == 1 and CONF_LIGHT_GROUP_BRIGHTNESS_MODE in user_input
 
 
 def _should_rerender_light_group_adaptive_lighting_step(
@@ -1044,14 +1043,10 @@ def _add_light_group_brightness_selectors(
     selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
         min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
-    selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = (
-        build_selector_number(
-            min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
-        )
+    selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = build_selector_number(
+        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
-    selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = (
-        build_selector_boolean()
-    )
+    selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = build_selector_boolean()
     selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
         min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
     )
@@ -1235,12 +1230,9 @@ async def handle_feature_form(
                     for key in _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS:
                         if key in existing and key not in user_input:
                             validated_dict[key] = existing[key]
-                if (
-                    isinstance(existing, dict)
-                    and isinstance(
-                        validated_dict.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE),
-                        str,
-                    )
+                if isinstance(existing, dict) and isinstance(
+                    validated_dict.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE),
+                    str,
                 ):
                     _prune_light_group_options_for_brightness_mode(
                         existing=existing,
@@ -1370,8 +1362,8 @@ def _add_non_light_feature_selectors(
             AreaStates.SLEEP.value,
             AreaStates.ACCENT.value,
         ]
-        selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] = (
-            build_selector_select(cover_device_classes, multiple=True)
+        selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] = build_selector_select(
+            cover_device_classes, multiple=True
         )
         selectors[CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS] = build_selector_number(
             min_value=0,
@@ -1614,7 +1606,8 @@ async def handle_feature_conf(
             feature_config = {}
         if (
             step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
-            and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+            and adaptive_lighting_mode
+            == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
         ):
             candidates = _adaptive_lighting_candidate_switch_sets(flow, feature_config)
             candidate_options = ["", *candidates]

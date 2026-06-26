@@ -44,7 +44,9 @@ class GroupRegistry:
             is_custom=False,
         )
 
-    def register_custom(self, area_id: str, definition: ControlGroupDefinitionView) -> None:
+    def register_custom(
+        self, area_id: str, definition: ControlGroupDefinitionView
+    ) -> None:
         """Register an area-scoped custom group definition."""
         key = (area_id, definition.group_id)
         self._entries[key] = RegisteredControlGroup(

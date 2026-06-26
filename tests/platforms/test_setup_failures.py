@@ -14,8 +14,12 @@ from custom_components.magic_areas.core.runtime_model import AreaRuntime
 from custom_components.magic_areas.core.runtime_model import EntityReferences
 from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.cover import async_setup_entry as cover_async_setup_entry
-from custom_components.magic_areas.switch import async_setup_entry as switch_async_setup_entry
+from custom_components.magic_areas.cover import (
+    async_setup_entry as cover_async_setup_entry,
+)
+from custom_components.magic_areas.switch import (
+    async_setup_entry as switch_async_setup_entry,
+)
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 

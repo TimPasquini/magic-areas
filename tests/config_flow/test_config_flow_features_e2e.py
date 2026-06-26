@@ -780,9 +780,7 @@ async def test_options_flow_fan_groups_uses_constrained_selectors(
     assert members_selector.config["multiple"] is True
     assert active_states_selector.config["mode"] == "dropdown"
     assert active_states_selector.config["translation_key"] == "area_states"
-    required_state_options = cast(
-        list[str], active_states_selector.config["options"]
-    )
+    required_state_options = cast(list[str], active_states_selector.config["options"])
     assert AreaStates.OCCUPIED.value in required_state_options
     assert AreaStates.SLEEP.value in required_state_options
 
@@ -878,9 +876,9 @@ async def test_options_flow_fan_groups_stores_independent_controller_roles(
         MagicAreasFeatures.FAN_GROUPS
     ][CONF_FAN_GROUPS_CONTROLLERS]
     assert controllers[FanControllerRole.HUMIDITY.value] == humidity
-    assert controllers[FanControllerRole.ODOR.value][
-        CONF_FAN_CONTROLLER_MEMBERS
-    ] == [fan_entry.entity_id]
+    assert controllers[FanControllerRole.ODOR.value][CONF_FAN_CONTROLLER_MEMBERS] == [
+        fan_entry.entity_id
+    ]
 
 
 async def test_options_flow_fan_groups_invalid_values_stay_on_form_without_persisting(
@@ -973,9 +971,10 @@ async def test_options_flow_cover_groups_stores_presets_and_reopens(
     )
     assert result["type"] == FlowResultType.FORM
     selectors = _schema_selectors(result)
-    assert selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES].config[
-        "multiple"
-    ] is True
+    assert (
+        selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES].config["multiple"]
+        is True
+    )
     assert (
         selectors[CONF_COVER_GROUPS_DAYLIGHT_ACTION].config["translation_key"]
         == "cover_preset_action"
@@ -1061,9 +1060,7 @@ async def test_options_flow_area_aware_media_player_uses_entity_selector(
     )
     selectors = _schema_selectors(result)
     notification_selector = selectors[CONF_NOTIFICATION_DEVICES]
-    include_entities = cast(
-        list[str], notification_selector.config["include_entities"]
-    )
+    include_entities = cast(list[str], notification_selector.config["include_entities"])
 
     assert notification_selector.config["multiple"] is True
     assert media_player_entity.entity_id in include_entities
@@ -1635,8 +1632,7 @@ async def test_options_flow_light_groups_uses_translated_selectors(
         == "area_states"
     )
     assert (
-        selectors[CONF_OVERHEAD_LIGHTS_ACT_ON].config["translation_key"]
-        == "control_on"
+        selectors[CONF_OVERHEAD_LIGHTS_ACT_ON].config["translation_key"] == "control_on"
     )
 
 
@@ -1670,8 +1666,7 @@ async def test_options_flow_light_groups_mode_selectors_use_dropdowns(
     adaptive_lighting_selector = selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
     assert adaptive_lighting_selector.config["mode"] == "dropdown"
     assert (
-        adaptive_lighting_selector.config["translation_key"]
-        == "adaptive_lighting_mode"
+        adaptive_lighting_selector.config["translation_key"] == "adaptive_lighting_mode"
     )
 
 
@@ -1683,9 +1678,7 @@ async def test_options_flow_light_groups_adaptive_shows_binary_and_lux_fields(
     result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
 
-    result = await _select_light_groups_brightness_mode(
-        hass, result, "adaptive"
-    )
+    result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
     assert result["type"] == FlowResultType.FORM
 
     schema = _data_schema(result)
@@ -1716,7 +1709,9 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
     result = await _open_light_groups_brightness_mode_step(hass, config_entry)
     assert result["type"] == FlowResultType.FORM
     result = await _select_light_groups_brightness_mode(hass, result, "adaptive")
-    adaptive_keys = {getattr(marker, "schema", marker) for marker in _data_schema(result).schema}
+    adaptive_keys = {
+        getattr(marker, "schema", marker) for marker in _data_schema(result).schema
+    }
     assert CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS in adaptive_keys
     assert CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY in adaptive_keys
 
@@ -1725,7 +1720,8 @@ async def test_options_flow_light_groups_mode_fields_do_not_leak_after_reopen(
     )
     assert result["type"] == FlowResultType.MENU
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input={"next_step_id": "feature_conf_light_groups_brightness"}
+        result["flow_id"],
+        user_input={"next_step_id": "feature_conf_light_groups_brightness"},
     )
     result = await _select_light_groups_brightness_mode(hass, result, "advisory")
     result = await hass.config_entries.options.async_configure(
@@ -2028,7 +2024,8 @@ async def test_options_flow_dynamic_pairings_do_not_mutate_light_group_schema(
 
     pair_key = adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS)
     before_keys = {
-        getattr(marker, "schema", marker) for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
+        getattr(marker, "schema", marker)
+        for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
     }
     assert pair_key not in before_keys
 
@@ -2038,12 +2035,12 @@ async def test_options_flow_dynamic_pairings_do_not_mutate_light_group_schema(
 
     assert result["type"] == FlowResultType.FORM
     rendered_keys = {
-        getattr(marker, "schema", marker)
-        for marker in _data_schema(result).schema
+        getattr(marker, "schema", marker) for marker in _data_schema(result).schema
     }
     assert pair_key in rendered_keys
     after_keys = {
-        getattr(marker, "schema", marker) for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
+        getattr(marker, "schema", marker)
+        for marker in LIGHT_GROUP_FEATURE_SCHEMA.schema
     }
     assert pair_key not in after_keys
 

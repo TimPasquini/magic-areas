@@ -805,7 +805,11 @@ class TestLightActionEnum:
 
     def test_action_values(self) -> None:
         """Should have correct action values."""
-        assert {action.value for action in LightAction} == {"turn_on", "turn_off", "noop"}
+        assert {action.value for action in LightAction} == {
+            "turn_on",
+            "turn_off",
+            "noop",
+        }
 
     def test_all_actions_present(self) -> None:
         """Should have all three actions."""

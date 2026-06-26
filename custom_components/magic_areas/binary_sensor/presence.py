@@ -102,7 +102,9 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
     ) -> None:
         """Initialize the area tracker."""
 
-        BinaryMagicEntity.__init__(self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN)
+        BinaryMagicEntity.__init__(
+            self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN
+        )
 
         # Store config dict for local use (already have _area_id, _area_name, _is_meta from parent)
         self._area_config_dict = area_config.config
@@ -201,7 +203,9 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
     def _ordered_current_states(self) -> list[str]:
         """Return current states in stable display order."""
         current_state_set = {str(state) for state in self._current_states}
-        ordered = [state for state in _STATE_DISPLAY_ORDER if state in current_state_set]
+        ordered = [
+            state for state in _STATE_DISPLAY_ORDER if state in current_state_set
+        ]
         remaining = sorted(current_state_set - set(_STATE_DISPLAY_ORDER))
         return [*ordered, *remaining]
 
@@ -275,7 +279,9 @@ class AreaStateTrackerEntity(BinaryMagicEntity):
         )
         self._handle_tracker_event(changed, to_state=to_state)
 
-    def _handle_tracker_event(self, changed: bool, *, to_state: str | None = None) -> None:
+    def _handle_tracker_event(
+        self, changed: bool, *, to_state: str | None = None
+    ) -> None:
         """Apply common event handling once the tracker accepts an event."""
         if not changed:
             return
@@ -491,9 +497,7 @@ class AreaStateBinarySensor(AreaStateTrackerEntity, BinarySensorEntity):
         # Listen for coordinator updates to pick up new presence sensors
         self._listener_registry.track(
             "coordinator_listener",
-            self._coordinator.async_add_listener(
-                self._handle_coordinator_update
-            ),
+            self._coordinator.async_add_listener(self._handle_coordinator_update),
         )
 
     @callback
@@ -585,11 +589,13 @@ class MetaAreaStateBinarySensor(AreaStateBinarySensor):
 
         entity_registry = er.async_get(self.hass)
         for area_id in child_areas:
-            if not (area_entity_id := entity_registry.async_get_entity_id(
-                BINARY_SENSOR_DOMAIN,
-                DOMAIN,
-                build_presence_tracking_unique_id(area_id=area_id),
-            )):
+            if not (
+                area_entity_id := entity_registry.async_get_entity_id(
+                    BINARY_SENSOR_DOMAIN,
+                    DOMAIN,
+                    build_presence_tracking_unique_id(area_id=area_id),
+                )
+            ):
                 continue
             if not (area_state := self.hass.states.get(area_entity_id)):
                 continue

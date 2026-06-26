@@ -170,7 +170,9 @@ class CoverControlSwitch(ControlSwitchBase):
     def _manual_hold_entity_ids(self, entity_id: str | None = None) -> list[str]:
         """Return cover helper entity IDs currently under manual hold."""
         now = monotonic()
-        for held_entity_id, deadline in tuple(self._manual_hold_until_monotonic.items()):
+        for held_entity_id, deadline in tuple(
+            self._manual_hold_until_monotonic.items()
+        ):
             if now >= deadline:
                 self._manual_hold_until_monotonic.pop(held_entity_id, None)
 

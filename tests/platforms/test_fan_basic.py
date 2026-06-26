@@ -1,8 +1,13 @@
 """Basic fan-group platform tests."""
 
-
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON, STATE_OFF, STATE_ON
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
+    STATE_OFF,
+    STATE_ON,
+)
 from homeassistant.core import HomeAssistant
 
 from tests.const import DEFAULT_MOCK_AREA

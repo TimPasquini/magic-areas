@@ -47,7 +47,6 @@ class MagicAreasFeatures(StrEnum):
     BLE_TRACKER = "ble_trackers"
 
 
-
 class MagicAreasEvents(StrEnum):
     """Event identifiers dispatched by Magic Areas."""
 

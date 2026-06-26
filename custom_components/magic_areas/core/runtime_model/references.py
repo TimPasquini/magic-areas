@@ -156,7 +156,9 @@ def _shape_entity_references(
         fan_group=resolved_by_field.get("fan_group"),
         fan_control_switch=resolved_by_field.get("fan_control_switch"),
         media_player_group=resolved_by_field.get("media_player_group"),
-        media_player_control_switch=resolved_by_field.get("media_player_control_switch"),
+        media_player_control_switch=resolved_by_field.get(
+            "media_player_control_switch"
+        ),
         climate_control_switch=resolved_by_field.get("climate_control_switch"),
         cover_group=resolved_by_field.get("cover_group"),
         cover_control_switch=resolved_by_field.get("cover_control_switch"),

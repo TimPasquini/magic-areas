@@ -31,13 +31,9 @@ async def test_manual_control_detection(
     await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
@@ -66,9 +62,7 @@ async def test_native_helper_manual_control_releases_runtime_controller(
     await hass.async_block_till_done()
     target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
@@ -95,14 +89,10 @@ async def test_owned_echo_completes_without_releasing_control(
     await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
@@ -135,14 +125,10 @@ async def test_external_change_releases_control_owner(
     await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )
@@ -178,14 +164,10 @@ async def test_owned_turn_off_echo_completes_without_releasing_control(
     await init_integration_helper(hass, [light_edge_cases_config_entry_limited])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     target_group = get_light_group_runtime(light_edge_cases_config_entry_limited)
 
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )

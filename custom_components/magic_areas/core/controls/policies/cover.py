@@ -195,10 +195,7 @@ def evaluate_cover_presets(
 
     daylight = presets.get(CoverPresetRole.DAYLIGHT)
     if daylight and _preset_matches(daylight, current_state_set):
-        if (
-            daylight.action is CoverPresetAction.OPEN
-            and not daylight_open_allowed
-        ):
+        if daylight.action is CoverPresetAction.OPEN and not daylight_open_allowed:
             return CoverPresetDecision(
                 action=CoverPresetAction.NONE,
                 role=None,
@@ -283,7 +280,9 @@ def cover_preset_decision_to_control_group(
 
 def _preset_matches(preset: CoverPresetConfig, current_states: set[str]) -> bool:
     """Return whether a preset applies to current room states."""
-    return bool(preset.states) and any(state in current_states for state in preset.states)
+    return bool(preset.states) and any(
+        state in current_states for state in preset.states
+    )
 
 
 __all__ = [

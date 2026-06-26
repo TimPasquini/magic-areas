@@ -138,6 +138,7 @@ class ConfigBase:
 
         return vol.Schema(mapped)
 
+
 def invalid_input_error() -> dict[str, str]:
     """Return standard invalid-input error payload for flow forms."""
     return {"base": "invalid_input"}

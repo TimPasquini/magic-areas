@@ -46,4 +46,3 @@ async def async_setup_platform_via_features(
         logger=logger,
         base_entities_builder=base_entities_builder,
     )
-

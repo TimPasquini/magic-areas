@@ -41,7 +41,6 @@ async def test_fan_setup_adds_no_custom_group_entities(
     )
     area_runtime = AreaRuntime(last_update_success=True)
     data = MagicAreasData(
-
         entities=area.entities,
         magic_entities=area.magic_entities,
         presence_sensors=[],
@@ -60,7 +59,7 @@ async def test_fan_setup_adds_no_custom_group_entities(
     coordinator.data = data
     coordinator.async_refresh = AsyncMock()
     config_entry.runtime_data = MagicAreasRuntimeData(
-         coordinator=coordinator, listeners=[]
+        coordinator=coordinator, listeners=[]
     )
 
     async_add_entities = MagicMock()

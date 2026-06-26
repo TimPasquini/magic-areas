@@ -217,13 +217,17 @@ def test_light_member_suppression_members_prefers_reconciled_labels(
             "accent_lights": [accent_lamp.entity_id],
         },
     )
-    group._resolved_role_members = lambda preset: LightGroupRuntimeController._resolved_role_members(
-        cast(LightGroupRuntimeController, group),
-        preset,
+    group._resolved_role_members = (
+        lambda preset: LightGroupRuntimeController._resolved_role_members(
+            cast(LightGroupRuntimeController, group),
+            preset,
+        )
     )
 
-    sleep_members, accent_members = LightGroupRuntimeController.light_member_suppression_members(
-        group,  # type: ignore[arg-type]
+    sleep_members, accent_members = (
+        LightGroupRuntimeController.light_member_suppression_members(
+            group,  # type: ignore[arg-type]
+        )
     )
 
     assert sleep_members == (sleep_lamp.entity_id,)

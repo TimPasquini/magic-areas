@@ -73,7 +73,9 @@ class DummyModule:
         """Attach listeners for this feature."""
         return None
 
-    def config_flow_steps(self) -> list[FeatureConfigStep]:  # pragma: no cover - not used
+    def config_flow_steps(
+        self,
+    ) -> list[FeatureConfigStep]:  # pragma: no cover - not used
         """Return config flow steps for this feature."""
         return []
 

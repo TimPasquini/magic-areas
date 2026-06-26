@@ -1,6 +1,5 @@
 """Test for complex light group behavior."""
 
-
 import pytest
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -74,9 +73,7 @@ async def test_light_group_state_change_logic(
     await hass.async_start()
     await hass.async_block_till_done()
 
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
     light_control_switch_id = (
         f"{SWITCH_DOMAIN}.magic_areas_light_groups_{DEFAULT_MOCK_AREA}_light_control"
     )

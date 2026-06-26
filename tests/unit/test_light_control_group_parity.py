@@ -180,7 +180,9 @@ class _FakeLightGroupRuntimeHost:
         self.hass.async_create_task(
             execute_control_group_decision(
                 self.hass,  # type: ignore[arg-type]
-                light_action_to_control_group(action, target_entity_ids or self.entity_id),
+                light_action_to_control_group(
+                    action, target_entity_ids or self.entity_id
+                ),
             )
         )
 
@@ -222,7 +224,9 @@ def test_process_secondary_group_state_change_rejects_invalid_event() -> None:
 def test_process_secondary_group_state_change_applies_when_valid_event() -> None:
     """Secondary change processing should apply state update when event is valid."""
     group = _FakeSecondaryStateGroup(awaiting_echo=True)
-    result = process_secondary_group_state_change(cast(_LightGroupHost, group), object())
+    result = process_secondary_group_state_change(
+        cast(_LightGroupHost, group), object()
+    )
     assert result is True
     assert group.last_state is not None
     assert group.last_state.awaiting_echo is False
@@ -232,7 +236,9 @@ def test_process_secondary_group_state_change_applies_when_valid_event() -> None
 def test_process_secondary_group_state_change_marks_external_change() -> None:
     """Secondary change processing should mark external changes when not pending echo."""
     group = _FakeSecondaryStateGroup(awaiting_echo=False)
-    result = process_secondary_group_state_change(cast(_LightGroupHost, group), object())
+    result = process_secondary_group_state_change(
+        cast(_LightGroupHost, group), object()
+    )
     assert result is True
     assert group.last_state is not None
     assert group.last_state.controlling is False
@@ -438,7 +444,9 @@ async def test_turn_on_noops_when_sleep_and_accent_suppress_all_targets(
 
     assert result is False
     assert group.dispatched == []
-    assert group._attr_extra_state_attributes["last_intent_reason"] == "target_suppressed"
+    assert (
+        group._attr_extra_state_attributes["last_intent_reason"] == "target_suppressed"
+    )
     assert group._attr_extra_state_attributes["last_intent_executed"] is False
     assert group._attr_extra_state_attributes["last_intent_target_entity_ids"] == ()
     assert group._attr_extra_state_attributes["last_intent_suppressed_entity_ids"] == (
@@ -562,7 +570,9 @@ def test_turn_off_noop_when_not_controlling() -> None:
 
     assert result is False
     assert group._echo_state.awaiting_echo is False
-    assert group._attr_extra_state_attributes["last_intent_reason"] == "control_disabled"
+    assert (
+        group._attr_extra_state_attributes["last_intent_reason"] == "control_disabled"
+    )
     assert group._attr_extra_state_attributes["last_intent_executed"] is False
 
 
@@ -578,4 +588,6 @@ def test_turn_off_noop_when_already_off() -> None:
         "target_state_mismatch"
     )
     assert group._attr_extra_state_attributes["last_intent_target_is_on"] is False
-    assert group._attr_extra_state_attributes["last_intent_expected_target_is_on"] is True
+    assert (
+        group._attr_extra_state_attributes["last_intent_expected_target_is_on"] is True
+    )

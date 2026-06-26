@@ -37,11 +37,15 @@ def aggregates_config(feature_configs: FeatureConfig) -> AggregatesConfig:
     options = options_for_feature(feature_configs, MagicAreasFeatures.AGGREGATES)
     return AggregatesConfig(
         min_entities=options.int_value(CONF_AGGREGATES_MIN_ENTITIES),
-        sensor_device_classes=options.raw_list_value(CONF_AGGREGATES_SENSOR_DEVICE_CLASSES),
+        sensor_device_classes=options.raw_list_value(
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES
+        ),
         binary_sensor_device_classes=options.raw_list_value(
             CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES
         ),
-        illuminance_threshold=options.float_value(CONF_AGGREGATES_ILLUMINANCE_THRESHOLD),
+        illuminance_threshold=options.float_value(
+            CONF_AGGREGATES_ILLUMINANCE_THRESHOLD
+        ),
         illuminance_threshold_hysteresis_percentage=options.float_value(
             CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS
         ),

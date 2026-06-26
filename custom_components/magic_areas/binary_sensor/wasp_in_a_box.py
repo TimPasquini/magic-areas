@@ -15,6 +15,7 @@ from homeassistant.core import Event, EventStateChangedData, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.entity import MagicEntity
+from custom_components.magic_areas.const import ONE_MINUTE
 from custom_components.magic_areas.features.config.readers import (
     wasp_in_a_box_config,
 )
@@ -53,13 +54,16 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
     ) -> None:
         """Initialize the area presence binary sensor."""
 
-        MagicEntity.__init__(self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN)
+        MagicEntity.__init__(
+            self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN
+        )
         BinarySensorEntity.__init__(self)
 
         feature_config = self.get_feature_config()
         config = wasp_in_a_box_config(feature_config)
         self._delay = config.delay_seconds
-        self._wasp_timeout = config.timeout_minutes
+        self._wasp_timeout_minutes = config.timeout_minutes
+        self._wasp_timeout_seconds = self._wasp_timeout_minutes * ONE_MINUTE
         self._wasp_device_classes = config.device_classes
 
         self._attr_device_class = BinarySensorDeviceClass.PRESENCE
@@ -69,8 +73,8 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
             ATTR_WASP: STATE_OFF,
         }
 
-        self._machine = WaspStateMachine(wasp_timeout=self._wasp_timeout)
-        self._wasp_timer_enabled = self._wasp_timeout > 0
+        self._machine = WaspStateMachine(wasp_timeout=self._wasp_timeout_seconds)
+        self._wasp_timer_enabled = self._wasp_timeout_seconds > 0
         self._wasp_timer: ReusableTimer | None = None
         self._box_delay_handle: asyncio.TimerHandle | None = None
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)

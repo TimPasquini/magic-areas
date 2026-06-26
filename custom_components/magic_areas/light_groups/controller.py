@@ -62,7 +62,9 @@ from custom_components.magic_areas.light_groups.runtime import (
     handle_group_state_change,
     setup_group,
 )
-from custom_components.magic_areas.light_groups.signals import ambient_rise_signal_surface
+from custom_components.magic_areas.light_groups.signals import (
+    ambient_rise_signal_surface,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.core import State
@@ -114,10 +116,12 @@ class LightGroupRuntimeController:
         self._ambient_rise_trend_contaminated = False
         self._inside_lux_samples: list[tuple[float, float]] = []
 
-        self._native_control_target_unique_id = build_light_group_helper_surface_unique_id(
-            entry_id=area_config.hass_config.entry_id,
-            area_id=area_config.id,
-            category=category,
+        self._native_control_target_unique_id = (
+            build_light_group_helper_surface_unique_id(
+                entry_id=area_config.hass_config.entry_id,
+                area_id=area_config.id,
+                category=category,
+            )
         )
         ambient_signal_surface = ambient_rise_signal_surface(
             entry_id=area_config.hass_config.entry_id,
@@ -126,7 +130,9 @@ class LightGroupRuntimeController:
             feature_config=self._feature_config,
         )
         self._ambient_rise_signal_unique_id = (
-            ambient_signal_surface.unique_id if ambient_signal_surface is not None else None
+            ambient_signal_surface.unique_id
+            if ambient_signal_surface is not None
+            else None
         )
         self._attr_unique_id = self._native_control_target_unique_id
         self.__echo_state = CommandEchoState(
@@ -217,7 +223,7 @@ class LightGroupRuntimeController:
 
     @property
     def is_on(self) -> bool | None:
-        """Return cached native-helper on/off state."""
+        """Return current native helper on/off state when available."""
         return self.current_control_target_is_on()
 
     @property
@@ -311,7 +317,9 @@ class LightGroupRuntimeController:
             self._resolved_role_members(accent_preset),
         )
 
-    def _resolved_role_members(self, preset: LightGroupPreset | None) -> tuple[str, ...]:
+    def _resolved_role_members(
+        self, preset: LightGroupPreset | None
+    ) -> tuple[str, ...]:
         """Resolve role members from reconciled labels with config fallback."""
         if preset is None:
             return ()

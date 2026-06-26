@@ -40,7 +40,9 @@ def test_custom_group_overrides_default_for_same_id() -> None:
     office_groups = registry.get_for_area("office")
     kitchen_groups = registry.get_for_area("kitchen")
 
-    office_task = next(g for g in office_groups if g.definition.group_id == "control.task")
+    office_task = next(
+        g for g in office_groups if g.definition.group_id == "control.task"
+    )
     kitchen_task = next(
         g for g in kitchen_groups if g.definition.group_id == "control.task"
     )

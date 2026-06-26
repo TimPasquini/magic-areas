@@ -73,7 +73,9 @@ def normalize_feature_config(
     raw_features = config.get(CONF_ENABLED_FEATURES, {})
 
     if isinstance(raw_features, list):
-        normalized_features = {normalize_feature_key(feature) for feature in raw_features}
+        normalized_features = {
+            normalize_feature_key(feature) for feature in raw_features
+        }
         return normalized_features, {feature: {} for feature in normalized_features}
 
     if isinstance(raw_features, dict):

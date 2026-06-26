@@ -52,7 +52,9 @@ class TestValidOnStates:
 
     def test_meta_ignores_additional_states(self) -> None:
         tracker = make_tracker(is_meta=True)
-        assert tracker.valid_on_states(additional_states=["above_horizon"]) == [STATE_ON]
+        assert tracker.valid_on_states(additional_states=["above_horizon"]) == [
+            STATE_ON
+        ]
 
 
 class TestComputeSensorsActive:
@@ -113,7 +115,9 @@ class TestComputeSensorsActive:
 
     def test_playing_state_is_valid(self) -> None:
         tracker = make_tracker()
-        active, _ = tracker.compute_sensors_active({"media": STATE_PLAYING}, keep_only=[])
+        active, _ = tracker.compute_sensors_active(
+            {"media": STATE_PLAYING}, keep_only=[]
+        )
         assert active == ["media"]
 
     def test_keep_only_all_filtered_returns_no_active(self) -> None:

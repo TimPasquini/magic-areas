@@ -240,8 +240,7 @@ async def test_group_control_features_expose_expected_user_surfaces(
         _helper_entity_id(
             domain=MEDIA_PLAYER_DOMAIN,
             title=(
-                f"Magic Areas Media Player Groups {data[ATTR_NAME]} "
-                "Media Player Group"
+                f"Magic Areas Media Player Groups {data[ATTR_NAME]} Media Player Group"
             ),
         ): [media_player.entity_id],
     }

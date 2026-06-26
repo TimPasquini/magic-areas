@@ -150,8 +150,7 @@ async def wait_for_attribute(
         await asyncio.wait_for(attribute_reached, timeout=timeout)
     except TimeoutError as err:
         raise AssertionError(
-            f"{entity_id} did not reach attribute {attribute_key!r}="
-            f"{expected_value!r}"
+            f"{entity_id} did not reach attribute {attribute_key!r}={expected_value!r}"
         ) from err
     finally:
         unsub()

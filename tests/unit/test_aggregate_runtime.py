@@ -142,4 +142,7 @@ def test_register_aggregate_definitions_replaces_old_area_defaults(
         hass, group_registry=group_registry, area_id=area_id, domain="sensor"
     )
     assert "temperature" not in sensor_map
-    assert sensor_map["humidity"] == "sensor.magic_areas_aggregates_replace_area_aggregate_humidity"
+    assert (
+        sensor_map["humidity"]
+        == "sensor.magic_areas_aggregates_replace_area_aggregate_humidity"
+    )

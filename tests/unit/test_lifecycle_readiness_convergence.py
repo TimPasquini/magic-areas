@@ -39,7 +39,9 @@ def _make_snapshot() -> MagicAreasData:
     )
     return MagicAreasData(
         entities={"sensor": [{"entity_id": "sensor.kitchen_temperature"}]},
-        magic_entities={"switch": [{"entity_id": "switch.magic_areas_presence_hold_kitchen"}]},
+        magic_entities={
+            "switch": [{"entity_id": "switch.magic_areas_presence_hold_kitchen"}]
+        },
         presence_sensors=["binary_sensor.kitchen_motion"],
         active_areas=[],
         child_areas=[],

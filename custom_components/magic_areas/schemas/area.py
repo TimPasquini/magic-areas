@@ -182,7 +182,9 @@ REGULAR_AREA_SCHEMA = vol.Schema(
             CONF_CLEAR_TIMEOUT, default=DEFAULT_CLEAR_TIMEOUT
         ): cv.positive_int,
         vol.Optional(CONF_ENABLED_FEATURES, default={}): FEATURES_SCHEMA,
-        vol.Optional(CONF_CUSTOM_CONTROL_GROUPS, default=[]): CUSTOM_CONTROL_GROUPS_SCHEMA,
+        vol.Optional(
+            CONF_CUSTOM_CONTROL_GROUPS, default=[]
+        ): CUSTOM_CONTROL_GROUPS_SCHEMA,
         vol.Optional(CONF_SECONDARY_STATES, default={}): SECONDARY_STATES_SCHEMA,
     },
     extra=vol.REMOVE_EXTRA,
@@ -192,7 +194,9 @@ META_AREA_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_TYPE, default=AREA_TYPE_META): vol.In([AREA_TYPE_META]),
         vol.Optional(CONF_ENABLED_FEATURES, default={}): FEATURES_SCHEMA,
-        vol.Optional(CONF_CUSTOM_CONTROL_GROUPS, default=[]): CUSTOM_CONTROL_GROUPS_SCHEMA,
+        vol.Optional(
+            CONF_CUSTOM_CONTROL_GROUPS, default=[]
+        ): CUSTOM_CONTROL_GROUPS_SCHEMA,
         vol.Optional(CONF_EXCLUDE_ENTITIES, default=[]): cv.entity_ids,
         vol.Optional(
             CONF_RELOAD_ON_REGISTRY_CHANGE, default=DEFAULT_RELOAD_ON_REGISTRY_CHANGE

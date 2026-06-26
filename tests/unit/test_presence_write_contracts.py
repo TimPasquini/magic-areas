@@ -104,9 +104,7 @@ def test_apply_state_projection_updates_cached_state_and_attributes() -> None:
 
     assert entity._current_states == [AreaStates.OCCUPIED.value]
     assert entity._attr_is_on is True
-    assert entity._attr_extra_state_attributes["states"] == [
-        AreaStates.OCCUPIED.value
-    ]
+    assert entity._attr_extra_state_attributes["states"] == [AreaStates.OCCUPIED.value]
     assert entity._attr_extra_state_attributes["active_states"] == "Occupied"
     assert entity._attr_extra_state_attributes["state_occupied"] == "on"
     assert entity._attr_extra_state_attributes["state_sleep"] == "off"
@@ -158,8 +156,7 @@ def test_runtime_states_merge_into_visible_area_state_attributes() -> None:
         AreaStates.ODOR.value,
     ]
     assert (
-        entity._attr_extra_state_attributes["active_states"]
-        == "Occupied, Humid, Odor"
+        entity._attr_extra_state_attributes["active_states"] == "Occupied, Humid, Odor"
     )
     assert entity._attr_extra_state_attributes["state_humid"] == "on"
     assert entity._attr_extra_state_attributes["state_odor"] == "on"
@@ -182,9 +179,7 @@ def test_runtime_states_clear_when_source_publishes_empty_state_list() -> None:
         )
         entity._runtime_states_changed("kitchen", "fan_groups", [])
 
-    assert entity._attr_extra_state_attributes["states"] == [
-        AreaStates.OCCUPIED.value
-    ]
+    assert entity._attr_extra_state_attributes["states"] == [AreaStates.OCCUPIED.value]
     assert entity._attr_extra_state_attributes["state_hot"] == "off"
 
 

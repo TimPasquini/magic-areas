@@ -84,12 +84,16 @@ def global_meta_area_config(
     )
 
 
-def test_area_config_is_meta_false_for_regular_area(regular_area_config: AreaConfig) -> None:
+def test_area_config_is_meta_false_for_regular_area(
+    regular_area_config: AreaConfig,
+) -> None:
     """Test is_meta returns False for regular areas."""
     assert regular_area_config.is_meta() is False
 
 
-def test_area_config_is_meta_false_for_exterior_area(exterior_area_config: AreaConfig) -> None:
+def test_area_config_is_meta_false_for_exterior_area(
+    exterior_area_config: AreaConfig,
+) -> None:
     """Test is_meta returns False for exterior areas."""
     assert exterior_area_config.is_meta() is False
 
@@ -104,7 +108,9 @@ def test_area_config_is_interior_true(regular_area_config: AreaConfig) -> None:
     assert regular_area_config.is_interior() is True
 
 
-def test_area_config_is_interior_false_for_exterior(exterior_area_config: AreaConfig) -> None:
+def test_area_config_is_interior_false_for_exterior(
+    exterior_area_config: AreaConfig,
+) -> None:
     """Test is_interior returns False for exterior areas."""
     assert exterior_area_config.is_interior() is False
 
@@ -119,7 +125,9 @@ def test_area_config_is_exterior_true(exterior_area_config: AreaConfig) -> None:
     assert exterior_area_config.is_exterior() is True
 
 
-def test_area_config_is_exterior_false_for_interior(regular_area_config: AreaConfig) -> None:
+def test_area_config_is_exterior_false_for_interior(
+    regular_area_config: AreaConfig,
+) -> None:
     """Test is_exterior returns False for interior areas."""
     assert regular_area_config.is_exterior() is False
 
@@ -129,28 +137,36 @@ def test_area_config_is_exterior_false_for_meta(meta_area_config: AreaConfig) ->
     assert meta_area_config.is_exterior() is False
 
 
-def test_area_config_available_platforms_regular_area(regular_area_config: AreaConfig) -> None:
+def test_area_config_available_platforms_regular_area(
+    regular_area_config: AreaConfig,
+) -> None:
     """Test available_platforms returns regular platforms for non-meta areas."""
     platforms = regular_area_config.available_platforms()
     assert platforms == MAGIC_AREAS_COMPONENTS
     assert len(platforms) > 0
 
 
-def test_area_config_available_platforms_exterior_area(exterior_area_config: AreaConfig) -> None:
+def test_area_config_available_platforms_exterior_area(
+    exterior_area_config: AreaConfig,
+) -> None:
     """Test available_platforms returns regular platforms for exterior areas."""
     platforms = exterior_area_config.available_platforms()
     assert platforms == MAGIC_AREAS_COMPONENTS
     assert len(platforms) > 0
 
 
-def test_area_config_available_platforms_meta_area(meta_area_config: AreaConfig) -> None:
+def test_area_config_available_platforms_meta_area(
+    meta_area_config: AreaConfig,
+) -> None:
     """Test available_platforms returns meta platforms for non-global meta areas."""
     platforms = meta_area_config.available_platforms()
     assert platforms == MAGIC_AREAS_COMPONENTS_META
     assert len(platforms) > 0
 
 
-def test_area_config_available_platforms_global_meta_area(global_meta_area_config: AreaConfig) -> None:
+def test_area_config_available_platforms_global_meta_area(
+    global_meta_area_config: AreaConfig,
+) -> None:
     """Test available_platforms returns global platforms for global meta area."""
     platforms = global_meta_area_config.available_platforms()
     assert platforms == MAGIC_AREAS_COMPONENTS_GLOBAL
@@ -210,7 +226,9 @@ def test_area_config_hash_different_for_different_types(
     assert hash(config1) != hash(config2)
 
 
-def test_area_config_hash_as_dict_key(regular_area_config: AreaConfig, exterior_area_config: AreaConfig) -> None:
+def test_area_config_hash_as_dict_key(
+    regular_area_config: AreaConfig, exterior_area_config: AreaConfig
+) -> None:
     """Test that AreaConfig can be used as a dictionary key."""
     mapping = {regular_area_config: "interior", exterior_area_config: "exterior"}
     assert mapping[regular_area_config] == "interior"

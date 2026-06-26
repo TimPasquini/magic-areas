@@ -179,7 +179,9 @@ def test_adaptive_lighting_switch_set_is_inert_in_ignore_mode() -> None:
 def test_adaptive_lighting_diagnostics_explain_inactive_modes() -> None:
     """AL diagnostics should explain why coordination is inactive."""
     assert adaptive_lighting_diagnostics(
-        {CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE},
+        {
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+        },
         area_id="kitchen",
         category=CONF_OVERHEAD_LIGHTS,
     ) == {
@@ -189,18 +191,23 @@ def test_adaptive_lighting_diagnostics_explain_inactive_modes() -> None:
         "reason": "mode_ignore",
     }
 
-    assert adaptive_lighting_diagnostics(
-        {
-            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
-                LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
-            ),
-            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
-                CONF_OVERHEAD_LIGHTS: {MAIN_SWITCH: "switch.adaptive_lighting_kitchen"}
+    assert (
+        adaptive_lighting_diagnostics(
+            {
+                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: (
+                    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+                ),
+                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS: {
+                    CONF_OVERHEAD_LIGHTS: {
+                        MAIN_SWITCH: "switch.adaptive_lighting_kitchen"
+                    }
+                },
             },
-        },
-        area_id="kitchen",
-        category=CONF_OVERHEAD_LIGHTS,
-    )["reason"] == "incomplete_switch_set"
+            area_id="kitchen",
+            category=CONF_OVERHEAD_LIGHTS,
+        )["reason"]
+        == "incomplete_switch_set"
+    )
 
 
 def test_adaptive_lighting_diagnostics_explain_active_adopted_switch_set() -> None:
@@ -255,7 +262,5 @@ def test_adaptive_lighting_diagnostics_explain_active_managed_all_lights() -> No
         "role": "all_lights",
         "active": True,
         "reason": "associated",
-        "main_switch_entity_id": (
-            "switch.adaptive_lighting_ma_kitchen_all_lights"
-        ),
+        "main_switch_entity_id": ("switch.adaptive_lighting_ma_kitchen_all_lights"),
     }

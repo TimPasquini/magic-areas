@@ -109,7 +109,9 @@ def build_categorized_group_entities(
     *,
     specs: list[CategorizedGroupSpec],
     category_entity_factory: Callable[[CategorizedGroupSpec], TGroupEntity],
-    category_definition_factory: Callable[[CategorizedGroupSpec], ControlGroupDefinition],
+    category_definition_factory: Callable[
+        [CategorizedGroupSpec], ControlGroupDefinition
+    ],
     parent_entity_factory: Callable[[list[str], list[str]], TGroupEntity],
     parent_definition_factory: Callable[[list[str], list[str]], ControlGroupDefinition],
     logger: logging.Logger,
@@ -147,9 +149,7 @@ def build_categorized_group_entities(
 
     try:
         entities.append(parent_entity_factory(parent_members, child_categories))
-        definitions.append(
-            parent_definition_factory(parent_members, child_categories)
-        )
+        definitions.append(parent_definition_factory(parent_members, child_categories))
     except _EXPECTED_GROUP_BUILD_ERRORS as exc:  # pragma: no cover
         logger.exception(
             "Error creating parent %s group: %s",

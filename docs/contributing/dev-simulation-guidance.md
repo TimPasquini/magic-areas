@@ -1,9 +1,9 @@
 # Dev Simulation Guidance
 
-This document describes Magic Areas' executable scenario tests and local Home
-Assistant fake-house environment. Keep it current when changing simulation
-coverage, fake-house setup, scenario scripts, or room-control behavior that needs
-human inspection.
+This document describes Magic Areas' executable pytest scenarios and the
+external Home Assistant fake-house simulator used for human inspection and live
+validation. Keep it current when changing simulation expectations, fake-house
+setup, room-control behavior, or the interpretation of live validation results.
 
 This is durable contributor guidance, not a temporary feature plan. Active and
 deferred simulation work is tracked in
@@ -13,6 +13,12 @@ Live fake-house scenarios are real-time behavior checks, not unit-test
 substitutes. Preserve the default 30-second cycle for normal live validation and
 derive behavior waits from configured Magic Areas timing or documented
 fake-house runtime constants.
+
+The companion simulator supports a full serial live sweep with `./run.sh all`.
+That sweep takes roughly 20 minutes. Agents must not run it automatically during
+normal implementation or review work; recommend that the user run it from their
+own terminal when a full live pass is warranted. Agents may inspect the resulting
+ignored simulator logs and trace artifacts after the user-run sweep completes.
 
 ## Real-Time Simulation Rules
 
@@ -49,8 +55,9 @@ Many defects only show up when those signals interact in sequence. The project
 therefore uses two complementary simulation layers:
 
 - `tests/scenarios/` for deterministic pytest regression coverage.
-- `dev/ha/` for a real local Home Assistant fake-house instance that supports
-  human inspection and timed live simulation.
+- the private companion `magic-areas-test-simulator` repository for a real local
+  Home Assistant fake-house instance that supports human inspection and timed
+  live simulation.
 
 Neither layer replaces normal unit, platform, or integration tests. Scenario and
 fake-house coverage exists to catch behavior that is too broad for isolated unit
@@ -73,12 +80,12 @@ uv run --extra dev --extra test mypy custom_components tests scripts
 uv run --extra dev pytest tests/scenarios -q
 ```
 
-For changes to live HA simulation scripts, also run the applicable fake-house
-scenario with:
+For changes that need live Home Assistant validation, run the applicable
+fake-house scenario from the private companion simulator repository:
 
 ```bash
-./scripts/ha_dev_bootstrap.sh
-./scripts/ha_dev_simulate.sh --scenario <scenario-name>
+cd /home/tim/python_repos/magic-areas-test-simulator
+./run.sh <scenario-name>
 ```
 
 Do not leave this document describing old behavior after changing the simulation
@@ -146,11 +153,8 @@ room behavior.
 Primary docs and entry points:
 
 - `docs/contributing/workstation-bootstrap.md` for new-machine restoration
-- `dev/ha/README.md`
-- `dev/ha/AGENTS.md`
-- `scripts/ha_dev_start.sh`
-- `scripts/ha_dev_bootstrap.sh`
-- `scripts/ha_dev_simulate.sh`
+- `/home/tim/python_repos/magic-areas-test-simulator/README.md`
+- `/home/tim/python_repos/magic-areas-test-simulator/run.sh`
 
 ## Current Pytest Scenario Coverage
 
@@ -198,8 +202,17 @@ artifact files only when inline pytest output becomes too noisy.
 
 ## Live Fake-House Model
 
-The live fake house is seeded from `dev/ha/seed/` and configured by
-`scripts/ha_dev_bootstrap.py`.
+The live fake house is owned by the private companion
+`magic-areas-test-simulator` repository. Its seed fixtures and bootstrap code
+configure the real Home Assistant runtime.
+
+Bootstrap configures light-role membership before Adaptive Lighting
+coordination. Managed Adaptive Lighting setup follows the real two-stage options
+flow: select `manage` first, then submit the room-level and role-level managed
+targets exposed by the resulting form. Each page submission persists before the
+flow returns to the root menu. The root menu is the completed bootstrap state;
+there is no `finish` step, and bootstrap treats a missing menu or an obsolete
+`finish` option as a contract failure.
 
 Current room matrix:
 
@@ -228,35 +241,28 @@ The fake-house rooms use deterministic input helpers and template entities. The
 sun/daylight-style rooms use `binary_sensor.outdoor_bright`, not real `sun.sun`,
 so simulation results do not depend on wall-clock time of day.
 
-The live HA config state is ignored by the main repository but tracked locally by
-a nested git repo in `dev/ha/config/`. See `dev/ha/README.md` for the local
-state-tracking workflow.
+The live HA config state, traces, logs, and generated runtime files are ignored
+by the companion simulator repository. They do not belong in the Magic Areas
+product repository.
 
 ## Live Simulation Scenarios
 
-The public CLI remains `scripts/ha_dev_simulate.py`. Implementation lives under
-`scripts/ha_dev_simulation/`:
-
-- `scenarios/lights.py`: control matrix and light-specific scenarios
-- `scenarios/fan_cover.py`: Fan Room and Cover Room scenario
-- `scenarios/living_room.py`: wall-clock living-room demonstration
-- `client.py`, `timing.py`, `expectations.py`, `reset.py`, and `traces.py`:
-  shared live-simulation support
-- `runner.py`: connection, tracing, and scenario dispatch
-
-All scenarios use real HA websocket/service calls.
+Live scenario implementation lives in the private companion simulator
+repository. All scenarios use real HA websocket/service calls against Magic
+Areas mounted from the current working tree.
 
 Current scenarios:
 
 ```bash
-./scripts/ha_dev_simulate.sh --scenario living-room-demo
-./scripts/ha_dev_simulate.sh --scenario control-matrix
-./scripts/ha_dev_simulate.sh --scenario disabled-light-controls
-./scripts/ha_dev_simulate.sh --scenario adaptive-negative-context
-./scripts/ha_dev_simulate.sh --scenario manual-override
-./scripts/ha_dev_simulate.sh --scenario presence-hold
-./scripts/ha_dev_simulate.sh --scenario adaptive-lighting-manual-release
-./scripts/ha_dev_simulate.sh --scenario fan-cover-matrix
+cd /home/tim/python_repos/magic-areas-test-simulator
+./run.sh living-room-demo
+./run.sh control-matrix
+./run.sh disabled-light-controls
+./run.sh adaptive-negative-context
+./run.sh manual-override
+./run.sh presence-hold
+./run.sh adaptive-lighting-manual-release
+./run.sh fan-cover-matrix
 ```
 
 Current live-simulation coverage:
@@ -387,16 +393,16 @@ system.
 
 ## Extending The Live Fake House
 
-When adding live simulation coverage:
+When adding live simulation coverage, work in the companion simulator
+repository:
 
-1. Add deterministic fake entities to `dev/ha/seed/packages/fake_house.yaml`.
-2. Add room/config definitions to `scripts/ha_dev_bootstrap.py`.
-3. Add scenario-driving logic to the appropriate module under
-   `scripts/ha_dev_simulation/scenarios/`.
+1. Add deterministic fake entities to the simulator's fake-house seed package.
+2. Add room/config definitions to the simulator bootstrap code.
+3. Add scenario-driving logic to the appropriate simulator scenario module.
 4. Add useful trace entities and expected-state evaluations.
 5. Run bootstrap before simulation to ensure the real HA instance matches code.
-6. Update `dev/ha/README.md` when commands, rooms, scenarios, or local-state
-   expectations change.
+6. Update the companion simulator README when commands, rooms, scenarios, or
+   local-state expectations change.
 7. Update this document with new coverage or remaining gaps.
 
 The live fake house should stay close to actual HA usage. Prefer real HA

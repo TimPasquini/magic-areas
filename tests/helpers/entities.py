@@ -66,9 +66,7 @@ async def setup_mock_entities(
             all_entities.append(entity)
             assert entity.unique_id is not None
             if entity.unique_id in seen_unique_ids:
-                raise AssertionError(
-                    f"Duplicate entity unique_id {entity.unique_id!r}"
-                )
+                raise AssertionError(f"Duplicate entity unique_id {entity.unique_id!r}")
             seen_unique_ids.add(entity.unique_id)
             entity_area_map[entity.unique_id] = area_id
 

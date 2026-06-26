@@ -33,15 +33,15 @@ class FeatureRegistry:
         self._by_feature: dict[MagicAreasFeatures, FeatureModule] = {
             module.id: module for module in self._modules
         }
-        self._feature_info: dict[MagicAreasFeatures, FeatureInfo] = dict(FEATURE_INFO_BY_FEATURE)
+        self._feature_info: dict[MagicAreasFeatures, FeatureInfo] = dict(
+            FEATURE_INFO_BY_FEATURE
+        )
 
     def modules(self) -> list[FeatureModule]:
         """Return all registered modules."""
         return list(self._modules)
 
-    def module_for_feature(
-        self, feature: MagicAreasFeatures
-    ) -> FeatureModule | None:
+    def module_for_feature(self, feature: MagicAreasFeatures) -> FeatureModule | None:
         """Return the module for a specific feature."""
         return self._by_feature.get(feature)
 
@@ -112,8 +112,10 @@ class FeatureRegistry:
                 or not module.configurable_on_global_meta
             ):
                 continue
-            if is_meta and not is_global_meta and (
-                not module.supports_meta_area or not module.configurable_on_meta
+            if (
+                is_meta
+                and not is_global_meta
+                and (not module.supports_meta_area or not module.configurable_on_meta)
             ):
                 continue
             if not is_meta and not module.supports_regular_area:
@@ -144,6 +146,4 @@ class FeatureRegistry:
                 )
 
 
-FEATURE_REGISTRY: FeatureRegistry = FeatureRegistry(
-    modules=DEFAULT_FEATURE_MODULES
-)
+FEATURE_REGISTRY: FeatureRegistry = FeatureRegistry(modules=DEFAULT_FEATURE_MODULES)

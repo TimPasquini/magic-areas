@@ -54,7 +54,9 @@ async def test_aggregates_binary_sensor_regular(
         last_sensor = entity_index == (len(entities_binary_sensor_motion_multiple) - 1)
         hass.states.async_set(mock_entity.entity_id, STATE_OFF)
         await hass.async_block_till_done()
-        assert_state(hass.states.get(aggregate_sensor_id), STATE_OFF if last_sensor else STATE_ON)
+        assert_state(
+            hass.states.get(aggregate_sensor_id), STATE_OFF if last_sensor else STATE_ON
+        )
 
 
 async def test_aggregates_binary_sensor_all(
@@ -75,8 +77,12 @@ async def test_aggregates_binary_sensor_all(
 
     group_members: list[str] = aggregate_sensor_state.attributes[ATTR_ENTITY_ID]
 
-    for entity_index, mock_entity in enumerate(entities_binary_sensor_connectivity_multiple):
-        last_sensor = entity_index == (len(entities_binary_sensor_connectivity_multiple) - 1)
+    for entity_index, mock_entity in enumerate(
+        entities_binary_sensor_connectivity_multiple
+    ):
+        last_sensor = entity_index == (
+            len(entities_binary_sensor_connectivity_multiple) - 1
+        )
 
         assert mock_entity.entity_id in group_members
         assert_state(hass.states.get(mock_entity.entity_id), STATE_OFF)
@@ -84,7 +90,9 @@ async def test_aggregates_binary_sensor_all(
         hass.states.async_set(mock_entity.entity_id, STATE_ON)
         await hass.async_block_till_done()
         assert_state(hass.states.get(mock_entity.entity_id), STATE_ON)
-        assert_state(hass.states.get(aggregate_sensor_id), STATE_ON if last_sensor else STATE_OFF)
+        assert_state(
+            hass.states.get(aggregate_sensor_id), STATE_ON if last_sensor else STATE_OFF
+        )
 
     for mock_entity in entities_binary_sensor_connectivity_multiple:
         hass.states.async_set(mock_entity.entity_id, STATE_OFF)

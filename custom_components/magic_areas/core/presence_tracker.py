@@ -152,7 +152,9 @@ class PresenceTracker:
                 )
                 sensor_states[sensor_id] = None
 
-        update = self._tracker.update(sensor_states, secondary_states, keep_only, moment)
+        update = self._tracker.update(
+            sensor_states, secondary_states, keep_only, moment
+        )
 
         return PresenceUpdate(
             new_states=update.new_states,

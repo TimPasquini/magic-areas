@@ -58,8 +58,12 @@ def test_managed_surface_config_entry_predicate_scopes_by_owner() -> None:
     )
 
     assert is_managed_surface_config_entry(_config_entry(entry))
-    assert is_managed_surface_config_entry(_config_entry(entry), owner_entry_id="owner-1")
-    assert not is_managed_surface_config_entry(_config_entry(entry), owner_entry_id="owner-2")
+    assert is_managed_surface_config_entry(
+        _config_entry(entry), owner_entry_id="owner-1"
+    )
+    assert not is_managed_surface_config_entry(
+        _config_entry(entry), owner_entry_id="owner-2"
+    )
     assert not is_managed_surface_config_entry(
         _config_entry(_entry(entry_id="user-helper", unique_id="fan_group"))
     )

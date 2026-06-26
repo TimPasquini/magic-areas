@@ -1,6 +1,5 @@
 """Fan-group policy/behavior tests."""
 
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN
@@ -76,18 +75,16 @@ async def test_fan_group_logic(
     fan_control_entity_id = (
         f"{SWITCH_DOMAIN}.magic_areas_fan_groups_{DEFAULT_MOCK_AREA}_fan_control"
     )
-    tracked_entity_id = (
-        f"{SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_temperature"
-    )
+    tracked_entity_id = f"{SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_temperature"
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     temperature_sensor_entity_id = entities_sensor_temperature_one.entity_id
 
     assert_state(hass.states.get(fan_group_entity_id), STATE_OFF)
     assert_state(hass.states.get(fan_control_entity_id), STATE_OFF)
-    assert_state(hass.states.get(temperature_sensor_entity_id), str(int(SENSOR_INITIAL_VALUE)))
+    assert_state(
+        hass.states.get(temperature_sensor_entity_id), str(int(SENSOR_INITIAL_VALUE))
+    )
     assert_state(hass.states.get(tracked_entity_id), str(float(SENSOR_INITIAL_VALUE)))
     assert_state(hass.states.get(motion_sensor_entity_id), STATE_OFF)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
@@ -121,7 +118,9 @@ async def test_fan_group_logic(
         },
     )
     await hass.async_block_till_done()
-    assert_state(hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2)))
+    assert_state(
+        hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2))
+    )
     assert_state(hass.states.get(tracked_entity_id), str(SETPOINT_VALUE * 2))
 
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
@@ -180,7 +179,9 @@ async def test_fan_group_logic(
         },
     )
     await hass.async_block_till_done()
-    assert_state(hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE))
+    assert_state(
+        hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE)
+    )
     assert_state(hass.states.get(tracked_entity_id), str(float(SENSOR_INITIAL_VALUE)))
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
 
@@ -198,7 +199,9 @@ async def test_fan_group_logic(
         },
     )
     await hass.async_block_till_done()
-    assert_state(hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2)))
+    assert_state(
+        hass.states.get(temperature_sensor_entity_id), str(int(SETPOINT_VALUE * 2))
+    )
     assert_state(hass.states.get(tracked_entity_id), str(SETPOINT_VALUE * 2))
     await wait_for_state(hass, fan_group_entity_id, STATE_ON)
 
@@ -211,6 +214,8 @@ async def test_fan_group_logic(
         },
     )
     await hass.async_block_till_done()
-    assert_state(hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE))
+    assert_state(
+        hass.states.get(temperature_sensor_entity_id), str(SENSOR_INITIAL_VALUE)
+    )
     assert_state(hass.states.get(tracked_entity_id), str(float(SENSOR_INITIAL_VALUE)))
     await wait_for_state(hass, fan_group_entity_id, STATE_OFF)

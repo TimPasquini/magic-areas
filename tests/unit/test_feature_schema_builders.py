@@ -32,8 +32,7 @@ def test_default_feature_options_resolve_each_canonical_default() -> None:
     assert [option.key for option in options] == list(keys)
     assert all(option.validator is str for option in options)
     assert [option.default for option in options] == [
-        feature_option_default(MagicAreasFeatures.CLIMATE_CONTROL, key)
-        for key in keys
+        feature_option_default(MagicAreasFeatures.CLIMATE_CONTROL, key) for key in keys
     ]
 
 

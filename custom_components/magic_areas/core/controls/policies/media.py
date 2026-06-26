@@ -103,8 +103,7 @@ def should_skip_sleep_state(
 ) -> bool:
     """Return True when area is sleeping and sleep is not allowed."""
     return (
-        AreaStates.SLEEP in area_states
-        and AreaStates.SLEEP not in notification_states
+        AreaStates.SLEEP in area_states and AreaStates.SLEEP not in notification_states
     )
 
 

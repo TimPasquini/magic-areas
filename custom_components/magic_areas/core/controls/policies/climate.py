@@ -107,7 +107,7 @@ class ClimateControlGroupPolicy(ControlGroupPolicy):
 
 
 def build_climate_control_group_policy(
-    feature_config: Mapping[str, object]
+    feature_config: Mapping[str, object],
 ) -> ClimateControlGroupPolicy:
     """Build canonical climate control-group policy from feature config."""
     return ClimateControlGroupPolicy(preset_policy=build_preset_policy(feature_config))

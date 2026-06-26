@@ -282,7 +282,9 @@ def compute_occupancy(
     return True, clear_timeout, False
 
 
-def valid_on_states(is_meta: bool, additional_states: list[str] | None = None) -> list[str]:
+def valid_on_states(
+    is_meta: bool, additional_states: list[str] | None = None
+) -> list[str]:
     """Return valid ON states for presence sensors."""
     if is_meta:
         return [STATE_ON]

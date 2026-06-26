@@ -1,8 +1,12 @@
 """Tests for typed policy signal payload parsing."""
 
-from custom_components.magic_areas.core.controls.policies.climate import ClimatePolicySignals
+from custom_components.magic_areas.core.controls.policies.climate import (
+    ClimatePolicySignals,
+)
 from custom_components.magic_areas.core.controls.policies.fan import FanPolicySignals
-from custom_components.magic_areas.core.controls.policies.media import MediaPolicySignals
+from custom_components.magic_areas.core.controls.policies.media import (
+    MediaPolicySignals,
+)
 from custom_components.magic_areas.light_groups import LightPolicySignals
 
 

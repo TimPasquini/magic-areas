@@ -1,6 +1,5 @@
 """Unit tests for core/climate_control.py."""
 
-
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls.policies.climate import (
     ClimatePresetPolicy,

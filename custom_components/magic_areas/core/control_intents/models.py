@@ -67,16 +67,19 @@ class RoleTarget:
         return self.entity_ids
 
     @property
+    def uses_broad_label_target(self) -> bool:
+        """Return whether execution targets a broad HA label surface."""
+        return (
+            self.kind is ControlTargetKind.LABEL
+            and self.precision is ControlTargetPrecision.BROAD
+        )
+
+    @property
     def is_executable(self) -> bool:
         """Return whether this target has enough data to execute a service call."""
         if self.kind is ControlTargetKind.LABEL:
             return bool(self.label_id or self.label_name)
         return bool(self.target_entity_ids)
-
-    @property
-    def uses_broad_label_target(self) -> bool:
-        """Return whether this target should execute through HA label targeting."""
-        return self.kind is ControlTargetKind.LABEL
 
 
 __all__ = [

@@ -6,7 +6,10 @@ from collections.abc import Mapping
 from typing import cast
 from unittest.mock import patch
 
-from homeassistant.components.climate.const import ATTR_PRESET_MODES, DOMAIN as CLIMATE_DOMAIN
+from homeassistant.components.climate.const import (
+    ATTR_PRESET_MODES,
+    DOMAIN as CLIMATE_DOMAIN,
+)
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigFlowResult
@@ -359,9 +362,18 @@ async def test_feature_selection_persists_immediately_and_refreshes_menu(
     assert result["type"] == FlowResultType.MENU
     assert "feature_conf_light_groups" in cast(list[str], result["menu_options"])
     assert "feature_conf_health" in cast(list[str], result["menu_options"])
-    features = cast(Mapping[MagicAreasFeatures | str, object], init_integration.options[CONF_ENABLED_FEATURES])
-    assert MagicAreasFeatures.LIGHT_GROUPS in features or MagicAreasFeatures.LIGHT_GROUPS.value in features
-    assert MagicAreasFeatures.HEALTH in features or MagicAreasFeatures.HEALTH.value in features
+    features = cast(
+        Mapping[MagicAreasFeatures | str, object],
+        init_integration.options[CONF_ENABLED_FEATURES],
+    )
+    assert (
+        MagicAreasFeatures.LIGHT_GROUPS in features
+        or MagicAreasFeatures.LIGHT_GROUPS.value in features
+    )
+    assert (
+        MagicAreasFeatures.HEALTH in features
+        or MagicAreasFeatures.HEALTH.value in features
+    )
 
 
 @pytest.mark.parametrize(
@@ -465,7 +477,9 @@ async def test_ble_tracker_single_page_submit_persists_immediately(
     )
     await hass.async_block_till_done()
 
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.BLE_TRACKER)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.BLE_TRACKER
+    )
     result = await _choose(hass, result, "feature_conf_ble_trackers")
     assert result["type"] == FlowResultType.FORM
     result = await hass.config_entries.options.async_configure(
@@ -513,9 +527,7 @@ async def test_area_aware_media_player_single_page_submit_persists_immediately(
     feature_options = _feature_options(
         init_integration, MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
     )
-    assert feature_options[CONF_NOTIFICATION_DEVICES] == [
-        media_player_entity.entity_id
-    ]
+    assert feature_options[CONF_NOTIFICATION_DEVICES] == [media_player_entity.entity_id]
     assert feature_options[CONF_NOTIFY_STATES] == ["extended"]
 
 
@@ -535,7 +547,9 @@ async def test_climate_entity_selection_advances_without_persisting(
     )
     await hass.async_block_till_done()
 
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.CLIMATE_CONTROL)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.CLIMATE_CONTROL
+    )
     result = await _choose(hass, result, "feature_conf_climate_control")
     assert result["type"] == FlowResultType.MENU
     result = await _choose(hass, result, "feature_conf_climate_control_settings")
@@ -598,7 +612,9 @@ async def test_climate_preset_mapping_submit_persists_feature(
     )
     await hass.async_block_till_done()
 
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.CLIMATE_CONTROL)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.CLIMATE_CONTROL
+    )
     result = await _choose(hass, result, "feature_conf_climate_control")
     result = await _choose(hass, result, "feature_conf_climate_control_settings")
     result = await hass.config_entries.options.async_configure(
@@ -614,7 +630,9 @@ async def test_climate_preset_mapping_submit_persists_feature(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.CLIMATE_CONTROL)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.CLIMATE_CONTROL
+    )
     assert feature_options[CONF_CLIMATE_CONTROL_ENTITY_ID] == climate_entity.entity_id
     assert feature_options[CONF_CLIMATE_CONTROL_PRESET_OCCUPIED] == "home"
     assert feature_options[CONF_CLIMATE_CONTROL_PRESET_CLEAR] == "away"
@@ -674,7 +692,9 @@ async def test_light_group_roles_submit_persists_immediately(
     init_integration: MockConfigEntry,
 ) -> None:
     """Light role membership has complete defaults and should save immediately."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_roles")
     assert result["type"] == FlowResultType.FORM
@@ -694,26 +714,39 @@ async def test_light_group_classic_brightness_persists_immediately(
     init_integration: MockConfigEntry,
 ) -> None:
     """Classic brightness behavior has no dependent settings page."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_brightness")
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={CONF_LIGHT_GROUP_BRIGHTNESS_MODE: LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT},
+        user_input={
+            CONF_LIGHT_GROUP_BRIGHTNESS_MODE: LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+        },
     )
 
     assert result["type"] == FlowResultType.MENU
     assert result["step_id"] == "feature_conf_light_groups"
-    assert _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)[
-        CONF_LIGHT_GROUP_BRIGHTNESS_MODE
-    ] == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+    assert (
+        _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)[
+            CONF_LIGHT_GROUP_BRIGHTNESS_MODE
+        ]
+        == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
+    )
 
 
 @pytest.mark.parametrize(
     ("mode", "expected_step_id"),
     [
-        (LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY, "feature_conf_light_groups_brightness_advisory"),
-        (LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE, "feature_conf_light_groups_brightness_adaptive"),
+        (
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
+            "feature_conf_light_groups_brightness_advisory",
+        ),
+        (
+            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
+            "feature_conf_light_groups_brightness_adaptive",
+        ),
     ],
 )
 async def test_light_group_brightness_dependent_modes_advance_without_persisting(
@@ -723,7 +756,9 @@ async def test_light_group_brightness_dependent_modes_advance_without_persisting
     expected_step_id: str,
 ) -> None:
     """Advisory and Adaptive modes should save only after dependent settings submit."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_brightness")
     result = await hass.config_entries.options.async_configure(
@@ -746,12 +781,16 @@ async def test_light_group_advisory_settings_submit_persists_mode(
     init_integration: MockConfigEntry,
 ) -> None:
     """Advisory settings submit is the Advisory brightness completion boundary."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_brightness")
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={CONF_LIGHT_GROUP_BRIGHTNESS_MODE: LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY},
+        user_input={
+            CONF_LIGHT_GROUP_BRIGHTNESS_MODE: LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
+        },
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -759,9 +798,17 @@ async def test_light_group_advisory_settings_submit_persists_mode(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
-    assert feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
-    assert feature_options[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] == "binary_sensor.room_bright"
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
+    assert (
+        feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE]
+        == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
+    )
+    assert (
+        feature_options[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY]
+        == "binary_sensor.room_bright"
+    )
 
 
 async def test_light_group_adaptive_settings_submit_persists_mode(
@@ -769,7 +816,9 @@ async def test_light_group_adaptive_settings_submit_persists_mode(
     init_integration: MockConfigEntry,
 ) -> None:
     """Adaptive settings submit is the Adaptive brightness completion boundary."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_brightness")
     result = await hass.config_entries.options.async_configure(
@@ -788,7 +837,9 @@ async def test_light_group_adaptive_settings_submit_persists_mode(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     assert (
         feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE]
         == LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE
@@ -805,7 +856,9 @@ async def test_brightness_dependent_mode_validation_failure_stays_on_form(
     init_integration: MockConfigEntry,
 ) -> None:
     """Invalid dependent brightness settings should not save partial mode config."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_brightness")
     result = await hass.config_entries.options.async_configure(
@@ -865,8 +918,13 @@ async def test_switching_brightness_modes_preserves_dormant_adaptive_settings(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
-    assert feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
+    assert (
+        feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE]
+        == LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
+    )
     assert feature_options[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] == 45
     assert feature_options[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] == 1200.0
 
@@ -899,7 +957,9 @@ async def test_switching_adaptive_to_classic_preserves_dormant_adaptive_settings
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     assert (
         feature_options[CONF_LIGHT_GROUP_BRIGHTNESS_MODE]
         == LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
@@ -947,7 +1007,9 @@ async def test_adaptive_lighting_ignore_persists_immediately(
     init_integration: MockConfigEntry,
 ) -> None:
     """Adaptive Lighting ignore mode has no dependent role/pairing page."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_adaptive_lighting")
     result = await hass.config_entries.options.async_configure(
@@ -960,9 +1022,12 @@ async def test_adaptive_lighting_ignore_persists_immediately(
     )
 
     assert result["type"] == FlowResultType.MENU
-    assert _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)[
-        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE
-    ] == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+    assert (
+        _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)[
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE
+        ]
+        == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
+    )
 
 
 async def test_adaptive_lighting_manage_mode_advances_without_persisting(
@@ -970,7 +1035,9 @@ async def test_adaptive_lighting_manage_mode_advances_without_persisting(
     init_integration: MockConfigEntry,
 ) -> None:
     """Managed Adaptive Lighting should persist only after managed targets submit."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_roles")
     result = await hass.config_entries.options.async_configure(
@@ -1001,7 +1068,9 @@ async def test_adaptive_lighting_manage_targets_submit_persists_mode(
     init_integration: MockConfigEntry,
 ) -> None:
     """Managed Adaptive Lighting target selection completes the managed subflow."""
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_roles")
     result = await hass.config_entries.options.async_configure(
@@ -1028,7 +1097,9 @@ async def test_adaptive_lighting_manage_targets_submit_persists_mode(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     assert (
         feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
         == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
@@ -1071,7 +1142,9 @@ async def test_adaptive_lighting_mode_switch_preserves_dormant_manage_settings(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     assert (
         feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
         == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
@@ -1127,7 +1200,9 @@ async def test_adopt_existing_pairing_is_required_before_persistence(
 ) -> None:
     """Adopt-existing mode should not persist before role pairings are submitted."""
     _register_adaptive_lighting_switch_set(hass, "Kitchen Overhead", area_id="kitchen")
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_roles")
     result = await hass.config_entries.options.async_configure(
@@ -1146,8 +1221,7 @@ async def test_adopt_existing_pairing_is_required_before_persistence(
     assert result["type"] == FlowResultType.FORM
     schema = cast(vol.Schema, result["data_schema"])
     assert adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS) in {
-        getattr(marker, "schema", marker)
-        for marker in schema.schema
+        getattr(marker, "schema", marker) for marker in schema.schema
     }
     assert (
         _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS).get(
@@ -1166,7 +1240,9 @@ async def test_adopt_existing_pairing_submit_persists_mode(
         hass, "Kitchen Overhead", area_id="kitchen"
     )
     pair_key = adaptive_lighting_pair_key(CONF_OVERHEAD_LIGHTS)
-    result = await _enable_feature(hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    result = await _enable_feature(
+        hass, init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     result = await _choose(hass, result, "feature_conf_light_groups")
     result = await _choose(hass, result, "feature_conf_light_groups_roles")
     result = await hass.config_entries.options.async_configure(
@@ -1192,7 +1268,9 @@ async def test_adopt_existing_pairing_submit_persists_mode(
     )
 
     assert result["type"] == FlowResultType.MENU
-    feature_options = _feature_options(init_integration, MagicAreasFeatures.LIGHT_GROUPS)
+    feature_options = _feature_options(
+        init_integration, MagicAreasFeatures.LIGHT_GROUPS
+    )
     assert (
         feature_options[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE]
         == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING

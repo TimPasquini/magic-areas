@@ -15,7 +15,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.config_flow import OptionsFlowHandler
 from custom_components.magic_areas.config_keys.area import CONF_ENABLED_FEATURES
-from custom_components.magic_areas.config_flows import ADDITIONAL_LIGHT_TRACKING_ENTITIES
+from custom_components.magic_areas.config_flows import (
+    ADDITIONAL_LIGHT_TRACKING_ENTITIES,
+)
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 

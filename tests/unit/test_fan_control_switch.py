@@ -183,8 +183,6 @@ def test_fan_control_area_sensor_state_changed_no_fan_group(
     mock_hass.async_create_task.assert_called_once()
 
 
-
-
 @pytest.mark.asyncio
 async def test_fan_control_run_logic_sensor_value_error(
     mock_area_config: AreaConfig,
@@ -210,9 +208,7 @@ async def test_fan_control_run_logic_sensor_value_error(
     # Mock the policy
     switch.policy = MagicMock()
     switch.policy.evaluate.return_value = MagicMock(
-        should_turn_on=False,
-        should_turn_off=False,
-        reason="test"
+        should_turn_on=False, should_turn_off=False, reason="test"
     )
 
     # Should not raise an exception
@@ -248,9 +244,7 @@ async def test_fan_control_run_logic_sensor_type_error(
     # Mock the policy
     switch.policy = MagicMock()
     switch.policy.evaluate.return_value = MagicMock(
-        should_turn_on=False,
-        should_turn_off=False,
-        reason="test"
+        should_turn_on=False, should_turn_off=False, reason="test"
     )
 
     # Should not raise an exception
@@ -284,9 +278,7 @@ async def test_fan_control_run_logic_sensor_not_found(
     # Mock the policy
     switch.policy = MagicMock()
     switch.policy.evaluate.return_value = MagicMock(
-        should_turn_on=False,
-        should_turn_off=False,
-        reason="test"
+        should_turn_on=False, should_turn_off=False, reason="test"
     )
 
     # Should not raise an exception

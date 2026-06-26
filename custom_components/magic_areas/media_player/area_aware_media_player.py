@@ -19,7 +19,9 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.entity import MagicEntity
 from custom_components.magic_areas.const import DOMAIN as MA_DOMAIN
-from custom_components.magic_areas.core.runtime_model import build_presence_tracking_unique_id
+from custom_components.magic_areas.core.runtime_model import (
+    build_presence_tracking_unique_id,
+)
 from custom_components.magic_areas.core.controls.policies.media import (
     evaluate_area_routing,
 )
@@ -53,9 +55,7 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
         areas_data: dict[str, AreaMediaData],
     ) -> None:
         """Initialize area-aware media player."""
-        MagicEntity.__init__(
-            self, area_config, coordinator, domain=MEDIA_PLAYER_DOMAIN
-        )
+        MagicEntity.__init__(self, area_config, coordinator, domain=MEDIA_PLAYER_DOMAIN)
         MediaPlayerEntity.__init__(self)
 
         self._attr_extra_state_attributes: dict[str, object] = {}
@@ -175,7 +175,9 @@ class AreaAwareMediaPlayer(MagicEntity, MediaPlayerEntity):
             area_states = area_binary_sensor_state.attributes.get(ATTR_STATES, [])
 
             # Use notification states from area's feature config
-            notification_states = area_data.get("notification_states", DEFAULT_NOTIFY_STATES)
+            notification_states = area_data.get(
+                "notification_states", DEFAULT_NOTIFY_STATES
+            )
 
             if evaluate_area_routing(
                 is_occupied=is_occupied,

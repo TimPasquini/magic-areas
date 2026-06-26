@@ -1,7 +1,5 @@
 """Tests for error recovery and edge case paths."""
 
-
-
 import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
@@ -131,7 +129,9 @@ async def test_light_group_recovery_presence_sensor_no_states_attr(
     area_config = runtime_data.coordinator._area_config
 
     # Create presence sensor WITHOUT states attribute
-    presence_entity_id = f"binary_sensor.magic_areas_presence_tracking_{area_config.id}_area_state"
+    presence_entity_id = (
+        f"binary_sensor.magic_areas_presence_tracking_{area_config.id}_area_state"
+    )
     hass.states.async_set(
         presence_entity_id,
         STATE_ON,

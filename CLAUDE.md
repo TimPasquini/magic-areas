@@ -7,7 +7,8 @@ validation, simulator, and plan-preservation contract.
 
 On a new workstation, follow
 `docs/contributing/workstation-bootstrap.md` to restore the Python environment,
-private fake-house state, Home Assistant container, and CRG/MCP integration.
+external fake-house simulator, Home Assistant container, and CRG/MCP
+integration.
 
 ## Project overview
 
@@ -51,9 +52,9 @@ Use the basic validation path for a quick static pass:
 ./scripts/validate_basic.sh
 ```
 
-If a change affects room-control behavior, fake-house simulation, scenario
-scripts, Adaptive Lighting coordination, native helper reconciliation, or the
-expected interpretation of simulation results, update
+If a change affects room-control behavior, fake-house simulation expectations,
+Adaptive Lighting coordination, native helper reconciliation, or the expected
+interpretation of simulation results, update
 `docs/contributing/dev-simulation-guidance.md` before committing. Treat that
 documentation update with the same importance as tests, `mypy`, and `ruff`.
 

@@ -92,6 +92,7 @@ def cleanup_removed_entries(
         _LOGGER.debug("Cleaning up old entity %s", entity_id)
         entity_registry.async_remove(entity_id)
 
+
 __all__ = [
     "ReusableTimer",
     "BasicArea",

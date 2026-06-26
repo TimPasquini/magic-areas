@@ -161,7 +161,9 @@ def extended_timeout_minutes(config: ConfigMapping) -> float:
 
 def reload_on_registry_change(config: ConfigMapping) -> bool:
     """Return whether registry updates should trigger reload."""
-    return bool(config.get(CONF_RELOAD_ON_REGISTRY_CHANGE, DEFAULT_RELOAD_ON_REGISTRY_CHANGE))
+    return bool(
+        config.get(CONF_RELOAD_ON_REGISTRY_CHANGE, DEFAULT_RELOAD_ON_REGISTRY_CHANGE)
+    )
 
 
 def _string_tuple(value: object) -> tuple[str, ...]:
@@ -198,10 +200,11 @@ def normalize_custom_control_groups(
             continue
         seen_group_ids.add(group_id)
 
-        policy_id = str(raw_group.get("policy_id", ControlGroupPolicyId.CUSTOM_CONTROL_GROUP))
-        if (
-            is_reserved_policy_id(policy_id)
-            and policy_id != str(ControlGroupPolicyId.CUSTOM_CONTROL_GROUP)
+        policy_id = str(
+            raw_group.get("policy_id", ControlGroupPolicyId.CUSTOM_CONTROL_GROUP)
+        )
+        if is_reserved_policy_id(policy_id) and policy_id != str(
+            ControlGroupPolicyId.CUSTOM_CONTROL_GROUP
         ):
             continue
 

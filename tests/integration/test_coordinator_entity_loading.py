@@ -32,7 +32,9 @@ def _all_loaded_entity_ids(coordinator: MagicAreasCoordinator) -> list[str]:
     return ids
 
 
-def _set_include_entities(config_entry: MockConfigEntry, hass: HomeAssistant, entity_ids: list[str]) -> None:
+def _set_include_entities(
+    config_entry: MockConfigEntry, hass: HomeAssistant, entity_ids: list[str]
+) -> None:
     """Update include-entities config on a mock config entry."""
     data = dict(config_entry.data)
     data[CONF_INCLUDE_ENTITIES] = entity_ids
@@ -69,7 +71,9 @@ async def test_magic_area_include_entities(
 ) -> None:
     """Entities listed in include_entities are loaded into snapshot."""
     entity_registry = mock_registry(hass)
-    external_entity = entity_registry.async_get_or_create("switch", "test", "external_switch")
+    external_entity = entity_registry.async_get_or_create(
+        "switch", "test", "external_switch"
+    )
 
     _set_include_entities(mock_config_entry, hass, [external_entity.entity_id])
 
@@ -102,7 +106,9 @@ async def test_magic_area_entity_loading_excludes_disabled(
     )
     normal = entity_registry.async_get_or_create("light", "test", "normal_light")
 
-    _set_include_entities(mock_config_entry, hass, [disabled.entity_id, normal.entity_id])
+    _set_include_entities(
+        mock_config_entry, hass, [disabled.entity_id, normal.entity_id]
+    )
     coordinator = await _init_and_get_coordinator(hass, mock_config_entry)
 
     all_entity_ids = _all_loaded_entity_ids(coordinator)
@@ -125,7 +131,9 @@ async def test_magic_area_entity_loading_excludes_diagnostic(
     )
     normal = entity_registry.async_get_or_create("sensor", "test", "normal_sensor")
 
-    _set_include_entities(mock_config_entry, hass, [diagnostic.entity_id, normal.entity_id])
+    _set_include_entities(
+        mock_config_entry, hass, [diagnostic.entity_id, normal.entity_id]
+    )
     coordinator = await _init_and_get_coordinator(hass, mock_config_entry)
 
     all_entity_ids = _all_loaded_entity_ids(coordinator)
@@ -164,8 +172,12 @@ async def test_magic_area_excluded_entities_respected(
 ) -> None:
     """exclude_entities wins over explicit include_entities."""
     entity_registry = mock_registry(hass)
-    excluded_entity = entity_registry.async_get_or_create("light", "test", "excluded_light")
-    included_entity = entity_registry.async_get_or_create("light", "test", "included_light")
+    excluded_entity = entity_registry.async_get_or_create(
+        "light", "test", "excluded_light"
+    )
+    included_entity = entity_registry.async_get_or_create(
+        "light", "test", "included_light"
+    )
 
     _set_include_exclude_entities(
         mock_config_entry,
@@ -191,7 +203,9 @@ async def test_magic_area_coordinator_entity_loading(
     light2 = entity_registry.async_get_or_create("light", "test", "light2")
     sensor1 = entity_registry.async_get_or_create("sensor", "test", "sensor1")
 
-    _set_include_entities(mock_config_entry, hass, [light1.entity_id, light2.entity_id, sensor1.entity_id])
+    _set_include_entities(
+        mock_config_entry, hass, [light1.entity_id, light2.entity_id, sensor1.entity_id]
+    )
     coordinator = await _init_and_get_coordinator(hass, mock_config_entry)
 
     assert coordinator.data is not None
@@ -228,7 +242,9 @@ async def test_magic_area_loads_device_entities(
     )
     device_registry.async_update_device(device.id, area_id=area_id)
 
-    entity = entity_registry.async_get_or_create("light", "test", "device_light", device_id=device.id)
+    entity = entity_registry.async_get_or_create(
+        "light", "test", "device_light", device_id=device.id
+    )
     await hass.async_block_till_done()
 
     coordinator = entry.runtime_data.coordinator
@@ -256,7 +272,9 @@ async def test_magic_area_entity_loading_respects_config_entry_id(
     )
     normal_entity = entity_registry.async_get_or_create("light", "test", "other_light")
 
-    _set_include_entities(mock_config_entry, hass, [our_entity.entity_id, normal_entity.entity_id])
+    _set_include_entities(
+        mock_config_entry, hass, [our_entity.entity_id, normal_entity.entity_id]
+    )
     coordinator = await _init_and_get_coordinator(hass, mock_config_entry)
 
     all_entity_ids = _all_loaded_entity_ids(coordinator)

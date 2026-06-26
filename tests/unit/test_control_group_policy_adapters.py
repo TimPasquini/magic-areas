@@ -94,9 +94,7 @@ def test_media_policy_adapter_evaluates_from_canonical_context() -> None:
     )
 
     assert decision.action_type == ControlActionType.DEACTIVATE
-    assert decision.actions[0].target_entity_ids == (
-        "media_player.living_room_group",
-    )
+    assert decision.actions[0].target_entity_ids == ("media_player.living_room_group",)
 
 
 def test_cover_policy_adapter_evaluates_from_canonical_context() -> None:

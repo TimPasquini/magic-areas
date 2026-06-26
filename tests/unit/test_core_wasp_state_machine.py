@@ -62,7 +62,7 @@ class TestWaspStateMachineInitialization:
     def test_wasp_active_initial(self) -> None:
         """Test initial wasp_active state."""
         machine = WaspStateMachine(wasp_timeout=300)
-        assert machine.wasp_active is False
+        assert machine.wasp is False
 
 
 class TestWaspUpdate:
@@ -71,10 +71,12 @@ class TestWaspUpdate:
     def test_update_wasp_sensor_on(self) -> None:
         """Test wasp sensor turning ON → motion detected."""
         machine = WaspStateMachine(wasp_timeout=300)
-        result = machine.update_wasp({
-            "motion_sensor_1": STATE_ON,
-            "motion_sensor_2": STATE_OFF,
-        })
+        result = machine.update_wasp(
+            {
+                "motion_sensor_1": STATE_ON,
+                "motion_sensor_2": STATE_OFF,
+            }
+        )
         assert result.wasp_active is True
         assert result.is_present is True
         assert result.box_open is False
@@ -85,13 +87,17 @@ class TestWaspUpdate:
         """Test wasp sensor turning OFF when box also OFF."""
         machine = WaspStateMachine(wasp_timeout=300)
         # First set wasp active
-        machine.update_wasp({
-            "motion_sensor": STATE_ON,
-        })
+        machine.update_wasp(
+            {
+                "motion_sensor": STATE_ON,
+            }
+        )
         # Then all OFF with timeout configured
-        result = machine.update_wasp({
-            "motion_sensor": STATE_OFF,
-        })
+        result = machine.update_wasp(
+            {
+                "motion_sensor": STATE_OFF,
+            }
+        )
         # Should request timer to eventually clear wasp
         assert result.wasp_active is True  # Still active, waiting for timeout
         assert result.request_timer == 300.0
@@ -111,10 +117,12 @@ class TestBoxUpdate:
     def test_update_box_open(self) -> None:
         """Test box sensor turning ON → door open."""
         machine = WaspStateMachine(wasp_timeout=300)
-        result = machine.update_box({
-            "door_sensor_1": STATE_ON,
-            "door_sensor_2": STATE_OFF,
-        })
+        result = machine.update_box(
+            {
+                "door_sensor_1": STATE_ON,
+                "door_sensor_2": STATE_OFF,
+            }
+        )
         assert result.box_open is True
         assert result.wasp_active is False
         assert result.cancel_timer is True
@@ -130,9 +138,11 @@ class TestBoxUpdate:
         machine._timeout_requested = True
 
         # Then box opens (sensor ON)
-        result = machine.update_box({
-            "door_sensor": STATE_ON,
-        })
+        result = machine.update_box(
+            {
+                "door_sensor": STATE_ON,
+            }
+        )
         assert result.wasp_active is False
         assert result.box_open is True
         assert result.cancel_timer is True

@@ -20,6 +20,7 @@ temp/*
 
 # Home Assistant configuration
 config/*
+dev/ha/
 
 # Local diagram artifacts (kept intentionally untracked)
 docs/diagrams/

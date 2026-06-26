@@ -13,7 +13,10 @@ from custom_components.magic_areas.core.controls import (
     resolve_group_member_entity_id_by_metadata,
 )
 from custom_components.magic_areas.core.controls import GroupRegistry
-from tests.unit.control_group_runtime_testkit import patch_entity_registry, register_group
+from tests.unit.control_group_runtime_testkit import (
+    patch_entity_registry,
+    register_group,
+)
 
 
 def test_resolve_group_entity_ids_by_metadata_returns_matching_entities(
@@ -93,7 +96,9 @@ def test_resolve_group_entity_ids_by_metadata_applies_filters(
     """Metadata resolver should apply additional metadata filters."""
     patch_entity_registry(
         monkeypatch,
-        resolver=lambda domain, platform, unique_id: f"{domain}.magic_areas_{unique_id}",
+        resolver=lambda domain,
+        platform,
+        unique_id: f"{domain}.magic_areas_{unique_id}",
     )
     registry = GroupRegistry()
     register_group(
@@ -102,7 +107,10 @@ def test_resolve_group_entity_ids_by_metadata_applies_filters(
         group_id="aggregates_kitchen_aggregate_temperature",
         members=("sensor.temp_1",),
         policy_id="aggregate",
-        metadata={"aggregate_device_class": "temperature", "aggregate_domain": "sensor"},
+        metadata={
+            "aggregate_device_class": "temperature",
+            "aggregate_domain": "sensor",
+        },
     )
     register_group(
         registry,
@@ -110,7 +118,10 @@ def test_resolve_group_entity_ids_by_metadata_applies_filters(
         group_id="aggregates_kitchen_aggregate_motion",
         members=("binary_sensor.motion_1",),
         policy_id="aggregate",
-        metadata={"aggregate_device_class": "motion", "aggregate_domain": "binary_sensor"},
+        metadata={
+            "aggregate_device_class": "motion",
+            "aggregate_domain": "binary_sensor",
+        },
     )
     resolved = resolve_group_entity_ids_by_metadata(
         MagicMock(),

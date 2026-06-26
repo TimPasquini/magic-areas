@@ -191,7 +191,9 @@ def _constraint_target_entity_ids(
     if not constraint.target_entity_ids:
         return intent_entity_ids
     constrained = set(constraint.target_entity_ids)
-    return tuple(entity_id for entity_id in intent_entity_ids if entity_id in constrained)
+    return tuple(
+        entity_id for entity_id in intent_entity_ids if entity_id in constrained
+    )
 
 
 def _apply_suppression_constraints(

@@ -144,13 +144,7 @@ def build_area_selector_options(
         [area.name for area in areas if area.id not in reserved_ids]
     )
     available_area_names.extend(
-        sorted(
-            [
-                f"(Meta) {area.name}"
-                for area in areas
-                if area.id in reserved_ids
-            ]
-        )
+        sorted([f"(Meta) {area.name}" for area in areas if area.id in reserved_ids])
     )
     return available_area_names
 
@@ -204,9 +198,7 @@ async def load_candidate_areas(
     area_registry = areareg_async_get(hass)
     floor_registry = floorreg_async_get(hass)
 
-    areas = [
-        basic_area_from_object(area) for area in area_registry.async_list_areas()
-    ]
+    areas = [basic_area_from_object(area) for area in area_registry.async_list_areas()]
     area_ids = [area.id for area in areas]
 
     # Load floors meta-areas

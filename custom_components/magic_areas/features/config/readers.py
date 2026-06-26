@@ -111,6 +111,7 @@ WASP_IN_A_BOX_OPTION_KEYS: tuple[str, ...] = (
     CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
 )
 
+
 @dataclass(frozen=True, slots=True)
 class ClimateControlConfig:
     """Normalized climate-control feature configuration."""
@@ -192,9 +193,7 @@ class BleTrackerConfig:
 def ble_tracker_config(feature_configs: FeatureConfig) -> BleTrackerConfig:
     """Return normalized BLE tracker feature configuration."""
     options = options_for_feature(feature_configs, MagicAreasFeatures.BLE_TRACKER)
-    return BleTrackerConfig(
-        entities=options.list_value(CONF_BLE_TRACKER_ENTITIES)
-    )
+    return BleTrackerConfig(entities=options.list_value(CONF_BLE_TRACKER_ENTITIES))
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,9 +227,7 @@ class PresenceHoldConfig:
 def presence_hold_config(feature_configs: FeatureConfig) -> PresenceHoldConfig:
     """Return normalized presence-hold feature configuration."""
     options = options_for_feature(feature_configs, MagicAreasFeatures.PRESENCE_HOLD)
-    return PresenceHoldConfig(
-        timeout=options.int_value(CONF_PRESENCE_HOLD_TIMEOUT)
-    )
+    return PresenceHoldConfig(timeout=options.int_value(CONF_PRESENCE_HOLD_TIMEOUT))
 
 
 @dataclass(frozen=True, slots=True)

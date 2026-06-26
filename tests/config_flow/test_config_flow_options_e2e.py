@@ -73,7 +73,9 @@ def _selector_list(selector: _SelectorWithConfig, key: str) -> list[str]:
     return cast(list[str], selector.config[key])
 
 
-async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+async def test_options_flow(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
     """Area options flow stores core settings and light-group config."""
     config_entry = init_integration
     er = async_get_er(hass)
@@ -132,7 +134,9 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
     assert config_entry.options[CONF_CLEAR_TIMEOUT] == 2
     assert config_entry.options[CONF_PRESENCE_DEVICE_PLATFORMS] == ["binary_sensor"]
     assert config_entry.options["secondary_states"][CONF_SLEEP_TIMEOUT] == 3
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] == {
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ] == {
         "overhead_lights": ["light.test_light"],
         "overhead_lights_states": ["occupied"],
         "overhead_lights_act_on": ["occupancy", "state"],
@@ -205,7 +209,9 @@ async def test_options_flow_area_config_reopen_preserves_saved_values(
         platform="test",
         config_entry=config_entry,
     )
-    er.async_update_entity(exclude_entity.entity_id, area_id=str(config_entry.unique_id))
+    er.async_update_entity(
+        exclude_entity.entity_id, area_id=str(config_entry.unique_id)
+    )
     await hass.async_block_till_done()
 
     result = await start_options_flow(hass, config_entry)
@@ -324,15 +330,9 @@ async def test_options_flow_secondary_states_uses_task_fit_selectors(
     dark_selector = selectors[CONF_DARK_ENTITY]
     sleep_selector = selectors[CONF_SLEEP_ENTITY]
     accent_selector = selectors[CONF_ACCENT_ENTITY]
-    assert light_binary.entity_id in _selector_list(
-        dark_selector, "include_entities"
-    )
-    assert sleep_binary.entity_id in _selector_list(
-        sleep_selector, "include_entities"
-    )
-    assert sleep_binary.entity_id in _selector_list(
-        accent_selector, "include_entities"
-    )
+    assert light_binary.entity_id in _selector_list(dark_selector, "include_entities")
+    assert sleep_binary.entity_id in _selector_list(sleep_selector, "include_entities")
+    assert sleep_binary.entity_id in _selector_list(accent_selector, "include_entities")
     for key in (CONF_SLEEP_TIMEOUT, CONF_EXTENDED_TIME, CONF_EXTENDED_TIMEOUT):
         selector = selectors[key]
         assert selector.config["mode"] == "box"
@@ -409,7 +409,9 @@ async def test_options_flow_meta_secondary_states_exposes_calculation_mode(
 ) -> None:
     """Meta-area secondary states should expose translated calculation mode choices."""
     config_entry = next(
-        entry for entry in init_integration_all_areas if entry.data.get(CONF_TYPE) == "meta"
+        entry
+        for entry in init_integration_all_areas
+        if entry.data.get(CONF_TYPE) == "meta"
     )
 
     result = await start_options_flow(hass, config_entry)
@@ -471,7 +473,10 @@ async def test_options_flow_custom_control_groups_step(
     )
     assert result["type"] == FlowResultType.MENU
     assert result["type"] == FlowResultType.MENU
-    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.task"
+    assert (
+        config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"]
+        == "control.task"
+    )
 
 
 async def test_options_flow_custom_control_groups_uses_guided_selector(

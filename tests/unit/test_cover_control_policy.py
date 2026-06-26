@@ -227,7 +227,9 @@ async def test_cover_switch_manual_state_change_starts_hold(
     switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = set()
     schedule_check = Mock()
-    monkeypatch.setattr(switch, "_schedule_next_manual_hold_expiry_check", schedule_check)
+    monkeypatch.setattr(
+        switch, "_schedule_next_manual_hold_expiry_check", schedule_check
+    )
 
     await switch.cover_group_state_changed(
         _Event("cover.kitchen_blinds", "open", "closed")  # type: ignore[arg-type]
@@ -250,7 +252,9 @@ async def test_cover_switch_expected_state_change_does_not_start_hold(
     switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = {"cover.kitchen_blinds"}
     schedule_check = Mock()
-    monkeypatch.setattr(switch, "_schedule_next_manual_hold_expiry_check", schedule_check)
+    monkeypatch.setattr(
+        switch, "_schedule_next_manual_hold_expiry_check", schedule_check
+    )
 
     await switch.cover_group_state_changed(
         _Event("cover.kitchen_blinds", "open", "closed")  # type: ignore[arg-type]

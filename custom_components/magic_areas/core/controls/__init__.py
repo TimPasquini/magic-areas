@@ -37,6 +37,7 @@ from custom_components.magic_areas.core.controls.builders import (
     build_control_switch_entities,
     register_area_default_groups,
 )
+
 __all__ = [
     "CategorizedGroupSpec",
     "ControlAction",

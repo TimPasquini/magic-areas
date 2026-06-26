@@ -29,7 +29,9 @@ def _assert_same_features_in_task_order(
 ) -> None:
     """Assert helper preserves feature membership while applying UI order."""
     assert set(result) == set(expected)
-    ordered_prefix = [feature for feature in EXPECTED_FEATURE_ORDER_PREFIX if feature in expected]
+    ordered_prefix = [
+        feature for feature in EXPECTED_FEATURE_ORDER_PREFIX if feature in expected
+    ]
     assert result[: len(ordered_prefix)] == ordered_prefix
 
 
@@ -213,7 +215,9 @@ class TestGetConfigurableFeatures:
 
     def test_configurable_features_intersection(self) -> None:
         """Test the relationship between regular and meta configurable features."""
-        regular_features = set(get_configurable_features(MagicMock(is_meta=lambda: False)))
+        regular_features = set(
+            get_configurable_features(MagicMock(is_meta=lambda: False))
+        )
         meta_features = set(get_configurable_features(MagicMock(is_meta=lambda: True)))
 
         # All meta features should be in regular features

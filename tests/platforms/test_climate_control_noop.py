@@ -1,6 +1,5 @@
 """No-op behavior tests for climate-control."""
 
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
@@ -22,9 +21,7 @@ MOCK_CLIMATE_ENTITY_ID = f"{CLIMATE_DOMAIN}.mock_climate"
 CLIMATE_CONTROL_SWITCH_ENTITY_ID = (
     f"{SWITCH_DOMAIN}.magic_areas_climate_control_{DEFAULT_MOCK_AREA}"
 )
-AREA_SENSOR_ENTITY_ID = (
-    f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-)
+AREA_SENSOR_ENTITY_ID = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
 
 
 def _assert_preset(

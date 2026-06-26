@@ -1,6 +1,5 @@
 """Climate-control behavior tests for normal area-state transitions."""
 
-
 from homeassistant.components.climate.const import (
     ATTR_PRESET_MODE,
     DOMAIN as CLIMATE_DOMAIN,

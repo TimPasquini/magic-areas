@@ -15,7 +15,9 @@ from custom_components.magic_areas import (
     async_update_options,
 )
 from custom_components.magic_areas.components import MagicAreasRuntimeData
-from custom_components.magic_areas.config_keys.area import CONF_RELOAD_ON_REGISTRY_CHANGE
+from custom_components.magic_areas.config_keys.area import (
+    CONF_RELOAD_ON_REGISTRY_CHANGE,
+)
 from custom_components.magic_areas.const import DOMAIN
 from tests.const import DEFAULT_MOCK_AREA
 from tests.helpers.config_entries import get_basic_config_entry_data
@@ -103,14 +105,15 @@ async def test_async_setup_entry_reload_skipped_before_start(
             return_value=MagicMock(is_meta=MagicMock(return_value=False)),
         ),
         patch.object(EventBus, "async_listen", autospec=True, side_effect=_fake_listen),
-        patch.object(
-            hass.config_entries, "async_forward_entry_setups", AsyncMock()
-        ),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
         patch.object(hass.config_entries, "async_update_entry") as update_entry,
     ):
-        assert await async_setup_entry(
-            hass, cast(ConfigEntry[MagicAreasRuntimeData], config_entry)
-        ) is True
+        assert (
+            await async_setup_entry(
+                hass, cast(ConfigEntry[MagicAreasRuntimeData], config_entry)
+            )
+            is True
+        )
         with patch.object(
             HomeAssistant, "is_running", new_callable=PropertyMock, return_value=False
         ):
@@ -149,14 +152,15 @@ async def test_async_setup_entry_registry_update_respects_disabled_reload(
             return_value=MagicMock(is_meta=MagicMock(return_value=False)),
         ),
         patch.object(EventBus, "async_listen", autospec=True, side_effect=_fake_listen),
-        patch.object(
-            hass.config_entries, "async_forward_entry_setups", AsyncMock()
-        ),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
         patch.object(hass.config_entries, "async_update_entry") as update_entry,
     ):
-        assert await async_setup_entry(
-            hass, cast(ConfigEntry[MagicAreasRuntimeData], config_entry)
-        ) is True
+        assert (
+            await async_setup_entry(
+                hass, cast(ConfigEntry[MagicAreasRuntimeData], config_entry)
+            )
+            is True
+        )
         await callbacks[str(EVENT_ENTITY_REGISTRY_UPDATED)](MagicMock())
 
     update_entry.assert_not_called()

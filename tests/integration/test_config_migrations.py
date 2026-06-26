@@ -5,7 +5,6 @@ from older versions can be loaded and upgraded to current versions without
 data loss or errors.
 """
 
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from custom_components.magic_areas.config_keys.area import (
@@ -266,6 +265,6 @@ class TestMigrationIsolation:
         for i, mig1 in enumerate(CONFIG_MIGRATIONS):
             for mig2 in CONFIG_MIGRATIONS[i + 1 :]:
                 # to_version of earlier should not overlap with from_version of later
-                assert (
-                    mig1.to_version <= mig2.from_version
-                ), f"Migration overlap detected: {mig1} overlaps with {mig2}"
+                assert mig1.to_version <= mig2.from_version, (
+                    f"Migration overlap detected: {mig1} overlaps with {mig2}"
+                )

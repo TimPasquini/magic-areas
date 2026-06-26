@@ -1,6 +1,5 @@
 """Tests for media routing policy functions."""
 
-
 from custom_components.magic_areas.core.controls.policies.media import (
     evaluate_area_routing,
     has_valid_notification_states,
@@ -225,7 +224,11 @@ class TestEvaluateAreaRouting:
         assert (
             evaluate_area_routing(
                 is_occupied=True,
-                area_states=[AreaStates.OCCUPIED.value, AreaStates.SLEEP.value, AreaStates.DARK.value],
+                area_states=[
+                    AreaStates.OCCUPIED.value,
+                    AreaStates.SLEEP.value,
+                    AreaStates.DARK.value,
+                ],
                 notification_states=[
                     AreaStates.OCCUPIED.value,
                     AreaStates.BRIGHT.value,

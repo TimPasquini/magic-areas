@@ -16,7 +16,9 @@ from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     schema_from_default_options,
 )
-from custom_components.magic_areas.features.config.readers import BLE_TRACKER_OPTION_KEYS
+from custom_components.magic_areas.features.config.readers import (
+    BLE_TRACKER_OPTION_KEYS,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from custom_components.magic_areas.core.runtime_model import AreaConfig
@@ -50,5 +52,6 @@ class BLETrackersFeatureModule(BaseFeatureModule):
             create_ble_tracker_sensor(data, area_config, coordinator)
         )
         return entities
+
 
 __all__ = ["BLETrackersFeatureModule"]

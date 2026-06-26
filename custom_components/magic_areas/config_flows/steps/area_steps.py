@@ -70,10 +70,14 @@ from custom_components.magic_areas.config_flows.selector_builders import (
     build_selector_select,
     build_selector_text,
 )
-from custom_components.magic_areas.core.controls import get_custom_control_group_templates
+from custom_components.magic_areas.core.controls import (
+    get_custom_control_group_templates,
+)
 
 if TYPE_CHECKING:
-    from custom_components.magic_areas.config_flows.options_flow import OptionsFlowHandler
+    from custom_components.magic_areas.config_flows.options_flow import (
+        OptionsFlowHandler,
+    )
 
 EMPTY_ENTRY = [""]
 
@@ -84,6 +88,7 @@ class _SerializableSelector(Protocol):
     def serialize(self) -> Mapping[str, object]:
         """Return HA selector serialization."""
         ...
+
 
 CUSTOM_CONTROL_GROUP_TRIGGER_STATES = [
     str(AreaStates.OCCUPIED),
@@ -288,9 +293,7 @@ async def handle_secondary_states(
         return await success_step()
 
     dynamic_validators: DynamicValidatorMap = {
-        CONF_DARK_ENTITY: vol.In(
-            EMPTY_ENTRY + flow.all_light_tracking_entities
-        ),
+        CONF_DARK_ENTITY: vol.In(EMPTY_ENTRY + flow.all_light_tracking_entities),
         CONF_SLEEP_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
         CONF_ACCENT_ENTITY: vol.In(EMPTY_ENTRY + flow.all_binary_entities),
         CONF_SECONDARY_STATES_CALCULATION_MODE: vol.In(CalculationMode),
@@ -299,21 +302,11 @@ async def handle_secondary_states(
         CONF_DARK_ENTITY: build_selector_entity_simple(
             flow.all_light_tracking_entities
         ),
-        CONF_SLEEP_ENTITY: build_selector_entity_simple(
-            flow.all_binary_entities
-        ),
-        CONF_ACCENT_ENTITY: build_selector_entity_simple(
-            flow.all_binary_entities
-        ),
-        CONF_SLEEP_TIMEOUT: build_selector_number(
-            unit_of_measurement="minutes"
-        ),
-        CONF_EXTENDED_TIME: build_selector_number(
-            unit_of_measurement="minutes"
-        ),
-        CONF_EXTENDED_TIMEOUT: build_selector_number(
-            unit_of_measurement="minutes"
-        ),
+        CONF_SLEEP_ENTITY: build_selector_entity_simple(flow.all_binary_entities),
+        CONF_ACCENT_ENTITY: build_selector_entity_simple(flow.all_binary_entities),
+        CONF_SLEEP_TIMEOUT: build_selector_number(unit_of_measurement="minutes"),
+        CONF_EXTENDED_TIME: build_selector_number(unit_of_measurement="minutes"),
+        CONF_EXTENDED_TIMEOUT: build_selector_number(unit_of_measurement="minutes"),
         CONF_SECONDARY_STATES_CALCULATION_MODE: build_selector_select(
             options=list(CalculationMode),
             translation_key=SelectorTranslationKeys.CALCULATION_MODE,

@@ -13,7 +13,9 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     fan_controller_evaluation_to_control_group,
     legacy_cooling_controller,
 )
-from custom_components.magic_areas.core.controls.control_group import ControlGroupContext
+from custom_components.magic_areas.core.controls.control_group import (
+    ControlGroupContext,
+)
 from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
@@ -113,7 +115,9 @@ def test_controller_holds_inside_hysteresis_band_when_previously_active() -> Non
     assert result.turn_on_entity_ids == ("fan.room",)
 
 
-def test_threshold_trend_controller_activates_inside_hysteresis_band_when_rising() -> None:
+def test_threshold_trend_controller_activates_inside_hysteresis_band_when_rising() -> (
+    None
+):
     """Threshold+trend supplements threshold evidence without replacing clear bounds."""
     controller = _controller(
         FanControllerRole.HUMIDITY,
@@ -398,7 +402,9 @@ def test_sensor_unavailable_hold_then_clear_holds_until_runtime_expiry() -> None
     )
 
     assert [reason.controller_id for reason in result.active_reasons] == ["humidity"]
-    assert result.active_reasons[0].reason == "active_sensor_unavailable_hold_then_clear"
+    assert (
+        result.active_reasons[0].reason == "active_sensor_unavailable_hold_then_clear"
+    )
     assert result.turn_on_entity_ids == ("fan.room",)
 
 

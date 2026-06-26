@@ -33,14 +33,18 @@ async def test_entity_availability_reflects_coordinator(
 
     # Mock coordinator's update to fail
     coordinator = mock_config_entry.runtime_data.coordinator
-    with patch.object(coordinator, "_async_update_data", side_effect=Exception("Test failure")):
+    with patch.object(
+        coordinator, "_async_update_data", side_effect=Exception("Test failure")
+    ):
         await coordinator.async_refresh()
 
     # Entity should now be unavailable
     assert entity.available is False
 
     # Mock coordinator's update to succeed
-    with patch.object(coordinator, "_async_update_data", new_callable=AsyncMock) as mock_update:
+    with patch.object(
+        coordinator, "_async_update_data", new_callable=AsyncMock
+    ) as mock_update:
         # Set up mock to return valid data
         mock_update.return_value = coordinator.data
         await coordinator.async_refresh()

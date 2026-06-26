@@ -112,7 +112,9 @@ async def test_media_player_groups_skipped_when_feature_disabled(
     hass: HomeAssistant,
 ) -> None:
     """Test media player groups not created when feature disabled."""
-    from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
+    from homeassistant.components.media_player.const import (
+        DOMAIN as MEDIA_PLAYER_DOMAIN,
+    )
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     # Explicitly disable media player features

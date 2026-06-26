@@ -12,7 +12,12 @@ from custom_components.magic_areas.config_keys.area import CONF_BLE_TRACKER_ENTI
 from custom_components.magic_areas.core.runtime_model import ConfigEntryHelperSurface
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
-from .feature_module_contracts_testkit import get_module, make_area_config, make_coordinator, make_snapshot
+from .feature_module_contracts_testkit import (
+    get_module,
+    make_area_config,
+    make_coordinator,
+    make_snapshot,
+)
 
 
 def test_health_module_builds_health_sensor() -> None:

@@ -118,4 +118,5 @@ def _media_player_group_surface_unique_id(
         role="media_player_group",
     )
 
+
 __all__ = ["MediaPlayerGroupsFeatureModule"]

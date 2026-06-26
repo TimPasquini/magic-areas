@@ -138,7 +138,10 @@ async def test_handle_climate_preset_selection_builds_dynamic_selectors() -> Non
     with patch(
         "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
-        expected_selectors = {"preset_clear": "selector1", "preset_occupied": "selector2"}
+        expected_selectors = {
+            "preset_clear": "selector1",
+            "preset_occupied": "selector2",
+        }
         expected_validators = {"preset_clear": "validator1"}
         mock_builder.return_value = (expected_selectors, expected_validators)
 

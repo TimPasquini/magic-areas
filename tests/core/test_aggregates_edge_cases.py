@@ -27,7 +27,10 @@ def test_build_aggregates_with_empty_feature_config() -> None:
     """Test aggregates when feature config is missing defaults."""
     entities_by_domain = {
         SENSOR_DOMAIN: [
-            {"entity_id": "sensor.temp_1", "device_class": SensorDeviceClass.TEMPERATURE},
+            {
+                "entity_id": "sensor.temp_1",
+                "device_class": SensorDeviceClass.TEMPERATURE,
+            },
         ]
     }
     aggregates = build_sensor_aggregates(
@@ -43,7 +46,10 @@ def test_build_aggregates_with_single_entity() -> None:
     """Test aggregates with minimum entity requirement."""
     entities_by_domain = {
         SENSOR_DOMAIN: [
-            {"entity_id": "sensor.temp_1", "device_class": SensorDeviceClass.TEMPERATURE},
+            {
+                "entity_id": "sensor.temp_1",
+                "device_class": SensorDeviceClass.TEMPERATURE,
+            },
         ]
     }
     feature_configs = {
@@ -65,9 +71,15 @@ def test_build_aggregates_with_custom_device_classes() -> None:
     """Test aggregates with custom device class configuration."""
     entities_by_domain = {
         SENSOR_DOMAIN: [
-            {"entity_id": "sensor.temp_1", "device_class": SensorDeviceClass.TEMPERATURE},
+            {
+                "entity_id": "sensor.temp_1",
+                "device_class": SensorDeviceClass.TEMPERATURE,
+            },
             {"entity_id": "sensor.humid_1", "device_class": SensorDeviceClass.HUMIDITY},
-            {"entity_id": "sensor.illumin_1", "device_class": SensorDeviceClass.ILLUMINANCE},
+            {
+                "entity_id": "sensor.illumin_1",
+                "device_class": SensorDeviceClass.ILLUMINANCE,
+            },
         ]
     }
     feature_configs = {
@@ -136,7 +148,10 @@ def test_build_aggregates_minimum_entities_enforcement() -> None:
     entities_by_domain = {
         SENSOR_DOMAIN: [
             # Only one sensor but minimum is 2
-            {"entity_id": "sensor.temp_1", "device_class": SensorDeviceClass.TEMPERATURE},
+            {
+                "entity_id": "sensor.temp_1",
+                "device_class": SensorDeviceClass.TEMPERATURE,
+            },
         ]
     }
 

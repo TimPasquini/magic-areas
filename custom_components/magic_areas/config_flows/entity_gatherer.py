@@ -124,13 +124,9 @@ class ConfigFlowEntityGatherer:
             )
         )
 
-    def gather_combined_area_entities(
-        self, area_entities: list[str]
-    ) -> list[str]:
+    def gather_combined_area_entities(self, area_entities: list[str]) -> list[str]:
         """Gather combined area entities (area entities + excluded)."""
-        return sorted(
-            area_entities + exclude_entities(self.config_entry_options)
-        )
+        return sorted(area_entities + exclude_entities(self.config_entry_options))
 
     def gather_lights(self, all_entities: list[str]) -> list[str]:
         """Gather light entities from area."""

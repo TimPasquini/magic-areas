@@ -230,7 +230,9 @@ def _filter_entity_ids(
 ) -> tuple[str, ...]:
     """Filter fallback members to the area/domain boundary."""
     requested = set(_ordered_domain_entities(entity_ids, domain))
-    return tuple(entity_id for entity_id in allowed_entity_ids if entity_id in requested)
+    return tuple(
+        entity_id for entity_id in allowed_entity_ids if entity_id in requested
+    )
 
 
 __all__ = [

@@ -108,5 +108,8 @@ def test_build_categorized_group_entities_logs_and_continues_on_child_error() ->
 
     assert child_categories == ["good"]
     assert entities == ["entity:good", "entity:all:light.good"]
-    assert [definition.group_id for definition in definitions] == ["group.good", "group.all"]
+    assert [definition.group_id for definition in definitions] == [
+        "group.good",
+        "group.all",
+    ]
     logger.exception.assert_called_once()

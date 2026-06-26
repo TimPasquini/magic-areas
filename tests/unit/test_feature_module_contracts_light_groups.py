@@ -152,7 +152,9 @@ def test_light_groups_module_adopts_adaptive_lighting_for_configured_role() -> N
     assert switch_set.role == "overhead_lights"
 
 
-def test_light_groups_module_defers_managed_adaptive_lighting_role_until_registry() -> None:
+def test_light_groups_module_defers_managed_adaptive_lighting_role_until_registry() -> (
+    None
+):
     """Manage mode should defer runtime switch binding until AL creates registry entries."""
     area_config = make_area_config()
     snapshot = make_snapshot(
@@ -190,7 +192,9 @@ def test_light_groups_module_defers_managed_adaptive_lighting_role_until_registr
     }
 
 
-def test_light_groups_module_defers_managed_adaptive_lighting_all_lights_until_registry() -> None:
+def test_light_groups_module_defers_managed_adaptive_lighting_all_lights_until_registry() -> (
+    None
+):
     """Manage mode should defer room-level switch binding until AL creates entries."""
     area_config = make_area_config()
     snapshot = make_snapshot(
@@ -340,7 +344,9 @@ def test_light_groups_module_builds_managed_adaptive_lighting_configs() -> None:
     assert configs[0].light_entity_ids == ("light.overhead_1",)
 
 
-def test_light_groups_module_builds_managed_adaptive_lighting_all_lights_config() -> None:
+def test_light_groups_module_builds_managed_adaptive_lighting_all_lights_config() -> (
+    None
+):
     """Opted-in all-lights management should compile a room-level AL config."""
     area_config = make_area_config()
     snapshot = make_snapshot(
@@ -376,7 +382,9 @@ def test_light_groups_module_builds_managed_adaptive_lighting_all_lights_config(
     )
 
 
-def test_light_groups_module_does_not_build_all_lights_adaptive_lighting_by_default() -> None:
+def test_light_groups_module_does_not_build_all_lights_adaptive_lighting_by_default() -> (
+    None
+):
     """Manage mode should not create a room-level AL config without the gate."""
     area_config = make_area_config()
     snapshot = make_snapshot(
@@ -627,15 +635,21 @@ def test_light_groups_module_declares_native_light_helper_surfaces() -> None:
         "light.task_1",
         "light.unassigned_1",
     ]
-    assert surfaces_by_id[
-        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights"
-    ].entity_name == "All Lights"
+    assert (
+        surfaces_by_id[
+            "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_all_lights"
+        ].entity_name
+        == "All Lights"
+    )
     assert surfaces_by_id[
         "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
     ].options["entities"] == ["light.overhead_1"]
-    assert surfaces_by_id[
-        "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
-    ].entity_name == "Overhead Lights"
+    assert (
+        surfaces_by_id[
+            "magic_areas:entry-1:area-1:light_groups:config_entry_helper:light_group_overhead_lights"
+        ].entity_name
+        == "Overhead Lights"
+    )
 
 
 def test_light_groups_module_declares_adaptive_ambient_rise_signal_surface() -> None:
@@ -683,7 +697,9 @@ def test_light_groups_module_declares_adaptive_ambient_rise_signal_surface() -> 
     assert surface.device_name == "Kitchen"
 
 
-def test_light_groups_module_skips_ambient_rise_signal_without_complete_opt_in() -> None:
+def test_light_groups_module_skips_ambient_rise_signal_without_complete_opt_in() -> (
+    None
+):
     """Signal helpers should not appear unless adaptive ambient-rise has a source."""
     area_config = make_area_config()
     snapshot = make_snapshot(

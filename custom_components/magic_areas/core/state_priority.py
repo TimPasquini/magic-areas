@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from custom_components.magic_areas.area_state import AreaStates
+
 # Unified ordering for all features
 DEFAULT_STATE_PRIORITY: list[str] = [
     AreaStates.SLEEP,  # Highest priority

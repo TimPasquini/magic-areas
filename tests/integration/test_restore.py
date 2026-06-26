@@ -1,6 +1,5 @@
 """Test entity state restoration."""
 
-
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import STATE_ON
