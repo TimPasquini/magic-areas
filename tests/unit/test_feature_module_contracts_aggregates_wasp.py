@@ -344,7 +344,8 @@ def test_wasp_module_matches_legacy_entities_and_config() -> None:
     assert module_entities
     entity = module_entities[0]
     assert getattr(entity, "_delay", None) == 3
-    assert getattr(entity, "_wasp_timeout", None) == 7
+    assert getattr(entity, "_wasp_timeout_minutes", None) == 7
+    assert getattr(entity, "_wasp_timeout_seconds", None) == 420
 
 
 def test_wasp_module_disabled_without_aggregates() -> None:

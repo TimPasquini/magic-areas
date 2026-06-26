@@ -15,11 +15,9 @@ from homeassistant.core import Event, EventStateChangedData, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from custom_components.magic_areas.entity import MagicEntity
+from custom_components.magic_areas.const import ONE_MINUTE
 from custom_components.magic_areas.features.config.readers import (
     wasp_in_a_box_config,
-)
-from custom_components.magic_areas.const import (
-    ONE_MINUTE,
 )
 from custom_components.magic_areas.core.aggregates import resolve_aggregate_entity_id
 from custom_components.magic_areas.core.listener_registry import ListenerRegistry
@@ -62,7 +60,8 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         feature_config = self.get_feature_config()
         config = wasp_in_a_box_config(feature_config)
         self._delay = config.delay_seconds
-        self._wasp_timeout = config.timeout_minutes
+        self._wasp_timeout_minutes = config.timeout_minutes
+        self._wasp_timeout_seconds = self._wasp_timeout_minutes * ONE_MINUTE
         self._wasp_device_classes = config.device_classes
 
         self._attr_device_class = BinarySensorDeviceClass.PRESENCE
@@ -72,7 +71,8 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
             ATTR_WASP: STATE_OFF,
         }
 
-        self._machine = WaspStateMachine(wasp_timeout=self._wasp_timeout)
+        self._machine = WaspStateMachine(wasp_timeout=self._wasp_timeout_seconds)
+        self._wasp_timer_enabled = self._wasp_timeout_seconds > 0
         self._wasp_timer: ReusableTimer | None = None
         self._box_delay_handle: asyncio.TimerHandle | None = None
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
@@ -123,19 +123,6 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
                 dc_state = self.hass.states.get(dc_entity_id)
                 if dc_state:
                     self._box_sensors.append(dc_entity_id)
-
-        # Initialize timer if timeout configured
-        if self._wasp_timeout > 0:
-
-            async def forget_wasp(now: datetime) -> None:
-                del now
-                update = self._machine.on_wasp_timeout()
-                self._apply_update(update)
-                self.async_write_ha_state()
-
-            self._wasp_timer = ReusableTimer(
-                self.hass, self._wasp_timeout * ONE_MINUTE, forget_wasp
-            )
 
         # Add listeners
         if self._wasp_sensors:
@@ -250,8 +237,9 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
         # Handle timer requests/cancellations
         if update.cancel_timer and self._wasp_timer:
             self._wasp_timer.cancel()
-        elif update.request_timer is not None and self._wasp_timer:
-            self._wasp_timer.cancel()  # Cancel existing
+        elif update.request_timer is not None and self._wasp_timer_enabled:
+            if self._wasp_timer:
+                self._wasp_timer.cancel()
 
             # Start new timer with wasp timeout callback
             async def on_timer_expire(now: datetime) -> None:

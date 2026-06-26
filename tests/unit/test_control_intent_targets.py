@@ -33,8 +33,21 @@ def test_label_role_target_models_broad_ha_label_execution() -> None:
     )
 
     assert target.is_executable
-    assert target.uses_broad_label_target
     assert target.target_entity_ids == ()
+
+
+def test_label_role_target_requires_label_identity() -> None:
+    """A label target without a label ID or name is not executable."""
+    target = RoleTarget(
+        role="sleep",
+        domain="light",
+        area_id="living_room",
+        kind=ControlTargetKind.LABEL,
+        precision=ControlTargetPrecision.BROAD,
+        source=ControlTargetSource.RECONCILED_LABEL,
+    )
+
+    assert not target.is_executable
 
 
 def test_helper_role_target_models_exact_native_helper_execution() -> None:
@@ -52,7 +65,6 @@ def test_helper_role_target_models_exact_native_helper_execution() -> None:
     )
 
     assert target.is_executable
-    assert not target.uses_broad_label_target
     assert target.target_entity_ids == (
         "light.magic_areas_native_light_groups_living_room_sleep_lights",
     )

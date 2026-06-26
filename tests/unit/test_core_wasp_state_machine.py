@@ -62,7 +62,7 @@ class TestWaspStateMachineInitialization:
     def test_wasp_active_initial(self) -> None:
         """Test initial wasp_active state."""
         machine = WaspStateMachine(wasp_timeout=300)
-        assert machine.wasp_active is False
+        assert machine.wasp is False
 
 
 class TestWaspUpdate:

@@ -457,21 +457,6 @@ class MetaAreaReloadManager:
         self._pending_trigger: tuple[str, str] | None = None
         self._meta_data_retry_attempts: int = 0
 
-    @property
-    def reloading(self) -> bool:
-        """Return whether a reload has been scheduled/executed."""
-        return self._reloading
-
-    @property
-    def pending_reload_handle(self) -> asyncio.TimerHandle | None:
-        """Return current pending reload handle."""
-        return self._pending_reload_handle
-
-    @property
-    def meta_data_retry_attempts(self) -> int:
-        """Return metadata retry attempts."""
-        return self._meta_data_retry_attempts
-
     def start(self) -> None:
         """Attach snapshot-ready listener."""
         if self._unsubscribe_ready is not None:
