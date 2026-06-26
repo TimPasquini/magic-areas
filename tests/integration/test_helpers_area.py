@@ -9,7 +9,7 @@ from custom_components.magic_areas.helpers.area import (
     build_area_config_for_config_entry,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import get_basic_config_entry_data
+from tests.helpers.config_entries import get_basic_config_entry_data
 
 
 async def test_build_area_config_for_config_entry_missing_area(

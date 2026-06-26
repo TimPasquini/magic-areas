@@ -14,7 +14,10 @@ from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF
 from homeassistant.core import HomeAssistant
 
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import assert_attribute, assert_state
+from tests.helpers.assertions import (
+    assert_attribute,
+    assert_state,
+)
 from tests.mocks import MockClimate
 
 pytest_plugins = ("tests.platforms.climate_control_testkit",)

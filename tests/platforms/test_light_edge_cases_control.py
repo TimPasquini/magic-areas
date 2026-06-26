@@ -14,7 +14,7 @@ from custom_components.magic_areas.light_groups import CommandEchoState
 from custom_components.magic_areas.light_groups import turn_off
 from custom_components.magic_areas.light_groups import turn_on
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
     shutdown_integration,
 )

@@ -19,14 +19,18 @@ from custom_components.magic_areas.config_keys.area import (
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_attribute,
     assert_state,
-    get_basic_config_entry_data,
-    init_integration as init_integration_helper,
-    shutdown_integration,
+)
+from tests.helpers.waits import (
     wait_for_state,
     wait_until,
+)
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
+    init_integration as init_integration_helper,
+    shutdown_integration,
 )
 from tests.mocks import MockBinarySensor
 

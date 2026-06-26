@@ -25,7 +25,7 @@ from custom_components.magic_areas.light_groups import (
     CONF_OVERHEAD_LIGHTS,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
 )
-from tests.helpers import wait_for_state
+from tests.helpers.waits import wait_for_state
 from tests.scenarios.light_scenario_testkit import (
     OneRoomLightScenario,
     setup_one_room_advisory_light_scenario,

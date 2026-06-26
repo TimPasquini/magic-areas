@@ -3,7 +3,7 @@
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 
-from tests.helpers import wait_for_state
+from tests.helpers.waits import wait_for_state
 from tests.scenarios.light_scenario_testkit import (
     OneRoomLightScenario,
     setup_one_room_advisory_light_scenario,

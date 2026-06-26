@@ -22,16 +22,14 @@ from custom_components.magic_areas.const import (
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_in_attribute,
     assert_state,
-    get_basic_config_entry_data,
-    setup_mock_entities,
-    shutdown_integration,
 )
-from tests.helpers import (
-    init_integration as init_integration_helper,
-)
+from tests.helpers.entities import setup_mock_entities
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import shutdown_integration
+from tests.helpers.lifecycle import init_integration as init_integration_helper
 from tests.mocks import MockSensor
 
 # Fixtures

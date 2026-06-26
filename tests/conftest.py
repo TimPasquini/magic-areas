@@ -20,10 +20,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
 )
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_FLOOR_ID
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.area_registry import async_get as async_get_ar
-from homeassistant.helpers.floor_registry import async_get as async_get_fr
 
 from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_MIN_ENTITIES,
@@ -39,12 +36,14 @@ from custom_components.magic_areas.area_state import AreaType
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from tests.const import DEFAULT_MOCK_AREA, MOCK_AREAS, MockAreaIds
-from tests.helpers import (
-    get_basic_config_entry_data,
-    immediate_call_factory,
+from tests.helpers_timing import immediate_call_factory
+from tests.helpers.entities import setup_mock_entities
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
-    setup_mock_entities,
+    setup_config_entries,
     shutdown_integration,
+    unload_config_entries,
 )
 from tests.mocks import MockBinarySensor, MockLight
 
@@ -331,36 +330,15 @@ async def init_integration_fixture(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> AsyncGenerator[MockConfigEntry]:
     """Set up the integration."""
-
-    # Setup area registry
-    area_registry = async_get_ar(hass)
-    floor_registry = async_get_fr(hass)
-
-    # We assume DEFAULT_MOCK_AREA for the basic mock_config_entry
-    area = DEFAULT_MOCK_AREA
-    area_object = MOCK_AREAS[area]
-    floor_id: str | None = None
-
-    if area_object[ATTR_FLOOR_ID]:
-        floor_name = str(area_object[ATTR_FLOOR_ID])
-        floor_entry = floor_registry.async_get_floor_by_name(floor_name)
-        if not floor_entry:
-            floor_entry = floor_registry.async_create(floor_name)
-        floor_id = floor_entry.floor_id
-    area_registry.async_create(name=area.value, floor_id=floor_id)
-
-    if not hass.config_entries.async_get_entry(mock_config_entry.entry_id):
-        mock_config_entry.add_to_hass(hass)
-
-    await hass.config_entries.async_setup(mock_config_entry.entry_id)
-    await hass.async_block_till_done()
-    await hass.async_start()
-    await hass.async_block_till_done()
+    await setup_config_entries(
+        hass,
+        [mock_config_entry],
+        start_hass=True,
+    )
 
     yield mock_config_entry
 
-    await hass.config_entries.async_unload(mock_config_entry.entry_id)
-    await hass.async_block_till_done()
+    await unload_config_entries(hass, [mock_config_entry])
 
 
 @pytest.fixture(name="_setup_integration_basic")
@@ -369,20 +347,6 @@ async def setup_integration(
     mock_config_entry: MockConfigEntry,
 ) -> AsyncGenerator[None]:
     """Set up integration with basic config."""
-    # This fixture is kept for backward compatibility with other tests,
-    # but it now uses the new mock_config_entry fixture
-
-    # We need to manually call the helper init because the new init_integration fixture
-    # is designed to be used directly, but this fixture wraps the old helper.
-    # However, since mock_config_entry already adds itself to hass, we need to be careful.
-
-    # The old helper init_integration does:
-    # 1. Register areas
-    # 2. Add config entries to hass (if not already added)
-    # 3. async_setup_component(hass, DOMAIN, {})
-
-    # Since mock_config_entry adds itself to hass, step 2 is partially done.
-
     await init_integration_helper(hass, [mock_config_entry])
     yield
     await shutdown_integration(hass, [mock_config_entry])
@@ -394,41 +358,21 @@ async def init_integration_all_areas(
     all_areas_with_meta_config_entry: list[MockConfigEntry],
 ) -> AsyncGenerator[list[MockConfigEntry]]:
     """Set up integration with all areas and meta-areas."""
-
-    area_registry = async_get_ar(hass)
-    floor_registry = async_get_fr(hass)
-
-    # Create areas in registry
-    for area_enum in MockAreaIds:
-        area_object = MOCK_AREAS[area_enum]
-        if area_object[CONF_TYPE] == AreaType.META:
-            continue
-
-        floor_id: str | None = None
-        if area_object[ATTR_FLOOR_ID]:
-            floor_name = str(area_object[ATTR_FLOOR_ID])
-            floor_entry = floor_registry.async_get_floor_by_name(floor_name)
-            if not floor_entry:
-                floor_entry = floor_registry.async_create(floor_name)
-            floor_id = floor_entry.floor_id
-
-        area_registry.async_create(name=area_enum.value, floor_id=floor_id)
-
-    # Add and setup all config entries
-    for entry in all_areas_with_meta_config_entry:
-        entry.add_to_hass(hass)
-        await hass.config_entries.async_setup(entry.entry_id)
-
-    await hass.async_block_till_done()
-    await hass.async_start()
-    await hass.async_block_till_done()
+    areas = [
+        area_enum
+        for area_enum in MockAreaIds
+        if MOCK_AREAS[area_enum][CONF_TYPE] != AreaType.META
+    ]
+    await setup_config_entries(
+        hass,
+        all_areas_with_meta_config_entry,
+        areas=areas,
+        start_hass=True,
+    )
 
     yield all_areas_with_meta_config_entry
 
-    # Unload
-    for entry in all_areas_with_meta_config_entry:
-        await hass.config_entries.async_unload(entry.entry_id)
-    await hass.async_block_till_done()
+    await unload_config_entries(hass, all_areas_with_meta_config_entry)
 
 
 @pytest.fixture
