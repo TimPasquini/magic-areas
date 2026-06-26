@@ -2,6 +2,14 @@
 
 Repository guidance for coding agents and contributors.
 
+Read `REPOSITORY_WORK_NOTES.md` for the repository's execution, completion,
+validation, simulator, and plan-preservation contract.
+
+On a new workstation, follow
+`docs/contributing/workstation-bootstrap.md` to restore the Python environment,
+external fake-house simulator, Home Assistant container, and CRG/MCP
+integration.
+
 ## Project overview
 
 Magic Areas is a Home Assistant custom integration that builds presence-aware
@@ -23,6 +31,7 @@ For baseline deltas, use:
 
 For current implementation state, use:
 
+- `docs/contributing/workstation-bootstrap.md`
 - `docs/contributing/architecture.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/development.md`
@@ -31,17 +40,21 @@ For current implementation state, use:
 
 ## Required commands
 
-Run these before commit:
+Run the full Python validation before commit:
 
 ```bash
-uv run --extra dev ruff check custom_components/magic_areas tests
-uv run --extra test mypy custom_components/magic_areas tests
-uv run --extra test pytest tests -q
+./scripts/validate.sh
 ```
 
-If a change affects room-control behavior, fake-house simulation, scenario
-scripts, Adaptive Lighting coordination, native helper reconciliation, or the
-expected interpretation of simulation results, update
+Use the basic validation path for a quick static pass:
+
+```bash
+./scripts/validate_basic.sh
+```
+
+If a change affects room-control behavior, fake-house simulation expectations,
+Adaptive Lighting coordination, native helper reconciliation, or the expected
+interpretation of simulation results, update
 `docs/contributing/dev-simulation-guidance.md` before committing. Treat that
 documentation update with the same importance as tests, `mypy`, and `ruff`.
 

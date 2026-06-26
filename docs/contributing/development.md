@@ -7,6 +7,13 @@ This guide covers local setup and the repo-standard commands for development.
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/)
 - Git
+- Docker Engine with the Compose plugin for live fake-house validation
+- `code-review-graph` for architecture and impact work
+
+For a new workstation, especially Fedora, use the complete ordered setup in
+`docs/contributing/workstation-bootstrap.md`. It includes restoration of the
+private companion fake-house simulator repository and CRG MCP registration; the
+abbreviated setup below is only for an already provisioned machine.
 
 ## Initial setup
 
@@ -21,16 +28,16 @@ uv sync --extra dev --extra test
 Run these before committing:
 
 ```bash
-uv run --extra dev ruff check custom_components/magic_areas tests
-uv run --extra test mypy custom_components/magic_areas tests
-uv run --extra test pytest tests -q
+uv run --extra dev --extra test ruff check custom_components tests scripts
+uv run --extra dev --extra test mypy custom_components tests scripts
+uv run --extra dev --extra test pytest tests -q
 ```
 
 Also review `docs/contributing/dev-simulation-guidance.md` before committing
-changes that affect room-control behavior, fake-house simulation, scenario
-scripts, Adaptive Lighting coordination, native helper reconciliation, or the
-expected interpretation of simulation results. Updating that guidance is part of
-the quality gate for this class of work, not optional cleanup.
+changes that affect room-control behavior, fake-house simulation expectations,
+Adaptive Lighting coordination, native helper reconciliation, or the expected
+interpretation of simulation results. Updating that guidance is part of the
+quality gate for this class of work, not optional cleanup.
 
 Optional formatting check:
 
@@ -152,7 +159,7 @@ find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 ### Type-check cache reset
 
 ```bash
-uv run mypy --clear-cache custom_components/magic_areas tests
+uv run --extra dev --extra test mypy --clear-cache custom_components tests scripts
 ```
 
 ### Diagram artifacts
@@ -163,8 +170,8 @@ inspect them as needed, but do not commit generated diagram files.
 ## References
 
 - `CLAUDE.md` (repo workflow + standards)
+- `docs/contributing/workstation-bootstrap.md`
 - `docs/contributing/architecture.md`
 - `docs/contributing/dev-simulation-guidance.md`
 - `docs/contributing/runtime-boundaries.md`
 - `docs/contributing/refactoring-guide.md`
-- `docs/contributing/repository-control-contract.md`

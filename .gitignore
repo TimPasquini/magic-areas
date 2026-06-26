@@ -9,17 +9,19 @@ __pycache__
 # misc
 .coverage
 .vscode
-.idea
+/.idea/
+/.claude/
 coverage.xml
 *.swp
 old/*
 tmp/*
 temp/*
-stubs/*
 
 
 # Home Assistant configuration
 config/*
+dev/ha/
 
 # Local diagram artifacts (kept intentionally untracked)
 docs/diagrams/
+/.codex
