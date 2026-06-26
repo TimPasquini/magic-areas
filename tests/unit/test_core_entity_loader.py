@@ -116,11 +116,15 @@ class TestIsMagicAreaEntity:
 class TestShouldExcludeEntity:
     """Tests for should_exclude_entity function."""
 
-    def test_should_exclude_magic_area_entity(self, magic_entity: RegistryEntry) -> None:
+    def test_should_exclude_magic_area_entity(
+        self, magic_entity: RegistryEntry
+    ) -> None:
         """Test that magic area entities are excluded."""
         assert should_exclude_entity(magic_entity, "magic_config_entry") is True
 
-    def test_should_exclude_disabled_entity(self, disabled_entity: RegistryEntry) -> None:
+    def test_should_exclude_disabled_entity(
+        self, disabled_entity: RegistryEntry
+    ) -> None:
         """Test that disabled entities are excluded."""
         assert should_exclude_entity(disabled_entity, "different_config") is True
 
@@ -256,7 +260,9 @@ class TestFilterEntityList:
         assert len(result) == 1
         assert result[0] == mock_entity
 
-    def test_filter_entity_list_exclude_by_list(self, mock_entity: RegistryEntry) -> None:
+    def test_filter_entity_list_exclude_by_list(
+        self, mock_entity: RegistryEntry
+    ) -> None:
         """Test filtering with entity ID exclude list."""
         entity_list = [mock_entity]
         result = filter_entity_list(
@@ -303,4 +309,3 @@ class TestFilterEntityList:
             exclude_list=["sensor.temperature"],
         )
         assert result == []
-

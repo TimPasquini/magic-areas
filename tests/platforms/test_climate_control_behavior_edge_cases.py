@@ -119,7 +119,9 @@ async def test_exception_in_preset_application_is_handled(
     await _enable_control_switch(hass)
 
     area_id = climate_control_config_entry.runtime_data.coordinator.data.area_config.id
-    switch_entity = hass.data["entity_components"]["switch"].get_entity(CLIMATE_SWITCH_ID)
+    switch_entity = hass.data["entity_components"]["switch"].get_entity(
+        CLIMATE_SWITCH_ID
+    )
     assert switch_entity is not None
 
     with patch.object(switch_entity, "apply_preset", side_effect=ValueError("boom")):

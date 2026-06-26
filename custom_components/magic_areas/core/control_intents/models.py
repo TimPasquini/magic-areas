@@ -73,6 +73,7 @@ class RoleTarget:
             return bool(self.label_id or self.label_name)
         return bool(self.target_entity_ids)
 
+
 __all__ = [
     "ControlTargetKind",
     "ControlTargetPrecision",

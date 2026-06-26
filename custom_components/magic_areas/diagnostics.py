@@ -10,7 +10,9 @@ from homeassistant.helpers.entity_registry import async_get as entityreg_async_g
 from custom_components.magic_areas.const import ATTR_STATES
 from custom_components.magic_areas.config_keys.area import CONF_ID, CONF_NAME
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.core.runtime_model import build_presence_tracking_unique_id
+from custom_components.magic_areas.core.runtime_model import (
+    build_presence_tracking_unique_id,
+)
 from custom_components.magic_areas.components import MagicAreasConfigEntry
 
 TO_REDACT = {CONF_ID, CONF_NAME}

@@ -21,11 +21,14 @@ abbreviated setup below is only for an already provisioned machine.
 git clone <your-fork-or-origin>
 cd magic-areas
 uv sync --extra dev --extra test
+uv run --extra dev --extra test pre-commit install --install-hooks
 ```
 
 ## Required quality gates
 
-Run these before committing:
+The local hooks run Ruff fixes/formatting before commit and a full Ruff format
+check before push. Run these manually before committing larger changes or when
+you need the full validation signal:
 
 ```bash
 uv run --extra dev --extra test ruff check custom_components tests scripts
@@ -39,10 +42,10 @@ Adaptive Lighting coordination, native helper reconciliation, or the expected
 interpretation of simulation results. Updating that guidance is part of the
 quality gate for this class of work, not optional cleanup.
 
-Optional formatting check:
+Formatting check:
 
 ```bash
-uv run --extra dev ruff format --check custom_components/magic_areas tests
+uv run --extra dev --extra test ruff format --check custom_components tests
 ```
 
 ## Common test commands

@@ -62,6 +62,7 @@ TURN_ON_ARG_TO_COLOR_MODE = {
     "color_temp_kelvin": ColorMode.COLOR_TEMP,
 }
 
+
 class MockEntity(Entity):
     """Mock Entity class."""
 
@@ -332,6 +333,7 @@ class MockToggleEntity(MockEntity, ToggleEntity):
         if self.hass is not None:
             self.schedule_update_ha_state()
 
+
 class MockLight(MockToggleEntity, LightEntity):
     """Mock light class."""
 
@@ -407,6 +409,7 @@ class MockBinarySensor(MockEntity, BinarySensorEntity):
         """Return the class of this sensor."""
         return self._handle("device_class")
 
+
 class MockFan(MockEntity, FanEntity):
     """Mock Binary Sensor class."""
 
@@ -434,6 +437,7 @@ class MockFan(MockEntity, FanEntity):
         """Turn the entity off."""
         self._state = STATE_OFF
         self.schedule_update_ha_state()
+
 
 class MockSensor(MockEntity, SensorEntity):
     """Mock Sensor class."""
@@ -472,6 +476,7 @@ class MockSensor(MockEntity, SensorEntity):
     def suggested_unit_of_measurement(self) -> str:
         """Return the state class of this sensor."""
         return self._handle("suggested_unit_of_measurement")
+
 
 class MockCover(MockEntity, CoverEntity):
     """Mock Cover class."""
@@ -537,6 +542,7 @@ class MockCover(MockEntity, CoverEntity):
         self._values["state"] = STATE_CLOSED if self.is_closed else STATE_OPEN
         self.schedule_update_ha_state()
 
+
 class MockMediaPlayer(MockEntity, MediaPlayerEntity):
     """Mock Media Player class."""
 
@@ -584,6 +590,7 @@ class MockMediaPlayer(MockEntity, MediaPlayerEntity):
         """Handle stop service calls."""
         self._player_state = MediaPlayerState.IDLE
         self.schedule_update_ha_state()
+
 
 class MockClimate(MockEntity, ClimateEntity):
     """Mock Climate class."""

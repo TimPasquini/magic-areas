@@ -114,7 +114,9 @@ async def setup_entities_media_player_single(
 ) -> list[MockMediaPlayer]:
     """Create multiple mock sensor and set up the system with it."""
 
-    mock_media_player_entities = [MockMediaPlayer(name="media_player_1", unique_id="media_player_1")]
+    mock_media_player_entities = [
+        MockMediaPlayer(name="media_player_1", unique_id="media_player_1")
+    ]
 
     await setup_mock_entities(
         hass, MEDIA_PLAYER_DOMAIN, {DEFAULT_MOCK_AREA: mock_media_player_entities}
@@ -249,11 +251,11 @@ async def test_area_aware_media_player_snapshot_fields(
     assert data is not None
     assert MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER in data.enabled_features
 
-    feature_config = data.feature_configs.get(MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER)
+    feature_config = data.feature_configs.get(
+        MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
+    )
     assert feature_config is not None
-    assert feature_config[CONF_NOTIFICATION_DEVICES] == [
-        "media_player.media_player_1"
-    ]
+    assert feature_config[CONF_NOTIFICATION_DEVICES] == ["media_player.media_player_1"]
     assert feature_config[CONF_NOTIFY_STATES] == [AreaStates.OCCUPIED]
 
     await shutdown_integration(

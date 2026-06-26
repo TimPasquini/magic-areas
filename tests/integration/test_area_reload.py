@@ -1,4 +1,5 @@
 """Test for the logic on automatically reloading areas."""
+
 import logging
 from datetime import datetime
 
@@ -61,7 +62,9 @@ def get_config_entry_by_area_name(hass: HomeAssistant, area_name: str) -> str | 
     return None
 
 
-def get_entry_by_area_name(hass: HomeAssistant, area_name: str) -> MagicAreasData | None:
+def get_entry_by_area_name(
+    hass: HomeAssistant, area_name: str
+) -> MagicAreasData | None:
     """Fetch coordinator snapshot from an area's name."""
     config_entry_id = get_config_entry_by_area_name(hass, area_name)
     if not config_entry_id:

@@ -106,4 +106,5 @@ class HealthFeatureModule(BaseFeatureModule):
             )
         ]
 
+
 __all__ = ["HealthFeatureModule"]

@@ -27,6 +27,7 @@ __all__ = [
     "OptionsFlowHandler",
 ]
 
+
 class ConfigFlow(config_entries.ConfigFlow, ConfigBase, domain=DOMAIN):
     """Handle a config flow for Magic Areas."""
 

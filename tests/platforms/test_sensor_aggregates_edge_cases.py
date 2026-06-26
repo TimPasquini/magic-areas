@@ -47,7 +47,9 @@ async def test_aggregates_not_enough_entities(
         unique_id="motion_sensor_1",
         device_class=BinarySensorDeviceClass.MOTION,
     )
-    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_entity]})
+    await setup_mock_entities(
+        hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_entity]}
+    )
 
     await init_integration_helper(hass, [config_entry])
 
@@ -112,14 +114,14 @@ async def test_aggregates_filtered_device_class(
         device_class=BinarySensorDeviceClass.MOTION,
     )
 
-    await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_motion]})
+    await setup_mock_entities(
+        hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: [mock_motion]}
+    )
 
     await init_integration_helper(hass, [aggregates_filtered_config_entry])
     await hass.async_block_till_done()
 
-    aggregate_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_motion"
-    )
+    aggregate_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_aggregates_{DEFAULT_MOCK_AREA}_aggregate_motion"
     assert hass.states.get(aggregate_id) is None
 
     health_id = (

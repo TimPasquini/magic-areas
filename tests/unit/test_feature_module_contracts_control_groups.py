@@ -8,14 +8,21 @@ from homeassistant.components.cover.const import DOMAIN as COVER_DOMAIN
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
 from homeassistant.components.media_player.const import DOMAIN as MEDIA_PLAYER_DOMAIN
 
-from custom_components.magic_areas.config_keys.area import CONF_CLIMATE_CONTROL_ENTITY_ID
+from custom_components.magic_areas.config_keys.area import (
+    CONF_CLIMATE_CONTROL_ENTITY_ID,
+)
 from custom_components.magic_areas.core.runtime_model import (
     ConfigEntryHelperSurface,
     ManagedSurface,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
-from .feature_module_contracts_testkit import get_module, make_area_config, make_coordinator, make_snapshot
+from .feature_module_contracts_testkit import (
+    get_module,
+    make_area_config,
+    make_coordinator,
+    make_snapshot,
+)
 
 
 def _helper_surfaces(surfaces: list[ManagedSurface]) -> list[ConfigEntryHelperSurface]:
@@ -87,8 +94,12 @@ def test_fan_groups_module_replaces_stale_policy_groups_on_rebuild() -> None:
     )
     updated_snapshot.group_registry = initial_snapshot.group_registry
 
-    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
-    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+    module.build_entities(
+        area_config, make_coordinator(initial_snapshot), initial_snapshot
+    )
+    module.build_entities(
+        area_config, make_coordinator(updated_snapshot), updated_snapshot
+    )
 
     group_ids = {
         group.definition.group_id
@@ -115,7 +126,9 @@ def test_media_player_groups_module_builds_group_and_control_switch() -> None:
     surfaces = module.desired_managed_surfaces(area_config, snapshot)
 
     entity_ids = sorted(entity.entity_id for entity in entities)
-    assert entity_ids == ["switch.magic_areas_media_player_groups_kitchen_media_player_control"]
+    assert entity_ids == [
+        "switch.magic_areas_media_player_groups_kitchen_media_player_control"
+    ]
     assert len(surfaces) == 1
     helper_surfaces = _helper_surfaces(surfaces)
     assert helper_surfaces[0].unique_id == (
@@ -165,8 +178,12 @@ def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
     )
     updated_snapshot.group_registry = initial_snapshot.group_registry
 
-    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
-    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+    module.build_entities(
+        area_config, make_coordinator(initial_snapshot), initial_snapshot
+    )
+    module.build_entities(
+        area_config, make_coordinator(updated_snapshot), updated_snapshot
+    )
 
     group_ids = {
         group.definition.group_id
@@ -174,8 +191,7 @@ def test_media_module_replaces_stale_policy_groups_on_rebuild() -> None:
     }
     assert (
         "magic_areas:entry-1:area-1:media_player_groups:config_entry_helper:"
-        "media_player_group"
-        not in group_ids
+        "media_player_group" not in group_ids
     )
 
 
@@ -249,7 +265,9 @@ def test_presence_hold_module_builds_switch() -> None:
     module = get_module("presence_hold")
     entities = module.build_entities(area_config, coordinator, snapshot)
 
-    assert [entity.entity_id for entity in entities] == ["switch.magic_areas_presence_hold_kitchen"]
+    assert [entity.entity_id for entity in entities] == [
+        "switch.magic_areas_presence_hold_kitchen"
+    ]
 
 
 def test_climate_control_module_builds_switch() -> None:
@@ -258,7 +276,9 @@ def test_climate_control_module_builds_switch() -> None:
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.CLIMATE_CONTROL},
         feature_configs={
-            MagicAreasFeatures.CLIMATE_CONTROL: {CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"}
+            MagicAreasFeatures.CLIMATE_CONTROL: {
+                CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"
+            }
         },
         entities={},
     )
@@ -267,7 +287,9 @@ def test_climate_control_module_builds_switch() -> None:
     module = get_module("climate_control")
     entities = module.build_entities(area_config, coordinator, snapshot)
 
-    assert [entity.entity_id for entity in entities] == ["switch.magic_areas_climate_control_kitchen"]
+    assert [entity.entity_id for entity in entities] == [
+        "switch.magic_areas_climate_control_kitchen"
+    ]
 
 
 def test_climate_control_module_registers_default_control_group() -> None:
@@ -276,7 +298,9 @@ def test_climate_control_module_registers_default_control_group() -> None:
     snapshot = make_snapshot(
         enabled={MagicAreasFeatures.CLIMATE_CONTROL},
         feature_configs={
-            MagicAreasFeatures.CLIMATE_CONTROL: {CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"}
+            MagicAreasFeatures.CLIMATE_CONTROL: {
+                CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"
+            }
         },
         entities={},
     )
@@ -285,7 +309,10 @@ def test_climate_control_module_registers_default_control_group() -> None:
     module.build_entities(area_config, coordinator, snapshot)
 
     groups = snapshot.group_registry.get_for_area(area_config.id)
-    assert any(group.definition.group_id == "climate_control_area-1_climate_control" for group in groups)
+    assert any(
+        group.definition.group_id == "climate_control_area-1_climate_control"
+        for group in groups
+    )
 
 
 def test_climate_module_replaces_stale_policy_groups_on_rebuild() -> None:
@@ -296,7 +323,9 @@ def test_climate_module_replaces_stale_policy_groups_on_rebuild() -> None:
     initial_snapshot = make_snapshot(
         enabled={MagicAreasFeatures.CLIMATE_CONTROL},
         feature_configs={
-            MagicAreasFeatures.CLIMATE_CONTROL: {CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"}
+            MagicAreasFeatures.CLIMATE_CONTROL: {
+                CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.kitchen"
+            }
         },
         entities={},
     )
@@ -307,8 +336,12 @@ def test_climate_module_replaces_stale_policy_groups_on_rebuild() -> None:
     )
     updated_snapshot.group_registry = initial_snapshot.group_registry
 
-    module.build_entities(area_config, make_coordinator(initial_snapshot), initial_snapshot)
-    module.build_entities(area_config, make_coordinator(updated_snapshot), updated_snapshot)
+    module.build_entities(
+        area_config, make_coordinator(initial_snapshot), initial_snapshot
+    )
+    module.build_entities(
+        area_config, make_coordinator(updated_snapshot), updated_snapshot
+    )
 
     group_ids = {
         group.definition.group_id

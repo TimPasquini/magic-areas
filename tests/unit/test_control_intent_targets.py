@@ -242,7 +242,9 @@ def test_resolve_role_target_uses_policy_entity_as_last_compatibility_target(
     assert target.kind is ControlTargetKind.COMPATIBILITY_ENTITY
     assert target.precision is ControlTargetPrecision.COMPATIBILITY
     assert target.source is ControlTargetSource.POLICY_ENTITY
-    assert target.target_entity_ids == ("light.magic_areas_policy_living_room_all_lights",)
+    assert target.target_entity_ids == (
+        "light.magic_areas_policy_living_room_all_lights",
+    )
 
 
 def test_custom_control_label_name_uses_existing_label_convention() -> None:
@@ -268,7 +270,9 @@ def test_resolve_custom_control_target_prefers_reconciled_label_members(
         "fallback_lamp",
     )
     label = lr.async_get(hass).async_create("ma:control:task")
-    entity_registry.async_update_entity(labelled_lamp.entity_id, labels={label.label_id})
+    entity_registry.async_update_entity(
+        labelled_lamp.entity_id, labels={label.label_id}
+    )
 
     target = resolve_custom_control_target(
         hass,

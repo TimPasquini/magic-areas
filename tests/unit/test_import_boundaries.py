@@ -101,15 +101,11 @@ def _assert_allowlist_exact(
     unexpected = sorted(observed - allowlist)
     stale_allowlist_entries = sorted(allowlist - observed)
 
-    assert not unexpected, (
-        unexpected_message
-        + "\n".join(f"{consumer} -> {target}" for consumer, target in unexpected)
+    assert not unexpected, unexpected_message + "\n".join(
+        f"{consumer} -> {target}" for consumer, target in unexpected
     )
-    assert not stale_allowlist_entries, (
-        stale_message
-        + "\n".join(
-            f"{consumer} -> {target}" for consumer, target in stale_allowlist_entries
-        )
+    assert not stale_allowlist_entries, stale_message + "\n".join(
+        f"{consumer} -> {target}" for consumer, target in stale_allowlist_entries
     )
 
 
@@ -254,15 +250,30 @@ _BOUNDARY_RULE_DEFINITIONS: tuple[tuple[str, str, str, set[str] | None], ...] = 
         "runtime_core",
         CORE_PUBLIC_API_SURFACES,
     ),
-    ("helpers internals", "custom_components.magic_areas.helpers", "runtime_helpers", None),
-    ("feature-module internals", FEATURE_MODULES_PREFIX, "runtime_feature_modules", None),
+    (
+        "helpers internals",
+        "custom_components.magic_areas.helpers",
+        "runtime_helpers",
+        None,
+    ),
+    (
+        "feature-module internals",
+        FEATURE_MODULES_PREFIX,
+        "runtime_feature_modules",
+        None,
+    ),
     (
         "feature package internals",
         "custom_components.magic_areas.features",
         "runtime_features",
         FEATURES_PUBLIC_API_SURFACES,
     ),
-    ("schema internals", "custom_components.magic_areas.schemas", "runtime_schemas", None),
+    (
+        "schema internals",
+        "custom_components.magic_areas.schemas",
+        "runtime_schemas",
+        None,
+    ),
     (
         "coordinator internals",
         "custom_components.magic_areas.coordinator",
@@ -275,8 +286,18 @@ _BOUNDARY_RULE_DEFINITIONS: tuple[tuple[str, str, str, set[str] | None], ...] = 
         "runtime_entity_ingestion",
         None,
     ),
-    ("light-group internals", "custom_components.magic_areas.light_groups", "runtime_light_groups", None),
-    ("media-player internals", "custom_components.magic_areas.media_player", "runtime_media_player", None),
+    (
+        "light-group internals",
+        "custom_components.magic_areas.light_groups",
+        "runtime_light_groups",
+        None,
+    ),
+    (
+        "media-player internals",
+        "custom_components.magic_areas.media_player",
+        "runtime_media_player",
+        None,
+    ),
     (
         "config-flow internals",
         "custom_components.magic_areas.config_flows",
@@ -307,18 +328,32 @@ _BOUNDARY_RULE_DEFINITIONS: tuple[tuple[str, str, str, set[str] | None], ...] = 
         "runtime_core_aggregates",
         None,
     ),
-    ("switch internals", "custom_components.magic_areas.switch", "runtime_switch", None),
+    (
+        "switch internals",
+        "custom_components.magic_areas.switch",
+        "runtime_switch",
+        None,
+    ),
     (
         "binary-sensor internals",
         "custom_components.magic_areas.binary_sensor",
         "runtime_binary_sensor",
         None,
     ),
-    ("sensor internals", "custom_components.magic_areas.sensor", "runtime_sensor", None),
+    (
+        "sensor internals",
+        "custom_components.magic_areas.sensor",
+        "runtime_sensor",
+        None,
+    ),
 )
 
 TEST_SIDE_DOOR_RULES: tuple[tuple[str, str, str], ...] = (
-    ("light-group internals", "custom_components.magic_areas.light_groups", "test_light_groups"),
+    (
+        "light-group internals",
+        "custom_components.magic_areas.light_groups",
+        "test_light_groups",
+    ),
     (
         "entity-ingestion internals",
         "custom_components.magic_areas.coordinator.pipeline.entity_ingestion",
@@ -361,7 +396,8 @@ ALLOWLISTS: dict[str, set[tuple[str, str]]] = {
 }
 _UNKNOWN_ALLOWLIST_OVERRIDES = set(ALLOWLIST_OVERRIDES) - ALLOWLIST_KEYS
 assert not _UNKNOWN_ALLOWLIST_OVERRIDES, (
-    "Unknown allowlist override keys: " + ", ".join(sorted(_UNKNOWN_ALLOWLIST_OVERRIDES))
+    "Unknown allowlist override keys: "
+    + ", ".join(sorted(_UNKNOWN_ALLOWLIST_OVERRIDES))
 )
 
 BOUNDARY_RULES: tuple[BoundaryRule, ...] = tuple(
@@ -373,7 +409,6 @@ BOUNDARY_RULES: tuple[BoundaryRule, ...] = tuple(
     )
     for name, prefix, allowlist_key, allowed_targets in _BOUNDARY_RULE_DEFINITIONS
 )
-
 
 
 def _module_name(path: Path) -> str:
@@ -409,11 +444,17 @@ def _collect_side_door_imports(prefix: str) -> set[tuple[str, str]]:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     target = alias.name
-                    if target.startswith(f"{prefix}.") and not consumer.startswith(prefix):
+                    if target.startswith(f"{prefix}.") and not consumer.startswith(
+                        prefix
+                    ):
                         imports.add((consumer, target))
             elif isinstance(node, ast.ImportFrom):
                 target = _resolve_import_target(consumer=consumer, node=node)
-                if target and target.startswith(f"{prefix}.") and not consumer.startswith(prefix):
+                if (
+                    target
+                    and target.startswith(f"{prefix}.")
+                    and not consumer.startswith(prefix)
+                ):
                     imports.add((consumer, target))
 
     return imports
@@ -681,7 +722,9 @@ def test_test_side_door_imports_do_not_expand(
     )
 
 
-@pytest.mark.parametrize("rule", OWNERSHIP_IMPORT_RULES, ids=lambda rule: str(rule.module_path))
+@pytest.mark.parametrize(
+    "rule", OWNERSHIP_IMPORT_RULES, ids=lambda rule: str(rule.module_path)
+)
 def test_central_modules_do_not_import_feature_semantics(
     rule: OwnershipImportRule,
 ) -> None:
@@ -809,9 +852,7 @@ def test_central_facades_do_not_reexport_feature_semantics() -> None:
     assert "build_climate_control_switch_unique_id" not in identity_exports
 
     feature_info_exports = {
-        name
-        for name in vars(feature_info)
-        if not name.startswith("_")
+        name for name in vars(feature_info) if not name.startswith("_")
     }
     leaked_feature_info_builders = sorted(
         name for name in feature_info_exports if name.startswith("build_")

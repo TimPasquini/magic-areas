@@ -86,7 +86,10 @@ def make_snapshot(
     snapshot = MagicMock()
     snapshot.enabled_features = enabled
     snapshot.feature_configs = dict(feature_configs)
-    snapshot.entities = {domain: [dict(entity) for entity in domain_entities] for domain, domain_entities in entities.items()}
+    snapshot.entities = {
+        domain: [dict(entity) for entity in domain_entities]
+        for domain, domain_entities in entities.items()
+    }
     snapshot.magic_entities = {}
     snapshot.entity_references = MagicMock()
     snapshot.group_registry = GroupRegistry()

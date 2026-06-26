@@ -39,6 +39,7 @@ _EXPECTED_ENTITY_LOAD_ERRORS = (
     RuntimeError,
 )
 
+
 async def load_area_entities(
     hass: HomeAssistant,
     area_id: str,
@@ -109,14 +110,10 @@ async def load_area_entities(
     entity_list = _exclude_managed_helper_entities(hass, entity_list)
 
     # Process entity list into domain-grouped format
-    entities_by_domain = await _process_entity_list(
-        hass, entity_list, area_id, logger
-    )
+    entities_by_domain = await _process_entity_list(hass, entity_list, area_id, logger)
 
     # Load magic entities (integration-generated)
-    magic_entities_by_domain = await _load_magic_entities(
-        hass, config_entry_id, logger
-    )
+    magic_entities_by_domain = await _load_magic_entities(hass, config_entry_id, logger)
 
     return entities_by_domain, magic_entities_by_domain
 
@@ -221,9 +218,13 @@ async def _process_entity_list(
             if entity.original_device_class:
                 # Handle both Enum and string device classes
                 if hasattr(entity.original_device_class, "value"):
-                    combined_attributes["device_class"] = str(entity.original_device_class.value)
+                    combined_attributes["device_class"] = str(
+                        entity.original_device_class.value
+                    )
                 else:
-                    combined_attributes["device_class"] = str(entity.original_device_class)
+                    combined_attributes["device_class"] = str(
+                        entity.original_device_class
+                    )
             if entity.unit_of_measurement:
                 combined_attributes["unit_of_measurement"] = entity.unit_of_measurement
 
@@ -279,7 +280,9 @@ async def _load_magic_entities(
 
         latest_state = hass.states.get(entity_id)
         magic_entities_by_domain[entity_domain].append(
-            build_entity_dict(entity_id, latest_state.attributes if latest_state else None)
+            build_entity_dict(
+                entity_id, latest_state.attributes if latest_state else None
+            )
         )
 
     logger.debug("Loaded magic entities: %s", str(magic_entities_by_domain))

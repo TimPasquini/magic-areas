@@ -675,7 +675,9 @@ def test_discovery_candidates_resolve_actual_adaptive_lighting_entity_ids() -> N
     )
 
 
-def test_discovery_candidates_resolve_actual_three_switch_adaptive_lighting_ids() -> None:
+def test_discovery_candidates_resolve_actual_three_switch_adaptive_lighting_ids() -> (
+    None
+):
     """Discovery should support AL versions without a separate main switch entity."""
     sleep_switch = (
         "switch.adaptive_lighting_ma_living_room_overhead_"

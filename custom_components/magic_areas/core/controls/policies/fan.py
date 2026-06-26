@@ -153,7 +153,7 @@ def build_fan_policy(feature_config: Mapping[str, object]) -> FanControlPolicy:
 
 
 def build_fan_control_group_policy(
-    feature_config: Mapping[str, object]
+    feature_config: Mapping[str, object],
 ) -> FanControlGroupPolicy:
     """Build a canonical control-group policy adapter from feature config."""
     return FanControlGroupPolicy(policy=build_fan_policy(feature_config))

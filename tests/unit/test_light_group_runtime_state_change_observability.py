@@ -10,7 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.const import DOMAIN
-from custom_components.magic_areas.light_groups import CommandEchoState, LightPolicySignals
+from custom_components.magic_areas.light_groups import (
+    CommandEchoState,
+    LightPolicySignals,
+)
 from custom_components.magic_areas.core.controls import (
     ControlActionType,
     ControlGroupContext,
@@ -36,7 +39,10 @@ class _FakeHost:
         self._last_control_activity_monotonic: float | None = 97.0
         self._last_direct_light_activity_monotonic: float | None = None
         self._ambient_rise_trend_contaminated = False
-        self._inside_lux_samples: list[tuple[float, float]] = [(70.0, 80.0), (90.0, 95.0)]
+        self._inside_lux_samples: list[tuple[float, float]] = [
+            (70.0, 80.0),
+            (90.0, 95.0),
+        ]
         self._echo_state = CommandEchoState(controlling=True, awaiting_echo=False)
         self.entity_id = "light.magic_areas_light_groups_kitchen_overhead_lights"
         self.name = "Kitchen Overhead"
@@ -120,7 +126,9 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
         lambda: 100.0,
     )
 
-    def _fake_eval_and_exec(**kwargs: object) -> tuple[ControlGroupDecision, bool | None]:
+    def _fake_eval_and_exec(
+        **kwargs: object,
+    ) -> tuple[ControlGroupDecision, bool | None]:
         context = cast(ControlGroupContext, kwargs["context"])
         execute_decision = cast(
             Callable[[ControlGroupDecision], bool | None],
@@ -153,11 +161,14 @@ def test_evaluate_state_change_sets_guard_attributes_and_last_reason(
         "min_on_met": False,
         "inside_bright_met": None,
         "outside_context_ok": True,
-            "attribution_hold_met": False,
-            "ambient_rise_met": True,
-            "ambient_rise_direct_light_blocked": False,
-        }
-    assert host._attr_extra_state_attributes.get("last_policy_reason") == "unit_test_reason"
+        "attribution_hold_met": False,
+        "ambient_rise_met": True,
+        "ambient_rise_direct_light_blocked": False,
+    }
+    assert (
+        host._attr_extra_state_attributes.get("last_policy_reason")
+        == "unit_test_reason"
+    )
 
     context = cast(ControlGroupContext, captured["context"])
     signals = cast(LightPolicySignals, context.signals)

@@ -12,7 +12,10 @@ from custom_components.magic_areas.core.controls import (
     resolve_group_member_entity_id,
 )
 from custom_components.magic_areas.core.controls import GroupRegistry
-from tests.unit.control_group_runtime_testkit import patch_entity_registry, register_group
+from tests.unit.control_group_runtime_testkit import (
+    patch_entity_registry,
+    register_group,
+)
 
 
 def test_resolve_group_entity_id_prefers_group_registry_match(
@@ -98,7 +101,8 @@ def test_resolve_group_entity_id_falls_back_to_native_group_helper(
         resolver=lambda domain, platform, unique_id: (
             "fan.magic_areas_fan_groups_kitchen_fan_group"
             if platform == "group"
-            and unique_id == "magic_areas:entry-1:kitchen:fan_groups:config_entry_helper:fan_group"
+            and unique_id
+            == "magic_areas:entry-1:kitchen:fan_groups:config_entry_helper:fan_group"
             else None
         ),
     )

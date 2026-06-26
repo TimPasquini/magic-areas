@@ -107,7 +107,9 @@ def build_primary_group_entities(
     if source_domain not in entities_by_domain:
         logger.debug("%s: No %s entities for area.", area_config.name, source_domain)
     else:
-        member_ids = [entity["entity_id"] for entity in entities_by_domain[source_domain]]
+        member_ids = [
+            entity["entity_id"] for entity in entities_by_domain[source_domain]
+        ]
         if member_ids:
             try:
                 entities.append(group_entity_factory(member_ids))
@@ -214,7 +216,9 @@ def build_categorized_group_entities(
     *,
     specs: list[CategorizedGroupSpec],
     category_entity_factory: Callable[[CategorizedGroupSpec], TGroupEntity],
-    category_definition_factory: Callable[[CategorizedGroupSpec], ControlGroupDefinition],
+    category_definition_factory: Callable[
+        [CategorizedGroupSpec], ControlGroupDefinition
+    ],
     parent_entity_factory: Callable[[list[str], list[str]], TGroupEntity],
     parent_definition_factory: Callable[[list[str], list[str]], ControlGroupDefinition],
     logger: logging.Logger,
@@ -252,9 +256,7 @@ def build_categorized_group_entities(
 
     try:
         entities.append(parent_entity_factory(parent_members, child_categories))
-        definitions.append(
-            parent_definition_factory(parent_members, child_categories)
-        )
+        definitions.append(parent_definition_factory(parent_members, child_categories))
     except _EXPECTED_GROUP_BUILD_ERRORS as exc:  # pragma: no cover
         logger.exception(
             "Error creating parent %s group: %s",

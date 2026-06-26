@@ -203,14 +203,11 @@ class LightGroupPolicy:
             else (AreaStates.BRIGHT in current_state_set)
         )
         priority_active_and_assigned = (
-            (
-                AreaStates.SLEEP in current_state_set
-                and AreaStates.SLEEP in self.assigned_states
-            )
-            or (
-                AreaStates.ACCENT in current_state_set
-                and AreaStates.ACCENT in self.assigned_states
-            )
+            AreaStates.SLEEP in current_state_set
+            and AreaStates.SLEEP in self.assigned_states
+        ) or (
+            AreaStates.ACCENT in current_state_set
+            and AreaStates.ACCENT in self.assigned_states
         )
         if (
             bright_active
@@ -261,9 +258,13 @@ class LightGroupPolicy:
                     should_track_control=True,
                 )
             if self.brightness_mode == BrightnessMode.ADVISORY.value:
-                return self._decision(LightAction.NOOP, "bright_advisory_inhibit_turn_on")
+                return self._decision(
+                    LightAction.NOOP, "bright_advisory_inhibit_turn_on"
+                )
             if self.brightness_mode == BrightnessMode.ADAPTIVE.value:
-                return self._decision(LightAction.NOOP, "bright_adaptive_inhibit_turn_on")
+                return self._decision(
+                    LightAction.NOOP, "bright_adaptive_inhibit_turn_on"
+                )
             if self.brightness_mode == BrightnessMode.INHIBIT.value:
                 return self._decision(LightAction.NOOP, "bright_active_but_stable")
 
@@ -297,7 +298,8 @@ class LightGroupPolicy:
             return self._decision(LightAction.NOOP, "entering_dark")
 
         out_of_priority = [
-            s for s in LIGHT_PRIORITY_STATES
+            s
+            for s in LIGHT_PRIORITY_STATES
             if s in self.assigned_states and s in lost_states
         ]
         if out_of_priority:
@@ -386,7 +388,9 @@ class LightControlGroupPolicy(ControlGroupPolicy):
     def evaluate(self, context: ControlGroupContext) -> ControlGroupDecision:
         """Evaluate canonical control-group context for light actions."""
         decision = self._evaluate_light_decision(context)
-        mapped = light_action_to_control_group(decision.action, self.light_group_entity_id)
+        mapped = light_action_to_control_group(
+            decision.action, self.light_group_entity_id
+        )
         runtime_effects: tuple[ControlRuntimeEffect, ...] = ()
         if decision.next_control_state is not None:
             runtime_effects = (
@@ -404,7 +408,9 @@ class LightControlGroupPolicy(ControlGroupPolicy):
             runtime_effects=runtime_effects,
         )
 
-    def _evaluate_light_decision(self, context: ControlGroupContext) -> LightGroupDecision:
+    def _evaluate_light_decision(
+        self, context: ControlGroupContext
+    ) -> LightGroupDecision:
         """Map canonical control-group context into light policy evaluation."""
         signals = LightPolicySignals.from_signals(context.signals)
         if signals.fallback_used and signals.is_primary is None:
@@ -474,7 +480,9 @@ def build_light_control_group_policy(
             outside_lux_inside_ratio_min_percent=max(
                 0, int(outside_lux_inside_ratio_min_percent)
             ),
-            bright_attribution_hold_seconds=max(0, int(bright_attribution_hold_seconds)),
+            bright_attribution_hold_seconds=max(
+                0, int(bright_attribution_hold_seconds)
+            ),
             adaptive_require_ambient_rise=bool(adaptive_require_ambient_rise),
             ambient_rise_window_seconds=max(0, int(ambient_rise_window_seconds)),
             ambient_rise_min_delta=max(0, int(ambient_rise_min_delta)),
@@ -531,9 +539,7 @@ class LightPolicySignals:
                 ),
                 min_on_met=min_on_raw if isinstance(min_on_raw, bool) else True,
                 inside_bright_met=(
-                    inside_bright_raw
-                    if isinstance(inside_bright_raw, bool)
-                    else None
+                    inside_bright_raw if isinstance(inside_bright_raw, bool) else None
                 ),
                 outside_context_ok=(
                     outside_context_raw
@@ -546,9 +552,7 @@ class LightPolicySignals:
                     else True
                 ),
                 ambient_rise_met=(
-                    ambient_rise_raw
-                    if isinstance(ambient_rise_raw, bool)
-                    else True
+                    ambient_rise_raw if isinstance(ambient_rise_raw, bool) else True
                 ),
                 fallback_used=(
                     is_primary is None

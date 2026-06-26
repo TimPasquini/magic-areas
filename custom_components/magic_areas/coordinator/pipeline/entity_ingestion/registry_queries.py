@@ -150,9 +150,7 @@ def get_device_entities_for_area(
     for device in devices_in_area:
         device_entities = [
             entity
-            for entity in entity_registry.entities.get_entries_for_device_id(
-                device.id
-            )
+            for entity in entity_registry.entities.get_entries_for_device_id(device.id)
             if not should_exclude_entity(
                 entity,
                 config_entry_id,

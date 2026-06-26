@@ -118,8 +118,7 @@ async def test_lifecycle_helpers_handle_preadded_entry_and_cleanup(
     assert config_entry.state.name == ConfigEntryState.LOADED.name
     assert hass.config_entries.async_entries(DOMAIN) == [config_entry]
     assert (
-        async_get_ar(hass).async_get_area_by_name(MockAreaIds.KITCHEN.value)
-        is not None
+        async_get_ar(hass).async_get_area_by_name(MockAreaIds.KITCHEN.value) is not None
     )
     assert config_entry.runtime_data is not None
 
@@ -217,10 +216,7 @@ async def test_wait_helpers_raise_assertion_errors_on_timeout(
     with pytest.raises(AssertionError, match="Timed out"):
         await wait_until(hass, lambda: False, timeout=0.01)
 
-    assert (
-        hass.bus.async_listeners().get(EVENT_STATE_CHANGED, 0)
-        == listeners_before
-    )
+    assert hass.bus.async_listeners().get(EVENT_STATE_CHANGED, 0) == listeners_before
 
 
 async def test_wait_until_returns_when_predicate_becomes_true(
@@ -288,8 +284,7 @@ async def test_mock_service_supports_schema_response_and_call_logging(
     )
 
     assert (
-        hass.services.supports_response("test", "respond")
-        is SupportsResponse.OPTIONAL
+        hass.services.supports_response("test", "respond") is SupportsResponse.OPTIONAL
     )
     response = await hass.services.async_call(
         "test",
@@ -324,10 +319,7 @@ async def test_mock_service_honors_explicit_response_mode_and_exception(
         raise_exception=RuntimeError("service failed"),
     )
 
-    assert (
-        hass.services.supports_response("test", "fail")
-        is SupportsResponse.NONE
-    )
+    assert hass.services.supports_response("test", "fail") is SupportsResponse.NONE
     with pytest.raises(RuntimeError, match="service failed"):
         await hass.services.async_call(
             "test",

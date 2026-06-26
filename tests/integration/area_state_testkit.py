@@ -87,13 +87,17 @@ async def setup_integration_keep_only_sensor(
 async def setup_secondary_state_sensors(hass: HomeAssistant) -> list[MockBinarySensor]:
     """Create binary sensors for secondary states."""
     sensors = [
-        MockBinarySensor(name="sleep_sensor", unique_id="sleep_sensor", device_class=None),
+        MockBinarySensor(
+            name="sleep_sensor", unique_id="sleep_sensor", device_class=None
+        ),
         MockBinarySensor(
             name="area_light_sensor",
             unique_id="area_light_sensor",
             device_class=BinarySensorDeviceClass.LIGHT,
         ),
-        MockBinarySensor(name="accent_sensor", unique_id="accent_sensor", device_class=None),
+        MockBinarySensor(
+            name="accent_sensor", unique_id="accent_sensor", device_class=None
+        ),
     ]
     await setup_mock_entities(hass, BINARY_SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: sensors})
     return sensors

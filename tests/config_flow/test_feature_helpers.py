@@ -178,7 +178,9 @@ class TestGetConfigurableFeatures:
 
     def test_configurable_features_intersection(self) -> None:
         """Test the relationship between regular and meta configurable features."""
-        regular_features = set(get_configurable_features(MagicMock(is_meta=lambda: False)))
+        regular_features = set(
+            get_configurable_features(MagicMock(is_meta=lambda: False))
+        )
         meta_features = set(get_configurable_features(MagicMock(is_meta=lambda: True)))
 
         # All meta features should be in regular features

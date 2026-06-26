@@ -78,7 +78,10 @@ async def test_presence_hold_feature_setup(hass: HomeAssistant) -> None:
     await init_integration_helper(hass, [config_entry])
 
     runtime_data = config_entry.runtime_data
-    assert MagicAreasFeatures.PRESENCE_HOLD in runtime_data.coordinator.data.enabled_features
+    assert (
+        MagicAreasFeatures.PRESENCE_HOLD
+        in runtime_data.coordinator.data.enabled_features
+    )
 
     await shutdown_integration(hass, [config_entry])
 

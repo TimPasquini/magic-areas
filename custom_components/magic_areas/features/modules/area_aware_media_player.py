@@ -89,7 +89,10 @@ class AreaAwareMediaPlayerFeatureModule(BaseFeatureModule):
             if area_snapshot.is_meta():
                 continue
 
-            if MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER not in snapshot.enabled_features:
+            if (
+                MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER
+                not in snapshot.enabled_features
+            ):
                 continue
 
             if MEDIA_PLAYER_DOMAIN not in entities_by_domain:
@@ -118,6 +121,9 @@ class AreaAwareMediaPlayerFeatureModule(BaseFeatureModule):
             area_config.name,
             list(areas_with_media_players),
         )
-        return [AreaAwareMediaPlayer(area_config, coordinator, areas_with_media_players)]
+        return [
+            AreaAwareMediaPlayer(area_config, coordinator, areas_with_media_players)
+        ]
+
 
 __all__ = ["AreaAwareMediaPlayerFeatureModule"]

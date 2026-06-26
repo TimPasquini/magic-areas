@@ -54,7 +54,9 @@ class AreaWaspInABoxBinarySensor(MagicEntity, BinarySensorEntity):
     ) -> None:
         """Initialize the area presence binary sensor."""
 
-        MagicEntity.__init__(self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN)
+        MagicEntity.__init__(
+            self, area_config, coordinator, domain=BINARY_SENSOR_DOMAIN
+        )
         BinarySensorEntity.__init__(self)
 
         feature_config = self.get_feature_config()

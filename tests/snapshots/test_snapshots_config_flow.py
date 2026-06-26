@@ -8,7 +8,6 @@ These tests capture the structure of:
 - Enabled features structure
 """
 
-
 from typing import cast
 
 import pytest
@@ -231,9 +230,7 @@ async def test_config_keys_snapshot(snapshot: SnapshotAssertion) -> None:
     }
 
     # Convert sets to lists for JSON serialization
-    serializable_keys = {
-        k: sorted(v) for k, v in config_keys.items()
-    }
+    serializable_keys = {k: sorted(v) for k, v in config_keys.items()}
 
     # Snapshot configuration keys
     assert serializable_keys == snapshot

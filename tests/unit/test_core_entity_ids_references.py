@@ -190,7 +190,9 @@ def test_build_entity_references_wasp_in_a_box() -> None:
             ),
         ),
     )
-    assert refs.wasp_in_a_box_sensor == "binary_sensor.magic_areas_wasp_in_a_box_kitchen"
+    assert (
+        refs.wasp_in_a_box_sensor == "binary_sensor.magic_areas_wasp_in_a_box_kitchen"
+    )
 
 
 def test_build_entity_references_ble_tracker() -> None:
@@ -363,7 +365,9 @@ def test_build_entity_references_comprehensive() -> None:
         == "switch.magic_areas_light_groups_kitchen_light_control"
     )
     assert refs.fan_group == "fan.magic_areas_fan_groups_kitchen_fan_group"
-    assert refs.fan_control_switch == "switch.magic_areas_fan_groups_kitchen_fan_control"
+    assert (
+        refs.fan_control_switch == "switch.magic_areas_fan_groups_kitchen_fan_control"
+    )
     assert (
         refs.media_player_group
         == "media_player.magic_areas_media_player_groups_kitchen_media_player_group"
@@ -378,7 +382,9 @@ def test_build_entity_references_comprehensive() -> None:
         refs.cover_control_switch
         == "switch.magic_areas_cover_groups_kitchen_cover_control"
     )
-    assert refs.wasp_in_a_box_sensor == "binary_sensor.magic_areas_wasp_in_a_box_kitchen"
+    assert (
+        refs.wasp_in_a_box_sensor == "binary_sensor.magic_areas_wasp_in_a_box_kitchen"
+    )
     assert (
         refs.ble_tracker_monitor
         == "binary_sensor.magic_areas_ble_trackers_kitchen_ble_tracker_monitor"

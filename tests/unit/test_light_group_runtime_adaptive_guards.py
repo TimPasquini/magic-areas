@@ -24,7 +24,9 @@ class _FakeStates:
 
 
 class _FakeHost:
-    def __init__(self, *, policy_config: dict[str, object], states: dict[str, object]) -> None:
+    def __init__(
+        self, *, policy_config: dict[str, object], states: dict[str, object]
+    ) -> None:
         self.policy = SimpleNamespace(policy=SimpleNamespace(**policy_config))
         self.hass = SimpleNamespace(states=_FakeStates(states))
         self._inside_lux_samples: list[tuple[float, float]] = []
@@ -241,7 +243,9 @@ def test_ambient_rise_met_prefers_managed_trend_helper(
         },
         states={"binary_sensor.managed_ambient_rise": _state("on")},
     )
-    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._ambient_rise_signal_unique_id = (
+        "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    )
     host._inside_lux_samples = [(now - 100, 100.0), (now - 10, 101.0)]
     monkeypatch.setattr(
         "custom_components.magic_areas.light_groups.runtime.er.async_get",
@@ -268,7 +272,9 @@ def test_ambient_rise_met_blocks_contaminated_managed_trend_until_reset(
         },
         states={"binary_sensor.managed_ambient_rise": _state("on")},
     )
-    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._ambient_rise_signal_unique_id = (
+        "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    )
     host._ambient_rise_trend_contaminated = True
     monkeypatch.setattr(
         "custom_components.magic_areas.light_groups.runtime.er.async_get",
@@ -302,7 +308,9 @@ def test_ambient_rise_met_falls_back_when_managed_trend_helper_is_unknown(
         },
         states={"binary_sensor.managed_ambient_rise": _state("unknown")},
     )
-    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._ambient_rise_signal_unique_id = (
+        "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    )
     host._inside_lux_samples = [(now - 100, 100.0), (now - 10, 130.0)]
     monkeypatch.setattr(
         "custom_components.magic_areas.light_groups.runtime.er.async_get",
@@ -328,7 +336,9 @@ def test_adaptive_bright_recheck_polls_managed_ambient_rise(
         },
         states={"binary_sensor.managed_ambient_rise": _state("off")},
     )
-    host._ambient_rise_signal_unique_id = "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    host._ambient_rise_signal_unique_id = (
+        "magic_areas:entry-1:area-1:signals:signal_helper:trend_ambient_rise"
+    )
     monkeypatch.setattr(
         "custom_components.magic_areas.light_groups.runtime.er.async_get",
         lambda _hass: object(),
@@ -338,10 +348,13 @@ def test_adaptive_bright_recheck_polls_managed_ambient_rise(
         lambda *_args, **_kwargs: "binary_sensor.managed_ambient_rise",
     )
 
-    assert _adaptive_bright_recheck_delay(
-        _host(host),
-        "bright_adaptive_waiting_ambient_rise",
-    ) == 1.0
+    assert (
+        _adaptive_bright_recheck_delay(
+            _host(host),
+            "bright_adaptive_waiting_ambient_rise",
+        )
+        == 1.0
+    )
 
 
 def test_direct_light_output_changed_detects_on_and_brightness_increase() -> None:

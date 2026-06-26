@@ -21,9 +21,7 @@ def test_setup_mock_areas_reuses_floors_and_assigns_areas(
     floor_registry = async_get_fr(hass)
     floor = floor_registry.async_get_floor_by_name(MockFloorIds.FIRST_FLOOR.value)
     kitchen = area_registry.async_get_area_by_name(MockAreaIds.KITCHEN.value)
-    living_room = area_registry.async_get_area_by_name(
-        MockAreaIds.LIVING_ROOM.value
-    )
+    living_room = area_registry.async_get_area_by_name(MockAreaIds.LIVING_ROOM.value)
 
     assert floor is not None
     assert kitchen is not None
@@ -61,9 +59,7 @@ def test_setup_mock_areas_is_idempotent_for_repeated_area_sets(
 
     setup_mock_areas(hass, areas)
 
-    assert {
-        area.id for area in area_registry.async_list_areas()
-    } == first_area_ids
+    assert {area.id for area in area_registry.async_list_areas()} == first_area_ids
     assert {
         floor.floor_id for floor in async_get_fr(hass).async_list_floors()
     } == first_floor_ids
@@ -83,12 +79,8 @@ def test_setup_mock_areas_adds_new_areas_without_duplicating_existing_entries(
         [MockAreaIds.KITCHEN, MockAreaIds.LIVING_ROOM],
     )
 
-    updated_kitchen = area_registry.async_get_area_by_name(
-        MockAreaIds.KITCHEN.value
-    )
-    living_room = area_registry.async_get_area_by_name(
-        MockAreaIds.LIVING_ROOM.value
-    )
+    updated_kitchen = area_registry.async_get_area_by_name(MockAreaIds.KITCHEN.value)
+    living_room = area_registry.async_get_area_by_name(MockAreaIds.LIVING_ROOM.value)
     assert updated_kitchen is not None
     assert updated_kitchen.id == kitchen.id
     assert living_room is not None
@@ -107,9 +99,7 @@ def test_setup_mock_areas_reconciles_existing_area_floor(
     setup_mock_areas(hass, [MockAreaIds.KITCHEN])
 
     updated_kitchen = area_registry.async_get_area(kitchen.id)
-    floor = async_get_fr(hass).async_get_floor_by_name(
-        MockFloorIds.FIRST_FLOOR.value
-    )
+    floor = async_get_fr(hass).async_get_floor_by_name(MockFloorIds.FIRST_FLOOR.value)
     assert updated_kitchen is not None
     assert floor is not None
     assert updated_kitchen.floor_id == floor.floor_id

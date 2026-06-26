@@ -67,4 +67,5 @@ def build_presence_sensors(
 
     return sensors
 
+
 __all__ = ["build_presence_sensors"]

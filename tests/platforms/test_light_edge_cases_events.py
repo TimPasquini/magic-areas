@@ -29,9 +29,7 @@ async def test_get_active_lights_missing_entity(
     await init_integration_helper(hass, [light_edge_cases_config_entry])
     await hass.async_start()
     await hass.async_block_till_done()
-    light_group_id = (
-        f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
-    )
+    light_group_id = f"{LIGHT_DOMAIN}.magic_areas_native_light_groups_{DEFAULT_MOCK_AREA}_overhead_lights"
 
     hass.states.async_remove("light.overhead_2")
     await hass.services.async_call(
@@ -59,9 +57,7 @@ async def test_group_state_changed_logic(
     await hass.async_block_till_done()
     target_group = get_light_group_runtime(light_edge_cases_config_entry)
 
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
     hass.states.async_set(
         area_sensor_entity_id, STATE_ON, {ATTR_STATES: [AreaStates.OCCUPIED]}
     )

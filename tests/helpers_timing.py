@@ -105,4 +105,3 @@ def create_area_state_change_event(
         lost_states if lost_states is not None else [],
         current_states if current_states is not None else [],
     )
-

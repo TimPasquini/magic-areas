@@ -34,7 +34,8 @@ def test_production_code_does_not_use_type_ignore() -> None:
     offenders = [
         path.relative_to(REPO_ROOT)
         for path in _python_sources()
-        if "type: ignore" in path.read_text() and path not in ALLOWED_SOURCE_TYPE_IGNORES
+        if "type: ignore" in path.read_text()
+        and path not in ALLOWED_SOURCE_TYPE_IGNORES
     ]
     assert offenders == []
 

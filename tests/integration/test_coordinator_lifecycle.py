@@ -22,7 +22,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_PRESENCE_DEVICE_PLATFORMS,
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
-from custom_components.magic_areas.coordinator import MagicAreasCoordinator, MagicAreasData
+from custom_components.magic_areas.coordinator import (
+    MagicAreasCoordinator,
+    MagicAreasData,
+)
 from custom_components.magic_areas.coordinator.pipeline.lifecycle import (
     MetaAreaReloadManager,
 )
@@ -54,7 +57,9 @@ def _build_area_config(
     )
 
 
-def _build_snapshot(area_config: AreaConfig, *, child_areas: list[str] | None = None) -> MagicAreasData:
+def _build_snapshot(
+    area_config: AreaConfig, *, child_areas: list[str] | None = None
+) -> MagicAreasData:
     """Create a minimal snapshot for coordinator tests."""
     return MagicAreasData(
         entities={},
@@ -93,9 +98,13 @@ async def test_coordinator_builds_snapshot(
         return str(feature)
 
     if isinstance(enabled_features, list):
-        assert data.enabled_features == {_normalize_key(feature) for feature in enabled_features}
+        assert data.enabled_features == {
+            _normalize_key(feature) for feature in enabled_features
+        }
     elif isinstance(enabled_features, dict):
-        assert data.enabled_features == {_normalize_key(feature) for feature in enabled_features}
+        assert data.enabled_features == {
+            _normalize_key(feature) for feature in enabled_features
+        }
         assert data.feature_configs == {
             _normalize_key(feature): values
             for feature, values in enabled_features.items()
@@ -110,12 +119,17 @@ async def test_coordinator_update_failure(
         area_id="test_area",
         hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
     )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
+    coordinator = MagicAreasCoordinator(
+        hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry)
+    )
 
-    with patch(
-        "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
-        side_effect=RuntimeError("boom"),
-    ), pytest.raises(UpdateFailed):
+    with (
+        patch(
+            "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
+            side_effect=RuntimeError("boom"),
+        ),
+        pytest.raises(UpdateFailed),
+    ):
         await coordinator._async_update_data()
 
 
@@ -133,7 +147,9 @@ async def test_coordinator_refresh_updates_snapshot(
         },
     )
 
-    async def _load_entities_first(*args: object, **kwargs: object) -> tuple[dict[str, list[dict[str, object]]], dict[str, list[dict[str, object]]]]:
+    async def _load_entities_first(
+        *args: object, **kwargs: object
+    ) -> tuple[dict[str, list[dict[str, object]]], dict[str, list[dict[str, object]]]]:
         return (
             {
                 BINARY_SENSOR_DOMAIN: [
@@ -153,7 +169,9 @@ async def test_coordinator_refresh_updates_snapshot(
             {"sensor": [{"entity_id": "sensor.magic_one"}]},
         )
 
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
+    coordinator = MagicAreasCoordinator(
+        hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry)
+    )
 
     with patch(
         "custom_components.magic_areas.coordinator.pipeline.snapshot.load_area_entities",
@@ -172,7 +190,9 @@ async def test_coordinator_refresh_updates_snapshot(
 
         async def _load_entities_second(
             *args: object, **kwargs: object
-        ) -> tuple[dict[str, list[dict[str, object]]], dict[str, list[dict[str, object]]]]:
+        ) -> tuple[
+            dict[str, list[dict[str, object]]], dict[str, list[dict[str, object]]]
+        ]:
             return (
                 {
                     BINARY_SENSOR_DOMAIN: [
@@ -203,11 +223,16 @@ async def test_regular_coordinator_dispatches_snapshot_ready_signal(
         area_id="kitchen",
         hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
     )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
+    coordinator = MagicAreasCoordinator(
+        hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry)
+    )
     snapshot = _build_snapshot(area_config)
 
     with (
-        patch("custom_components.magic_areas.coordinator.build_snapshot", return_value=snapshot),
+        patch(
+            "custom_components.magic_areas.coordinator.build_snapshot",
+            return_value=snapshot,
+        ),
         patch("custom_components.magic_areas.coordinator.dispatcher_send") as mock_send,
     ):
         await coordinator.async_refresh()

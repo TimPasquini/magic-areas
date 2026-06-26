@@ -1,6 +1,5 @@
 """Unit tests for core/state_priority.py."""
 
-
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.state_priority import (
     DEFAULT_STATE_PRIORITY,
@@ -35,9 +34,7 @@ class TestGetHighestPriorityState:
             AreaStates.OCCUPIED,
             AreaStates.SLEEP,
         ]  # Reversed from default
-        assert (
-            get_highest_priority_state(states, custom_order) == AreaStates.OCCUPIED
-        )
+        assert get_highest_priority_state(states, custom_order) == AreaStates.OCCUPIED
 
     def test_returns_none_when_no_match(self) -> None:
         """Should return None when no states match priority list."""

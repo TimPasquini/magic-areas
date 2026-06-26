@@ -1,4 +1,5 @@
 """Test for aggregate (group) sensor behavior."""
+
 from typing import cast
 
 import pytest
@@ -135,9 +136,9 @@ async def test_threshold_sensor_light(
     # Ensure threhsold sensor is triggered
     threshold_sensor_state = hass.states.get(threshold_sensor_id)
     assert threshold_sensor_state is not None
-    assert (
-        threshold_sensor_state.state == STATE_ON
-    ), f"Threshold sensor is {threshold_sensor_state.state}, expected {STATE_ON}. Aggregate state: {aggregate_sensor_state.state}"
+    assert threshold_sensor_state.state == STATE_ON, (
+        f"Threshold sensor is {threshold_sensor_state.state}, expected {STATE_ON}. Aggregate state: {aggregate_sensor_state.state}"
+    )
 
     # Reset illuminance sensor values to 0
     for mock_entity in entities_sensor_illuminance_multiple:
@@ -178,11 +179,7 @@ async def test_threshold_snapshot_fields(
 
     feature_config = data.feature_configs.get(MagicAreasFeatures.AGGREGATES)
     assert feature_config is not None
-    assert (
-        feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD] == 600
-    )
-    assert (
-        feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS] == 10
-    )
+    assert feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD] == 600
+    assert feature_config[CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS] == 10
 
     await shutdown_integration(hass, [mock_config_entry])

@@ -117,11 +117,18 @@ def test_feature_config_slice_returns_empty_for_missing_or_invalid() -> None:
 
 def test_climate_control_entity_id_normalization() -> None:
     """Climate entity id helper should normalize invalid values to None."""
-    assert climate_control_config(
-        {CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.office"}
-    ).entity_id == "climate.office"
-    assert climate_control_config({CONF_CLIMATE_CONTROL_ENTITY_ID: ""}).entity_id is None
-    assert climate_control_config({CONF_CLIMATE_CONTROL_ENTITY_ID: 123}).entity_id is None
+    assert (
+        climate_control_config(
+            {CONF_CLIMATE_CONTROL_ENTITY_ID: "climate.office"}
+        ).entity_id
+        == "climate.office"
+    )
+    assert (
+        climate_control_config({CONF_CLIMATE_CONTROL_ENTITY_ID: ""}).entity_id is None
+    )
+    assert (
+        climate_control_config({CONF_CLIMATE_CONTROL_ENTITY_ID: 123}).entity_id is None
+    )
 
 
 def test_climate_preset_helpers_return_string_defaults() -> None:
@@ -140,9 +147,12 @@ def test_fan_groups_config_uses_defaults() -> None:
         fan_groups_config({}).tracked_device_class
         == DEFAULT_FAN_GROUPS_TRACKED_DEVICE_CLASS
     )
-    assert fan_groups_config(
-        {CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: "humidity"}
-    ).tracked_device_class == "humidity"
+    assert (
+        fan_groups_config(
+            {CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS: "humidity"}
+        ).tracked_device_class
+        == "humidity"
+    )
 
 
 def test_presence_hold_config_helper() -> None:
@@ -160,7 +170,9 @@ def test_reload_on_registry_change_helper() -> None:
 def test_ble_tracker_config_helper() -> None:
     """BLE tracker config should return a normalized list."""
     assert ble_tracker_config({}).entities == []
-    assert ble_tracker_config({CONF_BLE_TRACKER_ENTITIES: ["sensor.a", "sensor.b"]}).entities == [
+    assert ble_tracker_config(
+        {CONF_BLE_TRACKER_ENTITIES: ["sensor.a", "sensor.b"]}
+    ).entities == [
         "sensor.a",
         "sensor.b",
     ]
@@ -173,15 +185,18 @@ def test_notify_helpers() -> None:
     assert area_aware_media_player_config(
         {CONF_NOTIFICATION_DEVICES: ["media_player.living_room"]}
     ).notify_devices == ["media_player.living_room"]
-    assert area_aware_media_player_config(
-        {CONF_NOTIFICATION_DEVICES: "media_player.living_room"}
-    ).notify_devices == []
+    assert (
+        area_aware_media_player_config(
+            {CONF_NOTIFICATION_DEVICES: "media_player.living_room"}
+        ).notify_devices
+        == []
+    )
     assert area_aware_media_player_config({}).notify_states == [
         str(state) for state in DEFAULT_NOTIFY_STATES
     ]
-    assert area_aware_media_player_config({CONF_NOTIFY_STATES: ["occupied"]}).notify_states == [
-        "occupied"
-    ]
+    assert area_aware_media_player_config(
+        {CONF_NOTIFY_STATES: ["occupied"]}
+    ).notify_states == ["occupied"]
 
 
 def test_wasp_helpers() -> None:
@@ -189,9 +204,14 @@ def test_wasp_helpers() -> None:
     default_config = wasp_in_a_box_config({})
     assert default_config.delay_seconds == int(DEFAULT_WASP_IN_A_BOX_DELAY)
     assert default_config.timeout_minutes == int(DEFAULT_WASP_IN_A_BOX_WASP_TIMEOUT)
-    assert default_config.device_classes == list(DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES)
+    assert default_config.device_classes == list(
+        DEFAULT_WASP_IN_A_BOX_WASP_DEVICE_CLASSES
+    )
     assert wasp_in_a_box_config({CONF_WASP_IN_A_BOX_DELAY: "30"}).delay_seconds == 30
-    assert wasp_in_a_box_config({CONF_WASP_IN_A_BOX_WASP_TIMEOUT: "4"}).timeout_minutes == 4
+    assert (
+        wasp_in_a_box_config({CONF_WASP_IN_A_BOX_WASP_TIMEOUT: "4"}).timeout_minutes
+        == 4
+    )
     assert wasp_in_a_box_config(
         {CONF_WASP_IN_A_BOX_WASP_DEVICE_CLASSES: ["motion"]}
     ).device_classes == ["motion"]
@@ -218,21 +238,21 @@ def test_presence_platform_and_device_class_helpers() -> None:
     assert presence_device_platforms({}) == [
         str(platform) for platform in DEFAULT_PRESENCE_DEVICE_PLATFORMS
     ]
-    assert presence_device_platforms({CONF_PRESENCE_DEVICE_PLATFORMS: ["binary_sensor"]}) == [
-        "binary_sensor"
-    ]
+    assert presence_device_platforms(
+        {CONF_PRESENCE_DEVICE_PLATFORMS: ["binary_sensor"]}
+    ) == ["binary_sensor"]
     assert presence_sensor_device_classes({}) == []
-    assert presence_sensor_device_classes({CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"]}) == [
-        "motion"
-    ]
+    assert presence_sensor_device_classes(
+        {CONF_PRESENCE_SENSOR_DEVICE_CLASS: ["motion"]}
+    ) == ["motion"]
 
 
 def test_secondary_state_helpers() -> None:
     """Secondary-state helper accessors should return normalized values."""
     assert secondary_states_config({}) == {}
-    assert secondary_states_config({CONF_SECONDARY_STATES: {"sleep_entity": "light.bed"}}) == {
-        "sleep_entity": "light.bed"
-    }
+    assert secondary_states_config(
+        {CONF_SECONDARY_STATES: {"sleep_entity": "light.bed"}}
+    ) == {"sleep_entity": "light.bed"}
     assert keep_only_entities({}) == []
     assert keep_only_entities({CONF_KEEP_ONLY_ENTITIES: ["light.a"]}) == ["light.a"]
     assert area_type({}) is None
@@ -240,9 +260,12 @@ def test_secondary_state_helpers() -> None:
     assert secondary_states_calculation_mode({}) == str(
         DEFAULT_SECONDARY_STATES_CALCULATION_MODE
     )
-    assert secondary_states_calculation_mode(
-        {CONF_SECONDARY_STATES: {CONF_SECONDARY_STATES_CALCULATION_MODE: "last"}}
-    ) == "last"
+    assert (
+        secondary_states_calculation_mode(
+            {CONF_SECONDARY_STATES: {CONF_SECONDARY_STATES_CALCULATION_MODE: "last"}}
+        )
+        == "last"
+    )
 
 
 def test_normalize_custom_control_groups() -> None:

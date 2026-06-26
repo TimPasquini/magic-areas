@@ -14,7 +14,9 @@ from custom_components.magic_areas.features.base import (
     BaseFeatureModule,
     schema_from_default_options,
 )
-from custom_components.magic_areas.features.config.readers import PRESENCE_HOLD_OPTION_KEYS
+from custom_components.magic_areas.features.config.readers import (
+    PRESENCE_HOLD_OPTION_KEYS,
+)
 from custom_components.magic_areas.features.control_builders import (
     build_control_switch_entities,
 )
@@ -57,5 +59,6 @@ class PresenceHoldFeatureModule(BaseFeatureModule):
             logger=_LOGGER,
             switch_label="presence hold switch",
         )
+
 
 __all__ = ["PresenceHoldFeatureModule"]

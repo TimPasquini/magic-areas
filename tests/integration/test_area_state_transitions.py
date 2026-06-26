@@ -1,6 +1,5 @@
 """Integration tests for area-state transitions."""
 
-
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
@@ -30,20 +29,26 @@ async def test_area_primary_state_change(
     )
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     assert_state(area_binary_sensor, STATE_OFF)
-    assert_in_attribute(area_binary_sensor, ATTR_PRESENCE_SENSORS, motion_sensor_entity_id)
+    assert_in_attribute(
+        area_binary_sensor, ATTR_PRESENCE_SENSORS, motion_sensor_entity_id
+    )
     assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.CLEAR)
 
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
     assert_state(hass.states.get(motion_sensor_entity_id), STATE_ON)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
+    )
 
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
     assert_state(hass.states.get(motion_sensor_entity_id), STATE_OFF)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR
+    )
 
 
 async def test_area_secondary_state_change(
@@ -65,7 +70,9 @@ async def test_area_secondary_state_change(
         area_binary_sensor = hass.states.get(area_sensor_entity_id)
         entity_state = hass.states.get(entity_id)
         assert_state(entity_state, STATE_OFF)
-        assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[0], negate=True)
+        assert_in_attribute(
+            area_binary_sensor, ATTR_STATES, state_tuples[0], negate=True
+        )
         if state_tuples[1]:
             assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[1])
 
@@ -76,14 +83,18 @@ async def test_area_secondary_state_change(
         assert_state(entity_state, STATE_ON)
         assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[0])
         if state_tuples[1]:
-            assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[1], negate=True)
+            assert_in_attribute(
+                area_binary_sensor, ATTR_STATES, state_tuples[1], negate=True
+            )
 
         hass.states.async_set(entity_id, STATE_OFF)
         await hass.async_block_till_done()
         area_binary_sensor = hass.states.get(area_sensor_entity_id)
         entity_state = hass.states.get(entity_id)
         assert_state(entity_state, STATE_OFF)
-        assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[0], negate=True)
+        assert_in_attribute(
+            area_binary_sensor, ATTR_STATES, state_tuples[0], negate=True
+        )
         if state_tuples[1]:
             assert_in_attribute(area_binary_sensor, ATTR_STATES, state_tuples[1])
 
@@ -102,33 +113,45 @@ async def test_keep_only_sensors(
 
     area_binary_sensor = hass.states.get(area_sensor_entity_id)
     assert_state(area_binary_sensor, STATE_OFF)
-    assert_in_attribute(area_binary_sensor, ATTR_PRESENCE_SENSORS, motion_sensor_entity_id)
-    assert_in_attribute(area_binary_sensor, ATTR_PRESENCE_SENSORS, flappy_sensor_entity_id)
+    assert_in_attribute(
+        area_binary_sensor, ATTR_PRESENCE_SENSORS, motion_sensor_entity_id
+    )
+    assert_in_attribute(
+        area_binary_sensor, ATTR_PRESENCE_SENSORS, flappy_sensor_entity_id
+    )
     assert_in_attribute(area_binary_sensor, ATTR_STATES, AreaStates.CLEAR)
 
     hass.states.async_set(flappy_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
     assert_state(hass.states.get(flappy_sensor_entity_id), STATE_ON)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR
+    )
 
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
     assert_state(hass.states.get(motion_sensor_entity_id), STATE_ON)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
+    )
 
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
     assert_state(hass.states.get(motion_sensor_entity_id), STATE_OFF)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
+    )
 
     hass.states.async_set(flappy_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
     assert_state(hass.states.get(flappy_sensor_entity_id), STATE_OFF)
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR
+    )
 
 
 async def test_event_filtering(
@@ -137,7 +160,9 @@ async def test_event_filtering(
     _setup_integration_basic: None,
 ) -> None:
     """Area-state events for other areas should be ignored."""
-    async_dispatcher_send(hass, MagicAreasEvents.AREA_STATE_CHANGED, "other_area", ([], [], []))
+    async_dispatcher_send(
+        hass, MagicAreasEvents.AREA_STATE_CHANGED, "other_area", ([], [], [])
+    )
     await hass.async_block_till_done()
 
 
@@ -155,9 +180,13 @@ async def test_presence_does_not_mutate_area_states(
     hass.states.async_set(motion_sensor_entity_id, STATE_ON)
     await hass.async_block_till_done()
     assert_state(hass.states.get(area_sensor_entity_id), STATE_ON)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.OCCUPIED
+    )
 
     hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
     await hass.async_block_till_done()
     assert_state(hass.states.get(area_sensor_entity_id), STATE_OFF)
-    assert_in_attribute(hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR)
+    assert_in_attribute(
+        hass.states.get(area_sensor_entity_id), ATTR_STATES, AreaStates.CLEAR
+    )

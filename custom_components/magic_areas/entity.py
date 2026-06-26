@@ -172,7 +172,9 @@ class MagicEntity(RestoreEntity):
         """
         if not self.feature_id or self._coordinator.data is None:
             return {}
-        return feature_config_slice(self._coordinator.data.feature_configs, self.feature_id)
+        return feature_config_slice(
+            self._coordinator.data.feature_configs, self.feature_id
+        )
 
     @property
     def feature_info(self) -> FeatureInfo:
@@ -233,7 +235,9 @@ class MagicGroupEntity(MagicEntity):
             extra_identifiers: Optional extra unique ID identifiers
 
         """
-        super().__init__(area_config, coordinator, domain, translation_key, extra_identifiers)
+        super().__init__(
+            area_config, coordinator, domain, translation_key, extra_identifiers
+        )
         self._member_entity_ids = member_entity_ids
         self._listener_registry = ListenerRegistry(logger_name=type(self).__module__)
 

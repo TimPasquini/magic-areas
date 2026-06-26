@@ -73,7 +73,9 @@ class FanGroupsFeatureModule(BaseFeatureModule):
     ) -> list[Entity]:
         """Build entities for the fan groups feature."""
         config = fan_groups_config(data.feature_configs)
-        member_ids = [entity["entity_id"] for entity in data.entities.get(FAN_DOMAIN, [])]
+        member_ids = [
+            entity["entity_id"] for entity in data.entities.get(FAN_DOMAIN, [])
+        ]
         definitions = []
         if member_ids:
             definitions.append(
@@ -101,7 +103,9 @@ class FanGroupsFeatureModule(BaseFeatureModule):
         data: MagicAreasData,
     ) -> list[ManagedSurface]:
         """Build desired native HA fan group helper."""
-        member_ids = [entity["entity_id"] for entity in data.entities.get(FAN_DOMAIN, [])]
+        member_ids = [
+            entity["entity_id"] for entity in data.entities.get(FAN_DOMAIN, [])
+        ]
         if not member_ids:
             return []
         title = f"Magic Areas Fan Groups {area_config.name} Fan Group"
@@ -135,5 +139,6 @@ def _fan_group_surface_unique_id(
         surface_kind=ManagedSurfaceKind.CONFIG_ENTRY_HELPER,
         role="fan_group",
     )
+
 
 __all__ = ["FanGroupsFeatureModule"]

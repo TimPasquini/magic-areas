@@ -13,7 +13,9 @@ from homeassistant.helpers.entity_registry import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.magic_areas.config_keys.area import CONF_RELOAD_ON_REGISTRY_CHANGE
+from custom_components.magic_areas.config_keys.area import (
+    CONF_RELOAD_ON_REGISTRY_CHANGE,
+)
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import MagicConfigEntryVersion
 from tests.const import DEFAULT_MOCK_AREA
@@ -47,7 +49,10 @@ async def test_migration_downgrade(
 
     data = get_basic_config_entry_data(DEFAULT_MOCK_AREA)
     mock_config_entry = MockConfigEntry(
-        domain=DOMAIN, data=data, version=3, minor_version=1  # Future version
+        domain=DOMAIN,
+        data=data,
+        version=3,
+        minor_version=1,  # Future version
     )
     mock_config_entry.add_to_hass(hass)
 

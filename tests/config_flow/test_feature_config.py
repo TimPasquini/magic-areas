@@ -157,7 +157,9 @@ async def test_handle_light_groups_preserves_hidden_manage_all_lights_gate() -> 
                     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
                 ),
                 CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL: True,
-                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [CONF_OVERHEAD_LIGHTS],
+                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES: [
+                    CONF_OVERHEAD_LIGHTS
+                ],
             }
         }
     }

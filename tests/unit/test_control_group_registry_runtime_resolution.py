@@ -8,7 +8,10 @@ import pytest
 
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator
 from custom_components.magic_areas.core.runtime_model import AreaConfig
-from custom_components.magic_areas.core.controls import ControlGroupDefinition, GroupRegistry
+from custom_components.magic_areas.core.controls import (
+    ControlGroupDefinition,
+    GroupRegistry,
+)
 from custom_components.magic_areas.switch import (
     FanControlSwitch,
     MediaPlayerControlSwitch,
@@ -88,7 +91,9 @@ async def test_fan_switch_resolves_group_from_registry(
 
     await switch.async_added_to_hass()
 
-    assert switch._fan_group_entity_id == "fan.magic_areas_fan_groups_test_area_fan_group"
+    assert (
+        switch._fan_group_entity_id == "fan.magic_areas_fan_groups_test_area_fan_group"
+    )
 
 
 @pytest.mark.asyncio

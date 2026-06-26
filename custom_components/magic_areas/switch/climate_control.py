@@ -46,6 +46,7 @@ class ClimateControlSwitch(ControlSwitchBase):
     _preset_policy: ClimatePresetPolicy
     climate_entity_id: str | None
     _area_sensor_entity_id: str | None
+
     def __init__(
         self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator"
     ) -> None:

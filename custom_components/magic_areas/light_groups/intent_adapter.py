@@ -177,7 +177,9 @@ def _entities_not_in_membership(
 ) -> tuple[str, ...]:
     """Return target entities outside a membership set."""
     members = set(member_entity_ids)
-    return tuple(entity_id for entity_id in target_entity_ids if entity_id not in members)
+    return tuple(
+        entity_id for entity_id in target_entity_ids if entity_id not in members
+    )
 
 
 __all__ = [

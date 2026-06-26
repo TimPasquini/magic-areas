@@ -23,7 +23,9 @@ from custom_components.magic_areas.enums import MagicAreasFeatures
 from .options_flow_testkit import go_to_step, start_options_flow, submit_step
 
 
-async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEntry) -> None:
+async def test_options_flow(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
     """Area options flow stores core settings and light-group config."""
     config_entry = init_integration
     er = async_get_er(hass)
@@ -80,7 +82,9 @@ async def test_options_flow(hass: HomeAssistant, init_integration: MockConfigEnt
     assert config_entry.options[CONF_CLEAR_TIMEOUT] == 2
     assert config_entry.options[CONF_PRESENCE_DEVICE_PLATFORMS] == ["binary_sensor"]
     assert config_entry.options["secondary_states"][CONF_SLEEP_TIMEOUT] == 3
-    assert config_entry.options[CONF_ENABLED_FEATURES][MagicAreasFeatures.LIGHT_GROUPS] == {
+    assert config_entry.options[CONF_ENABLED_FEATURES][
+        MagicAreasFeatures.LIGHT_GROUPS
+    ] == {
         "brightness_mode": "inhibit",
         CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE: "ignore",
         "overhead_lights": ["light.test_light"],
@@ -129,7 +133,10 @@ async def test_options_flow_custom_control_groups_step(
 
     result = await go_to_step(hass, result, "finish")
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"] == "control.task"
+    assert (
+        config_entry.options[CONF_CUSTOM_CONTROL_GROUPS][0]["group_id"]
+        == "control.task"
+    )
 
 
 async def test_options_flow_custom_control_groups_applies_templates_by_default(
@@ -148,7 +155,9 @@ async def test_options_flow_custom_control_groups_applies_templates_by_default(
     result = await go_to_step(hass, result, "finish")
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
-    group_ids = {group["group_id"] for group in config_entry.options[CONF_CUSTOM_CONTROL_GROUPS]}
+    group_ids = {
+        group["group_id"] for group in config_entry.options[CONF_CUSTOM_CONTROL_GROUPS]
+    }
     assert group_ids == {"control.task", "control.reading", "control.media"}
 
 

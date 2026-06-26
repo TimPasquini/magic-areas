@@ -66,7 +66,10 @@ async def test_options_flow_select_features_then_configure() -> None:
 
     # Patch async_step_show_menu for the handler call
     with patch.object(
-        flow, "async_step_show_menu", new_callable=AsyncMock, return_value={"type": FlowResultType.MENU}
+        flow,
+        "async_step_show_menu",
+        new_callable=AsyncMock,
+        return_value={"type": FlowResultType.MENU},
     ):
         result = await handle_feature_selection(flow, user_input=user_input)
 
@@ -100,9 +103,7 @@ async def test_options_flow_persists_configuration_across_steps() -> None:
     flow.area_options = {"some_existing_option": "value"}
 
     # Add a feature
-    flow.area_options[CONF_ENABLED_FEATURES] = {
-        MagicAreasFeatures.LIGHT_GROUPS: {}
-    }
+    flow.area_options[CONF_ENABLED_FEATURES] = {MagicAreasFeatures.LIGHT_GROUPS: {}}
 
     # Verify options are persisted in the flow object
     original_options = dict(flow.area_options)
@@ -138,7 +139,10 @@ async def test_options_flow_shows_menu_with_feature_conf_options() -> None:
     }
 
     with patch.object(
-        flow, "async_show_menu", new_callable=MagicMock, return_value={"type": FlowResultType.MENU}
+        flow,
+        "async_show_menu",
+        new_callable=MagicMock,
+        return_value={"type": FlowResultType.MENU},
     ) as mock_show_menu:
         await flow.async_step_show_menu()
 
@@ -186,7 +190,10 @@ async def test_options_flow_deselecting_feature_removes_from_options() -> None:
 
     # Patch async_step_show_menu for the handler call
     with patch.object(
-        flow, "async_step_show_menu", new_callable=AsyncMock, return_value={"type": FlowResultType.MENU}
+        flow,
+        "async_step_show_menu",
+        new_callable=AsyncMock,
+        return_value={"type": FlowResultType.MENU},
     ):
         result = await handle_feature_selection(flow, user_input=user_input)
 
@@ -225,6 +232,10 @@ async def test_options_flow_handles_multiple_feature_configurations() -> None:
     # Verify all configurations are stored
     enabled_features = _enabled_features(flow)
     assert len(enabled_features) == 3
-    assert enabled_features[MagicAreasFeatures.LIGHT_GROUPS] == {"some_config": "value1"}
+    assert enabled_features[MagicAreasFeatures.LIGHT_GROUPS] == {
+        "some_config": "value1"
+    }
     assert enabled_features[MagicAreasFeatures.AGGREGATES] == {"other_config": "value2"}
-    assert enabled_features[MagicAreasFeatures.CLIMATE_CONTROL] == {"preset": "occupied"}
+    assert enabled_features[MagicAreasFeatures.CLIMATE_CONTROL] == {
+        "preset": "occupied"
+    }

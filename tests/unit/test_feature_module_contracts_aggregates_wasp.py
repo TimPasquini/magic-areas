@@ -6,8 +6,15 @@ from unittest.mock import MagicMock, patch
 from typing import cast
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
-from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT
+from homeassistant.components.sensor.const import (
+    DOMAIN as SENSOR_DOMAIN,
+    SensorDeviceClass,
+)
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_ENTITY_ID,
+    ATTR_UNIT_OF_MEASUREMENT,
+)
 
 from custom_components.magic_areas.config_keys.area import (
     CONF_AGGREGATES_BINARY_SENSOR_DEVICE_CLASSES,
@@ -128,7 +135,9 @@ def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> Non
 
     assert module_entities == []
     helper_surfaces = _helper_surfaces(surfaces)
-    group_surfaces = [surface for surface in helper_surfaces if surface.domain == "group"]
+    group_surfaces = [
+        surface for surface in helper_surfaces if surface.domain == "group"
+    ]
     assert {surface.options["group_type"] for surface in group_surfaces} == {
         BINARY_SENSOR_DOMAIN,
         SENSOR_DOMAIN,
@@ -152,8 +161,7 @@ def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> Non
         surface for surface in helper_surfaces if surface.domain == "threshold"
     )
     assert threshold_surface.unique_id == (
-        "magic_areas:entry-1:area-1:threshold:config_entry_helper:"
-        "threshold_light"
+        "magic_areas:entry-1:area-1:threshold:config_entry_helper:threshold_light"
     )
     assert threshold_surface.title == "Magic Areas Threshold Kitchen Threshold Light"
     assert threshold_surface.options["entity_id"] == (
@@ -272,7 +280,9 @@ def test_aggregates_module_registers_group_registry_definitions() -> None:
     )
 
 
-def test_aggregates_module_registers_health_definition_without_creating_health_aggregate_entity() -> None:
+def test_aggregates_module_registers_health_definition_without_creating_health_aggregate_entity() -> (
+    None
+):
     """Aggregates module registers health definitions without creating health aggregate entities."""
     area_config = make_area_config()
     entities_by_domain = {
@@ -305,7 +315,8 @@ def test_aggregates_module_registers_health_definition_without_creating_health_a
 
     _, kwargs = register_defs.call_args
     assert any(
-        definition.domain == BINARY_SENSOR_DOMAIN and definition.device_class == "problem"
+        definition.domain == BINARY_SENSOR_DOMAIN
+        and definition.device_class == "problem"
         for definition in kwargs["definitions"]
     )
     assert all(
@@ -365,8 +376,12 @@ def test_aggregates_module_does_not_attach_listeners() -> None:
     module = get_module("aggregates")
 
     with (
-        patch("homeassistant.helpers.dispatcher.async_dispatcher_connect") as dispatcher_connect,
-        patch("homeassistant.helpers.event.async_track_state_change_event") as track_state_change,
+        patch(
+            "homeassistant.helpers.dispatcher.async_dispatcher_connect"
+        ) as dispatcher_connect,
+        patch(
+            "homeassistant.helpers.event.async_track_state_change_event"
+        ) as track_state_change,
     ):
         module.attach_listeners([], MagicMock())
 
@@ -379,8 +394,12 @@ def test_wasp_module_does_not_attach_listeners() -> None:
     module = get_module("wasp_in_a_box")
 
     with (
-        patch("homeassistant.helpers.dispatcher.async_dispatcher_connect") as dispatcher_connect,
-        patch("homeassistant.helpers.event.async_track_state_change_event") as track_state_change,
+        patch(
+            "homeassistant.helpers.dispatcher.async_dispatcher_connect"
+        ) as dispatcher_connect,
+        patch(
+            "homeassistant.helpers.event.async_track_state_change_event"
+        ) as track_state_change,
     ):
         module.attach_listeners([], MagicMock())
 

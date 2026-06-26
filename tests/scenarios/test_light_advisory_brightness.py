@@ -10,7 +10,9 @@ from tests.scenarios.light_scenario_testkit import (
 )
 
 
-async def _ready_advisory_room(hass: HomeAssistant, inside_bright: str) -> OneRoomLightScenario:
+async def _ready_advisory_room(
+    hass: HomeAssistant, inside_bright: str
+) -> OneRoomLightScenario:
     """Set up an advisory room with light control enabled and a brightness state."""
     scenario = await setup_one_room_advisory_light_scenario(hass)
     await scenario.enable_light_control()

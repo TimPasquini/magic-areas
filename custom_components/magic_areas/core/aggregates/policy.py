@@ -57,7 +57,9 @@ class AggregateSelectionPolicy(Protocol):
     ) -> list[AggregateDefinition]:
         """Return all aggregate definitions for the given context."""
 
-    def sensor_specs(self, context: AggregatePolicyContext) -> list[SensorAggregateSpec]:
+    def sensor_specs(
+        self, context: AggregatePolicyContext
+    ) -> list[SensorAggregateSpec]:
         """Return sensor aggregate specs for the given context."""
 
     def binary_sensor_specs(
@@ -65,7 +67,9 @@ class AggregateSelectionPolicy(Protocol):
     ) -> list[BinarySensorAggregateSpec]:
         """Return binary-sensor aggregate specs for the given context."""
 
-    def health_spec(self, context: AggregatePolicyContext) -> BinarySensorAggregateSpec | None:
+    def health_spec(
+        self, context: AggregatePolicyContext
+    ) -> BinarySensorAggregateSpec | None:
         """Return health aggregate spec for the given context."""
 
 
@@ -110,7 +114,9 @@ class DefaultAggregateSelectionPolicy:
 
         return definitions
 
-    def sensor_specs(self, context: AggregatePolicyContext) -> list[SensorAggregateSpec]:
+    def sensor_specs(
+        self, context: AggregatePolicyContext
+    ) -> list[SensorAggregateSpec]:
         """Return sensor aggregate specs from current selection logic."""
         return build_sensor_aggregates(
             entities_by_domain=context.entities_by_domain,
@@ -128,7 +134,9 @@ class DefaultAggregateSelectionPolicy:
             enabled_features=context.enabled_features,
         )
 
-    def health_spec(self, context: AggregatePolicyContext) -> BinarySensorAggregateSpec | None:
+    def health_spec(
+        self, context: AggregatePolicyContext
+    ) -> BinarySensorAggregateSpec | None:
         """Return health aggregate spec from current selection logic."""
         return build_health_sensor_spec(
             entities_by_domain=context.entities_by_domain,

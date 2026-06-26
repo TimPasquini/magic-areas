@@ -4,7 +4,6 @@ Tests entity creation results including light groups, binary sensors,
 and aggregated sensors using snapshots to validate structure.
 """
 
-
 import pytest
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
@@ -12,7 +11,6 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from syrupy import SnapshotAssertion
-
 
 
 @pytest.mark.asyncio
@@ -73,9 +71,7 @@ async def test_binary_sensor_structure_snapshot(
     }
 
     # Check for magic binary sensors
-    magic_binary_sensors = coordinator.data.magic_entities.get(
-        BINARY_SENSOR_DOMAIN, []
-    )
+    magic_binary_sensors = coordinator.data.magic_entities.get(BINARY_SENSOR_DOMAIN, [])
     binary_sensor_snapshot["magic_binary_sensor_count"] = len(magic_binary_sensors)
 
     # Snapshot binary sensor structure
@@ -236,8 +232,11 @@ async def test_magic_sensor_structure_snapshot(
 
     # Create magic sensor structure snapshot
     magic_sensor_snapshot = {
-        "magic_sensor_count": len(coordinator.data.magic_entities.get(SENSOR_DOMAIN, [])),
-        "has_magic_sensors": len(coordinator.data.magic_entities.get(SENSOR_DOMAIN, [])) > 0,
+        "magic_sensor_count": len(
+            coordinator.data.magic_entities.get(SENSOR_DOMAIN, [])
+        ),
+        "has_magic_sensors": len(coordinator.data.magic_entities.get(SENSOR_DOMAIN, []))
+        > 0,
         "sensor_count": len(coordinator.data.entities.get(SENSOR_DOMAIN, [])),
     }
 

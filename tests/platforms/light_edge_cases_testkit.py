@@ -50,7 +50,10 @@ def mock_config_entry_light_edge_cases() -> MockConfigEntry:
             CONF_ENABLED_FEATURES: {
                 MagicAreasFeatures.LIGHT_GROUPS: {
                     CONF_OVERHEAD_LIGHTS: ["light.overhead_1", "light.overhead_2"],
-                    CONF_OVERHEAD_LIGHTS_STATES: [AreaStates.OCCUPIED, AreaStates.BRIGHT],
+                    CONF_OVERHEAD_LIGHTS_STATES: [
+                        AreaStates.OCCUPIED,
+                        AreaStates.BRIGHT,
+                    ],
                     CONF_OVERHEAD_LIGHTS_ACT_ON: [
                         LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
                         LIGHT_GROUP_ACT_ON_STATE_CHANGE,

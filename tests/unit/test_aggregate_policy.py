@@ -134,7 +134,10 @@ def test_default_policy_returns_unified_aggregate_definitions() -> None:
     definitions = policy.aggregate_definitions(context)
     assert len(definitions) == 3
 
-    by_key = {(definition.domain, definition.device_class): definition for definition in definitions}
+    by_key = {
+        (definition.domain, definition.device_class): definition
+        for definition in definitions
+    }
     sensor_def = by_key[("sensor", "temperature")]
     assert sensor_def.unit_of_measurement == "C"
     assert sensor_def.kind is AggregateKind.STANDARD

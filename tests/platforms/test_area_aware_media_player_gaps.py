@@ -77,9 +77,7 @@ async def test_no_media_players_skips_service_call(
     area_sensor_id = (
         f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_test_kitchen_area_state"
     )
-    hass.states.async_set(
-        area_sensor_id, STATE_ON, {ATTR_STATES: ["occupied"]}
-    )
+    hass.states.async_set(area_sensor_id, STATE_ON, {ATTR_STATES: ["occupied"]})
     await hass.async_block_till_done()
 
     # Mock _resolve_area_state_sensor to return the sensor entity

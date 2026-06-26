@@ -74,9 +74,7 @@ def test_apply_state_projection_updates_cached_state_and_attributes() -> None:
 
     assert entity._current_states == [AreaStates.OCCUPIED.value]
     assert entity._attr_is_on is True
-    assert entity._attr_extra_state_attributes["states"] == [
-        AreaStates.OCCUPIED.value
-    ]
+    assert entity._attr_extra_state_attributes["states"] == [AreaStates.OCCUPIED.value]
     assert entity._attr_extra_state_attributes["active_states"] == "Occupied"
     assert entity._attr_extra_state_attributes["state_occupied"] == "on"
     assert entity._attr_extra_state_attributes["state_sleep"] == "off"

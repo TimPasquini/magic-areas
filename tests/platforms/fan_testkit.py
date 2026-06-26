@@ -4,7 +4,10 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from homeassistant.components.fan import DOMAIN as FAN_DOMAIN
-from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
+from homeassistant.components.sensor.const import (
+    DOMAIN as SENSOR_DOMAIN,
+    SensorDeviceClass,
+)
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -63,7 +66,9 @@ async def setup_integration_fan_groups(
 @pytest.fixture(name="entities_fan_multiple")
 async def setup_entities_fan_multiple(hass: HomeAssistant) -> list[MockFan]:
     """Create multiple mock fans and set up the system with them."""
-    mock_fan_entities = [MockFan(name=f"mock_fan_{i}", unique_id=f"unique_fan_{i}") for i in range(3)]
+    mock_fan_entities = [
+        MockFan(name=f"mock_fan_{i}", unique_id=f"unique_fan_{i}") for i in range(3)
+    ]
     await setup_mock_entities(hass, FAN_DOMAIN, {DEFAULT_MOCK_AREA: mock_fan_entities})
     return mock_fan_entities
 

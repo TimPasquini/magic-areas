@@ -138,10 +138,7 @@ async def test_coordinator_internal_area_lifecycle(
 
     # PHASE 8 CHECKPOINT: Verify that the area field was successfully removed
     # After Phase 8A, MagicArea should NOT be in the public snapshot API
-    has_area = (
-        hasattr(snapshot, "area")
-        and getattr(snapshot, "area", None) is not None
-    )
+    has_area = hasattr(snapshot, "area") and getattr(snapshot, "area", None) is not None
     assert not has_area, (
         "PHASE 8 FAILED: area field still exists in snapshot. "
         "It should have been removed in Phase 8A."

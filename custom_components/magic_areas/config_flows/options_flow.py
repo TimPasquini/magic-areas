@@ -89,9 +89,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         self._coordinator_data = coordinator_data
 
         area_name = self._area_config.name if self._area_config else "Unknown"
-        _LOGGER.debug(
-            "OptionsFlow: Initializing options flow for area %s", area_name
-        )
+        _LOGGER.debug("OptionsFlow: Initializing options flow for area %s", area_name)
         _LOGGER.debug(
             "OptionsFlow: Options in config entry for area %s: %s",
             area_name,
@@ -118,12 +116,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow, ConfigBase):
         ]
         self.all_illuminance_entities = entity_collections["all_illuminance_entities"]
 
-        area_schema = META_AREA_SCHEMA if (self._area_config and self._area_config.is_meta()) else REGULAR_AREA_SCHEMA
+        area_schema = (
+            META_AREA_SCHEMA
+            if (self._area_config and self._area_config.is_meta())
+            else REGULAR_AREA_SCHEMA
+        )
         self.area_options = area_schema(dict(self.config_entry.options))
 
-        _LOGGER.debug(
-            "%s: Loaded area options: %s", area_name, str(self.area_options)
-        )
+        _LOGGER.debug("%s: Loaded area options: %s", area_name, str(self.area_options))
         # noinspection PyTypeChecker
         return await self.async_step_show_menu()
 

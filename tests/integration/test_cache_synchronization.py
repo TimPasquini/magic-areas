@@ -37,13 +37,13 @@ async def test_attr_is_on_and_states_stay_in_sync(
     must be updated together to avoid stale reads.
     """
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    )
     await init_integration_helper(hass, [config_entry])
 
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
-    area_sensor_entity_id = (
-        f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
-    )
+    area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{DEFAULT_MOCK_AREA}_area_state"
 
     # Initial state: OFF with CLEAR
     area_state = hass.states.get(area_sensor_entity_id)
@@ -101,7 +101,9 @@ async def test_event_payload_prevents_stale_reads(
     machine between event dispatch and entity update.
     """
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA))
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=get_basic_config_entry_data(DEFAULT_MOCK_AREA)
+    )
     await init_integration_helper(hass, [config_entry])
 
     motion_sensor_entity_id = entities_binary_sensor_motion_one[0].entity_id
@@ -113,12 +115,14 @@ async def test_event_payload_prevents_stale_reads(
     ) -> None:
         """Capture the event payload states."""
         new_states, lost_states, current_states = states_tuple
-        received_states.append({
-            "area_id": area_id,
-            "new": new_states,
-            "lost": lost_states,
-            "current": current_states,
-        })
+        received_states.append(
+            {
+                "area_id": area_id,
+                "new": new_states,
+                "lost": lost_states,
+                "current": current_states,
+            }
+        )
 
     from homeassistant.helpers.dispatcher import async_dispatcher_connect
     from custom_components.magic_areas.enums import MagicAreasEvents

@@ -944,9 +944,13 @@ def attach_registry_listeners(
 
     entity_filter = make_entity_registry_filter(hass, area_config.id)
     tracked_listeners.append(
-        hass.bus.async_listen(EVENT_ENTITY_REGISTRY_UPDATED, _handle_registry, entity_filter)
+        hass.bus.async_listen(
+            EVENT_ENTITY_REGISTRY_UPDATED, _handle_registry, entity_filter
+        )
     )
     device_filter = make_device_registry_filter(hass, area_config.id)
     tracked_listeners.append(
-        hass.bus.async_listen(EVENT_DEVICE_REGISTRY_UPDATED, _handle_registry, device_filter)
+        hass.bus.async_listen(
+            EVENT_DEVICE_REGISTRY_UPDATED, _handle_registry, device_filter
+        )
     )

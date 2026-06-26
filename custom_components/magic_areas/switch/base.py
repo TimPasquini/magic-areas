@@ -21,7 +21,9 @@ from custom_components.magic_areas.core.controls import (
     resolve_group_member_entity_id_by_metadata,
 )
 from custom_components.magic_areas.core.runtime_model import GroupMetadataKey, GroupRole
-from custom_components.magic_areas.core.runtime_model import build_presence_tracking_unique_id
+from custom_components.magic_areas.core.runtime_model import (
+    build_presence_tracking_unique_id,
+)
 from custom_components.magic_areas.core.listener_registry import ListenerRegistry
 from custom_components.magic_areas.enums import MagicAreasEvents
 
@@ -90,7 +92,10 @@ class ResettableSwitchBase(SwitchBase):
     _listener_registry: ListenerRegistry
 
     def __init__(
-        self, area_config: "AreaConfig", coordinator: "MagicAreasCoordinator", timeout: int = 0
+        self,
+        area_config: "AreaConfig",
+        coordinator: "MagicAreasCoordinator",
+        timeout: int = 0,
     ) -> None:
         """Initialize the switch."""
         super().__init__(area_config, coordinator)
@@ -260,7 +265,9 @@ class ControlSwitchBase(SwitchBase):
             return self._coordinator.data.group_registry
         return None
 
-    def _resolve_entity_id_by_unique_id(self, domain: str, unique_id: str) -> str | None:
+    def _resolve_entity_id_by_unique_id(
+        self, domain: str, unique_id: str
+    ) -> str | None:
         """Resolve entity_id for the integration domain by unique_id."""
         from custom_components.magic_areas.const import DOMAIN
 
@@ -279,7 +286,9 @@ class ControlSwitchBase(SwitchBase):
             build_presence_tracking_unique_id(area_id=self._area_id),
         )
 
-    def _resolve_primary_group_entity_id(self, *, policy_id: str, domain: str) -> str | None:
+    def _resolve_primary_group_entity_id(
+        self, *, policy_id: str, domain: str
+    ) -> str | None:
         """Resolve the primary control-group entity for the area/policy/domain."""
         group_registry = self._group_registry()
         if group_registry is None:

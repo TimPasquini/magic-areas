@@ -17,7 +17,9 @@ _LOGGER = logging.getLogger(__name__)
 
 async def test_meta_area_listeners_track_child_presence_sensors(
     hass: HomeAssistant,
-    entities_binary_sensor_motion_all_areas_with_meta: dict[MockAreaIds, list[MockBinarySensor]],
+    entities_binary_sensor_motion_all_areas_with_meta: dict[
+        MockAreaIds, list[MockBinarySensor]
+    ],
     init_integration_all_areas: list[MockConfigEntry],
 ) -> None:
     """Test that meta areas properly track child presence sensors.
@@ -72,7 +74,9 @@ async def test_meta_area_listeners_track_child_presence_sensors(
 
 async def test_meta_area_handles_multiple_child_state_changes(
     hass: HomeAssistant,
-    entities_binary_sensor_motion_all_areas_with_meta: dict[MockAreaIds, list[MockBinarySensor]],
+    entities_binary_sensor_motion_all_areas_with_meta: dict[
+        MockAreaIds, list[MockBinarySensor]
+    ],
     init_integration_all_areas: list[MockConfigEntry],
 ) -> None:
     """Test that meta areas correctly aggregate multiple child areas.

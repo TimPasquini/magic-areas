@@ -44,7 +44,10 @@ def test_register_area_and_group_state_listeners_tracks_two_listeners(
     )
 
     assert track_listener.call_count == 2
-    assert track_listener.call_args_list[0].args == (area_remove, "area_state_dispatcher")
+    assert track_listener.call_args_list[0].args == (
+        area_remove,
+        "area_state_dispatcher",
+    )
     assert track_listener.call_args_list[1].args == (group_remove, "group_state_change")
 
 
@@ -53,7 +56,9 @@ def test_read_area_presence_states_returns_states_from_presence_sensor(
 ) -> None:
     """Presence reader should return normalized area states from sensor attributes."""
     fake_registry = SimpleNamespace(
-        async_get_entity_id=lambda domain, platform, unique_id: "binary_sensor.test_presence"
+        async_get_entity_id=lambda domain,
+        platform,
+        unique_id: "binary_sensor.test_presence"
     )
     fake_states = SimpleNamespace(
         get=lambda entity_id: SimpleNamespace(

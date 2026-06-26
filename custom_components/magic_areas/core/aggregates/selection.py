@@ -45,6 +45,7 @@ class BinarySensorAggregateSpec:
     device_class: str
     entity_ids: list[str]
 
+
 def _is_valid_value(value: str | None) -> bool:
     """Return True when the attribute value is usable for aggregate selection."""
     if not value:

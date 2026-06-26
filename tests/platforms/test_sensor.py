@@ -95,4 +95,3 @@ async def test_sensor_setup_missing_attributes(
     # Verify no other aggregates (implicit by ID check above, but logic ensures skipped entities don't crash)
 
     await shutdown_integration(hass, [sensor_config_entry])
-

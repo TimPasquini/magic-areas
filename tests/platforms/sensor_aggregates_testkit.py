@@ -10,7 +10,10 @@ from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
-from homeassistant.components.sensor.const import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
+from homeassistant.components.sensor.const import (
+    DOMAIN as SENSOR_DOMAIN,
+    SensorDeviceClass,
+)
 from homeassistant.const import UnitOfElectricCurrent, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -109,7 +112,9 @@ async def setup_entities_sensor_temperature_multiple(
                 device_class=SensorDeviceClass.TEMPERATURE,
                 native_unit_of_measurement=UnitOfTemperature.CELSIUS,
                 unit_of_measurement=UnitOfTemperature.CELSIUS,
-                extra_state_attributes={"unit_of_measurement": UnitOfTemperature.CELSIUS},
+                extra_state_attributes={
+                    "unit_of_measurement": UnitOfTemperature.CELSIUS
+                },
             )
         )
     await setup_mock_entities(hass, SENSOR_DOMAIN, {DEFAULT_MOCK_AREA: entities})

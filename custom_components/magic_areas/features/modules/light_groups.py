@@ -401,10 +401,7 @@ def _light_group_surface(
 ) -> ConfigEntryHelperSurface:
     """Build one native HA light group helper surface."""
     role_label = str(category).replace("_", " ").title()
-    title = (
-        f"Magic Areas Native Light Groups {area_config.name} "
-        f"{role_label}"
-    )
+    title = f"Magic Areas Native Light Groups {area_config.name} {role_label}"
     return ConfigEntryHelperSurface(
         unique_id=_light_group_surface_unique_id(
             area_config=area_config,

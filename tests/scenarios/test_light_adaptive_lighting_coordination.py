@@ -81,8 +81,7 @@ async def test_sleep_and_accent_states_coordinate_adaptive_lighting_switches(
     await hass.async_block_till_done()
 
     assert [
-        (intent.service, intent.data.get("entity_id"))
-        for intent in captured_intents
+        (intent.service, intent.data.get("entity_id")) for intent in captured_intents
     ] == [
         (
             SERVICE_TURN_ON,
@@ -133,8 +132,7 @@ async def test_lost_sleep_and_accent_states_restore_adaptive_lighting_switches(
     await hass.async_block_till_done()
 
     assert [
-        (intent.service, intent.data.get("entity_id"))
-        for intent in captured_intents
+        (intent.service, intent.data.get("entity_id")) for intent in captured_intents
     ] == [
         (
             SERVICE_TURN_OFF,

@@ -267,7 +267,9 @@ async def test_gather_all_entities_includes_registry_entries_without_state(
     )
     await hass.async_block_till_done()
 
-    gatherer = ConfigFlowEntityGatherer(hass, entities_by_domain={}, config_entry_options={})
+    gatherer = ConfigFlowEntityGatherer(
+        hass, entities_by_domain={}, config_entry_options={}
+    )
     all_entities = gatherer.gather_all_entities()
 
     assert "sensor.registry_only_sensor" in all_entities

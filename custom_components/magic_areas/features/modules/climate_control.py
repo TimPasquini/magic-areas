@@ -132,4 +132,5 @@ class ClimateControlFeatureModule(BaseFeatureModule):
             )
             return []
 
+
 __all__ = ["ClimateControlFeatureModule"]

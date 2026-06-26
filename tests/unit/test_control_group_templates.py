@@ -1,6 +1,8 @@
 """Tests for starter custom control-group templates."""
 
-from custom_components.magic_areas.core.controls import get_custom_control_group_templates
+from custom_components.magic_areas.core.controls import (
+    get_custom_control_group_templates,
+)
 
 
 def test_get_custom_control_group_templates_returns_expected_groups() -> None:

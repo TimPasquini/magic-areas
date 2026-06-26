@@ -107,7 +107,9 @@ async def test_open_box_cancels_timer(
 
     fired_callback: Callable[[object], object] | None = None
 
-    def capture_callback(_hass_obj: object, _delay: object, callback: object) -> Callable[[], None]:
+    def capture_callback(
+        _hass_obj: object, _delay: object, callback: object
+    ) -> Callable[[], None]:
         nonlocal fired_callback
         if callable(callback):
             fired_callback = callback

@@ -5,7 +5,6 @@ presence sensor configuration, and feature enabling. Tests verify that the
 coordinator correctly structures data for platforms.
 """
 
-
 import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry

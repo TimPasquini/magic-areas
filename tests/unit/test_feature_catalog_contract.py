@@ -23,4 +23,7 @@ def test_default_registry_features_match_catalog_order() -> None:
 def test_registry_feature_info_comes_from_catalog() -> None:
     """Registry should expose the same metadata instances as catalog."""
     for feature in FEATURE_REGISTRY.all_features():
-        assert FEATURE_REGISTRY.feature_info_for(feature) is FEATURE_INFO_BY_FEATURE[feature]
+        assert (
+            FEATURE_REGISTRY.feature_info_for(feature)
+            is FEATURE_INFO_BY_FEATURE[feature]
+        )
