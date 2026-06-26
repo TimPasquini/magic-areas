@@ -2,8 +2,9 @@
 
 from datetime import UTC, datetime
 from enum import Enum
+from collections.abc import Callable
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +23,9 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_PRESENCE_SENSOR_DEVICE_CLASS,
 )
 from custom_components.magic_areas.coordinator import MagicAreasCoordinator, MagicAreasData
+from custom_components.magic_areas.coordinator.pipeline.lifecycle import (
+    MetaAreaReloadManager,
+)
 from custom_components.magic_areas.core.runtime_model import AreaConfig, AreaRuntime
 from custom_components.magic_areas.core.controls import GroupRegistry
 from custom_components.magic_areas.core.runtime_model import EntityReferences
@@ -228,90 +232,82 @@ async def test_meta_coordinator_retries_snapshot_ready_after_startup(
         area_type="meta",
         hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
     )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
-    lifecycle = coordinator.lifecycle
-    assert lifecycle is not None
+    snapshot: MagicAreasData | None = None
+    schedule_reload = MagicMock()
+    lifecycle = MetaAreaReloadManager(
+        hass=hass,
+        area_config=area_config,
+        get_snapshot=lambda: snapshot,
+        get_entry_id=lambda: mock_config_entry.entry_id,
+        schedule_reload=schedule_reload,
+    )
+    scheduled_callbacks: list[Callable[[], object]] = []
 
-    with patch.object(hass.config_entries, "async_schedule_reload"):
+    def _capture_callback(delay: float, callback: Callable[[], object]) -> MagicMock:
+        handle = MagicMock()
+        handle.when.return_value = hass.loop.time() + delay
+        scheduled_callbacks.append(callback)
+        return handle
+
+    with patch.object(
+        HomeAssistant,
+        "is_running",
+        new_callable=PropertyMock,
+        return_value=False,
+    ):
         lifecycle.handle_snapshot_ready("interior", None, "kitchen")
-        await hass.async_block_till_done()
-        assert lifecycle.reloading is False
+    assert scheduled_callbacks == []
 
+    with patch.object(hass.loop, "call_later", side_effect=_capture_callback):
         lifecycle.handle_started()
+        assert len(scheduled_callbacks) == 1
+        schedule_reload.assert_not_called()
+
+        snapshot = _build_snapshot(area_config, child_areas=["kitchen"])
+        scheduled_callbacks.pop()()
         await hass.async_block_till_done()
-        assert lifecycle.pending_reload_handle is not None
-        assert lifecycle.meta_data_retry_attempts >= 1
+        assert len(scheduled_callbacks) == 1
 
-        coordinator.data = _build_snapshot(area_config, child_areas=["kitchen"])
-        await lifecycle.async_retry_reload("interior", "kitchen")
-        await lifecycle.async_execute_reload("interior", "kitchen")
-        assert lifecycle.reloading is True
+        scheduled_callbacks.pop()()
+        await hass.async_block_till_done()
+
+    schedule_reload.assert_called_once_with(mock_config_entry.entry_id)
 
 
-async def test_meta_coordinator_retries_until_meta_snapshot_available(
+async def test_meta_reload_guard_callback_clears_stale_reloading_state(
     hass: HomeAssistant, mock_config_entry: MockConfigEntry
 ) -> None:
-    """Meta reload retries until child mapping exists in snapshot."""
-    area_config = _build_area_config(
-        area_id="first_floor",
-        area_type="meta",
-        hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
-        floor_id="1",
-    )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
-    lifecycle = coordinator.lifecycle
-    assert lifecycle is not None
-
-    with patch.object(hass.config_entries, "async_schedule_reload"):
-        lifecycle.evaluate_and_schedule_reload("interior", "kitchen")
-        assert lifecycle.pending_reload_handle is not None
-        assert lifecycle.reloading is False
-
-        coordinator.data = _build_snapshot(area_config, child_areas=["kitchen"])
-        await lifecycle.async_retry_reload("interior", "kitchen")
-        await lifecycle.async_execute_reload("interior", "kitchen")
-        assert lifecycle.reloading is True
-
-
-async def test_meta_coordinator_snapshot_ready_reloads_for_matching_child(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Meta coordinator schedules reload for matching child updates."""
+    """The registered 30-second guard clears a stale in-flight reload."""
     area_config = _build_area_config(
         area_id="interior",
         area_type="meta",
         hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
     )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
-    coordinator.data = _build_snapshot(area_config, child_areas=["kitchen"])
-
-    lifecycle = coordinator.lifecycle
-    assert lifecycle is not None
-    with patch.object(lifecycle, "schedule_reload_handle") as mock_schedule:
-        lifecycle.evaluate_and_schedule_reload("interior", "kitchen")
-
-    assert lifecycle.meta_data_retry_attempts == 0
-    mock_schedule.assert_called_once()
-    assert mock_schedule.call_args.kwargs["callback"] == lifecycle.async_execute_reload
-
-
-async def test_meta_coordinator_snapshot_ready_ignores_unmatched_child(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
-) -> None:
-    """Meta coordinator ignores unrelated snapshot-ready events."""
-    area_config = _build_area_config(
-        area_id="interior",
-        area_type="meta",
-        hass_config=cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry),
+    schedule_reload = MagicMock()
+    lifecycle = MetaAreaReloadManager(
+        hass=hass,
+        area_config=area_config,
+        get_snapshot=lambda: _build_snapshot(area_config, child_areas=["kitchen"]),
+        get_entry_id=lambda: mock_config_entry.entry_id,
+        schedule_reload=schedule_reload,
     )
-    coordinator = MagicAreasCoordinator(hass, area_config, cast(ConfigEntry[MagicAreasRuntimeData], mock_config_entry))
-    coordinator.data = _build_snapshot(area_config, child_areas=["kitchen"])
 
-    lifecycle = coordinator.lifecycle
-    assert lifecycle is not None
-    with patch.object(lifecycle, "schedule_reload_handle") as mock_schedule:
-        lifecycle.evaluate_and_schedule_reload("exterior", "garage")
+    guard_callback: list[Callable[[], None]] = []
 
-    assert lifecycle.meta_data_retry_attempts == 0
-    assert lifecycle.reloading is False
-    mock_schedule.assert_not_called()
+    def _capture_guard(delay: float, callback: Callable[[], None]) -> MagicMock:
+        assert delay == 30.0
+        guard_callback.append(callback)
+        return MagicMock()
+
+    with (
+        patch.object(hass.loop, "call_later", side_effect=_capture_guard),
+    ):
+        await lifecycle.async_execute_reload("interior", "kitchen")
+        await lifecycle.async_execute_reload("interior", "kitchen")
+        schedule_reload.assert_called_once_with(mock_config_entry.entry_id)
+
+        assert len(guard_callback) == 1
+        guard_callback[0]()
+        await lifecycle.async_execute_reload("interior", "kitchen")
+
+    assert schedule_reload.call_count == 2

@@ -87,11 +87,6 @@ class MagicAreasCoordinator(DataUpdateCoordinator[MagicAreasData]):
             )
             self._lifecycle.start()
 
-    @property
-    def lifecycle(self) -> MetaAreaReloadManager | None:
-        """Return lifecycle manager for meta areas, if configured."""
-        return self._lifecycle
-
     async def async_shutdown(self) -> None:
         """Shut down the coordinator and clean up subscriptions."""
         if self._lifecycle is not None:

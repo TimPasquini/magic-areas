@@ -13,7 +13,12 @@ from custom_components.magic_areas.binary_sensor.wasp_in_a_box import (
     ATTR_WASP,
 )
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import assert_attribute, assert_state, drain_hass, wait_for_attribute
+from tests.helpers.assertions import (
+    assert_attribute,
+    assert_state,
+)
+from tests.helpers.waits import wait_for_attribute
+from tests.helpers.lifecycle import drain_hass
 from tests.mocks import MockBinarySensor
 
 pytest_plugins = ("tests.platforms.wasp_in_a_box_testkit",)
@@ -46,6 +51,38 @@ async def test_wasp_timeout_triggers_forget(
     assert_state(final, STATE_OFF)
     assert_attribute(final, ATTR_WASP, STATE_OFF)
     assert_attribute(final, ATTR_BOX, STATE_OFF)
+
+
+async def test_one_minute_wasp_timeout_schedules_sixty_seconds(
+    hass: HomeAssistant,
+    entities_wasp_in_a_box: list[MockBinarySensor],
+    _setup_integration_wasp_in_a_box: None,
+) -> None:
+    """A configured one-minute timeout crosses the runtime boundary as 60 seconds."""
+    motion_sensor_entity_id = entities_wasp_in_a_box[0].entity_id
+    door_sensor_entity_id = entities_wasp_in_a_box[1].entity_id
+    scheduled_delays: list[float] = []
+
+    def capture_delay(
+        _hass_obj: object,
+        delay: float,
+        _callback: object,
+    ) -> Callable[[], None]:
+        scheduled_delays.append(delay)
+        return lambda: None
+
+    hass.states.async_set(motion_sensor_entity_id, STATE_ON)
+    hass.states.async_set(door_sensor_entity_id, STATE_OFF)
+    await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.magic_areas.helpers.async_call_later",
+        side_effect=capture_delay,
+    ):
+        hass.states.async_set(motion_sensor_entity_id, STATE_OFF)
+        await hass.async_block_till_done()
+
+    assert scheduled_delays == [60]
 
 
 async def test_open_box_cancels_timer(

@@ -59,11 +59,6 @@ class WaspStateMachine:
         # Present if wasp is active (motion detected) or if timeout is pending
         return self.wasp or self._timeout_requested
 
-    @property
-    def wasp_active(self) -> bool:
-        """Return whether wasp is currently active."""
-        return self.wasp
-
     def update_wasp(self, wasp_states: dict[str, str]) -> WaspStateUpdate:
         """Update machine state from wasp sensor states.
 

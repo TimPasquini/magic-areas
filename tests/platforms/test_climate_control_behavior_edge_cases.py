@@ -11,12 +11,13 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import wait_for_attribute
+from tests.helpers.waits import wait_for_attribute
 from tests.mocks import MockClimate
 
 pytest_plugins = ("tests.platforms.climate_control_testkit",)
@@ -112,6 +113,7 @@ async def test_exception_in_preset_application_is_handled(
     climate_control_config_entry: MockConfigEntry,
     entities_climate_one: list[MockClimate],
     _setup_integration_climate_control: None,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Exceptions during preset application are contained."""
     await _enable_control_switch(hass)
@@ -129,5 +131,6 @@ async def test_exception_in_preset_application_is_handled(
         )
         await hass.async_block_till_done()
 
+    assert "Error applying preset: boom" in caplog.text
     climate_state = hass.states.get(MOCK_CLIMATE_ENTITY_ID)
     assert climate_state is not None

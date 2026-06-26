@@ -120,14 +120,25 @@ class ClimateControlSwitch(ControlSwitchBase):
             new_state.state == STATE_OFF
             and self._preset_policy.preset_map[AreaStates.CLEAR]
         ):
-            self.hass.async_create_task(self.apply_preset(AreaStates.CLEAR))
+            self.hass.async_create_task(
+                self._async_apply_preset_safely(AreaStates.CLEAR)
+            )
             return
 
         if (
             new_state.state == STATE_ON
             and self._preset_policy.preset_map[AreaStates.OCCUPIED]
         ):
-            self.hass.async_create_task(self.apply_preset(AreaStates.OCCUPIED))
+            self.hass.async_create_task(
+                self._async_apply_preset_safely(AreaStates.OCCUPIED)
+            )
+
+    async def _async_apply_preset_safely(self, state_name: str) -> None:
+        """Apply a state preset without leaking callback task exceptions."""
+        try:
+            await self.apply_preset(state_name)
+        except _EXPECTED_CONTROL_ERRORS as exc:
+            self.logger.exception("%s: Error applying preset: %s", self.name, str(exc))
 
     async def apply_preset(self, state_name: str) -> None:
         """Set climate entity to preset for given state."""

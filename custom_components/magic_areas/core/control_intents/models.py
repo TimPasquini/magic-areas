@@ -73,12 +73,6 @@ class RoleTarget:
             return bool(self.label_id or self.label_name)
         return bool(self.target_entity_ids)
 
-    @property
-    def uses_broad_label_target(self) -> bool:
-        """Return whether this target should execute through HA label targeting."""
-        return self.kind is ControlTargetKind.LABEL
-
-
 __all__ = [
     "ControlTargetKind",
     "ControlTargetPrecision",
