@@ -5,8 +5,8 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.magic_areas.enums import MagicAreasFeatures
-from tests.helpers import init_integration as init_integration_helper
-from tests.helpers import shutdown_integration
+from tests.helpers.lifecycle import init_integration as init_integration_helper
+from tests.helpers.lifecycle import shutdown_integration
 from tests.mocks import MockFan
 
 pytest_plugins = ("tests.platforms.fan_testkit",)

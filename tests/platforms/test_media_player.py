@@ -38,12 +38,14 @@ from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
 from tests.const import DEFAULT_MOCK_AREA, MockAreaIds
-from tests.helpers import (
+from tests.helpers.assertions import (
     assert_in_attribute,
     assert_state,
-    get_basic_config_entry_data,
+)
+from tests.helpers.entities import setup_mock_entities
+from tests.helpers.config_entries import get_basic_config_entry_data
+from tests.helpers.lifecycle import (
     init_integration as init_integration_helper,
-    setup_mock_entities,
     shutdown_integration,
 )
 from tests.mocks import MockBinarySensor, MockMediaPlayer

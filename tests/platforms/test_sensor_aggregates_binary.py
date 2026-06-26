@@ -6,7 +6,7 @@ from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAI
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 
-from tests.helpers import assert_state
+from tests.helpers.assertions import assert_state
 from tests.mocks import MockBinarySensor
 
 pytest_plugins = ("tests.platforms.sensor_aggregates_testkit",)

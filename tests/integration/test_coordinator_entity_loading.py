@@ -14,7 +14,10 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_EXCLUDE_ENTITIES,
     CONF_INCLUDE_ENTITIES,
 )
-from tests.helpers import init_integration as init_integration_helper, shutdown_integration
+from tests.helpers.lifecycle import (
+    init_integration as init_integration_helper,
+    shutdown_integration,
+)
 
 
 def _all_loaded_entity_ids(coordinator: MagicAreasCoordinator) -> list[str]:

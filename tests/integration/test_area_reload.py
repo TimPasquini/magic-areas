@@ -17,7 +17,7 @@ from custom_components.magic_areas.const import (
 from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.coordinator import MagicAreasData
 from tests.const import MockAreaIds
-from tests.helpers import wait_until
+from tests.helpers.waits import wait_until
 from tests.mocks import MockBinarySensor
 
 _LOGGER = logging.getLogger(__name__)

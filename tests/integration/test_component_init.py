@@ -14,7 +14,7 @@ from custom_components.magic_areas.components import MagicAreasRuntimeData
 from custom_components.magic_areas.config_keys.area import CONF_RELOAD_ON_REGISTRY_CHANGE
 from custom_components.magic_areas.const import DOMAIN
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import get_basic_config_entry_data
+from tests.helpers.config_entries import get_basic_config_entry_data
 
 EventCallback = Callable[[object], Awaitable[object]]
 

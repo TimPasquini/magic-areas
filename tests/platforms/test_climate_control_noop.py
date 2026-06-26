@@ -13,7 +13,7 @@ from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, STATE_OFF, STAT
 from homeassistant.core import HomeAssistant
 
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import wait_for_state
+from tests.helpers.waits import wait_for_state
 from tests.mocks import MockBinarySensor, MockClimate
 
 pytest_plugins = ("tests.platforms.climate_control_testkit",)

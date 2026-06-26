@@ -6,7 +6,10 @@ from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_O
 from homeassistant.core import HomeAssistant
 
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import assert_in_attribute, assert_state
+from tests.helpers.assertions import (
+    assert_in_attribute,
+    assert_state,
+)
 from tests.mocks import MockFan
 
 pytest_plugins = ("tests.platforms.fan_testkit",)

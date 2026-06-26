@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.enums import MagicAreasEvents
 from tests.const import DEFAULT_MOCK_AREA
-from tests.helpers import wait_for_attribute
+from tests.helpers.waits import wait_for_attribute
 from tests.mocks import MockClimate
 
 pytest_plugins = ("tests.platforms.climate_control_testkit",)
