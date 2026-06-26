@@ -42,11 +42,11 @@ class VirtualClock:
         loop = get_running_loop()
         with (
             patch.object(
-                loop._selector,  # type: ignore[attr-defined]  # pylint: disable=protected-access
+                loop._selector,  # pylint: disable=protected-access
                 "select",
                 new=functools.partial(
                     self._virtual_select,
-                    loop._selector.select,  # type: ignore[attr-defined]  # pylint: disable=protected-access
+                    loop._selector.select,  # pylint: disable=protected-access
                 ),
             ),
             patch.object(

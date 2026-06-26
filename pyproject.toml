@@ -267,3 +267,12 @@ explicit_package_bases = true
 module = ["tests.mocks"]
 disallow_any_explicit = false
 warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = ["tests", "tests.*"]
+disable_error_code = [
+    "attr-defined",
+    "import-untyped",
+    "misc",
+    "no-any-unimported",
+]

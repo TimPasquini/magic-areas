@@ -17,9 +17,30 @@ repos:
         stages: [pre-commit]
         types_or: [python, pyi]
 
+      - id: ruff-check-full
+        name: ruff check full
+        entry: uv run --extra dev --extra test ruff check custom_components tests
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
       - id: ruff-format-check
         name: ruff format check
         entry: uv run --extra dev --extra test ruff format --check custom_components tests
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy
+        entry: uv run --extra dev --extra test mypy custom_components tests
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: pytest
+        name: pytest
+        entry: uv run --extra test pytest tests -q
         language: system
         stages: [pre-push]
         pass_filenames: false
