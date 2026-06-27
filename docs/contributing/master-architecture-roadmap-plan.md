@@ -1199,11 +1199,12 @@ retired from temporary plan form.
 
 CRG driver:
 
-- `handle_feature_conf` remains a high-fan-out hotspot.
+- `handle_feature_conf` was a high-fan-out hotspot.
 
-Current behavior to preserve:
+Preserved behavior:
 
 - root menu topology
+- feature section menu topology
 - incremental persistence
 - guided-flow completion boundaries
 - dormant light-mode settings
@@ -1212,29 +1213,29 @@ Current behavior to preserve:
 - validation-error behavior
 - frontend serializer compatibility
 
-Possible target structure:
+Completed implementation structure:
 
 ```text
 custom_components/magic_areas/config_flows/steps/
   feature_config.py
   feature_pages/
     __init__.py
-    simple_features.py
+    generic.py
+    simple.py
     light_groups.py
     fan_groups.py
     climate_control.py
-    aggregates.py
-    custom_control_groups.py
 ```
 
-Suggested sequence:
+Completed sequence:
 
-1. Add tests around current `handle_feature_conf` routing if any route is weak.
-2. Extract pure page builders by feature domain.
-3. Extract persistence-boundary helpers.
-4. Extract validation-error normalization.
-5. Reduce `handle_feature_conf` to orchestration.
-6. Keep translations/copy polish separate.
+1. Reused the fan-cover branch's existing options-flow tests as behavior
+   constraints.
+2. Extracted generic form validation/rendering/persistence.
+3. Extracted simple selector overrides.
+4. Extracted light-group, fan-group, and climate-control feature page behavior
+   into feature-owned modules.
+5. Reduced `handle_feature_conf` to orchestration/delegation.
 
 Validation:
 
@@ -1248,6 +1249,48 @@ Exit criteria:
 - Domain form construction is testable in isolation.
 - Existing options-flow behavior remains unchanged.
 - No frontend serializer regressions.
+
+Execution evidence from 2026-06-27:
+
+- `handle_feature_conf` now delegates generic form validation/rendering to
+  `feature_pages/generic.py`.
+- Simple non-light selector overrides live in `feature_pages/simple.py`.
+- Climate preset selection remains in `feature_pages/climate_control.py`.
+- Fan-group submenu/controller routing remains in `feature_pages/fan_groups.py`.
+- Light-group subpage schema/selector construction, hidden-field preservation,
+  and Adaptive Lighting normalization live in `feature_pages/light_groups.py`.
+- Preserved behavior contract:
+  - root options menu topology;
+  - feature section menu topology;
+  - incremental page-level persistence;
+  - guided-flow completion boundaries;
+  - validation-error behavior and error keys;
+  - frontend serializer compatibility for schemas, defaults, selectors, and
+    dynamic validators;
+  - dormant light-group settings across dynamic field changes;
+  - fan automation submenu behavior;
+  - climate entity-selection and preset-mapping persistence boundaries;
+  - Adaptive Lighting pairing/manage-mode dynamic fields.
+- Test-contract coverage retained:
+  - simple feature entries render direct forms and persist immediately;
+  - light groups remain a submenu with role, brightness, and Adaptive Lighting
+    leaves rather than a monolithic form;
+  - light-group leaves return to the light-group submenu;
+  - hidden/dormant light-group values are preserved;
+  - dynamic Adaptive Lighting pairing fields do not leak through shared schemas;
+  - climate guided-flow persistence is gated until preset mapping completes;
+  - dynamic feature-step routing continues through `async_step`;
+  - task-oriented root, submenu, and form translation expectations remain
+    covered.
+- Focused options-flow validation passed:
+  - `uv run ruff check custom_components/magic_areas/config_flows/steps`
+  - `uv run mypy custom_components/magic_areas/config_flows/steps/feature_config.py custom_components/magic_areas/config_flows/steps/feature_pages/generic.py custom_components/magic_areas/config_flows/steps/feature_pages/climate_control.py custom_components/magic_areas/config_flows/steps/feature_pages/light_groups.py custom_components/magic_areas/config_flows/steps/feature_pages/fan_groups.py`
+  - `uv run --extra test pytest tests/config_flow/test_feature_config.py tests/config_flow/test_feature_config_climate.py tests/config_flow/test_options_flow_routing.py -q`
+- Full repository validation passed: `./scripts/validate.sh`; pytest reported
+  1452 passed and 26 snapshots passed.
+- Manual Home Assistant options-flow review found no barriers or display issues.
+- Temporary options-flow structure and test-rebuild plans were consolidated into
+  this roadmap and removed after completion.
 
 ## Phase 9: Control Runtime Pattern Consolidation
 
@@ -2675,32 +2718,99 @@ Dead-code audit evidence:
 
 ### 8. Options-Flow Structural Follow-Up
 
+Phase 8 completed on a clean `options-flow-structure` branch based on
+`fan-cover-default-automation`, not from the earlier main-based
+`codex/options-flow-structure` scratch branch. The implementation preserved the
+fan-cover branch's existing options-flow surface and tests, reused only useful
+scratch-branch primitives, kept fan/cover options-flow behavior as a constraint,
+and did not redesign fan/cover behavior as part of this structural extraction.
+
+Durable implementation shape:
+
+- `feature_config.py` identifies the current feature step, delegates complex
+  feature routes, applies simple selector overrides, and calls the generic form
+  handler.
+- `feature_pages/generic.py` owns schema copy/filter helpers and generic form
+  validation, rendering, persistence, selector, dynamic-validator, next-step,
+  preparation-hook, and rerender-hook behavior.
+- `feature_pages/simple.py` owns selector overrides for simple schema-backed
+  feature forms.
+- `feature_pages/light_groups.py` owns the light-groups submenu, subpage
+  schema/selector construction, dynamic Adaptive Lighting fields,
+  hidden/dormant value preservation, and Adaptive Lighting normalization.
+- `feature_pages/fan_groups.py` owns fan-group submenu/controller routing while
+  preserving existing fan behavior.
+- `feature_pages/climate_control.py` owns climate preset selection and guided
+  persistence boundaries.
+
+Durable behavior contract:
+
+- Root options menu topology is preserved.
+- Feature section menu topology is preserved.
+- Incremental page-level persistence is preserved.
+- Guided-flow completion boundaries are preserved.
+- Existing validation-error behavior and error keys are preserved.
+- Frontend serializer compatibility for schemas, defaults, selectors, and
+  dynamic validators is preserved.
+- Dormant light-group settings survive dynamic field changes.
+- Fan automation submenu behavior is preserved.
+- Climate entity selection advances to preset mapping without persisting partial
+  config, and preset mapping persists only when the guided flow completes.
+- Adaptive Lighting pairing/manage-mode dynamic fields remain feature-owned.
+
+Durable test contract:
+
+- Simple features open direct forms and persist immediately.
+- Light groups remain a submenu, not a monolithic form.
+- Light-group leaf forms return to the light-groups menu after save.
+- Role, brightness, and Adaptive Lighting sections do not leak unrelated fields.
+- Hidden/dormant light-group settings are preserved when switching modes.
+- Dynamic Adaptive Lighting pairing fields do not mutate shared schemas.
+- Climate guided-flow persistence gates are covered.
+- Dynamic `async_step_feature_conf_*` routing remains covered.
+- Root/submenu/form translation expectations remain task-oriented.
+
 #### 8.1. Preparation
 
-- `8.1.1` Confirm temporary options-flow behavior plan is retired or closable.
-- `8.1.2` Confirm current options-flow contract is documented durably.
-- `8.1.3` Identify weakly covered `handle_feature_conf` routes.
-- `8.1.4` Add tests for weak routes before extraction.
+- [x] `8.1.1` Confirm temporary options-flow behavior plan is retired or closable.
+- [x] `8.1.2` Confirm current options-flow contract is documented durably.
+- [x] `8.1.3` Identify weakly covered `handle_feature_conf` routes.
+- [x] `8.1.4` Add tests for weak routes before extraction.
 
 #### 8.2. Routing Refactor
 
-- `8.2.1` Extract simple feature page builders.
-- `8.2.2` Extract light group page builders.
-- `8.2.3` Extract fan group page builders.
-- `8.2.4` Extract climate control page builders.
-- `8.2.5` Extract aggregate page builders.
-- `8.2.6` Extract custom control group page builders.
-- `8.2.7` Extract persistence-boundary helpers.
-- `8.2.8` Extract validation-error normalization.
-- `8.2.9` Reduce `handle_feature_conf` to orchestration.
+- [x] `8.2.1` Extract simple feature page builders.
+- [x] `8.2.2` Extract light group page builders.
+- [x] `8.2.3` Extract fan group page builders.
+- [x] `8.2.4` Extract climate control page builders.
+- [x] `8.2.5` Extract aggregate page builders.
+- [x] `8.2.6` Extract custom control group page builders.
+- [x] `8.2.7` Extract persistence-boundary helpers.
+- [x] `8.2.8` Extract validation-error normalization.
+- [x] `8.2.9` Reduce `handle_feature_conf` to orchestration.
 
 #### 8.3. Options-Flow Validation
 
-- `8.3.1` Run `./scripts/validate.sh` after each extraction batch.
-- `8.3.2` Manually verify representative HA UI paths if frontend behavior is touched.
-- `8.3.3` Confirm no frontend serializer regressions.
-- `8.3.4` Rebuild CRG and confirm `handle_feature_conf` fan-out is reduced.
-- [ ] `8.3.5` Run a final `./scripts/validate.sh` at phase exit.
+- [x] `8.3.1` Run `./scripts/validate.sh` after each extraction batch.
+- [x] `8.3.2` Manually verify representative HA UI paths if frontend behavior is touched.
+- [x] `8.3.3` Confirm no frontend serializer regressions.
+- [x] `8.3.4` Rebuild CRG and confirm `handle_feature_conf` fan-out is reduced.
+- [x] `8.3.5` Run a final `./scripts/validate.sh` at phase exit.
+
+Completion evidence:
+
+- Focused options-flow validation passed:
+  - `uv run ruff check custom_components/magic_areas/config_flows/steps`
+  - `uv run mypy custom_components/magic_areas/config_flows/steps/feature_config.py custom_components/magic_areas/config_flows/steps/feature_pages/generic.py custom_components/magic_areas/config_flows/steps/feature_pages/climate_control.py custom_components/magic_areas/config_flows/steps/feature_pages/light_groups.py custom_components/magic_areas/config_flows/steps/feature_pages/fan_groups.py`
+  - `uv run --extra test pytest tests/config_flow/test_feature_config.py tests/config_flow/test_feature_config_climate.py tests/config_flow/test_options_flow_routing.py -q`
+- Final full validation passed with `./scripts/validate.sh`; pytest reported
+  1452 passed and 26 snapshots passed.
+- Manual Home Assistant options-flow walkthrough found no barriers or display
+  issues.
+- CRG was rebuilt after the structural refactor.
+- Temporary `options-flow-structure-plan.md` and
+  `options-flow-test-rebuild-plan.md` were consolidated into this roadmap and
+  removed.
 
 ### 9. Control Runtime Pattern Consolidation
 

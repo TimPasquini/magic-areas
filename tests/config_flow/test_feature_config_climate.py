@@ -24,7 +24,7 @@ async def test_handle_climate_preset_selection_no_entity_selected_error() -> Non
     flow.async_abort = MagicMock(return_value={"reason": "no_entity_selected"})
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.side_effect = NoEntitySelectedError("No entity selected")
 
@@ -43,7 +43,7 @@ async def test_handle_climate_preset_selection_invalid_entity_error() -> None:
     flow.async_abort = MagicMock(return_value={"reason": "invalid_entity"})
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.side_effect = InvalidEntityError("Invalid entity")
 
@@ -62,7 +62,7 @@ async def test_handle_climate_preset_selection_no_preset_support_error() -> None
     flow.async_abort = MagicMock(return_value={"reason": "climate_no_preset_support"})
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.side_effect = NoPresetSupportError("No preset support")
 
@@ -82,7 +82,7 @@ async def test_handle_climate_preset_selection_shows_form_on_no_input() -> None:
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.return_value = ({"selector1": "value1"}, {"validator1": "value1"})
 
@@ -110,12 +110,12 @@ async def test_handle_climate_preset_selection_processes_valid_input() -> None:
     }
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.return_value = ({}, {})
 
         with patch(
-            "custom_components.magic_areas.config_flows.steps.feature_config.CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT"
+            "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT"
         ) as mock_schema:
             mock_schema.return_value = user_input
 
@@ -136,7 +136,7 @@ async def test_handle_climate_preset_selection_builds_dynamic_selectors() -> Non
     flow.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         expected_selectors = {
             "preset_clear": "selector1",
@@ -165,12 +165,12 @@ async def test_handle_climate_preset_selection_invalid_preset_input() -> None:
     user_input = {"invalid": "preset"}
 
     with patch(
-        "custom_components.magic_areas.config_flows.steps.feature_config.build_climate_preset_selectors_and_validators"
+        "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.build_climate_preset_selectors_and_validators"
     ) as mock_builder:
         mock_builder.return_value = ({}, {})
 
         with patch(
-            "custom_components.magic_areas.config_flows.steps.feature_config.CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT"
+            "custom_components.magic_areas.config_flows.steps.feature_pages.climate_control.CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT"
         ) as mock_schema:
             mock_schema.side_effect = RuntimeError("Invalid preset")
 
