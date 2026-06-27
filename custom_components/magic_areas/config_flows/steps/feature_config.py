@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
@@ -26,18 +25,7 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_GROUPS_SETPOINT,
     CONF_FAN_GROUPS_TRACKED_DEVICE_CLASS,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
-)
-from custom_components.magic_areas.core.control_intents import (
-    ADAPT_BRIGHTNESS_SWITCH,
-    ADAPT_COLOR_SWITCH,
-    MAIN_SWITCH,
-    SLEEP_SWITCH,
-    AdaptiveLightingSwitchSet,
-    switch_set_from_explicit_refs,
-    switch_sets_from_hass_registry,
 )
 from custom_components.magic_areas.core.controls.policies.fan import (
     FanClearBehavior,
@@ -62,47 +50,43 @@ from custom_components.magic_areas.config_flows.steps.feature_pages.light_groups
     LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP as _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
     LIGHT_GROUP_BRIGHTNESS_STEP as _LIGHT_GROUP_BRIGHTNESS_STEP,
     LIGHT_GROUP_MENU_STEP as _LIGHT_GROUP_MENU_STEP,
-    LIGHT_GROUP_ROLES_STEP as _LIGHT_GROUP_ROLES_STEP,
+    LIGHT_GROUP_PRESERVED_HIDDEN_KEYS as _LIGHT_GROUP_PRESERVED_HIDDEN_KEYS,
     LIGHT_GROUP_SUBSTEPS as _LIGHT_GROUP_SUBSTEPS,
     add_light_group_adaptive_lighting_selectors,
     add_light_group_brightness_selectors,
     add_light_group_role_selectors,
+    adaptive_lighting_candidate_switch_sets,
+    adaptive_lighting_pair_value,
+    default_inside_bright_entity,
     handle_light_group_menu_route,
+    light_group_manage_all_lights_default,
+    light_group_managed_role_options,
+    light_group_managed_roles_default,
+    light_group_pairing_categories,
+    light_group_step_include_keys,
+    normalize_light_group_adaptive_lighting_options,
+    prune_light_group_options_for_brightness_mode,
+    remove_schema_key,
+    resolve_adaptive_lighting_mode,
+    resolve_light_groups_mode,
+    should_rerender_light_group_adaptive_lighting_step,
+    should_rerender_light_group_brightness_step,
 )
 from custom_components.magic_areas.config_flows.steps.feature_pages.simple import (
     add_non_light_feature_selectors,
 )
-from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import (
     MagicAreasFeatures,
     SelectorTranslationKeys,
 )
-from custom_components.magic_areas.core.runtime_model.feature_ids import (
-    build_threshold_light_sensor_unique_id,
-)
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.light_groups import (
-    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
-    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
-    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
     CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
-    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
-    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
-    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
-    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
-    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
     LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
     LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
     LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-    LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-    LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
     LIGHT_GROUP_PRESETS,
     adaptive_lighting_pair_key,
@@ -114,7 +98,6 @@ from custom_components.magic_areas.config_flows.selector_builders import (
     build_selector_select,
 )
 from custom_components.magic_areas.schemas import CONFIGURABLE_FEATURES
-from custom_components.magic_areas.enums import LightGroupCategory
 
 if TYPE_CHECKING:
     from custom_components.magic_areas.core.runtime_model import AreaConfig
@@ -131,36 +114,6 @@ _EXPECTED_FEATURE_FLOW_ERRORS = (
     RuntimeError,
 )
 
-_LIGHT_GROUP_ALWAYS_KEYS = {
-    CONF_LIGHT_GROUP_BRIGHTNESS_MODE,
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE,
-}
-_LIGHT_GROUP_ADVISORY_KEYS = {
-    CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY,
-}
-_LIGHT_GROUP_ADAPTIVE_ONLY_KEYS = {
-    CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS,
-    CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS,
-    CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS,
-    CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE,
-    CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS,
-    CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA,
-    CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA,
-    CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT,
-}
-_LIGHT_GROUP_PRESERVED_HIDDEN_KEYS = {
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
-    CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
-}
-_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
-    LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX
-)
 _LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
 _FAN_GROUP_MENU_STEP = "feature_conf_fan_groups"
 _FAN_GROUP_COOLING_STEP = "feature_conf_fan_groups_cooling"
@@ -208,364 +161,6 @@ _FEATURE_SELECTION_ORDER = (
 def _feature_section_step(feature: MagicAreasFeatures) -> str:
     """Return the parent section-menu step for a feature."""
     return f"feature_conf_{feature.value}"
-
-
-def _resolve_light_groups_mode(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None
-) -> str:
-    """Resolve current light-groups mode from input or saved options."""
-    if user_input is not None:
-        raw = user_input.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE)
-        if isinstance(raw, str) and raw in {
-            LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-        }:
-            return raw
-
-    saved = enabled_feature_map(flow.area_options).get(
-        MagicAreasFeatures.LIGHT_GROUPS.value, {}
-    )
-    if isinstance(saved, dict):
-        raw = saved.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE)
-        if isinstance(raw, str) and raw in {
-            LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-            LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-        }:
-            return raw
-    return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
-
-
-def _remove_schema_key(schema: vol.Schema, key_to_remove: str) -> None:
-    """Remove existing markers for one config key before adding dynamic variants."""
-    raw_schema = schema.schema
-    if not isinstance(raw_schema, dict):
-        return
-    for marker in tuple(raw_schema):
-        if getattr(marker, "schema", marker) == key_to_remove:
-            raw_schema.pop(marker, None)
-
-
-def _light_group_step_include_keys(
-    *,
-    step_id: str,
-    mode: str,
-    adaptive_lighting_mode: str,
-) -> set[str]:
-    """Return light-group config keys rendered on one light-group substep."""
-    if step_id == _LIGHT_GROUP_ROLES_STEP:
-        return set(_LIGHT_GROUP_ROLE_KEYS)
-
-    if step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
-        return {CONF_LIGHT_GROUP_BRIGHTNESS_MODE}
-
-    if step_id == _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP:
-        return set(_LIGHT_GROUP_ADVISORY_KEYS)
-
-    if step_id == _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP:
-        return set(_LIGHT_GROUP_ADVISORY_KEYS | _LIGHT_GROUP_ADAPTIVE_ONLY_KEYS)
-
-    if step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
-        include_keys = {CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE}
-        if adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE:
-            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
-            include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
-        return include_keys
-
-    return set()
-
-
-def _resolve_adaptive_lighting_mode(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None
-) -> str:
-    """Resolve current Adaptive Lighting mode from input or saved options."""
-    if user_input is not None:
-        raw = user_input.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
-        if isinstance(raw, str) and raw in {
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-        }:
-            return raw
-
-    saved = enabled_feature_map(flow.area_options).get(
-        MagicAreasFeatures.LIGHT_GROUPS.value, {}
-    )
-    if isinstance(saved, dict):
-        raw = saved.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
-        if isinstance(raw, str) and raw in {
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-        }:
-            return raw
-    return LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE
-
-
-def _light_group_pairing_categories(
-    flow: "OptionsFlowHandler",
-    feature_config: Mapping[str, object],
-) -> tuple[str, ...]:
-    """Return light roles that currently have a native group/pairing surface."""
-    categories: list[str] = []
-    if flow.all_lights:
-        categories.append(str(LightGroupCategory.ALL))
-
-    for preset in LIGHT_GROUP_PRESETS:
-        raw_members = feature_config.get(preset.category, [])
-        if isinstance(raw_members, list) and raw_members:
-            categories.append(preset.category)
-
-    raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
-    if isinstance(raw_switch_sets, Mapping):
-        for category in raw_switch_sets:
-            if isinstance(category, str) and category not in categories:
-                categories.append(category)
-
-    return tuple(categories)
-
-
-def _configured_adaptive_lighting_switch_sets(
-    area_id: str,
-    feature_config: Mapping[str, object],
-) -> dict[str, AdaptiveLightingSwitchSet]:
-    """Return existing explicit switch-set config by light role."""
-    raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
-    if not isinstance(raw_switch_sets, Mapping):
-        return {}
-
-    switch_sets: dict[str, AdaptiveLightingSwitchSet] = {}
-    for category, raw_switch_refs in raw_switch_sets.items():
-        if not isinstance(category, str) or not isinstance(raw_switch_refs, Mapping):
-            continue
-        switch_refs = {
-            str(key): str(value)
-            for key, value in raw_switch_refs.items()
-            if isinstance(key, str) and isinstance(value, str)
-        }
-        switch_set = switch_set_from_explicit_refs(
-            area_id=area_id,
-            role=category,
-            switch_refs=switch_refs,
-        )
-        if switch_set is not None:
-            switch_sets[category] = switch_set
-    return switch_sets
-
-
-def _light_group_managed_role_options(
-    flow: "OptionsFlowHandler",
-    feature_config: Mapping[str, object],
-) -> list[str]:
-    """Return role options that can receive MA-managed Adaptive Lighting configs."""
-    options = [
-        category
-        for category in _light_group_pairing_categories(flow, feature_config)
-        if category != str(LightGroupCategory.ALL)
-    ]
-    raw_roles = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
-    if isinstance(raw_roles, list):
-        for role in raw_roles:
-            if (
-                isinstance(role, str)
-                and role != str(LightGroupCategory.ALL)
-                and role not in options
-            ):
-                options.append(role)
-    return options
-
-
-def _light_group_manage_all_lights_default(
-    feature_config: Mapping[str, object],
-) -> bool:
-    """Return saved room-level manage preference."""
-    raw_value = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
-    try:
-        return bool(cv.boolean(raw_value))
-    except vol.Invalid:
-        return False
-
-
-def _light_group_managed_roles_default(
-    *,
-    role_options: list[str],
-    feature_config: Mapping[str, object],
-) -> list[str]:
-    """Return saved managed roles or all configured role options for first manage use."""
-    raw_roles = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
-    if isinstance(raw_roles, list):
-        saved_roles = [role for role in raw_roles if isinstance(role, str)]
-        if saved_roles:
-            return saved_roles
-    return list(role_options)
-
-
-def _prune_light_group_options_for_brightness_mode(
-    *,
-    existing: dict[str, object],
-    mode: str,
-) -> None:
-    """Preserve dormant brightness settings when switching modes."""
-    return
-
-
-def _default_inside_bright_entity(
-    *,
-    flow: "OptionsFlowHandler",
-    feature_config: Mapping[str, object],
-) -> str:
-    """Return default inside-bright entity for advisory/adaptive config."""
-    current = feature_config.get(CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY)
-    if isinstance(current, str) and current:
-        return current
-
-    area_config = flow._area_config
-    if area_config is None:
-        return ""
-
-    entity_registry = er.async_get(flow.hass)
-    threshold_entity = entity_registry.async_get_entity_id(
-        "binary_sensor",
-        DOMAIN,
-        build_threshold_light_sensor_unique_id(area_id=area_config.id),
-    )
-    if (
-        isinstance(threshold_entity, str)
-        and threshold_entity in flow.all_binary_entities
-    ):
-        return threshold_entity
-
-    return ""
-
-
-def _should_rerender_light_group_brightness_step(
-    *,
-    step_id: str,
-    user_input: Mapping[str, object],
-    validated: Mapping[str, object],
-) -> bool:
-    """Return whether brightness mode selection should reveal follow-up controls immediately."""
-    if step_id != _LIGHT_GROUP_BRIGHTNESS_STEP:
-        return False
-    if CONF_LIGHT_GROUP_BRIGHTNESS_MODE not in validated:
-        return False
-    return len(user_input) == 1 and CONF_LIGHT_GROUP_BRIGHTNESS_MODE in user_input
-
-
-def _should_rerender_light_group_adaptive_lighting_step(
-    *,
-    step_id: str,
-    user_input: Mapping[str, object],
-    validated: Mapping[str, object],
-) -> bool:
-    """Return whether mode selection should reveal follow-up controls immediately."""
-    if step_id != _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
-        return False
-    mode = validated.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
-    if mode not in {
-        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-        LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-    }:
-        return False
-    if mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING:
-        return not any(
-            key.startswith(_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX)
-            for key in user_input
-        )
-    return (
-        CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL not in user_input
-        and CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES not in user_input
-    )
-
-
-def _adaptive_lighting_candidate_switch_sets(
-    flow: "OptionsFlowHandler",
-    feature_config: Mapping[str, object],
-) -> dict[str, AdaptiveLightingSwitchSet]:
-    """Return selectable AL switch sets keyed by main switch entity ID."""
-    area_config = flow._area_config
-    if area_config is None:
-        return {}
-
-    candidates = {
-        switch_set.main_switch_entity_id: switch_set
-        for switch_set in switch_sets_from_hass_registry(
-            flow.hass,
-            area_id=area_config.id,
-        )
-    }
-    for switch_set in _configured_adaptive_lighting_switch_sets(
-        area_config.id,
-        feature_config,
-    ).values():
-        candidates.setdefault(switch_set.main_switch_entity_id, switch_set)
-    return dict(sorted(candidates.items()))
-
-
-def _adaptive_lighting_pair_value(
-    feature_config: Mapping[str, object],
-    category: str,
-) -> str:
-    """Return currently selected AL main switch for one light role."""
-    raw_switch_sets = feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS)
-    if not isinstance(raw_switch_sets, Mapping):
-        return ""
-    raw_switch_refs = raw_switch_sets.get(category)
-    if not isinstance(raw_switch_refs, Mapping):
-        return ""
-    main_switch = raw_switch_refs.get(MAIN_SWITCH)
-    return main_switch if isinstance(main_switch, str) else ""
-
-
-def _adaptive_lighting_switch_set_refs(
-    switch_set: AdaptiveLightingSwitchSet,
-) -> dict[str, str]:
-    """Return persisted explicit switch refs for one AL switch set."""
-    return {
-        MAIN_SWITCH: switch_set.main_switch_entity_id,
-        SLEEP_SWITCH: switch_set.sleep_switch_entity_id,
-        ADAPT_BRIGHTNESS_SWITCH: switch_set.adapt_brightness_switch_entity_id,
-        ADAPT_COLOR_SWITCH: switch_set.adapt_color_switch_entity_id,
-    }
-
-
-def _normalize_light_group_adaptive_lighting_options(
-    flow: "OptionsFlowHandler",
-    feature_config: dict[str, object],
-) -> None:
-    """Translate transient AL pairing dropdowns into explicit switch-set config."""
-    area_config = flow._area_config
-    if area_config is None:
-        return
-
-    if (
-        feature_config.get(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE)
-        != LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
-    ):
-        for key in tuple(feature_config):
-            if key.startswith(_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX):
-                feature_config.pop(key, None)
-        return
-
-    candidates = _adaptive_lighting_candidate_switch_sets(flow, feature_config)
-    categories = set(_light_group_pairing_categories(flow, feature_config))
-    for key in feature_config:
-        if key.startswith(_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX):
-            categories.add(key.removeprefix(_LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX))
-
-    switch_sets: dict[str, dict[str, str]] = {}
-    for category in sorted(categories):
-        pair_key = adaptive_lighting_pair_key(category)
-        selected = feature_config.pop(pair_key, "")
-        if not isinstance(selected, str) or not selected:
-            continue
-        switch_set = candidates.get(selected)
-        if switch_set is None:
-            continue
-        switch_sets[category] = _adaptive_lighting_switch_set_refs(switch_set)
-
-    feature_config[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS] = switch_sets
 
 
 def _fan_entities(flow: "OptionsFlowHandler") -> list[str]:
@@ -1005,7 +600,7 @@ async def handle_feature_form(
                     validated_dict.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE),
                     str,
                 ):
-                    _prune_light_group_options_for_brightness_mode(
+                    prune_light_group_options_for_brightness_mode(
                         existing=existing,
                         mode=validated_dict[CONF_LIGHT_GROUP_BRIGHTNESS_MODE],
                     )
@@ -1013,7 +608,7 @@ async def handle_feature_form(
                     _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
                     _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
                 }:
-                    _prune_light_group_options_for_brightness_mode(
+                    prune_light_group_options_for_brightness_mode(
                         existing=existing,
                         mode=(
                             LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
@@ -1021,7 +616,7 @@ async def handle_feature_form(
                             else LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE
                         ),
                     )
-                _normalize_light_group_adaptive_lighting_options(
+                normalize_light_group_adaptive_lighting_options(
                     flow,
                     validated_dict,
                 )
@@ -1030,13 +625,13 @@ async def handle_feature_form(
             else:
                 features[feature_key] = validated_dict
 
-            if _should_rerender_light_group_adaptive_lighting_step(
+            if should_rerender_light_group_adaptive_lighting_step(
                 step_id=step_id,
                 user_input=user_input,
                 validated=validated_dict,
             ):
                 return await handle_feature_conf(flow)
-            if _should_rerender_light_group_brightness_step(
+            if should_rerender_light_group_brightness_step(
                 step_id=step_id,
                 user_input=user_input,
                 validated=validated_dict,
@@ -1116,7 +711,7 @@ async def handle_feature_conf(
                 )
             )
             feature_cfg[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = selected_mode
-            _prune_light_group_options_for_brightness_mode(
+            prune_light_group_options_for_brightness_mode(
                 existing=feature_cfg,
                 mode=selected_mode,
             )
@@ -1211,9 +806,9 @@ async def handle_feature_conf(
     selectors: SelectorMap = {}
 
     if feature_enum == MagicAreasFeatures.LIGHT_GROUPS:
-        mode = _resolve_light_groups_mode(flow, user_input)
-        adaptive_lighting_mode = _resolve_adaptive_lighting_mode(flow, user_input)
-        include_keys = _light_group_step_include_keys(
+        mode = resolve_light_groups_mode(flow, user_input)
+        adaptive_lighting_mode = resolve_adaptive_lighting_mode(flow, user_input)
+        include_keys = light_group_step_include_keys(
             step_id=step_id,
             mode=mode,
             adaptive_lighting_mode=adaptive_lighting_mode,
@@ -1228,11 +823,11 @@ async def handle_feature_conf(
             and adaptive_lighting_mode
             == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
         ):
-            candidates = _adaptive_lighting_candidate_switch_sets(flow, feature_config)
+            candidates = adaptive_lighting_candidate_switch_sets(flow, feature_config)
             candidate_options = ["", *candidates]
-            for category in _light_group_pairing_categories(flow, feature_config):
+            for category in light_group_pairing_categories(flow, feature_config):
                 pair_key = adaptive_lighting_pair_key(category)
-                selected = _adaptive_lighting_pair_value(feature_config, category)
+                selected = adaptive_lighting_pair_value(feature_config, category)
                 options = list(candidate_options)
                 if selected and selected not in options:
                     options.append(selected)
@@ -1249,24 +844,24 @@ async def handle_feature_conf(
             step_id == _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
             and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
         ):
-            role_options = _light_group_managed_role_options(flow, feature_config)
+            role_options = light_group_managed_role_options(flow, feature_config)
             include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
             include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
-            _remove_schema_key(schema, CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
-            _remove_schema_key(
+            remove_schema_key(schema, CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+            remove_schema_key(
                 schema,
                 CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
             )
             schema.schema[
                 vol.Optional(
                     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
-                    default=_light_group_manage_all_lights_default(feature_config),
+                    default=light_group_manage_all_lights_default(feature_config),
                 )
             ] = cv.boolean
             schema.schema[
                 vol.Optional(
                     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
-                    default=_light_group_managed_roles_default(
+                    default=light_group_managed_roles_default(
                         role_options=role_options,
                         feature_config=feature_config,
                     ),
@@ -1293,11 +888,11 @@ async def handle_feature_conf(
             _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
             _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
         }:
-            _remove_schema_key(schema, CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY)
+            remove_schema_key(schema, CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY)
             schema.schema[
                 vol.Optional(
                     CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
-                    default=_default_inside_bright_entity(
+                    default=default_inside_bright_entity(
                         flow=flow,
                         feature_config=feature_config,
                     ),
