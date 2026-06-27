@@ -10,9 +10,9 @@ guidance before removing this file.
 Reduce `handle_feature_conf` complexity without changing options-flow behavior.
 
 The target is not a set of bespoke page implementations. The preferred shape is
-a generic feature-page builder that can render schema-backed pages from explicit
-page definitions, with domain modules using that builder for their own subpages
-where practical.
+a generic feature-form handler that can render schema-backed pages from explicit
+schemas/selectors, with domain modules using that handler for their own
+subpages where practical.
 
 ## Scope
 
@@ -90,7 +90,8 @@ These routes mostly need:
 ### Complex domain routes
 
 These should live in domain modules, but should still use the generic page
-builder for ordinary form rendering once they have produced a page definition.
+builder for ordinary form rendering once they have produced the concrete
+schema/selectors for a subpage.
 
 #### Light groups
 
@@ -109,10 +110,11 @@ Reasons this needs a domain module:
 
 Generic-builder usage target:
 
-- Domain module computes `FeaturePageDefinition` instances.
-- Generic builder renders the resulting page.
+- Domain module computes the concrete schema/selectors for the active light
+  subpage.
+- Generic form handler renders and persists the resulting page.
 - Domain module owns dynamic schema mutation, hidden-key preservation, and
-  post-validation normalization.
+  post-validation normalization through typed hooks.
 
 #### Fan groups
 
@@ -143,7 +145,7 @@ Reasons this needs a domain module:
 Generic-builder usage target:
 
 - Main climate page uses generic builder as a simple feature page.
-- Preset page uses generic builder after the domain module computes dynamic
+- Preset page uses generic form handling after the domain module computes dynamic
   selectors and validators.
 
 ## Explicitly deferred routes
@@ -162,42 +164,28 @@ behavior-preserving extraction targets:
 - `feature_conf_fan_groups_odor`
 - `feature_conf_*_settings` section-menu pattern
 
-## Generic builder implementation result
+## Generic form implementation result
 
-The previous code already had the core primitive:
+The extraction keeps one generic primitive:
 
 - `handle_feature_form(...)`
 
 It validates a schema, persists feature config, renders saved options through
-`flow._build_schema_from_vol`, supports selectors and dynamic validators, and
-supports simple next-step behavior.
+`flow._build_schema_from_vol`, supports selectors and dynamic validators,
+supports simple next-step behavior, and accepts typed callback hooks for
+feature-specific preparation and immediate rerender behavior.
 
-The extraction now uses a page-definition object around that primitive. The
-implemented page-definition shape is intentionally smaller than the initial
-sketch:
-
-```python
-@dataclass(frozen=True)
-class FeaturePageDefinition:
-    feature: MagicAreasFeatures
-    step_id: str
-    schema: vol.Schema
-    merge_options: bool = False
-    next_step_handler: FeaturePageNextStep | None = None
-    selectors: Mapping[str, object] = field(default_factory=dict)
-    dynamic_validators: Mapping[str, object] = field(default_factory=dict)
-    prepare_validated: PrepareFeaturePageValidated | None = None
-```
-
-The generic object accepts typed callback hooks instead of stringly typed dynamic
-dispatch. This avoids `typing.cast`, broad `Any`, and type-ignore escape hatches
-in the options-flow extraction.
+The extraction deliberately did not add a page-definition class. The current
+codebase did not need another intermediate object to get the desired
+separation. Domain modules now provide ordinary schemas/selectors plus typed
+hooks to the generic form handler. This avoids `typing.cast`, broad `Any`, and
+type-ignore escape hatches in the options-flow extraction.
 
 Implemented generic helpers:
 
 - `copy_schema(schema)`
 - `filter_schema_for_keys(schema, include_keys)`
-- `handle_feature_page(flow, page, user_input)`
+- `handle_feature_form(...)`
 
 ## Proposed target module layout
 
@@ -214,10 +202,10 @@ custom_components/magic_areas/config_flows/steps/
 
 Notes:
 
-- `generic.py` should own page definitions and generic rendering/persistence.
-- `simple.py` should map simple feature pages to generic definitions.
-- Complex modules should return either a handled result or a page definition for
-  the generic builder.
+- `generic.py` owns schema copy/filter helpers and generic rendering/persistence.
+- `simple.py` should map simple feature pages to selector overrides.
+- Complex modules should return either a handled result or the concrete
+  schema/selectors/hooks needed by the generic form handler.
 - Feature-specific semantics must stay with the owning domain module.
 
 ## Implementation sequence
@@ -230,12 +218,13 @@ Notes:
 
 2. Extract generic page primitives. Completed.
    - Move schema copy/filter helpers.
-   - Introduce the smallest useful `FeaturePageDefinition`.
+   - Move generic form validation/rendering/persistence into
+     `feature_pages/generic.py`.
    - Keep `handle_feature_conf` behavior unchanged.
 
 3. Extract simple feature pages. Completed.
    - Move non-light selector construction into `feature_pages/simple.py`.
-   - Replace inline generic feature handling with generic page definitions.
+   - Replace inline generic selector construction with feature-page helpers.
    - Validate with config-flow focused tests.
 
 4. Extract climate preset handling. Completed.
@@ -246,14 +235,15 @@ Notes:
    - Move light-group schema filtering, selector overrides, dynamic Adaptive
      Lighting fields, hidden-key preservation, and normalization into
      `feature_pages/light_groups.py`.
-   - Use generic rendering after the domain module builds a page definition.
+   - Use generic rendering after the domain module builds schema/selectors and
+     supplies persistence-preparation hooks.
 
 6. Reduce `handle_feature_conf`. Completed.
    - Final shape should identify the current step, delegate route handling, and
      call the generic page handler.
    - It should not contain domain-specific schema construction.
 
-7. Validate and update roadmap state. In progress.
+7. Validate and update roadmap state. Completed.
    - Run focused config-flow tests during extraction.
    - Run `./scripts/validate.sh` before commit or completion claim.
    - Record final completion/gaps in the active roadmap location.
@@ -269,15 +259,17 @@ uv run --extra test pytest tests/snapshots/test_snapshots_config_flow.py -q
 
 Current focused validation:
 
-- `uv run --extra test pytest tests/config_flow -q`: 105 passed.
-- `uv run --extra test pytest tests/snapshots/test_snapshots_config_flow.py -q`:
-  11 passed.
+- `uv run ruff check custom_components/magic_areas/config_flows/steps`: passed.
+- `uv run mypy custom_components/magic_areas/config_flows/steps/feature_config.py custom_components/magic_areas/config_flows/steps/feature_pages/generic.py custom_components/magic_areas/config_flows/steps/feature_pages/climate_control.py custom_components/magic_areas/config_flows/steps/feature_pages/light_groups.py custom_components/magic_areas/config_flows/steps/feature_pages/fan_groups.py`: passed.
+- `uv run --extra test pytest tests/config_flow/test_feature_config.py tests/config_flow/test_feature_config_climate.py tests/config_flow/test_options_flow_routing.py -q`:
+  19 passed.
 
 Final validation:
 
-```bash
-./scripts/validate.sh
-```
+- `./scripts/validate.sh`: passed on 2026-06-27.
+  - Ruff: passed.
+  - Mypy: passed, 362 source files checked.
+  - Pytest: 1452 passed, 26 snapshots passed.
 
 ## Exit criteria
 

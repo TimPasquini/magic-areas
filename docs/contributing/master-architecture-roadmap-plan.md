@@ -1249,6 +1249,22 @@ Exit criteria:
 - Existing options-flow behavior remains unchanged.
 - No frontend serializer regressions.
 
+Execution evidence from 2026-06-27:
+
+- `handle_feature_conf` now delegates generic form validation/rendering to
+  `feature_pages/generic.py`.
+- Simple non-light selector overrides live in `feature_pages/simple.py`.
+- Climate preset selection remains in `feature_pages/climate_control.py`.
+- Fan-group submenu/controller routing remains in `feature_pages/fan_groups.py`.
+- Light-group subpage schema/selector construction, hidden-field preservation,
+  and Adaptive Lighting normalization live in `feature_pages/light_groups.py`.
+- Focused options-flow validation passed:
+  - `uv run ruff check custom_components/magic_areas/config_flows/steps`
+  - `uv run mypy custom_components/magic_areas/config_flows/steps/feature_config.py custom_components/magic_areas/config_flows/steps/feature_pages/generic.py custom_components/magic_areas/config_flows/steps/feature_pages/climate_control.py custom_components/magic_areas/config_flows/steps/feature_pages/light_groups.py custom_components/magic_areas/config_flows/steps/feature_pages/fan_groups.py`
+  - `uv run --extra test pytest tests/config_flow/test_feature_config.py tests/config_flow/test_feature_config_climate.py tests/config_flow/test_options_flow_routing.py -q`
+- Full repository validation passed: `./scripts/validate.sh`; pytest reported
+  1452 passed and 26 snapshots passed.
+
 ## Phase 9: Control Runtime Pattern Consolidation
 
 Goal: reduce repeated runtime glue across fan, cover, light, climate, and media

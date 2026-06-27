@@ -20,6 +20,10 @@ from custom_components.magic_areas.config_keys.area import (
 from custom_components.magic_areas.config_flows.base import (
     SelectorMap,
     enabled_feature_map,
+    ensure_enabled_feature_map,
+)
+from custom_components.magic_areas.config_flows.steps.feature_pages.generic import (
+    filter_schema_for_keys,
 )
 from custom_components.magic_areas.config_flows.selector_builders import (
     build_selector_boolean,
@@ -197,6 +201,118 @@ def light_group_step_include_keys(
     return set()
 
 
+def build_light_group_schema_and_selectors(
+    *,
+    flow: OptionsFlowHandler,
+    step_id: str,
+    schema: vol.Schema,
+    user_input: Mapping[str, object] | None,
+) -> tuple[vol.Schema, SelectorMap]:
+    """Return the schema and selectors for one light-group substep."""
+    selectors: SelectorMap = {}
+    mode = resolve_light_groups_mode(flow, user_input)
+    adaptive_lighting_mode = resolve_adaptive_lighting_mode(flow, user_input)
+    include_keys = light_group_step_include_keys(
+        step_id=step_id,
+        mode=mode,
+        adaptive_lighting_mode=adaptive_lighting_mode,
+    )
+    feature_config = enabled_feature_map(flow.area_options).get(
+        MagicAreasFeatures.LIGHT_GROUPS.value, {}
+    )
+    if not isinstance(feature_config, Mapping):
+        feature_config = {}
+
+    if (
+        step_id == LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
+        and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING
+    ):
+        candidates = adaptive_lighting_candidate_switch_sets(flow, feature_config)
+        candidate_options = ["", *candidates]
+        for category in light_group_pairing_categories(flow, feature_config):
+            pair_key = adaptive_lighting_pair_key(category)
+            selected = adaptive_lighting_pair_value(feature_config, category)
+            options = list(candidate_options)
+            if selected and selected not in options:
+                options.append(selected)
+            include_keys.add(pair_key)
+            schema.schema[vol.Optional(pair_key, default=selected)] = vol.In(options)
+            selectors[pair_key] = build_selector_select(
+                options=options,
+                multiple=False,
+                translation_key="adaptive_lighting_switch_set",
+            )
+
+    if (
+        step_id == LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP
+        and adaptive_lighting_mode == LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE
+    ):
+        role_options = light_group_managed_role_options(flow, feature_config)
+        include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+        include_keys.add(CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES)
+        remove_schema_key(schema, CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL)
+        remove_schema_key(
+            schema,
+            CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
+        )
+        schema.schema[
+            vol.Optional(
+                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL,
+                default=light_group_manage_all_lights_default(feature_config),
+            )
+        ] = cv.boolean
+        schema.schema[
+            vol.Optional(
+                CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
+                default=light_group_managed_roles_default(
+                    role_options=role_options,
+                    feature_config=feature_config,
+                ),
+            )
+        ] = vol.All(cv.ensure_list, [vol.In(role_options)])
+        selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES] = (
+            build_selector_select(
+                options=role_options,
+                multiple=True,
+                translation_key="adaptive_lighting_managed_roles",
+            )
+        )
+        selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] = (
+            build_selector_boolean()
+        )
+
+    filtered_schema = filter_schema_for_keys(schema, include_keys)
+    add_light_group_brightness_selectors(
+        flow=flow,
+        step_id=step_id,
+        selectors=selectors,
+    )
+    if step_id in {
+        LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
+        LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
+    }:
+        remove_schema_key(filtered_schema, CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY)
+        filtered_schema.schema[
+            vol.Optional(
+                CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY,
+                default=default_inside_bright_entity(
+                    flow=flow,
+                    feature_config=feature_config,
+                ),
+            )
+        ] = cv.string
+    add_light_group_adaptive_lighting_selectors(
+        step_id=step_id,
+        selectors=selectors,
+    )
+    add_light_group_role_selectors(
+        step_id=step_id,
+        flow=flow,
+        selectors=selectors,
+    )
+    return filtered_schema, selectors
+
+
 def resolve_adaptive_lighting_mode(
     flow: OptionsFlowHandler, user_input: Mapping[str, object] | None
 ) -> str:
@@ -329,6 +445,60 @@ def prune_light_group_options_for_brightness_mode(
 ) -> None:
     """Preserve dormant brightness settings when switching modes."""
     return
+
+
+def prepare_light_group_validated(
+    flow: OptionsFlowHandler,
+    step_id: str,
+    validated: dict[str, object],
+    user_input: Mapping[str, object],
+) -> None:
+    """Preserve and normalize light-group fields before persistence."""
+    features = ensure_enabled_feature_map(flow.area_options)
+    existing = features.get(MagicAreasFeatures.LIGHT_GROUPS.value, {})
+    if isinstance(existing, Mapping):
+        for key in LIGHT_GROUP_PRESERVED_HIDDEN_KEYS:
+            if key in existing and key not in user_input:
+                validated[key] = existing[key]
+    brightness_mode = validated.get(CONF_LIGHT_GROUP_BRIGHTNESS_MODE)
+    if isinstance(existing, dict) and isinstance(brightness_mode, str):
+        prune_light_group_options_for_brightness_mode(
+            existing=existing,
+            mode=brightness_mode,
+        )
+    elif isinstance(existing, dict) and step_id in {
+        LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
+        LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
+    }:
+        prune_light_group_options_for_brightness_mode(
+            existing=existing,
+            mode=(
+                LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY
+                if step_id == LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP
+                else LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE
+            ),
+        )
+    normalize_light_group_adaptive_lighting_options(
+        flow,
+        validated,
+    )
+
+
+def should_rerender_light_group_form(
+    step_id: str,
+    user_input: Mapping[str, object],
+    validated: Mapping[str, object],
+) -> bool:
+    """Return whether a light-group form should be rerendered by the feature router."""
+    return should_rerender_light_group_adaptive_lighting_step(
+        step_id=step_id,
+        user_input=user_input,
+        validated=validated,
+    ) or should_rerender_light_group_brightness_step(
+        step_id=step_id,
+        user_input=user_input,
+        validated=validated,
+    )
 
 
 def default_inside_bright_entity(

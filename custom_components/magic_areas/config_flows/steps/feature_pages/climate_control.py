@@ -18,7 +18,7 @@ from custom_components.magic_areas.config_flows.selector_builders import (
     build_climate_preset_selectors_and_validators,
     build_selector_select,
 )
-from custom_components.magic_areas.config_flows.steps.feature_config import (
+from custom_components.magic_areas.config_flows.steps.feature_pages.generic import (
     handle_feature_form,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
