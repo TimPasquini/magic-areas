@@ -11,17 +11,6 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.config_keys.area import (
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD,
-    CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS,
-    CONF_AGGREGATES_MIN_ENTITIES,
-    CONF_COVER_GROUPS_ACCENT_ACTION,
-    CONF_COVER_GROUPS_ACCENT_STATES,
-    CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES,
-    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
-    CONF_COVER_GROUPS_DAYLIGHT_STATES,
-    CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS,
-    CONF_COVER_GROUPS_PRIVACY_ACTION,
-    CONF_COVER_GROUPS_PRIVACY_STATES,
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
     CONF_FAN_CONTROLLER_CLEAR_BEHAVIOR,
     CONF_FAN_CONTROLLER_DETECTION_MODE,
@@ -41,10 +30,6 @@ from custom_components.magic_areas.config_keys.area import (
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGED_ROLES,
     CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_SWITCH_SETS,
 )
-from custom_components.magic_areas.core.controls.policies.cover import (
-    DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES,
-    CoverPresetAction,
-)
 from custom_components.magic_areas.core.control_intents import (
     ADAPT_BRIGHTNESS_SWITCH,
     ADAPT_COLOR_SWITCH,
@@ -61,12 +46,31 @@ from custom_components.magic_areas.core.controls.policies.fan import (
     FanSensorUnavailableBehavior,
 )
 from custom_components.magic_areas.config_flows.base import (
-    ConfigSubMap,
     SelectorMap,
     enabled_feature_map,
     ensure_enabled_feature_map,
     get_feature_config_steps,
     invalid_input_error,
+)
+from custom_components.magic_areas.config_flows.steps.feature_pages.generic import (
+    copy_schema,
+    filter_schema_for_keys,
+)
+from custom_components.magic_areas.config_flows.steps.feature_pages.light_groups import (
+    LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP as _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP,
+    LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP as _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
+    LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP as _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
+    LIGHT_GROUP_BRIGHTNESS_STEP as _LIGHT_GROUP_BRIGHTNESS_STEP,
+    LIGHT_GROUP_MENU_STEP as _LIGHT_GROUP_MENU_STEP,
+    LIGHT_GROUP_ROLES_STEP as _LIGHT_GROUP_ROLES_STEP,
+    LIGHT_GROUP_SUBSTEPS as _LIGHT_GROUP_SUBSTEPS,
+    add_light_group_adaptive_lighting_selectors,
+    add_light_group_brightness_selectors,
+    add_light_group_role_selectors,
+    handle_light_group_menu_route,
+)
+from custom_components.magic_areas.config_flows.steps.feature_pages.simple import (
+    add_non_light_feature_selectors,
 )
 from custom_components.magic_areas.const import DOMAIN
 from custom_components.magic_areas.enums import (
@@ -75,17 +79,6 @@ from custom_components.magic_areas.enums import (
 )
 from custom_components.magic_areas.core.runtime_model.feature_ids import (
     build_threshold_light_sensor_unique_id,
-)
-from custom_components.magic_areas.features.config.readers import (
-    AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS,
-    BLE_TRACKER_OPTION_KEYS,
-    CLIMATE_CONTROL_ENTITY_KEY,
-    CLIMATE_CONTROL_PRESET_OPTION_KEYS,
-    FAN_GROUPS_OPTION_KEYS,
-    AGGREGATES_OPTION_KEYS,
-    HEALTH_OPTION_KEYS,
-    PRESENCE_HOLD_OPTION_KEYS,
-    WASP_IN_A_BOX_OPTION_KEYS,
 )
 from custom_components.magic_areas.features.registry import FEATURE_REGISTRY
 from custom_components.magic_areas.light_groups import (
@@ -107,11 +100,6 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
     LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
     LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
-    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
-    LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
-    LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
-    LIGHT_GROUP_ACT_ON_STATE_CHANGE,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
     LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
@@ -119,25 +107,13 @@ from custom_components.magic_areas.light_groups import (
     LIGHT_GROUP_PRESETS,
     adaptive_lighting_pair_key,
 )
-from custom_components.magic_areas.policy import (
-    ALL_BINARY_SENSOR_DEVICE_CLASSES,
-    ALL_SENSOR_DEVICE_CLASSES,
-    WASP_IN_A_BOX_WASP_DEVICE_CLASSES,
-)
 from custom_components.magic_areas.config_flows.selector_builders import (
-    InvalidEntityError,
-    NoEntitySelectedError,
-    NoPresetSupportError,
-    build_climate_preset_selectors_and_validators,
     build_selector_entity_simple,
     build_selector_boolean,
     build_selector_number,
     build_selector_select,
 )
 from custom_components.magic_areas.schemas import CONFIGURABLE_FEATURES
-from custom_components.magic_areas.schemas import (
-    CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT,
-)
 from custom_components.magic_areas.enums import LightGroupCategory
 
 if TYPE_CHECKING:
@@ -186,20 +162,6 @@ _LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_PREFIX = (
     LIGHT_GROUP_ADAPTIVE_LIGHTING_PAIR_KEY_PREFIX
 )
 _LIGHT_GROUP_LUX_SELECTOR_MAX = 120_000
-_LIGHT_GROUP_MENU_STEP = "feature_conf_light_groups"
-_LIGHT_GROUP_ROLES_STEP = "feature_conf_light_groups_roles"
-_LIGHT_GROUP_BRIGHTNESS_STEP = "feature_conf_light_groups_brightness"
-_LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP = "feature_conf_light_groups_brightness_advisory"
-_LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP = "feature_conf_light_groups_brightness_adaptive"
-_LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP = "feature_conf_light_groups_adaptive_lighting"
-_LIGHT_GROUP_SUBSTEPS = {
-    _LIGHT_GROUP_MENU_STEP,
-    _LIGHT_GROUP_ROLES_STEP,
-    _LIGHT_GROUP_BRIGHTNESS_STEP,
-    _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
-    _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
-    _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP,
-}
 _FAN_GROUP_MENU_STEP = "feature_conf_fan_groups"
 _FAN_GROUP_COOLING_STEP = "feature_conf_fan_groups_cooling"
 _FAN_GROUP_HUMIDITY_STEP = "feature_conf_fan_groups_humidity"
@@ -241,29 +203,11 @@ _FEATURE_SELECTION_ORDER = (
     MagicAreasFeatures.BLE_TRACKER,
     MagicAreasFeatures.WASP_IN_A_BOX,
 )
-_COVER_PRESET_ACTION_KEYS = (
-    CONF_COVER_GROUPS_DAYLIGHT_ACTION,
-    CONF_COVER_GROUPS_PRIVACY_ACTION,
-    CONF_COVER_GROUPS_ACCENT_ACTION,
-)
-_COVER_PRESET_STATE_KEYS = (
-    CONF_COVER_GROUPS_DAYLIGHT_STATES,
-    CONF_COVER_GROUPS_PRIVACY_STATES,
-    CONF_COVER_GROUPS_ACCENT_STATES,
-)
 
 
 def _feature_section_step(feature: MagicAreasFeatures) -> str:
     """Return the parent section-menu step for a feature."""
     return f"feature_conf_{feature.value}"
-
-
-def _copy_schema(schema: vol.Schema) -> vol.Schema:
-    """Return a shallow copy so dynamic flow fields do not mutate registry schemas."""
-    raw_schema = schema.schema
-    if not isinstance(raw_schema, dict):
-        return schema
-    return vol.Schema(dict(raw_schema), extra=schema.extra)
 
 
 def _resolve_light_groups_mode(
@@ -291,20 +235,6 @@ def _resolve_light_groups_mode(
         }:
             return raw
     return LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT
-
-
-def _filter_schema_for_keys(schema: vol.Schema, include_keys: set[str]) -> vol.Schema:
-    """Return a copy of schema containing only desired option keys."""
-    raw_schema = schema.schema
-    if not isinstance(raw_schema, dict):
-        return schema
-
-    filtered: dict[object, object] = {}
-    for marker, validator in raw_schema.items():
-        key = getattr(marker, "schema", marker)
-        if isinstance(key, str) and key in include_keys:
-            filtered[marker] = validator
-    return vol.Schema(filtered, extra=vol.REMOVE_EXTRA)
 
 
 def _remove_schema_key(schema: vol.Schema, key_to_remove: str) -> None:
@@ -980,165 +910,6 @@ async def _handle_fan_feature_route(
     return None
 
 
-def _handle_light_group_menu_route(
-    flow: "OptionsFlowHandler",
-    *,
-    step_id: str,
-) -> config_entries.ConfigFlowResult | None:
-    """Handle the light-group section menu."""
-    if step_id != _LIGHT_GROUP_MENU_STEP:
-        return None
-    # noinspection PyTypeChecker
-    return flow.async_show_menu(
-        step_id=_LIGHT_GROUP_MENU_STEP,
-        menu_options=[
-            _LIGHT_GROUP_ROLES_STEP,
-            _LIGHT_GROUP_BRIGHTNESS_STEP,
-            _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP,
-            "show_menu",
-        ],
-    )
-
-
-def _add_light_group_brightness_selectors(
-    *,
-    flow: "OptionsFlowHandler",
-    step_id: str,
-    mode: str,
-    selectors: SelectorMap,
-) -> None:
-    """Add selector overrides for the light-group brightness substep."""
-    if step_id not in {
-        _LIGHT_GROUP_BRIGHTNESS_STEP,
-        _LIGHT_GROUP_BRIGHTNESS_ADVISORY_STEP,
-        _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP,
-    }:
-        return
-
-    if step_id == _LIGHT_GROUP_BRIGHTNESS_STEP:
-        selectors[CONF_LIGHT_GROUP_BRIGHTNESS_MODE] = build_selector_select(
-            options=[
-                LIGHT_GROUP_BRIGHTNESS_MODE_INHIBIT,
-                LIGHT_GROUP_BRIGHTNESS_MODE_ADVISORY,
-                LIGHT_GROUP_BRIGHTNESS_MODE_ADAPTIVE,
-            ],
-            multiple=False,
-            translation_key="light_brightness_mode",
-        )
-        return
-
-    selectors[CONF_LIGHT_GROUP_INSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
-        multiple=False
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_BRIGHT_ENTITY] = build_selector_entity_simple(
-        multiple=False
-    )
-
-    if step_id != _LIGHT_GROUP_BRIGHTNESS_ADAPTIVE_STEP:
-        return
-
-    selectors[CONF_LIGHT_GROUP_BRIGHT_MIN_ON_SECONDS] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
-    )
-    selectors[CONF_LIGHT_GROUP_BRIGHT_DWELL_SECONDS] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
-    )
-    selectors[CONF_LIGHT_GROUP_BRIGHT_ATTRIBUTION_HOLD_SECONDS] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
-    )
-    selectors[CONF_LIGHT_GROUP_ADAPTIVE_REQUIRE_AMBIENT_RISE] = build_selector_boolean()
-    selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_WINDOW_SECONDS] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="s"
-    )
-    selectors[CONF_LIGHT_GROUP_AMBIENT_RISE_MIN_DELTA] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        unit_of_measurement="lx",
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE] = build_selector_select(
-        options=[
-            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_SUN,
-            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_OUTSIDE_LUX,
-            LIGHT_GROUP_OUTSIDE_CONTEXT_SOURCE_NONE,
-        ],
-        multiple=False,
-        translation_key="light_outside_context_source",
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_ENTITY] = build_selector_entity_simple(
-        flow.all_illuminance_entities, multiple=False
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_MIN] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        unit_of_measurement="lx",
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_ENTITY] = (
-        build_selector_entity_simple(flow.all_illuminance_entities, multiple=False)
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_DELTA] = build_selector_number(
-        min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-        unit_of_measurement="lx",
-    )
-    selectors[CONF_LIGHT_GROUP_OUTSIDE_LUX_INSIDE_RATIO_MIN_PERCENT] = (
-        build_selector_number(
-            min_value=-_LIGHT_GROUP_LUX_SELECTOR_MAX, unit_of_measurement="%"
-        )
-    )
-
-
-def _add_light_group_adaptive_lighting_selectors(
-    *,
-    step_id: str,
-    selectors: SelectorMap,
-) -> None:
-    """Add selector overrides for the Adaptive Lighting coordination substep."""
-    if step_id != _LIGHT_GROUP_ADAPTIVE_LIGHTING_STEP:
-        return
-    selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE] = build_selector_select(
-        options=[
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_IGNORE,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_ADOPT_EXISTING,
-            LIGHT_GROUP_ADAPTIVE_LIGHTING_MODE_MANAGE,
-        ],
-        multiple=False,
-        translation_key="adaptive_lighting_mode",
-    )
-
-
-def _add_light_group_role_selectors(
-    *,
-    step_id: str,
-    flow: "OptionsFlowHandler",
-    selectors: SelectorMap,
-) -> None:
-    """Add selector overrides for the light-role membership substep."""
-    if step_id != _LIGHT_GROUP_ROLES_STEP:
-        return
-    for preset in LIGHT_GROUP_PRESETS:
-        selectors[preset.category] = build_selector_entity_simple(
-            flow.all_lights, multiple=True
-        )
-        selectors[preset.states_key] = build_selector_select(
-            options=[
-                AreaStates.OCCUPIED.value,
-                AreaStates.EXTENDED.value,
-                AreaStates.SLEEP.value,
-                AreaStates.ACCENT.value,
-            ],
-            multiple=True,
-            translation_key=SelectorTranslationKeys.AREA_STATES,
-        )
-        selectors[preset.act_on_key] = build_selector_select(
-            options=[
-                LIGHT_GROUP_ACT_ON_OCCUPANCY_CHANGE,
-                LIGHT_GROUP_ACT_ON_STATE_CHANGE,
-            ],
-            multiple=True,
-            translation_key=SelectorTranslationKeys.CONTROL_ON,
-        )
-
-
 def get_feature_list(area_config: "AreaConfig | None") -> list[MagicAreasFeatures]:
     """Return list of available features for area type."""
     available = FEATURE_REGISTRY.available_features_for_area(area_config)
@@ -1296,164 +1067,12 @@ async def handle_feature_form(
     )
 
 
-def _add_non_light_feature_selectors(
-    *,
-    flow: "OptionsFlowHandler",
-    feature_enum: MagicAreasFeatures,
-    selectors: SelectorMap,
-) -> None:
-    """Add selector overrides for non-light feature config forms."""
-    if feature_enum == MagicAreasFeatures.AGGREGATES:
-        selectors.update(
-            {
-                CONF_AGGREGATES_MIN_ENTITIES: build_selector_number(
-                    min_value=1, unit_of_measurement=""
-                ),
-                CONF_AGGREGATES_ILLUMINANCE_THRESHOLD: build_selector_number(
-                    min_value=0,
-                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-                    unit_of_measurement="lx",
-                ),
-                CONF_AGGREGATES_ILLUMINANCE_THRESHOLD_HYSTERESIS: (
-                    build_selector_number(min_value=0, unit_of_measurement="%")
-                ),
-                AGGREGATES_OPTION_KEYS[3]: build_selector_select(
-                    sorted(ALL_BINARY_SENSOR_DEVICE_CLASSES), multiple=True
-                ),
-                AGGREGATES_OPTION_KEYS[4]: build_selector_select(
-                    sorted(ALL_SENSOR_DEVICE_CLASSES), multiple=True
-                ),
-            }
-        )
-
-    if feature_enum == MagicAreasFeatures.FAN_GROUPS:
-        selectors.update(
-            {
-                FAN_GROUPS_OPTION_KEYS[0]: build_selector_select(
-                    options=[
-                        AreaStates.OCCUPIED.value,
-                        AreaStates.EXTENDED.value,
-                        AreaStates.DARK.value,
-                        AreaStates.BRIGHT.value,
-                        AreaStates.SLEEP.value,
-                        AreaStates.ACCENT.value,
-                    ],
-                    translation_key=SelectorTranslationKeys.AREA_STATES,
-                ),
-                FAN_GROUPS_OPTION_KEYS[1]: build_selector_select(
-                    sorted(ALL_SENSOR_DEVICE_CLASSES),
-                ),
-                FAN_GROUPS_OPTION_KEYS[2]: build_selector_number(
-                    min_value=0,
-                    max_value=_LIGHT_GROUP_LUX_SELECTOR_MAX,
-                    step=0.1,
-                    unit_of_measurement="",
-                ),
-            }
-        )
-
-    if feature_enum == MagicAreasFeatures.COVER_GROUPS:
-        cover_device_classes = sorted(DEFAULT_COVER_AUTOMATION_DEVICE_CLASSES)
-        area_state_options = [
-            AreaStates.OCCUPIED.value,
-            AreaStates.EXTENDED.value,
-            AreaStates.DARK.value,
-            AreaStates.BRIGHT.value,
-            AreaStates.SLEEP.value,
-            AreaStates.ACCENT.value,
-        ]
-        selectors[CONF_COVER_GROUPS_AUTOMATION_DEVICE_CLASSES] = build_selector_select(
-            cover_device_classes, multiple=True
-        )
-        selectors[CONF_COVER_GROUPS_MANUAL_HOLD_SECONDS] = build_selector_number(
-            min_value=0,
-            max_value=86_400,
-            unit_of_measurement="seconds",
-        )
-        for key in _COVER_PRESET_ACTION_KEYS:
-            selectors[key] = build_selector_select(
-                options=[action.value for action in CoverPresetAction],
-                multiple=False,
-                translation_key="cover_preset_action",
-            )
-        for key in _COVER_PRESET_STATE_KEYS:
-            selectors[key] = build_selector_select(
-                options=area_state_options,
-                multiple=True,
-                translation_key=SelectorTranslationKeys.AREA_STATES,
-            )
-
-    if feature_enum == MagicAreasFeatures.AREA_AWARE_MEDIA_PLAYER:
-        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[0]] = (
-            build_selector_entity_simple(flow.all_media_players, multiple=True)
-        )
-        selectors[AREA_AWARE_MEDIA_PLAYER_OPTION_KEYS[1]] = build_selector_select(
-            options=[
-                AreaStates.OCCUPIED.value,
-                AreaStates.EXTENDED.value,
-                AreaStates.SLEEP.value,
-            ],
-            multiple=True,
-            translation_key=SelectorTranslationKeys.AREA_STATES,
-        )
-
-    if feature_enum == MagicAreasFeatures.BLE_TRACKER:
-        sensor_entities = [
-            entity_id
-            for entity_id in flow.all_entities
-            if entity_id.startswith("sensor.")
-        ]
-        selectors[BLE_TRACKER_OPTION_KEYS[0]] = build_selector_entity_simple(
-            sensor_entities, multiple=True
-        )
-
-    if feature_enum == MagicAreasFeatures.CLIMATE_CONTROL:
-        climate_entities = [
-            entity_id
-            for entity_id in flow.all_entities
-            if entity_id.startswith("climate.")
-        ]
-        selectors[CLIMATE_CONTROL_ENTITY_KEY] = build_selector_entity_simple(
-            climate_entities,
-            multiple=False,
-        )
-
-    if feature_enum == MagicAreasFeatures.HEALTH:
-        selectors[HEALTH_OPTION_KEYS[0]] = build_selector_select(
-            options=sorted(ALL_BINARY_SENSOR_DEVICE_CLASSES),
-            multiple=True,
-        )
-
-    if feature_enum == MagicAreasFeatures.PRESENCE_HOLD:
-        selectors[PRESENCE_HOLD_OPTION_KEYS[0]] = build_selector_number(
-            min_value=0,
-            max_value=86_400,
-            unit_of_measurement="seconds",
-        )
-
-    if feature_enum == MagicAreasFeatures.WASP_IN_A_BOX:
-        selectors[WASP_IN_A_BOX_OPTION_KEYS[0]] = build_selector_number(
-            min_value=0,
-            max_value=86_400,
-            unit_of_measurement="seconds",
-        )
-        selectors[WASP_IN_A_BOX_OPTION_KEYS[1]] = build_selector_number(
-            min_value=0,
-            max_value=1_440,
-            unit_of_measurement="minutes",
-        )
-        selectors[WASP_IN_A_BOX_OPTION_KEYS[2]] = build_selector_select(
-            options=sorted(WASP_IN_A_BOX_WASP_DEVICE_CLASSES),
-            multiple=True,
-        )
-
-
 async def handle_feature_conf(
     flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
 ) -> config_entries.ConfigFlowResult:
     """Configure a specific feature using registry-based approach."""
     step_id = flow._feature_step_id or str(flow.context.get("step_id", ""))
-    light_menu_result = _handle_light_group_menu_route(flow, step_id=step_id)
+    light_menu_result = handle_light_group_menu_route(flow, step_id=step_id)
     if light_menu_result is not None:
         return light_menu_result
     fan_result = await _handle_fan_feature_route(
@@ -1587,7 +1206,7 @@ async def handle_feature_conf(
     if schema is None:
         # noinspection PyTypeChecker
         return flow.async_abort(reason="unknown_feature")
-    schema = _copy_schema(schema)
+    schema = copy_schema(schema)
 
     selectors: SelectorMap = {}
 
@@ -1663,12 +1282,11 @@ async def handle_feature_conf(
             selectors[CONF_LIGHT_GROUP_ADAPTIVE_LIGHTING_MANAGE_ALL] = (
                 build_selector_boolean()
             )
-        schema = _filter_schema_for_keys(schema, include_keys)
+        schema = filter_schema_for_keys(schema, include_keys)
 
-        _add_light_group_brightness_selectors(
+        add_light_group_brightness_selectors(
             flow=flow,
             step_id=step_id,
-            mode=mode,
             selectors=selectors,
         )
         if step_id in {
@@ -1685,17 +1303,17 @@ async def handle_feature_conf(
                     ),
                 )
             ] = cv.string
-        _add_light_group_adaptive_lighting_selectors(
+        add_light_group_adaptive_lighting_selectors(
             step_id=step_id,
             selectors=selectors,
         )
-        _add_light_group_role_selectors(
+        add_light_group_role_selectors(
             step_id=step_id,
             flow=flow,
             selectors=selectors,
         )
 
-    _add_non_light_feature_selectors(
+    add_non_light_feature_selectors(
         flow=flow,
         feature_enum=feature_enum,
         selectors=selectors,
@@ -1725,46 +1343,4 @@ async def handle_feature_conf(
             )
         ),
         selectors=selectors,
-    )
-
-
-async def handle_climate_preset_selection(
-    flow: "OptionsFlowHandler", user_input: Mapping[str, object] | None = None
-) -> config_entries.ConfigFlowResult:
-    """Handle climate control preset selection step."""
-    climate_cfg: ConfigSubMap = enabled_feature_map(flow.area_options).get(
-        MagicAreasFeatures.CLIMATE_CONTROL.value, {}
-    )
-    climate_entity_value = climate_cfg.get(CLIMATE_CONTROL_ENTITY_KEY)
-    climate_entity_id = (
-        climate_entity_value if isinstance(climate_entity_value, str) else None
-    )
-
-    try:
-        selectors, dynamic_validators = build_climate_preset_selectors_and_validators(
-            flow.hass,
-            climate_entity_id,
-            build_selector_select,
-            preset_config_keys=CLIMATE_CONTROL_PRESET_OPTION_KEYS,
-        )
-    except NoEntitySelectedError:
-        # noinspection PyTypeChecker
-        return flow.async_abort(reason="no_entity_selected")
-    except InvalidEntityError:
-        # noinspection PyTypeChecker
-        return flow.async_abort(reason="invalid_entity")
-    except NoPresetSupportError:
-        # noinspection PyTypeChecker
-        return flow.async_abort(reason="climate_no_preset_support")
-
-    return await handle_feature_form(
-        flow=flow,
-        feature_enum=MagicAreasFeatures.CLIMATE_CONTROL,
-        step_id="feature_conf_climate_control_select_presets",
-        schema=CLIMATE_CONTROL_FEATURE_SCHEMA_PRESET_SELECT,
-        user_input=user_input,
-        merge_options=True,
-        next_step=_feature_section_step(MagicAreasFeatures.CLIMATE_CONTROL),
-        selectors=selectors,
-        dynamic_validators=dynamic_validators,
     )
