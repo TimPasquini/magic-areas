@@ -106,6 +106,14 @@ Do not bypass entry-point APIs with deep side-door imports.
 - Feature schemas/options are module-local in `features/modules/*.py`.
 - Generic step routing lives in `config_flows/options_flow.py` and
   `config_flows/steps/feature_config.py`.
+- Feature-specific options-flow page construction lives under
+  `config_flows/steps/feature_pages/`:
+  - `generic.py` owns schema copy/filter helpers and generic form
+    validation/rendering/persistence.
+  - `simple.py` owns selector overrides for simple schema-backed feature pages.
+  - Complex feature modules such as `light_groups.py`, `fan_groups.py`, and
+    `climate_control.py` own their submenu routing, dynamic schema/selector
+    construction, persistence hooks, and guided-flow boundaries.
 - Runtime config access uses:
   - `core.config` for generic area/normalization helpers
   - `features.config` for feature-owned option semantics
