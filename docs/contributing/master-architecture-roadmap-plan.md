@@ -2675,6 +2675,14 @@ Dead-code audit evidence:
 
 ### 8. Options-Flow Structural Follow-Up
 
+Phase 8 should continue from a clean `options-flow-structure` branch based on
+`fan-cover-default-automation`, not from the earlier main-based
+`codex/options-flow-structure` scratch branch. The fan-cover branch already
+contains the current options-flow surface and tests that must be preserved.
+Reapply only useful scratch-branch implementation primitives, keep fan/cover
+options-flow behavior as a constraint, and do not redesign fan/cover as part of
+this structural extraction.
+
 #### 8.1. Preparation
 
 - `8.1.1` Confirm temporary options-flow behavior plan is retired or closable.
