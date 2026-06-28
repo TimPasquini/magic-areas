@@ -45,6 +45,7 @@ from custom_components.magic_areas.features.config.readers import (
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
+    MonotonicDeadlineMap,
     resolve_area_presence_states,
 )
 from custom_components.magic_areas.core.aggregates import resolve_aggregate_entity_id
@@ -78,8 +79,8 @@ class FanControlSwitch(ControlSwitchBase):
     _controller_sensor_entity_ids: tuple[str, ...]
     _controller_trend_signal_unique_ids: dict[str, str]
     _controller_trend_signal_entity_ids: dict[str, str]
-    _post_clear_hold_until_monotonic: dict[str, float]
-    _unavailable_hold_until_monotonic: dict[str, float]
+    _post_clear_hold_until_monotonic: MonotonicDeadlineMap[str]
+    _unavailable_hold_until_monotonic: MonotonicDeadlineMap[str]
     _hold_timer_cancel: Callable[[], None] | None
 
     def __init__(
@@ -126,8 +127,8 @@ class FanControlSwitch(ControlSwitchBase):
                     signal_surface.unique_id
                 )
         self._controller_trend_signal_entity_ids = {}
-        self._post_clear_hold_until_monotonic = {}
-        self._unavailable_hold_until_monotonic = {}
+        self._post_clear_hold_until_monotonic = MonotonicDeadlineMap()
+        self._unavailable_hold_until_monotonic = MonotonicDeadlineMap()
         self._hold_timer_cancel = None
         self._last_states = []
 
@@ -334,12 +335,12 @@ class FanControlSwitch(ControlSwitchBase):
                 and was_active
                 and hold_seconds > 0
             ):
-                self._post_clear_hold_until_monotonic.setdefault(
+                self._post_clear_hold_until_monotonic.setdefault_deadline(
                     controller_id,
                     now + hold_seconds,
                 )
             elif not gate_cleared:
-                self._post_clear_hold_until_monotonic.pop(controller_id, None)
+                self._post_clear_hold_until_monotonic.discard(controller_id)
 
             sensor_value = (
                 sensor_values.get(controller.sensor_entity_id)
@@ -353,12 +354,12 @@ class FanControlSwitch(ControlSwitchBase):
                 and was_active
                 and hold_seconds > 0
             ):
-                self._unavailable_hold_until_monotonic.setdefault(
+                self._unavailable_hold_until_monotonic.setdefault_deadline(
                     controller_id,
                     now + hold_seconds,
                 )
             elif sensor_value is not None:
-                self._unavailable_hold_until_monotonic.pop(controller_id, None)
+                self._unavailable_hold_until_monotonic.discard(controller_id)
 
         self._drop_expired_holds(now)
 
@@ -374,20 +375,14 @@ class FanControlSwitch(ControlSwitchBase):
         )
         return AreaStates.CLEAR in current_state_set or not state_gate_met
 
-    def _active_hold_ids(self, holds: dict[str, float]) -> list[str]:
+    def _active_hold_ids(self, holds: MonotonicDeadlineMap[str]) -> list[str]:
         """Return controller IDs whose hold deadlines have not expired."""
-        self._drop_expired_holds(monotonic())
-        return sorted(holds)
+        return list(holds.active_keys(monotonic()))
 
     def _drop_expired_holds(self, now: float) -> None:
         """Remove expired controller hold deadlines."""
-        for holds in (
-            self._post_clear_hold_until_monotonic,
-            self._unavailable_hold_until_monotonic,
-        ):
-            for controller_id, deadline in tuple(holds.items()):
-                if now >= deadline:
-                    holds.pop(controller_id, None)
+        self._post_clear_hold_until_monotonic.drop_expired(now)
+        self._unavailable_hold_until_monotonic.drop_expired(now)
 
     def _schedule_next_hold_expiry_check(self) -> None:
         """Re-run fan policy when the next fan hold expires."""
@@ -395,16 +390,21 @@ class FanControlSwitch(ControlSwitchBase):
             self._hold_timer_cancel()
             self._hold_timer_cancel = None
 
-        deadlines = tuple(self._post_clear_hold_until_monotonic.values()) + tuple(
-            self._unavailable_hold_until_monotonic.values()
+        now = monotonic()
+        delays = tuple(
+            delay
+            for holds in (
+                self._post_clear_hold_until_monotonic,
+                self._unavailable_hold_until_monotonic,
+            )
+            if (delay := holds.next_delay(now)) is not None
         )
-        if not deadlines:
+        if not delays:
             return
 
-        delay = max(min(deadlines) - monotonic(), 0.0)
         self._hold_timer_cancel = async_call_later(
             self.hass,
-            delay,
+            min(delays),
             self._hold_expiry_check,
         )
 

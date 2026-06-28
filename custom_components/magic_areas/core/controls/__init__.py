@@ -31,6 +31,9 @@ from custom_components.magic_areas.core.controls.registry import (
     GroupRegistry,
     RegisteredControlGroup,
 )
+from custom_components.magic_areas.core.controls.runtime_support import (
+    MonotonicDeadlineMap,
+)
 from custom_components.magic_areas.core.controls.builders import (
     CategorizedGroupSpec,
     build_categorized_group_entities,
@@ -49,6 +52,7 @@ __all__ = [
     "ControlRuntimeEffect",
     "ControlRuntimeEffectType",
     "GroupRegistry",
+    "MonotonicDeadlineMap",
     "RegisteredControlGroup",
     "build_noop_decision",
     "build_categorized_group_entities",

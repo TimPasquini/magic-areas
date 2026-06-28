@@ -569,7 +569,7 @@ Chosen first-pass helper contract:
 - `contains(key, now)` prunes expired deadlines and returns whether the key is
   still active
 - `next_delay(now)` returns `None` for no active deadlines, otherwise
-  `max(next_deadline - now, 0.0)`
+  a positive delay until the next active deadline
 - `__bool__` returns whether any unpruned deadlines are currently stored; use
   `active_keys(now)` or `next_delay(now)` when expiry pruning is required.
 
@@ -578,9 +578,10 @@ domain code control the clock boundary.
 
 Import/export boundary:
 
-- Prefer direct imports from the new helper module during the first pass.
-- Do not add the helper to `core/controls/__init__.py` unless a later slice
-  proves it should be a stable package-level control primitive.
+- Export the helper through `core/controls/__init__.py` and import it from
+  `custom_components.magic_areas.core.controls`.
+- The repository import-boundary tests treat direct imports from
+  `core.controls.runtime_support` as side-door imports.
 - Do not expose domain-specific aliases from the helper module.
 
 Required tests:
@@ -591,8 +592,7 @@ Required tests:
   - preserving an existing deadline when using setdefault semantics;
   - expiring old deadlines;
   - returning sorted active keys as tuples;
-  - returning `None`, `0.0`, or a positive float from `next_delay()` as
-    appropriate;
+  - returning `None` or a positive float from `next_delay()` as appropriate;
   - checking one key after pruning expired deadlines;
   - handling empty maps.
 
@@ -642,6 +642,42 @@ Decision record required after this candidate:
 - identify any behavior intentionally left duplicated;
 - identify any remaining extraction candidates that are now obsolete;
 - decide explicitly whether Candidate B should proceed or be deferred.
+
+Candidate A implementation decision:
+
+- Helper: `MonotonicDeadlineMap`, exported through `core.controls` because
+  repository import-boundary tests prohibit switch modules from importing
+  `core.controls.runtime_support` directly.
+- Production callers:
+  - `CoverControlSwitch`
+  - `FanControlSwitch`
+- Covered behavior:
+  - cover manual holds replace existing deadlines;
+  - fan post-clear and unavailable holds preserve existing deadlines;
+  - expired holds are pruned before active IDs are exposed;
+  - fan and cover scheduling still cancel old callbacks and schedule the next
+    soonest deadline;
+  - expiry callbacks still re-resolve current area state and call domain-owned
+    `run_logic`.
+- Intentionally left duplicated:
+  - Home Assistant callback ownership and `async_call_later` scheduling remain
+    in fan/cover switch modules;
+  - fan controller hold rules remain fan-owned;
+  - cover expected/manual movement detection remains cover-owned.
+- Complexity result:
+  - repeated raw dict deadline mutation/pruning logic moved behind one typed
+    helper;
+  - no Home Assistant runtime behavior moved into the helper;
+  - no production `Any`, casts, or type ignores were introduced.
+- Validation:
+  - helper-only ruff, mypy, and tests passed;
+  - cover migration ruff, mypy, and tests passed;
+  - fan migration ruff, mypy, and tests passed;
+  - final focused control validation passed;
+  - full `./scripts/validate.sh` passed with `1466 passed`.
+- Candidate B decision: defer by default. The remaining debug-attribute
+  duplication is small and domain-owned; do not extract it unless a later
+  review finds clearer repeated mechanics after this helper is committed.
 
 ### 3. Extract attribute merge helper only if still valuable
 

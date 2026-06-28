@@ -12,6 +12,9 @@ from custom_components.magic_areas.switch import FanControlSwitch
 from custom_components.magic_areas.core.runtime_model import AreaConfig
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import ControlGroupContext
+from custom_components.magic_areas.core.controls.runtime_support import (
+    MonotonicDeadlineMap,
+)
 from custom_components.magic_areas.core.controls.policies.fan import FanPolicySignals
 from custom_components.magic_areas.config_keys.area import (
     CONF_FAN_CONTROLLER_ACTIVE_STATES,
@@ -25,8 +28,10 @@ from custom_components.magic_areas.config_keys.area import (
 )
 from custom_components.magic_areas.core.controls.policies.fan import (
     FanClearBehavior,
+    FanControllerConfig,
     FanControllerRole,
     FanDetectionMode,
+    FanSensorUnavailableBehavior,
 )
 from custom_components.magic_areas.enums import MagicAreasFeatures
 
@@ -375,12 +380,16 @@ async def test_run_logic_exposes_fan_controller_debug_attributes(
     assert attrs["inactive_fan_reasons"] == []
     assert attrs["target_fan_entities"] == []
 
-    switch._post_clear_hold_until_monotonic = {
-        FanControllerRole.HUMIDITY.value: float("inf")
-    }
-    switch._unavailable_hold_until_monotonic = {
-        FanControllerRole.ODOR.value: float("inf")
-    }
+    switch._post_clear_hold_until_monotonic = MonotonicDeadlineMap()
+    switch._post_clear_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        float("inf"),
+    )
+    switch._unavailable_hold_until_monotonic = MonotonicDeadlineMap()
+    switch._unavailable_hold_until_monotonic.set_deadline(
+        FanControllerRole.ODOR.value,
+        float("inf"),
+    )
     switch._write_policy_debug_attributes()
 
     attrs = switch._attr_extra_state_attributes
@@ -575,6 +584,139 @@ async def test_fan_hold_expiry_rechecks_current_area_state(
     run_logic.assert_awaited_once_with(
         [AreaStates.OCCUPIED.value, AreaStates.EXTENDED.value]
     )
+
+
+def test_fan_refresh_preserves_existing_hold_deadlines(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fan runtime holds should preserve first deadlines while still active."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch._post_clear_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        100.0,
+    )
+    switch._unavailable_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        100.0,
+    )
+    switch.policy.controllers = (
+        FanControllerConfig(
+            controller_id=FanControllerRole.HUMIDITY,
+            members=("fan.bathroom",),
+            sensor_entity_id="sensor.bathroom_humidity",
+            detection_mode=FanDetectionMode.THRESHOLD,
+            on_threshold=60.0,
+            hysteresis=5.0,
+            active_states=(AreaStates.OCCUPIED,),
+            clear_behavior=FanClearBehavior.POST_CLEAR_HOLD,
+            post_clear_hold_seconds=900,
+            sensor_unavailable_behavior=(FanSensorUnavailableBehavior.HOLD_THEN_CLEAR),
+        ),
+    )
+    switch.policy.last_evaluation = MagicMock(
+        active_reasons=(MagicMock(controller_id=FanControllerRole.HUMIDITY.value),)
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.fan_control.monotonic",
+        lambda: 50.0,
+    )
+
+    switch._refresh_controller_hold_deadlines(
+        current_states=[AreaStates.CLEAR.value],
+        sensor_values={"sensor.bathroom_humidity": None},
+    )
+
+    assert switch._post_clear_hold_until_monotonic.next_delay(50.0) == 50.0
+    assert switch._unavailable_hold_until_monotonic.next_delay(50.0) == 50.0
+
+
+def test_fan_refresh_discards_holds_when_gate_or_sensor_restores(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fan runtime holds should clear when their domain conditions restore."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch._post_clear_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        100.0,
+    )
+    switch._unavailable_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        100.0,
+    )
+    switch.policy.controllers = (
+        FanControllerConfig(
+            controller_id=FanControllerRole.HUMIDITY,
+            members=("fan.bathroom",),
+            sensor_entity_id="sensor.bathroom_humidity",
+            detection_mode=FanDetectionMode.THRESHOLD,
+            on_threshold=60.0,
+            hysteresis=5.0,
+            active_states=(AreaStates.OCCUPIED,),
+            clear_behavior=FanClearBehavior.POST_CLEAR_HOLD,
+            post_clear_hold_seconds=900,
+            sensor_unavailable_behavior=(FanSensorUnavailableBehavior.HOLD_THEN_CLEAR),
+        ),
+    )
+    switch.policy.last_evaluation = MagicMock(
+        active_reasons=(MagicMock(controller_id=FanControllerRole.HUMIDITY.value),)
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.fan_control.monotonic",
+        lambda: 50.0,
+    )
+
+    switch._refresh_controller_hold_deadlines(
+        current_states=[AreaStates.OCCUPIED.value],
+        sensor_values={"sensor.bathroom_humidity": 55.0},
+    )
+
+    assert switch._post_clear_hold_until_monotonic.active_keys(50.0) == ()
+    assert switch._unavailable_hold_until_monotonic.active_keys(50.0) == ()
+
+
+def test_fan_hold_schedules_next_expiry(
+    mock_area_config: AreaConfig,
+    mock_coordinator: MagicAreasCoordinator,
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fan hold scheduling should cancel old handles and use the next deadline."""
+    switch = FanControlSwitch(mock_area_config, mock_coordinator)
+    switch.hass = mock_hass
+    switch._post_clear_hold_until_monotonic.set_deadline(
+        FanControllerRole.HUMIDITY.value,
+        30.0,
+    )
+    switch._unavailable_hold_until_monotonic.set_deadline(
+        FanControllerRole.ODOR.value,
+        20.0,
+    )
+    old_cancel = MagicMock()
+    new_cancel = MagicMock()
+    switch._hold_timer_cancel = old_cancel
+    async_call_later = MagicMock(return_value=new_cancel)
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.fan_control.monotonic",
+        lambda: 10.0,
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.fan_control.async_call_later",
+        async_call_later,
+    )
+
+    switch._schedule_next_hold_expiry_check()
+
+    old_cancel.assert_called_once_with()
+    async_call_later.assert_called_once_with(
+        switch.hass,
+        10.0,
+        switch._hold_expiry_check,
+    )
+    assert switch._hold_timer_cancel is new_cancel
 
 
 @pytest.mark.asyncio

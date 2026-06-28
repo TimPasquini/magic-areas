@@ -20,6 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
+    MonotonicDeadlineMap,
     resolve_area_presence_states,
     resolve_group_entity_id_by_metadata,
 )
@@ -49,7 +50,7 @@ class CoverControlSwitch(ControlSwitchBase):
     _cover_group_entity_ids: dict[str, str]
     _last_states: list[str]
     _manual_hold_seconds: int
-    _manual_hold_until_monotonic: dict[str, float]
+    _manual_hold_until_monotonic: MonotonicDeadlineMap[str]
     _manual_hold_timer_cancel: Callable[[], None] | None
     _expected_cover_group_state_changes: set[str]
 
@@ -63,7 +64,7 @@ class CoverControlSwitch(ControlSwitchBase):
         self._cover_group_entity_ids = {}
         self._last_states = []
         self._manual_hold_seconds = config.manual_hold_seconds
-        self._manual_hold_until_monotonic = {}
+        self._manual_hold_until_monotonic = MonotonicDeadlineMap()
         self._manual_hold_timer_cancel = None
         self._expected_cover_group_state_changes = set()
 
@@ -110,8 +111,9 @@ class CoverControlSwitch(ControlSwitchBase):
             return
 
         if self._manual_hold_seconds > 0:
-            self._manual_hold_until_monotonic[entity_id] = (
-                monotonic() + self._manual_hold_seconds
+            self._manual_hold_until_monotonic.set_deadline(
+                entity_id,
+                monotonic() + self._manual_hold_seconds,
             )
             self._schedule_next_manual_hold_expiry_check()
 
@@ -170,15 +172,13 @@ class CoverControlSwitch(ControlSwitchBase):
     def _manual_hold_entity_ids(self, entity_id: str | None = None) -> list[str]:
         """Return cover helper entity IDs currently under manual hold."""
         now = monotonic()
-        for held_entity_id, deadline in tuple(
-            self._manual_hold_until_monotonic.items()
-        ):
-            if now >= deadline:
-                self._manual_hold_until_monotonic.pop(held_entity_id, None)
-
         if entity_id is not None:
-            return [entity_id] if entity_id in self._manual_hold_until_monotonic else []
-        return sorted(self._manual_hold_until_monotonic)
+            return (
+                [entity_id]
+                if self._manual_hold_until_monotonic.contains(entity_id, now)
+                else []
+            )
+        return list(self._manual_hold_until_monotonic.active_keys(now))
 
     def _schedule_next_manual_hold_expiry_check(self) -> None:
         """Re-run cover policy when the next manual hold expires."""
@@ -186,11 +186,10 @@ class CoverControlSwitch(ControlSwitchBase):
             self._manual_hold_timer_cancel()
             self._manual_hold_timer_cancel = None
 
-        self._manual_hold_entity_ids()
-        if not self._manual_hold_until_monotonic:
+        delay = self._manual_hold_until_monotonic.next_delay(monotonic())
+        if delay is None:
             return
 
-        delay = max(min(self._manual_hold_until_monotonic.values()) - monotonic(), 0.0)
         self._manual_hold_timer_cancel = async_call_later(
             self.hass,
             delay,

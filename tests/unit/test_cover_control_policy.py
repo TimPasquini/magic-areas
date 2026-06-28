@@ -19,6 +19,9 @@ from custom_components.magic_areas.core.controls.policies.cover import (
     cover_preset_decision_to_control_group,
     evaluate_cover_presets,
 )
+from custom_components.magic_areas.core.controls.runtime_support import (
+    MonotonicDeadlineMap,
+)
 from custom_components.magic_areas.switch.cover_control import CoverControlSwitch
 
 
@@ -223,7 +226,7 @@ async def test_cover_switch_manual_state_change_starts_hold(
     """Unexpected cover group movement should start a manual hold."""
     switch = object.__new__(CoverControlSwitch)
     switch._manual_hold_seconds = 900
-    switch._manual_hold_until_monotonic = {}
+    switch._manual_hold_until_monotonic = MonotonicDeadlineMap()
     switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = set()
     schedule_check = Mock()
@@ -248,7 +251,7 @@ async def test_cover_switch_expected_state_change_does_not_start_hold(
     """Magic Areas cover commands should not be treated as manual movement."""
     switch = object.__new__(CoverControlSwitch)
     switch._manual_hold_seconds = 900
-    switch._manual_hold_until_monotonic = {}
+    switch._manual_hold_until_monotonic = MonotonicDeadlineMap()
     switch._manual_hold_timer_cancel = None
     switch._expected_cover_group_state_changes = {"cover.kitchen_blinds"}
     schedule_check = Mock()
@@ -263,6 +266,87 @@ async def test_cover_switch_expected_state_change_does_not_start_hold(
     schedule_check.assert_not_called()
     assert not switch._manual_hold_active()
     assert switch._expected_cover_group_state_changes == set()
+
+
+def test_cover_manual_hold_entities_prune_and_sort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Manual hold entity reads should prune expired holds and sort active IDs."""
+    switch = object.__new__(CoverControlSwitch)
+    switch._manual_hold_until_monotonic = MonotonicDeadlineMap()
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_shades", 20.0)
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_blinds", 20.0)
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_old", 10.0)
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.cover_control.monotonic",
+        lambda: 10.0,
+    )
+
+    assert switch._manual_hold_entity_ids() == [
+        "cover.kitchen_blinds",
+        "cover.kitchen_shades",
+    ]
+    assert switch._manual_hold_entity_ids("cover.kitchen_old") == []
+
+
+async def test_cover_manual_hold_replaces_existing_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unexpected movement should replace an existing manual-hold deadline."""
+    switch = object.__new__(CoverControlSwitch)
+    switch._manual_hold_seconds = 900
+    switch._manual_hold_until_monotonic = MonotonicDeadlineMap()
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_blinds", 100.0)
+    switch._manual_hold_timer_cancel = None
+    switch._expected_cover_group_state_changes = set()
+    schedule_check = Mock()
+    monkeypatch.setattr(
+        switch, "_schedule_next_manual_hold_expiry_check", schedule_check
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.cover_control.monotonic",
+        lambda: 50.0,
+    )
+
+    await switch.cover_group_state_changed(
+        _Event("cover.kitchen_blinds", "open", "closed")  # type: ignore[arg-type]
+    )
+
+    schedule_check.assert_called_once_with()
+    assert switch._manual_hold_until_monotonic.next_delay(50.0) == 900.0
+
+
+def test_cover_manual_hold_schedules_next_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Manual hold scheduling should cancel old handles and use the next deadline."""
+    switch = object.__new__(CoverControlSwitch)
+    switch.hass = Mock()
+    switch._manual_hold_until_monotonic = MonotonicDeadlineMap()
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_blinds", 30.0)
+    switch._manual_hold_until_monotonic.set_deadline("cover.kitchen_shades", 20.0)
+    old_cancel = Mock()
+    new_cancel = Mock()
+    switch._manual_hold_timer_cancel = old_cancel
+    async_call_later = Mock(return_value=new_cancel)
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.cover_control.monotonic",
+        lambda: 10.0,
+    )
+    monkeypatch.setattr(
+        "custom_components.magic_areas.switch.cover_control.async_call_later",
+        async_call_later,
+    )
+
+    switch._schedule_next_manual_hold_expiry_check()
+
+    old_cancel.assert_called_once_with()
+    async_call_later.assert_called_once_with(
+        switch.hass,
+        10.0,
+        switch._manual_hold_expiry_check,
+    )
+    assert switch._manual_hold_timer_cancel is new_cancel
 
 
 async def test_cover_manual_hold_expiry_rechecks_current_area_state(
