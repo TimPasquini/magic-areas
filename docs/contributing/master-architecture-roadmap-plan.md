@@ -1297,6 +1297,33 @@ Execution evidence from 2026-06-27:
 Goal: reduce repeated runtime glue across fan, cover, light, climate, and media
 control paths without creating an over-general automation framework.
 
+Implementation status:
+
+- A shared `MonotonicDeadlineMap` control primitive now owns monotonic deadline
+  map mechanics for hold-style runtime state.
+- The helper is exported through `custom_components.magic_areas.core.controls`;
+  runtime callers must import shared control primitives from that public API.
+  Direct imports from `core.controls.<module>` remain side-door imports unless a
+  module is explicitly promoted in `tests/unit/test_import_boundaries.py`.
+- `CoverControlSwitch` uses the helper for manual cover hold deadlines while
+  preserving replacement semantics for repeated unexpected cover movement.
+- `FanControlSwitch` uses the helper for post-clear and unavailable-sensor hold
+  deadlines while preserving first-deadline semantics for active holds.
+- Home Assistant callback ownership and `async_call_later` scheduling remain in
+  the fan/cover switch modules.
+- Fan controller hold rules remain fan-owned.
+- Cover expected/manual movement detection remains cover-owned.
+- Debug attribute builder extraction is deferred. The remaining repeated
+  fan/cover debug attribute mechanics are small, while keys and values are
+  domain-owned debug contracts.
+- Area-state rerun helpers, target-state snapshot helpers, expected-change
+  trackers, disabled-gating helpers, and service-call/runtime-effect helpers
+  were reviewed and left unextracted because existing shared infrastructure is
+  sufficient or the contracts differ by domain.
+- Full validation passed after the extraction: `./scripts/validate.sh` reported
+  `1466 passed` and 26 snapshots passed.
+- CRG was rebuilt after the structural refactor.
+
 Repeated patterns to inspect:
 
 - control switch enabled/disabled gating
@@ -1316,12 +1343,17 @@ custom_components/magic_areas/core/controls/runtime_support.py
 
 Candidate contents:
 
-- common enabled-switch gate helpers
-- common target normalization helpers
-- common hold-deadline state helpers
-- common debug attribute builders
-- shared policy execution result model
-- shared service-call tracing helpers
+- common hold-deadline state helpers: completed with `MonotonicDeadlineMap`
+- common enabled-switch gate helpers: deferred; dispatcher-event gating already
+  exists and remaining direct gates are domain-specific
+- common target normalization helpers: deferred; current read semantics differ
+  by domain
+- common debug attribute builders: deferred; remaining duplication is too small
+  and debug keys are domain-owned
+- shared policy execution result model: not extracted; current control-group
+  contracts are sufficient
+- shared service-call tracing helpers: not extracted; service execution is
+  already consolidated through existing control-group executor paths
 
 Rules:
 
@@ -1330,12 +1362,18 @@ Rules:
 - Do not hide fan/cover/light semantics behind generic names.
 - Preserve debug attributes or intentionally version changes.
 - Validate all domains after each extraction.
+- Export shared control primitives through `core.controls`; do not add
+  import-boundary allowlist exceptions when the correct fix is a public API
+  export.
 
 Exit criteria:
 
-- Domain-specific policy files are smaller and clearer.
-- Runtime switch/platform files have less repeated glue.
+- Runtime switch files have less repeated deadline-map glue.
+- Domain-specific policy decisions remain domain-owned.
 - Control behavior remains unchanged.
+- Debug attributes remain stable.
+- Import-boundary tests pass.
+- Full validation passes.
 
 ## Phase 10: Future Live Simulation Expansion
 
@@ -2816,31 +2854,64 @@ Completion evidence:
 
 #### 9.1. Pattern Inventory
 
-- `9.1.1` Inventory control switch gating across domains.
-- `9.1.2` Inventory policy input assembly across domains.
-- `9.1.3` Inventory state/action token parsing across domains.
-- `9.1.4` Inventory target entity/helper resolution across domains.
-- `9.1.5` Inventory service-call execution across domains.
-- `9.1.6` Inventory manual/hold/suppression state tracking across domains.
-- `9.1.7` Inventory debug attribute publication across domains.
-- `9.1.8` Inventory last-decision/last-reason recording across domains.
+- [x] `9.1.1` Inventory control switch gating across domains.
+- [x] `9.1.2` Inventory policy input assembly across domains.
+- [x] `9.1.3` Inventory state/action token parsing across domains.
+- [x] `9.1.4` Inventory target entity/helper resolution across domains.
+- [x] `9.1.5` Inventory service-call execution across domains.
+- [x] `9.1.6` Inventory manual/hold/suppression state tracking across domains.
+- [x] `9.1.7` Inventory debug attribute publication across domains.
+- [x] `9.1.8` Inventory last-decision/last-reason recording across domains.
+
+Inventory result:
+
+- Fan and cover shared concrete monotonic-deadline mechanics for runtime holds.
+- Debug attribute publication has only small mechanical overlap after deadline
+  extraction and remains domain-owned.
+- Service-call execution and runtime effects already use shared control-group
+  paths.
+- Light command echo, Adaptive Lighting coordination, cover expected-change
+  tracking, and fan controller rules remain different contracts.
 
 #### 9.2. Shared Support Extraction
 
-- `9.2.1` Extract only patterns proven in at least two domains.
-- `9.2.2` Add common enabled-switch gate helpers if justified.
-- `9.2.3` Add target normalization helpers if justified.
-- `9.2.4` Add hold-deadline state helpers if justified.
-- `9.2.5` Add debug attribute builders if justified.
-- `9.2.6` Add shared service-call tracing helpers if justified.
-- `9.2.7` Keep domain policy decisions domain-specific.
+- [x] `9.2.1` Extract only patterns proven in at least two domains.
+- [x] `9.2.2` Evaluate common enabled-switch gate helpers; not added.
+- [x] `9.2.3` Evaluate target normalization helpers; not added.
+- [x] `9.2.4` Add hold-deadline state helpers if justified.
+- [x] `9.2.5` Evaluate debug attribute builders; not added.
+- [x] `9.2.6` Evaluate shared service-call tracing helpers; not added.
+- [x] `9.2.7` Keep domain policy decisions domain-specific.
+
+Extraction result:
+
+- `MonotonicDeadlineMap` was added as the shared hold-deadline helper.
+- `CoverControlSwitch` and `FanControlSwitch` are the production callers.
+- Common enabled-switch gate helpers were not added because the reusable
+  dispatcher-event gate already exists and remaining direct gates are
+  domain-specific.
+- Target normalization helpers were not added because fan, cover, and light
+  state reads use different value semantics.
+- Debug attribute builders were not added because the remaining duplication is
+  too small and debug attribute keys are domain-owned.
+- Service-call tracing helpers were not added because service execution is
+  already consolidated in existing control-group executor paths.
 
 #### 9.3. Control Runtime Validation
 
-- `9.3.1` Run `./scripts/validate.sh` after each extraction batch.
-- `9.3.2` Run relevant live scenarios if light/fan/cover behavior changes.
-- `9.3.3` Confirm debug attributes are stable or intentionally versioned.
-- [ ] `9.3.4` Run a final `./scripts/validate.sh` at phase exit.
+- [x] `9.3.1` Run `./scripts/validate.sh` after each extraction batch.
+- [x] `9.3.2` Run relevant live scenarios if light/fan/cover behavior changes.
+- [x] `9.3.3` Confirm debug attributes are stable or intentionally versioned.
+- [x] `9.3.4` Run a final `./scripts/validate.sh` at phase exit.
+
+Validation result:
+
+- Focused helper, fan, cover, and control-runtime validation passed.
+- Full `./scripts/validate.sh` passed with `1466 passed` and 26 snapshots.
+- Live simulator validation was not required because this was a pure
+  bookkeeping extraction and service-call timing/action selection did not
+  change.
+- CRG was rebuilt after the structural refactor.
 
 ### 10. Future Live Simulation Expansion
 
