@@ -21,6 +21,7 @@ from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
     MonotonicDeadlineMap,
+    merged_extra_state_attributes,
     resolve_area_presence_states,
     resolve_group_entity_id_by_metadata,
 )
@@ -229,15 +230,14 @@ class CoverControlSwitch(ControlSwitchBase):
 
     def _write_policy_debug_attributes(self) -> None:
         """Expose cover automation details for troubleshooting."""
-        attrs = dict(getattr(self, "_attr_extra_state_attributes", {}) or {})
-        attrs.update(
+        self._attr_extra_state_attributes = merged_extra_state_attributes(
+            getattr(self, "_attr_extra_state_attributes", None),
             {
                 "cover_automation_targets": dict(self._cover_group_entity_ids),
                 "manual_cover_hold_active": self._manual_hold_active(),
                 "manual_cover_hold_entities": self._manual_hold_entity_ids(),
-            }
+            },
         )
-        self._attr_extra_state_attributes = attrs
 
     async def async_will_remove_from_hass(self) -> None:
         """Cancel pending manual-hold timers when removed from Home Assistant."""

@@ -2,6 +2,7 @@
 
 from custom_components.magic_areas.core.controls.runtime_support import (
     MonotonicDeadlineMap,
+    merged_extra_state_attributes,
 )
 
 
@@ -86,3 +87,19 @@ def test_deadline_map_handles_empty_map() -> None:
     assert deadlines.drop_expired(10.0) == ()
     assert deadlines.active_keys(10.0) == ()
     assert deadlines.next_delay(10.0) is None
+
+
+def test_merged_extra_state_attributes_merges_without_mutating_input() -> None:
+    """Extra state attribute merging should preserve inputs and apply updates."""
+    current = {"existing": "value", "replace": "old"}
+    updates = {"replace": "new", "added": 1}
+
+    merged = merged_extra_state_attributes(current, updates)
+
+    assert merged == {"existing": "value", "replace": "new", "added": 1}
+    assert current == {"existing": "value", "replace": "old"}
+
+
+def test_merged_extra_state_attributes_handles_missing_current_attrs() -> None:
+    """Extra state attribute merging should handle missing current attrs."""
+    assert merged_extra_state_attributes(None, {"added": True}) == {"added": True}

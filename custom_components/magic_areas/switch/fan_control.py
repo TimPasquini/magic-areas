@@ -46,6 +46,7 @@ from custom_components.magic_areas.area_state import AreaStates
 from custom_components.magic_areas.core.controls import (
     ControlGroupContext,
     MonotonicDeadlineMap,
+    merged_extra_state_attributes,
     resolve_area_presence_states,
 )
 from custom_components.magic_areas.core.aggregates import resolve_aggregate_entity_id
@@ -450,8 +451,8 @@ class FanControlSwitch(ControlSwitchBase):
         if evaluation is None:
             return
 
-        attrs = dict(getattr(self, "_attr_extra_state_attributes", {}) or {})
-        attrs.update(
+        self._attr_extra_state_attributes = merged_extra_state_attributes(
+            getattr(self, "_attr_extra_state_attributes", None),
             {
                 "active_fan_reasons": [
                     reason.controller_id for reason in evaluation.active_reasons
@@ -469,9 +470,8 @@ class FanControlSwitch(ControlSwitchBase):
                 "unavailable_hold_fan_reasons": self._active_hold_ids(
                     self._unavailable_hold_until_monotonic
                 ),
-            }
+            },
         )
-        self._attr_extra_state_attributes = attrs
 
     def _publish_fan_runtime_states(self) -> None:
         """Publish active fan reason states to the area-state entity."""

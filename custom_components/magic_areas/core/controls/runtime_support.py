@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 
@@ -61,4 +61,14 @@ def _sorted_keys[KeyT: Hashable](keys: Iterable[KeyT]) -> tuple[KeyT, ...]:
     return tuple(sorted(keys, key=str))
 
 
-__all__ = ["MonotonicDeadlineMap"]
+def merged_extra_state_attributes(
+    current: Mapping[str, object] | None,
+    updates: Mapping[str, object],
+) -> dict[str, object]:
+    """Return extra state attributes with updates applied."""
+    attrs = dict(current or {})
+    attrs.update(updates)
+    return attrs
+
+
+__all__ = ["MonotonicDeadlineMap", "merged_extra_state_attributes"]

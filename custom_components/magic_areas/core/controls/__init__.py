@@ -33,6 +33,7 @@ from custom_components.magic_areas.core.controls.registry import (
 )
 from custom_components.magic_areas.core.controls.runtime_support import (
     MonotonicDeadlineMap,
+    merged_extra_state_attributes,
 )
 from custom_components.magic_areas.core.controls.builders import (
     CategorizedGroupSpec,
@@ -62,6 +63,7 @@ __all__ = [
     "execute_control_group_decision",
     "execute_control_group_runtime_effects",
     "get_custom_control_group_templates",
+    "merged_extra_state_attributes",
     "read_area_presence_states",
     "register_area_default_groups",
     "register_area_and_group_state_listeners",

@@ -690,17 +690,16 @@ Candidate A implementation decision:
   - fan migration ruff, mypy, and tests passed;
   - final focused control validation passed;
   - full `./scripts/validate.sh` passed with `1466 passed`.
-- Candidate B decision: defer by default. The remaining debug-attribute
-  duplication is small and domain-owned; do not extract it unless a later
-  review finds clearer repeated mechanics after this helper is committed.
+- Candidate B status: pending evaluation. The remaining debug-attribute
+  duplication must be inspected directly before deciding whether to extract it.
 
 ### 3. Extract attribute merge helper only if still valuable
 
 After deadline cleanup, reassess fan/cover debug attribute code.
 
-Candidate B is deferred by default. Proceed only if the post-deadline code still
-has obvious repeated mutation mechanics and the helper clearly removes code
-without moving domain key names out of the domain modules.
+Candidate B must be evaluated directly. Proceed only if the post-deadline code
+still has obvious repeated mutation mechanics and the helper clearly removes
+code without moving domain key names out of the domain modules.
 
 Required tests:
 
@@ -708,10 +707,13 @@ Required tests:
 - existing fan debug attribute tests;
 - existing cover manual-hold/debug behavior tests.
 
-Candidate B reassessment:
+Candidate B implementation decision:
 
-- Result: deferred.
-- Remaining overlap:
+- Helper: `merged_extra_state_attributes`, exported through `core.controls`.
+- Production callers:
+  - `FanControlSwitch`
+  - `CoverControlSwitch`
+- Inspected:
   - `FanControlSwitch._write_policy_debug_attributes()` copies existing extra
     state attributes, writes fan-owned keys, and assigns the merged dict.
   - `CoverControlSwitch._write_policy_debug_attributes()` copies existing extra
@@ -719,15 +721,19 @@ Candidate B reassessment:
   - light runtime also mutates extra attributes, but those attributes are tied
     to command echo, Adaptive Lighting coordination, and intent observability.
 - Decision:
-  - Do not add a debug-attribute helper now.
-  - The remaining fan/cover overlap is too small to justify another public
-    helper.
-  - Debug attribute keys and value construction are domain-owned contracts and
-    should remain local.
+  - Extract only the pure mapping merge mechanic.
+  - Keep every debug attribute key and value construction in the owning domain
+    module.
+  - Do not convert light runtime writes during this candidate because those
+    writes are stateful runtime observations rather than the same merge
+    contract.
 - Tests:
-  - Existing fan and cover tests cover the debug attributes that matter for the
-    deadline extraction.
-  - No new tests are required because no debug-attribute behavior is changing.
+  - Added pure helper tests for merge semantics and missing current attrs.
+  - Existing fan and cover tests continue to assert domain debug attributes.
+- Validation:
+  - Candidate B focused ruff passed.
+  - Candidate B focused mypy passed.
+  - Candidate B focused tests passed, including import-boundary tests.
 
 ### 4. Reassess remaining candidates
 
@@ -755,37 +761,36 @@ Each fresh decision must record:
 - tests that need to be added before or during the extraction;
 - explicit reason for proceeding or deferring.
 
-Remaining candidate reassessment:
+Remaining candidate evaluation checklist:
 
-- Area-state rerun helper: deferred.
+- Area-state rerun helper:
   - Fan and cover both re-resolve current area states in hold-expiry callbacks,
     but the existing shared `resolve_area_presence_states()` already owns the
     reusable behavior.
   - A wrapper around "resolve then call `run_logic`" would mainly hide
     domain-owned scheduling callbacks and add indirection.
-- Target entity state snapshots: deferred.
+- Target entity state snapshots:
   - Fan reads fan-group state, controller sensor float states, and Trend helper
     binary states.
   - Cover reads raw cover helper state strings.
   - Light reads target on/off and dispatch-specific state.
   - The mechanics look similar, but the value semantics differ by domain.
-- Expected self-issued state changes: deferred.
+- Expected self-issued state changes:
   - Cover has a small expected-target set for service-call echo suppression.
   - Light command echo state is richer and tied to runtime effects and Adaptive
     Lighting coordination.
   - These are not the same contract.
-- Disabled gating: not extracted.
+- Disabled gating:
   - `ControlSwitchBase._extract_relevant_area_states()` already owns the shared
     dispatcher-event gate.
   - Remaining direct-path gates are domain-specific enough to leave local.
-- Service-call execution/runtime effects: not extracted.
+- Service-call execution/runtime effects:
   - Existing control-group executor paths already consolidate shared service
     call execution.
   - Further extraction would risk hiding light-specific dispatch semantics.
 
-No additional extraction is justified after Candidate A. The runtime
-consolidation work should close after roadmap transfer, final validation, CRG
-refresh, and user-approved retirement of this temporary plan.
+Do not close runtime consolidation until each remaining candidate has been
+directly evaluated and any user-approved extraction work is complete.
 
 ## Explicit non-goals
 
