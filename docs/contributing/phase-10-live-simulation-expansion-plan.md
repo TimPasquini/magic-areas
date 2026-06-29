@@ -93,7 +93,7 @@ Existing timing helpers:
 | --- | --- | --- |
 | Explicit room-state odor fallback | Mostly covered; add only if a distinct fallback contract exists | `fan-cover-matrix` already validates odor overlap, humidity clearing while odor remains, VOC unavailable hold, and restore. |
 | Cooling fan occupancy path | Valid candidate, needs fixture/options expansion | Current Fan Room has humidity and odor controllers only. No cooling/temperature controller exists outside Setup Room. |
-| Multiple physical fans with overlapping roles | Valid candidate, needs fixture/options expansion | Current Fan Room has one physical fan and two controllers targeting the same fan. |
+| Multiple physical fans with overlapping roles | Implemented in simulator; focused live validation passed | Simulator commit `64d6230` adds `fan.fan_room_booster`, maps odor to exhaust+booster, and asserts humidity-only vs odor-overlap behavior. |
 | Fan reload/restart behavior | Valid but high-cost candidate | Fan Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
 | Partial position/tilt cover behavior | Not valid until fixture supports position/tilt | Current cover templates expose open/closed booleans only. |
 | Cover opening/closing movement states | Not valid until fixture supports transitional states | Current cover templates expose open/closed only; `stop_cover` maps to a boolean state. |
@@ -181,9 +181,17 @@ Evidence:
 
 Assessment:
 
-- Valid candidate.
-- Requires adding at least one more physical fan and configuring controller
-  targets so overlap is intentional and observable.
+- Implemented in simulator commit `64d6230`
+  (`feat: cover overlapping fan targets in simulator`).
+- The simulator now adds `fan.fan_room_booster` backed by
+  `input_boolean.fan_room_booster_power`.
+- Fan Room odor control targets both `fan.fan_room_exhaust` and
+  `fan.fan_room_booster`.
+- Fan Room humidity control remains scoped to `fan.fan_room_exhaust`.
+- Simulator init now refreshes seeded package YAML into an existing runtime
+  config before bootstrap, so newly added fake-house entities are available to
+  Home Assistant before options-flow automation runs.
+- Focused live validation passed after rerun.
 
 Scenario contract:
 
@@ -196,11 +204,40 @@ Scenario contract:
 
 Implementation plan:
 
-1. Add second physical fan fixture and trace entity.
-2. Extend Fan Room options with overlapping controller members.
+1. Add second physical fan fixture and trace entity. Complete in simulator
+   commit `64d6230`.
+2. Extend Fan Room options with overlapping controller members. Complete in
+   simulator commit `64d6230`.
 3. Add checkpoints for independent activation, overlapping activation, and
-   partial clear.
-4. Assert both target fans and non-target fans.
+   partial clear. Complete in simulator commit `64d6230`.
+4. Assert both target fans and non-target fans. Complete in simulator commit
+   `64d6230`.
+5. Refresh existing runtime package fixtures before bootstrap. Complete in
+   simulator commit `64d6230`.
+6. Run focused live scenario:
+
+   ```bash
+   cd /home/tim/python_repos/magic-areas-test-simulator
+   ./run.sh fan-cover-matrix
+   ```
+
+Validation evidence:
+
+- Simulator unit tests passed:
+
+  ```bash
+  uv run --extra test pytest tests/unit -q
+  ```
+
+  Result: `27 passed`.
+- Simulator Ruff passed:
+
+  ```bash
+  uv run ruff check .
+  ```
+
+  Result: `All checks passed!`.
+- Focused live simulator validation passed: `./run.sh fan-cover-matrix` completed after bootstrap refreshed seed packages and stored options converged.
 
 ### 10.1.4 Fan reload/restart behavior
 
