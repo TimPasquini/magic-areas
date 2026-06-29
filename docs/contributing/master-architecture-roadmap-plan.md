@@ -1384,6 +1384,10 @@ Exit criteria:
 
 Goal: expand live fake-house coverage after simulator modularization.
 
+Detailed working inventory:
+
+- `docs/contributing/phase-10-live-simulation-expansion-plan.md`
+
 Fan coverage backlog:
 
 - Explicit room-state odor fallback.
