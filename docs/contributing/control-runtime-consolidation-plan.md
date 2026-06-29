@@ -199,13 +199,13 @@ Candidate disposition summary:
 
 | Candidate | First-pass disposition | Reason |
 | --- | --- | --- |
-| Deadline/hold timer bookkeeping | Proceed first | Fan and cover share concrete monotonic-deadline mechanics. |
-| Policy debug attribute updates | Reassess after deadline cleanup | Repetition exists, but debug keys are user-facing/domain-owned. |
-| Current area-state resolution before re-evaluation | Defer | Existing resolver already exists; remaining duplication may shrink after deadline cleanup. |
-| Target entity state snapshots | Defer | Similar reads exist, but value semantics differ by domain. |
-| Expected self-issued state changes | Do not extract first pass | Cover expected changes and light command echo are not the same contract. |
-| Control switch disabled gating | Do not extract first pass | Shared dispatcher-event gate already exists. |
-| Service-call execution and runtime effects | Do not extract first pass | Existing control-group executor already owns the common behavior. |
+| Deadline/hold timer bookkeeping | Implemented | Fan and cover shared concrete monotonic-deadline mechanics; helper kept scheduling and policy re-evaluation domain-owned. |
+| Policy debug attribute updates | Implemented for fan/cover | Mechanical attribute merge extracted; user-facing keys and values remain domain-owned. |
+| Current area-state resolution before re-evaluation | No new helper recommended | Existing resolver already owns the shared read/fallback behavior; remaining callers have different event semantics. |
+| Target entity state snapshots | No extraction recommended yet | Similar reads exist, but value semantics differ by domain. |
+| Expected self-issued state changes | No extraction recommended | Cover expected changes and light command echo are not the same contract. |
+| Control switch disabled gating | No extraction recommended | Shared dispatcher-event gate already exists; remaining gates are direct-path/domain gates. |
+| Service-call execution and runtime effects | No extraction recommended | Existing control-group executor already owns the common behavior. |
 
 ### Candidate A: deadline/hold timer bookkeeping
 
@@ -339,21 +339,35 @@ Do not extract:
 
 ### Candidate C: current area-state resolution before re-evaluation
 
-Evidence:
+Evidence inspected:
 
 - `switch/fan_control.py`
-  - area sensor clear path schedules `run_logic([CLEAR])`
-  - run logic calls `resolve_area_presence_states`
-  - hold expiry re-resolves current area states
+  - `aggregate_sensor_state_changed()` resolves from `_last_states` through
+    `resolve_area_presence_states()` before running policy.
+  - `_area_sensor_state_changed()` deliberately schedules
+    `run_logic([CLEAR])` for raw area-sensor clear events.
+  - `run_logic()` resolves again from the supplied state list before refreshing
+    fan hold deadlines and policy signals.
+  - `_hold_expiry_check()` clears only the fan timer handle, resolves current
+    area states from `_last_states`, and calls the fan-owned policy path.
 - `switch/cover_control.py`
-  - run logic calls `resolve_area_presence_states`
-  - manual hold expiry re-resolves current area states
+  - `run_logic()` resolves from the supplied state list before building cover
+    policy signals.
+  - `_manual_hold_expiry_check()` clears only the cover timer handle, resolves
+    current area states from `_last_states`, and calls the cover-owned policy
+    path.
 - `light_groups/runtime.py`
-  - group event handling uses `_current_area_states_for_group_event`
-  - ambient signal changes call `read_area_presence_states`
-  - existing helper `resolve_area_presence_states` is already shared
+  - `handle_group_state_change()` uses
+    `_current_area_states_for_group_event()` so fresh dispatcher state wins over
+    HA sensor fallback.
+  - ambient signal/source changes call `read_area_presence_states()` and then
+    synthesize an area-state callback only for occupied+bright conditions.
+  - existing shared helpers already exist:
+    `read_area_presence_states()` and `resolve_area_presence_states()`.
 - `switch/climate_control.py`
-  - area sensor state changes directly apply configured clear/occupied presets
+  - dispatcher events evaluate the climate control-group policy.
+  - raw area-sensor events directly schedule clear/occupied preset application
+    and intentionally do not mirror fan/cover run-loop behavior.
 
 Why it may be extractable:
 
@@ -367,36 +381,63 @@ Why it needs caution:
 - Light intentionally distinguishes dispatcher-fresh state from sensor fallback.
 - Climate’s direct area-sensor preset behavior is different from fan/cover
   policy re-evaluation.
+- The existing shared resolver already covers the repeated low-level mechanic.
+- A generic "rerun policy" helper would need to accept bound async callbacks and
+  timer-handle mutation. That would hide simple domain-owned control flow
+  without reducing policy complexity.
 
-Likely shape:
+Candidate-specific plan if reopened:
 
-- Do not add a new area-state resolver; one already exists.
-- Consider a small `rerun_policy_with_current_area_states` helper only if it can
-  be typed cleanly and only after deadline-helper extraction shows remaining
-  duplication.
+1. Prove at least two production callers still contain identical code after
+   the deadline helper migration.
+2. Keep any helper limited to pure state resolution, not callback scheduling or
+   policy invocation.
+3. Add focused tests proving cached state precedence and sensor fallback remain
+   identical for each caller.
 
-Suggested extraction:
+Assessment:
 
-- Defer until Candidate A is complete. Reassess remaining duplication after
-  fan/cover hold maps are simplified.
+- Do not add a new helper now.
+- The correct shared primitives already exist in
+  `core/controls/control_group_runtime.py`.
+- Fan and cover expiry methods are short, explicit, and domain-specific enough
+  that extracting them would mostly move method calls around.
 
 Do not extract:
 
 - light-group current-state precedence rules;
 - climate direct preset application path.
+- domain policy callback invocation.
+
+Skeptical review:
+
+- The strongest counterargument is that fan and cover expiry handlers are nearly
+  identical. That is true, but the duplicated part is only a few lines after
+  Candidate A, and the semantics include domain timer ownership and domain
+  `run_logic()` calls. A helper would create an abstraction boundary around
+  Home Assistant callbacks rather than around a reusable policy concept.
+- This conclusion should be revisited only if a third control domain introduces
+  the same "timer expiry resolves area states and reruns policy" shape.
 
 ### Candidate D: target entity state snapshots
 
-Evidence:
+Evidence inspected:
 
 - `switch/fan_control.py`
-  - reads fan-group state for policy signals
-  - reads multiple controller sensor float states
-  - reads Trend helper binary states
+  - reads fan-group state for `fan_group_state`.
+  - reads tracked aggregate/controller sensor values through
+    `ControlSwitchBase._read_float_state()`, including domain-specific missing
+    entity log messages.
+  - reads Trend helper binary states through `_read_trend_signal_state()` where
+    `unknown` and `unavailable` both normalize to `None`.
 - `switch/cover_control.py`
-  - builds `cover_group_states` from resolved cover group entity IDs
+  - builds `cover_group_states` from resolved cover group entity IDs as raw
+    cover state strings.
 - `light_groups/runtime.py`
-  - reads current target on/off state and explicit target state during dispatch
+  - `LightGroupRuntimeController.current_control_target_is_on()` resolves the
+    managed native helper and normalizes only `on`/`off` to booleans.
+  - `_explicit_target_is_on()` computes aggregate on/off state for an explicit
+    target subset during suppression-aware dispatch.
 
 Why it may be extractable:
 
@@ -411,37 +452,61 @@ Why it needs caution:
 - Cover only needs raw state strings.
 - Light state reads are tied to dispatch decisions and may need on/off-specific
   semantics.
+- The current shared base already owns float parsing for control switches.
 
-Likely shape:
+Candidate-specific plan if reopened:
 
-- Possible pure helpers:
-  - `entity_state_strings(hass, entity_ids) -> dict[str, str | None]`
-  - `binary_state_values(hass, entity_ids) -> dict[str, bool | None]`
-- Keep float parsing in `ControlSwitchBase._read_float_state` unless at least
-  one more domain needs it.
+1. Inventory exact return contracts before implementation:
+   - raw state string mapping;
+   - boolean on/off mapping;
+   - float parsing;
+   - binary trend `unknown`/`unavailable` mapping.
+2. Only extract a helper for a contract used by at least two production callers.
+3. Keep logging, entity selection, and policy-signal assembly in domain code.
+4. Add tests for missing entities and unknown/unavailable handling before
+   replacing any reader.
 
-Suggested extraction:
+Assessment:
 
-- Lower priority. Consider only after timer/debug cleanup.
+- Do not extract now.
+- There is no single repeated contract here. The repeated action is
+  `hass.states.get()`, but each caller interprets the result differently.
+- Extracting a broad state-snapshot helper would likely increase code and make
+  policy-signal construction less explicit.
 
 Do not extract:
 
 - fan sensor selection;
 - Trend helper resolution;
 - light target dispatch semantics.
+- cover policy-state names.
+
+Skeptical review:
+
+- A raw `entity_state_strings()` helper could reduce the cover dictionary
+  comprehension. That is too small to justify a shared API unless another
+  production caller needs the same raw mapping.
+- A boolean on/off helper could serve light target reads, but it would not serve
+  fan or cover. It should wait for a second on/off target-state caller with the
+  same aggregate semantics.
 
 ### Candidate E: expected self-issued state changes
 
-Evidence:
+Evidence inspected:
 
 - `switch/cover_control.py`
   - `_expected_cover_group_state_changes`
-  - overridden `_execute_decision` records targets before service calls
-  - `cover_group_state_changed` ignores expected changes
+  - overridden `_execute_decision()` records target entity IDs before service
+    calls.
+  - `cover_group_state_changed()` consumes one expected entity ID and returns
+    without starting manual hold.
 - `light_groups/runtime.py`
-  - command echo state tracks whether a group change came from Magic Areas or an
-    external/manual action
-  - runtime effects update command echo state
+  - `apply_runtime_effect()` updates `CommandEchoState` from policy runtime
+    effects and may schedule Adaptive Lighting manual-control restore.
+  - `_dispatch_controlled_action()` marks command issued, records last intent
+    attributes, and dispatches the light action.
+  - `process_secondary_group_state_change()` distinguishes awaited command echo
+    completion from external/manual changes.
 
 Why it may be extractable:
 
@@ -454,47 +519,154 @@ Why it needs caution:
 - Light has richer command echo state, awaiting echo behavior, Adaptive Lighting
   coordination, and runtime effects.
 
-Likely shape:
+Candidate-specific plan if reopened:
 
-- Do not extract during the first pass.
-- If future cover logic grows, consider a tiny expected-change tracker, but do
-  not force light command echo into it.
+1. Treat cover and light as separate contracts unless a second cover-like
+   caller appears.
+2. If a cover-like caller appears, extract only a tiny expected-target tracker
+   with consume-once semantics.
+3. Do not connect that helper to light command echo unless the light policy
+   state machine is deliberately redesigned.
+
+Assessment:
+
+- Do not extract now.
+- The common phrase "self-issued change" hides different contracts:
+  - cover: one-shot expected target IDs to suppress manual hold;
+  - light: command echo state machine tied to runtime effects, control
+    ownership, and Adaptive Lighting coordination.
+
+Do not extract:
+
+- light `CommandEchoState`;
+- Adaptive Lighting restore scheduling;
+- cover manual-hold decision logic.
+
+Skeptical review:
+
+- A small expected-change set helper would be easy to write, but it would have
+  one production caller today. That would add code during a reduction-focused
+  refactor and would not reduce conceptual complexity.
+- Light should not be used as the second caller because matching it to cover
+  would either lose behavior or require a helper broad enough to become another
+  framework.
 
 ### Candidate F: control switch disabled gating
 
-Evidence:
+Evidence inspected:
 
-- `ControlSwitchBase._extract_relevant_area_states` already handles enabled
-  gating for dispatcher events.
-- `switch/fan_control.py`, `switch/cover_control.py`, and light runtime also
-  gate direct re-evaluation paths with `is_on` or `is_control_enabled()`.
+- `ControlSwitchBase._extract_relevant_area_states()` already handles:
+  - optional enabled gating with `require_enabled`;
+  - area ID filtering;
+  - empty dispatcher payload filtering.
+- `switch/fan_control.py`
+  - passes `require_enabled=False` for dispatcher events so fan can still
+    update cached current states.
+  - direct raw sensor and run-loop paths check `self.is_on`.
+- `switch/cover_control.py`
+  - uses the default dispatcher enabled gate and checks `self.is_on` in
+    `run_logic()`.
+- `light_groups/runtime.py`
+  - `handle_area_state_change()`, ambient signal handling, and controller
+    `is_control_enabled()` use light-specific switch lookup and fallback rules.
 
 Assessment:
 
 - The reusable dispatcher-event gate already exists.
-- Remaining direct-path gates are domain-specific enough to leave in place for
-  now.
+- Remaining direct-path gates are not the same contract:
+  - switch entities use `self.is_on`;
+  - light groups consult a separate light-control switch reference and default
+    to enabled when missing.
 
-Do not extract in the first pass.
+Candidate-specific plan if reopened:
+
+1. Do not duplicate `_extract_relevant_area_states()`.
+2. Consider only call-site cleanup if a domain has repeated local `is_on` checks
+   with the same logging and same fallback behavior.
+3. Preserve fan's intentional `require_enabled=False` dispatcher path.
+
+Do not extract:
+
+- light-control switch lookup/fallback behavior;
+- fan cached-state update behavior while disabled;
+- run-loop early return logging.
+
+Skeptical review:
+
+- Disabled gating looks superficially repetitive because every control path has
+  some guard. The important contract is what "enabled" means. That differs
+  between control switches and light groups, so a common helper would either
+  take too many callbacks or flatten behavior that is currently explicit.
 
 ### Candidate G: service-call execution and runtime effects
 
-Evidence:
+Evidence inspected:
 
-- `core/controls/control_group.py` already executes `ControlAction` service
-  calls and runtime effects.
-- `switch/base.py` already adapts switch entities to policy evaluation and
-  execution.
-- `light_groups/runtime.py` uses sync policy evaluation and applies runtime
-  effects separately before dispatching light actions.
+- `core/controls/control_group.py`
+  - `evaluate_and_execute_control_group_policy()` owns async policy evaluation
+    plus execution callback handling.
+  - `evaluate_and_execute_control_group_policy_sync()` owns the sync equivalent
+    and rejects awaitable execution results.
+  - `execute_control_group_runtime_effects()` iterates policy runtime effects.
+  - `execute_control_group_decision()` applies runtime effects and HA service
+    calls for `ControlAction` entries.
+- `switch/base.py`
+  - `_evaluate_policy()` adapts switch entities to the shared async evaluator.
+  - `_execute_decision()` delegates service calls to
+    `execute_control_group_decision()`.
+- `light_groups/runtime.py`
+  - uses sync policy evaluation because light dispatch is local/synchronous.
+  - applies runtime effects, then dispatches light actions through
+    light-specific intent and command-echo handling.
 
 Assessment:
 
 - This is already consolidated enough for now.
-- Any further extraction risks hiding light-specific dispatch semantics.
+- Any further extraction risks hiding light-specific dispatch semantics or
+  duplicating the executor that already exists.
 
-Do not extract in this phase unless direct duplication appears during another
-candidate.
+Candidate-specific plan if reopened:
+
+1. First prove existing executor functions cannot support the desired behavior.
+2. Prefer extending `ControlGroupDecision`/`ControlRuntimeEffect` contracts over
+   creating parallel execution helpers.
+3. Keep light dispatch separate unless light actions become normal
+   `ControlAction` service calls with equivalent semantics.
+
+Do not extract:
+
+- light intent suppression;
+- command echo state transitions;
+- Adaptive Lighting runtime side effects;
+- switch blocking/non-blocking execution choices.
+
+Skeptical review:
+
+- This candidate is the weakest extraction candidate because the shared
+  executor already exists and is actively used. Additional helpers here would
+  likely be wrapper code, not simplification.
+- The only plausible future work is improving the existing executor contract,
+  not adding a new abstraction alongside it.
+
+### Remaining-candidate skeptical summary
+
+The skeptical pass supports the current recommendations:
+
+- Candidate C has a real fan/cover similarity, but the shared resolver already
+  exists and the remaining duplicated expiry methods are small domain-owned
+  callbacks.
+- Candidate D has repeated HA state reads, but not repeated interpretation
+  contracts.
+- Candidate E shares a concept name, not a behavior contract.
+- Candidate F is already partly shared; the remaining gates intentionally
+  define different meanings of enabled.
+- Candidate G is already centralized in `core.controls`; more extraction would
+  compete with existing infrastructure.
+
+The follow-up rule is: reopen a rejected candidate only when at least two
+production callers demonstrate the same input contract, output contract, and
+failure behavior. Similar-looking `hass.states.get()` calls or similar event
+shapes are not enough.
 
 ## Recommended implementation sequence
 

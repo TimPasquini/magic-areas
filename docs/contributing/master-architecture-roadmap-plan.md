@@ -1320,6 +1320,11 @@ Implementation status:
   trackers, disabled-gating helpers, and service-call/runtime-effect helpers
   were reviewed and left unextracted because existing shared infrastructure is
   sufficient or the contracts differ by domain.
+- Retain `docs/contributing/control-runtime-consolidation-plan.md` as the
+  detailed candidate record. Revisit it after more control-domain
+  implementation exists and only generalize a deferred runtime structure when
+  at least two production callers share the same input, output, and failure
+  contract.
 - Full validation passed after the extraction: `./scripts/validate.sh` reported
   `1466 passed` and 26 snapshots passed.
 - CRG was rebuilt after the structural refactor.
