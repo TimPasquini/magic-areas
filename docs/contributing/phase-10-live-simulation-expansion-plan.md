@@ -92,7 +92,7 @@ Existing timing helpers:
 | Candidate | Current assessment | Reason |
 | --- | --- | --- |
 | Explicit room-state odor fallback | Mostly covered; add only if a distinct fallback contract exists | `fan-cover-matrix` already validates odor overlap, humidity clearing while odor remains, VOC unavailable hold, and restore. |
-| Cooling fan occupancy path | Valid candidate, needs fixture/options expansion | Current Fan Room has humidity and odor controllers only. No cooling/temperature controller exists outside Setup Room. |
+| Cooling fan occupancy path | Implemented in simulator; focused live validation pending | Simulator commit `0139a24` adds Fan Room temperature and cooling fan fixtures, configures a cooling controller, and asserts occupied/hot activation plus hot/unoccupied suppression. |
 | Multiple physical fans with overlapping roles | Implemented in simulator; focused live validation passed | Simulator commit `64d6230` adds `fan.fan_room_booster`, maps odor to exhaust+booster, and asserts humidity-only vs odor-overlap behavior. |
 | Fan reload/restart behavior | Valid but high-cost candidate | Fan Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
 | Partial position/tilt cover behavior | Not valid until fixture supports position/tilt | Current cover templates expose open/closed booleans only. |
@@ -143,33 +143,74 @@ Evidence:
   - `sensor.fan_room_humidity`
   - `sensor.fan_room_voc`
   - `fan.fan_room_exhaust`
-- Current Fan Room options configure humidity and odor controllers only.
+- Simulator commit `64d6230` added `fan.fan_room_booster` for odor overlap.
+- Simulator commit `0139a24` added:
+  - `input_number.fan_room_temperature`
+  - `sensor.fan_room_temperature`
+  - `input_boolean.fan_room_cooling_power`
+  - `fan.fan_room_cooling`
+  - a Fan Room `cooling` controller using threshold detection and
+    `occupancy_only` clear behavior.
 - Setup Room has temperature and fan fixtures, but Setup Room is reserved for
   manual/config-flow validation.
 
 Assessment:
 
-- Valid candidate.
-- Requires fixture/options expansion outside Setup Room.
-- Best shape is a dedicated active room with temperature/cooling inputs and a
-  physical fan, or an extension of Fan Room if that does not blur scenario
-  intent.
+- Implemented in simulator commit `0139a24`
+  (`feat: add cooling fan simulator coverage`).
+- The implementation extends Fan Room rather than using Setup Room.
+- Focused live validation is still pending.
 
 Scenario contract:
 
-- Occupied + temperature above threshold activates the cooling fan.
-- Cooling fan does not activate when occupancy gating is not satisfied.
-- Cooling fan clears when temperature falls below hysteresis or room clears,
-  according to configured clear behavior.
+- Hot while Magic Areas reports the room clear does not activate `fan.fan_room_cooling`.
+- Occupied + temperature above threshold activates `fan.fan_room_cooling`.
+- Temperature below the hysteresis clear point turns `fan.fan_room_cooling` off.
+- Humidity and odor controllers continue to target their existing fans without
+  turning on the cooling fan.
 
 Implementation plan:
 
-1. Add fake-house input/sensor/fan entities for the cooling path.
-2. Add bootstrap options for a cooling controller.
-3. Add trace entities and reset defaults.
-4. Add a narrow live scenario or a clearly separated section in
-   `fan-cover-matrix`.
-5. Add simulator unit coverage for any scenario registry/plan changes.
+1. Add fake-house input/sensor/fan entities for the cooling path. Complete in
+   simulator commit `0139a24`.
+2. Add bootstrap options for a cooling controller. Complete in simulator commit
+   `0139a24`.
+3. Add trace entities and reset defaults. Complete in simulator commit
+   `0139a24`.
+4. Add a clearly separated cooling section in `fan-cover-matrix`. Complete in
+   simulator commit `0139a24`.
+5. Add simulator unit coverage for fixture, options, trace, and reset changes.
+   Complete in simulator commit `0139a24`.
+6. Run focused live scenario:
+
+   ```bash
+   cd /home/tim/python_repos/magic-areas-test-simulator
+   ./run.sh fan-cover-matrix
+   ```
+
+Validation evidence:
+
+- Simulator unit tests passed:
+
+  ```bash
+  uv run --extra test pytest tests/unit -q
+  ```
+
+  Result: `29 passed`.
+- Simulator Ruff passed:
+
+  ```bash
+  uv run ruff check .
+  ```
+
+  Result: `All checks passed!`.
+- Shell syntax check passed:
+
+  ```bash
+  bash -n scripts/ha_dev_init.sh scripts/ha_dev_bootstrap.sh scripts/ha_dev_simulate.sh run.sh
+  ```
+
+- Focused live simulator validation has not been run for this cooling slice yet.
 
 ### 10.1.3 Multiple physical fans with overlapping roles
 
