@@ -31,8 +31,9 @@ tree without copying integration code into the simulator repository.
 
 Simulator repository:
 
-- branch: `main`
-- status at inventory time: clean and aligned with `origin/main`
+- branch: `phase-10-fan-overlap`
+- status at latest update: simulator implementation commits are local and should
+  be pushed/protected before branch cleanup
 - run commands:
   - `./run.sh`
   - `./run.sh <scenario>`
@@ -48,6 +49,7 @@ Existing scenario registry in `run.sh`:
 - `presence-hold`
 - `adaptive-lighting-manual-release`
 - `fan-cover-matrix`
+- `cover-brightness-interaction`
 
 Existing fan/cover scenario implementation:
 
@@ -101,7 +103,7 @@ Existing timing helpers:
 | Cover reload/restart behavior | Valid but high-cost candidate | Cover Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
 | Membership/class reconciliation | Valid candidate, likely high value | Current Cover Room has eligible and excluded cover device classes, but does not exercise removal/rename/reclassification repair. |
 | Combined fan/cover/light/adaptive active room | Defer until a specific cross-domain failure mode exists | Current scenarios already cover each domain separately; a combined room risks becoming a monolithic scenario. |
-| Cover-induced brightness affecting adaptive switching | Valid candidate after fixture expansion | Current cover room and adaptive-light rooms are separate; no fake pipeline connects cover state to room illuminance. |
+| Cover-induced brightness affecting adaptive switching | Implemented in simulator; focused live validation pending | Simulator commit `a5b3f0f` adds a dedicated Cover Brightness Room where cover state feeds room illuminance and adaptive light control. |
 | Real media-player state | Valid candidate, but do not use Setup Room active scenario | Existing real media player fixture is Setup Room only, which is reserved. Needs a new active scenario room or fixture role. |
 | Helper/entity registry repair | Valid candidate, high value, high risk | Needs controlled entity removal/rename/reclassification and deterministic recovery expectations. |
 | Config-flow/manual setup validation | Valid as instructions first | Setup Room is reserved for this; start with explicit manual validation instructions before UI automation. |
@@ -468,27 +470,71 @@ Evidence:
 - Current cover state does not feed illuminance into an adaptive-light room.
 - Current adaptive-light scenarios already validate ambient rise and direct
   light contamination in light-specific rooms.
+- Simulator commit `a5b3f0f` added a dedicated Cover Brightness Room:
+  - `cover.cover_brightness_room_blinds`;
+  - `sensor.cover_brightness_room_illuminance`;
+  - `binary_sensor.cover_brightness_room_light`;
+  - managed light-control entities for overhead and all-lights groups;
+  - scenario entrypoint `./run.sh cover-brightness-interaction`.
 
 Assessment:
 
-- Valid after fixture expansion.
-- This is the clearest cross-domain candidate because it models a real physical
-  interaction: cover state changes room brightness, which affects adaptive
-  light behavior.
+- Implemented in simulator commit `a5b3f0f`
+  (`feat: add cover brightness interaction simulator`).
+- The implementation keeps this separate from the broad cover matrix and models
+  the physical interaction directly: opening a cover increases room brightness,
+  which lets adaptive light control turn artificial light off.
+- Focused live validation is still pending.
 
 Scenario contract:
 
 - Opening covers increases room brightness through the fake-house pipeline.
 - Adaptive light control responds to the resulting brightness only when the
   policy context allows it.
-- Manual/direct-light contamination protections still prevent false positives.
+- The cover state, brightness sensor, area-state brightness token, physical
+  light, and Magic Areas native light group agree at each checkpoint.
 
 Implementation plan:
 
 1. Add a room or fixture link where cover open state contributes to room lux.
-2. Keep it separate from the existing broad cover matrix.
-3. Reuse existing adaptive timing helpers and expectation patterns.
-4. Assert both cover state and adaptive light result.
+   Complete in simulator commit `a5b3f0f`.
+2. Keep it separate from the existing broad cover matrix. Complete in simulator
+   commit `a5b3f0f`.
+3. Reuse existing adaptive timing helpers and expectation patterns. Complete in
+   simulator commit `a5b3f0f`.
+4. Assert both cover state and adaptive light result. Complete in simulator
+   commit `a5b3f0f`.
+5. Run focused live scenario:
+
+   ```bash
+   cd /home/tim/python_repos/magic-areas-test-simulator
+   ./run.sh cover-brightness-interaction
+   ```
+
+Validation evidence:
+
+- Simulator unit tests passed:
+
+  ```bash
+  uv run --extra test pytest tests/unit -q
+  ```
+
+  Result: `30 passed`.
+- Simulator Ruff passed:
+
+  ```bash
+  uv run ruff check .
+  ```
+
+  Result: `All checks passed!`.
+- Shell syntax check passed:
+
+  ```bash
+  bash -n scripts/ha_dev_init.sh scripts/ha_dev_bootstrap.sh scripts/ha_dev_simulate.sh run.sh
+  ```
+
+- Focused live simulator validation has not been run for this cover-brightness
+  slice yet.
 
 ### 10.3.3 Real media-player state
 
