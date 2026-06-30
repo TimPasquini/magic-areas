@@ -1,15 +1,25 @@
-# Phase 10 Live Simulation Expansion Plan
+# Phase 10 Fan/Cover Closeout Simulation Readiness Plan
 
-This temporary planning document scopes live fake-house simulator expansion.
-Do not delete it while this work is active. Before removal, transfer any still
-useful decisions, evidence, scenario contracts, or deferred simulator gaps into
+This temporary planning document scopes the live fake-house simulator work
+needed to safely resume and close the fan-cover branch. Do not delete it while
+this work is active. Before removal, transfer any still useful decisions,
+evidence, scenario contracts, or deferred simulator gaps into
 `docs/contributing/master-architecture-roadmap-plan.md` or durable simulator
 guidance.
 
 ## Goal
 
-Expand live Home Assistant fake-house coverage only where it proves behavior
-that unit, integration, platform, or snapshot tests cannot adequately prove.
+Prepare live fake-house coverage for fan/cover branch closeout. Active work in
+this phase must focus on fan controllers, cover grouping/class boundaries,
+fan/cover helper surfaces, and cross-feature room interactions that can regress
+only in the real Home Assistant runtime.
+
+Phase 10 is not a general simulator expansion phase. Preserved future simulator
+ideas remain documented here, but they are not active closeout requirements
+unless they directly protect fan/cover branch completion.
+
+Use live Home Assistant fake-house coverage only where it proves behavior that
+unit, integration, platform, scenario, or snapshot tests cannot adequately prove.
 
 Phase 10 implementation primarily belongs to the external simulator repository:
 
@@ -91,22 +101,40 @@ Existing timing helpers:
 
 ## Candidate assessment summary
 
+### Active fan/cover closeout scope
+
 | Candidate | Current assessment | Reason |
 | --- | --- | --- |
-| Explicit room-state odor fallback | Mostly covered; add only if a distinct fallback contract exists | `fan-cover-matrix` already validates odor overlap, humidity clearing while odor remains, VOC unavailable hold, and restore. |
-| Cooling fan occupancy path | Implemented in simulator; focused live validation pending | Simulator commit `0139a24` adds Fan Room temperature and cooling fan fixtures, configures a cooling controller, and asserts occupied/hot activation plus hot/unoccupied suppression. |
-| Multiple physical fans with overlapping roles | Implemented in simulator; focused live validation passed | Simulator commit `64d6230` adds `fan.fan_room_booster`, maps odor to exhaust+booster, and asserts humidity-only vs odor-overlap behavior. |
-| Fan reload/restart behavior | Valid but high-cost candidate | Fan Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
-| Partial position/tilt cover behavior | Not valid until fixture supports position/tilt | Current cover templates expose open/closed booleans only. |
-| Cover opening/closing movement states | Not valid until fixture supports transitional states | Current cover templates expose open/closed only; `stop_cover` maps to a boolean state. |
-| Richer daylight/time-like cover context | Potentially valid, but clarify policy contract first | Current cover automation uses `cover_room_lux` and secondary dark state, not a richer daylight/time model. |
-| Cover reload/restart behavior | Valid but high-cost candidate | Cover Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
-| Membership/class reconciliation | Valid candidate, likely high value | Current Cover Room has eligible and excluded cover device classes, but does not exercise removal/rename/reclassification repair. |
-| Combined fan/cover/light/adaptive active room | Defer until a specific cross-domain failure mode exists | Current scenarios already cover each domain separately; a combined room risks becoming a monolithic scenario. |
+| Cooling fan occupancy path | Implemented in simulator; focused live validation pending in this plan | Simulator commit `0139a24` adds Fan Room temperature and cooling fan fixtures, configures a cooling controller, and asserts occupied/hot activation plus hot/unoccupied suppression. Accept or rerun `./run.sh fan-cover-matrix` once to close the evidence marker. |
+| Cover class/group boundary | Satisfied for closeout by existing live coverage | `fan-cover-matrix` asserts eligible cover classes move and excluded door/garage covers remain closed. This protects the branch-closeout class boundary without requiring dynamic registry mutation. |
 | Cover-induced brightness affecting adaptive switching | Implemented in simulator; focused live validation passed | Simulator commits `a5b3f0f` and `6116bc1` add a dedicated Cover Brightness Room and fix area assignment for newly registered fake-house entities. |
-| Real media-player state | Valid candidate, but do not use Setup Room active scenario | Existing real media player fixture is Setup Room only, which is reserved. Needs a new active scenario room or fixture role. |
-| Helper/entity registry repair | Valid candidate, high value, high risk | Needs controlled entity removal/rename/reclassification and deterministic recovery expectations. |
+
+### Already covered or complete
+
+| Candidate | Current assessment | Reason |
+| --- | --- | --- |
+| Explicit room-state odor fallback | Mostly covered; no active closeout work unless a distinct fallback contract is identified | `fan-cover-matrix` already validates odor overlap, humidity clearing while odor remains, VOC unavailable hold, and restore. |
+| Multiple physical fans with overlapping roles | Implemented in simulator; focused live validation passed | Simulator commit `64d6230` adds `fan.fan_room_booster`, maps odor to exhaust+booster, and asserts humidity-only vs odor-overlap behavior. |
+
+### Future simulator backlog
+
+| Candidate | Current assessment | Reason |
+| --- | --- | --- |
+| Fan reload/restart behavior | Future backlog unless a fan/cover closeout defect requires it | Fan Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. High-cost live runtime work. |
+| Cover reload/restart behavior | Future backlog unless a fan/cover closeout defect requires it | Cover Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. High-cost live runtime work. |
+| Membership/class reconciliation | Satisfied for closeout by current eligible/excluded class coverage; future backlog for dynamic mutation | Current `fan-cover-matrix` covers the class boundary needed for closeout. Dynamic removal/rename/reclassification should be added only if the fan-cover branch touches helper reconciliation or registry repair behavior. |
+| Helper/entity registry repair | Future backlog | Needs controlled entity removal/rename/reclassification and deterministic recovery expectations. This is broader than fan/cover branch closeout unless a specific helper repair defect appears. |
+| Combined fan/cover/light/adaptive active room | Defer until a specific cross-domain failure mode exists | Current scenarios already cover each domain separately; a combined room risks becoming a monolithic scenario. |
 | Config-flow/manual setup validation | Valid as instructions first | Setup Room is reserved for this; start with explicit manual validation instructions before UI automation. |
+
+### Non-simulator or unit-test-first items
+
+| Candidate | Current assessment | Reason |
+| --- | --- | --- |
+| Partial position/tilt cover behavior | Unit/platform/scenario-test first; not active simulator scope | Current cover templates expose open/closed booleans only. Do not add live fixture complexity unless production fan/cover work implements position/tilt semantics that require real HA runtime validation. |
+| Cover opening/closing movement states | Unit/platform/scenario-test first; not active simulator scope | Current cover templates expose open/closed only; `stop_cover` maps to a boolean state. Simulate only if production logic gains meaningful transitional-state behavior. |
+| Richer daylight/time-like cover context | Policy-contract first; not active simulator scope | Current cover automation uses `cover_room_lux` and secondary dark state, not a richer daylight/time model. |
+| Real media-player state | Out of fan/cover closeout scope | Existing real media player fixture is Setup Room only. Add active media simulation only for a concrete room-state collision that affects fan/cover closeout. |
 
 ## Candidate details
 
@@ -424,12 +452,20 @@ Evidence:
 
 Assessment:
 
-- Valid and likely high value.
-- This should be scoped carefully because registry mutation can make simulator
+- Satisfied for fan/cover closeout by current eligible/excluded class coverage.
+- Dynamic member removal, rename, or reclassification remains a future simulator
+  backlog item unless the fan-cover branch changes helper reconciliation,
+  registry repair, or class-discovery behavior.
+- If reopened, scope it carefully because registry mutation can make simulator
   state nondeterministic if cleanup is weak.
 
 Scenario contract:
 
+- Current closeout contract:
+  - eligible cover classes are grouped and move when policy acts;
+  - excluded cover classes stay excluded and do not move;
+  - cover helper surfaces remain usable through the existing live matrix.
+- Future dynamic-reconciliation contract, if reopened:
 - Helper membership is repaired after member removal, rename, or class
   reclassification.
 - Excluded classes stay excluded.
@@ -437,10 +473,12 @@ Scenario contract:
 
 Implementation plan:
 
-1. Start with a reversible, deterministic membership change.
-2. Add cleanup/reset logic before scenario assertions.
-3. Assert group membership and behavior after reconciliation.
-4. Avoid combining this with reload/restart until simple reconciliation is
+1. Do not add dynamic mutation for branch closeout unless a concrete fan/cover
+   reconciliation risk is identified.
+2. If reopened, start with a reversible, deterministic membership change.
+3. Add cleanup/reset logic before scenario assertions.
+4. Assert group membership and behavior after reconciliation.
+5. Avoid combining this with reload/restart until simple reconciliation is
    reliable.
 
 ### 10.3.1 Combined fan/cover/light/adaptive active room
@@ -642,26 +680,31 @@ Assessment:
 - Only implement if it does not repurpose Setup Room for active simulation and
   does not add a fragile browser automation burden.
 
-## Recommended implementation order
+## Recommended closeout order
 
-1. Add simulator-side plan/guidance files or mirror this inventory into the
-   simulator repository once write access is available.
-2. Add the smallest immediately valid scenario slice:
-   - either cooling fan occupancy path;
-   - or multiple physical fans with overlapping roles.
-3. Add or update simulator unit tests for scenario registry, trace entities,
-   reset defaults, and expected options.
-4. Run simulator unit tests:
+1. Close the cooling fan occupancy live-validation marker by accepting existing
+   focused `fan-cover-matrix` evidence or running one focused rerun.
+2. Confirm the active closeout surface is covered:
+   - Fan Room humidity, odor, cooling, occupancy, unavailable-sensor, and
+     overlapping-target behavior;
+   - Cover Room eligible/excluded class grouping and movement behavior;
+   - cover-derived brightness affecting adaptive light control.
+3. Do not add dynamic membership, reload/restart, media, position/tilt,
+   movement-state, or daylight/time simulator work unless a concrete fan/cover
+   branch risk requires it.
+4. Keep simulator unit tests current for any changed scenario registry, trace
+   entities, reset defaults, and expected options:
 
    ```bash
    uv run --extra test pytest
    ```
 
-5. Ask the user to run the focused live scenario, or run it only when explicitly
+5. Ask the user to run focused live scenarios, or run them only when explicitly
    approved:
 
    ```bash
    ./run.sh fan-cover-matrix
+   ./run.sh cover-brightness-interaction
    ```
 
 6. Do not run the full live suite automatically. Recommend this command only
@@ -673,12 +716,18 @@ Assessment:
 
 ## Exit criteria
 
-- Each added live scenario states the real HA behavior it proves.
-- Each added scenario uses named timing helpers.
+- Phase 10 active scope is limited to fan/cover branch closeout readiness; all
+  broader candidates are either completed, satisfied by existing coverage,
+  future backlog, or unit-test-first.
+- Each added live scenario states the real HA behavior it proves and uses named
+  timing helpers.
 - Setup Room remains excluded from active simulation.
-- Simulator unit tests pass.
-- Main-repo validation passes when Magic Areas docs or code change.
-- Focused live simulator scenario passes with the current Magic Areas working
-  tree.
+- Simulator unit tests pass after simulator changes.
+- Main-repo validation passes when Magic Areas docs or code change, including
+  final `./scripts/validate.sh` at phase exit.
+- Focused live simulator scenarios for active closeout scope pass with the
+  current Magic Areas working tree:
+  - `./run.sh fan-cover-matrix`;
+  - `./run.sh cover-brightness-interaction`.
 - Full live suite is recommended to the user when the accumulated simulator
   changes justify it.
