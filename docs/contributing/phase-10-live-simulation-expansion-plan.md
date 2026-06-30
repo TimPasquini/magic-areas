@@ -103,7 +103,7 @@ Existing timing helpers:
 | Cover reload/restart behavior | Valid but high-cost candidate | Cover Room options set `reload_on_registry_change`; scenario needs restart/reload mechanics and stable post-reload assertions. |
 | Membership/class reconciliation | Valid candidate, likely high value | Current Cover Room has eligible and excluded cover device classes, but does not exercise removal/rename/reclassification repair. |
 | Combined fan/cover/light/adaptive active room | Defer until a specific cross-domain failure mode exists | Current scenarios already cover each domain separately; a combined room risks becoming a monolithic scenario. |
-| Cover-induced brightness affecting adaptive switching | Implemented in simulator; focused live validation pending | Simulator commit `a5b3f0f` adds a dedicated Cover Brightness Room where cover state feeds room illuminance and adaptive light control. |
+| Cover-induced brightness affecting adaptive switching | Implemented in simulator; focused live validation pending after bootstrap fix | Simulator commits `a5b3f0f` and `6116bc1` add a dedicated Cover Brightness Room and fix area assignment for newly registered fake-house entities. |
 | Real media-player state | Valid candidate, but do not use Setup Room active scenario | Existing real media player fixture is Setup Room only, which is reserved. Needs a new active scenario room or fixture role. |
 | Helper/entity registry repair | Valid candidate, high value, high risk | Needs controlled entity removal/rename/reclassification and deterministic recovery expectations. |
 | Config-flow/manual setup validation | Valid as instructions first | Setup Room is reserved for this; start with explicit manual validation instructions before UI automation. |
@@ -476,6 +476,12 @@ Evidence:
   - `binary_sensor.cover_brightness_room_light`;
   - managed light-control entities for overhead and all-lights groups;
   - scenario entrypoint `./run.sh cover-brightness-interaction`.
+- First focused live run failed because HA had created the new fake-house
+  template entities, but simulator bootstrap assigned areas before those
+  registry entries were ready. The room therefore had no physical occupancy
+  source and no native light group helper.
+- Simulator commit `6116bc1` fixes bootstrap by waiting for expected
+  fake-house registry entities before assigning them to areas.
 
 Assessment:
 
@@ -484,7 +490,7 @@ Assessment:
 - The implementation keeps this separate from the broad cover matrix and models
   the physical interaction directly: opening a cover increases room brightness,
   which lets adaptive light control turn artificial light off.
-- Focused live validation is still pending.
+- Focused live validation is pending after the bootstrap fix.
 
 Scenario contract:
 
@@ -504,7 +510,9 @@ Implementation plan:
    simulator commit `a5b3f0f`.
 4. Assert both cover state and adaptive light result. Complete in simulator
    commit `a5b3f0f`.
-5. Run focused live scenario:
+5. Wait for newly registered fake-house entities before area assignment.
+   Complete in simulator commit `6116bc1`.
+6. Run focused live scenario:
 
    ```bash
    cd /home/tim/python_repos/magic-areas-test-simulator
@@ -533,8 +541,11 @@ Validation evidence:
   bash -n scripts/ha_dev_init.sh scripts/ha_dev_bootstrap.sh scripts/ha_dev_simulate.sh run.sh
   ```
 
-- Focused live simulator validation has not been run for this cover-brightness
-  slice yet.
+- First focused live simulator validation failed before commit `6116bc1`:
+  Cover Brightness Room remained clear after occupancy input changed, and
+  `light.magic_areas_native_light_groups_cover_brightness_room_overhead_lights`
+  was missing.
+- Focused live simulator validation has not been rerun after commit `6116bc1`.
 
 ### 10.3.3 Real media-player state
 
