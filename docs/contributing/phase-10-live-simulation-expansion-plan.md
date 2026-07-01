@@ -105,7 +105,7 @@ Existing timing helpers:
 
 | Candidate | Current assessment | Reason |
 | --- | --- | --- |
-| Cooling fan occupancy path | Implemented in simulator; focused live validation pending in this plan | Simulator commit `0139a24` adds Fan Room temperature and cooling fan fixtures, configures a cooling controller, and asserts occupied/hot activation plus hot/unoccupied suppression. Accept or rerun `./run.sh fan-cover-matrix` once to close the evidence marker. |
+| Cooling fan occupancy path | Implemented in simulator; focused live validation passed | Simulator commit `0139a24` adds Fan Room temperature and cooling fan fixtures, configures a cooling controller, and asserts occupied/hot activation plus hot/unoccupied suppression. Focused `./run.sh fan-cover-matrix` validation passed on 2026-06-30. |
 | Cover class/group boundary | Satisfied for closeout by existing live coverage | `fan-cover-matrix` asserts eligible cover classes move and excluded door/garage covers remain closed. This protects the branch-closeout class boundary without requiring dynamic registry mutation. |
 | Cover-induced brightness affecting adaptive switching | Implemented in simulator; focused live validation passed | Simulator commits `a5b3f0f` and `6116bc1` add a dedicated Cover Brightness Room and fix area assignment for newly registered fake-house entities. |
 
@@ -189,7 +189,7 @@ Assessment:
 - Implemented in simulator commit `0139a24`
   (`feat: add cooling fan simulator coverage`).
 - The implementation extends Fan Room rather than using Setup Room.
-- Focused live validation is still pending.
+- Focused live validation passed on 2026-06-30.
 
 Scenario contract:
 
@@ -240,7 +240,12 @@ Validation evidence:
   bash -n scripts/ha_dev_init.sh scripts/ha_dev_bootstrap.sh scripts/ha_dev_simulate.sh run.sh
   ```
 
-- Focused live simulator validation has not been run for this cooling slice yet.
+- Focused live simulator validation passed on 2026-06-30:
+  `./run.sh fan-cover-matrix` wrote
+  `dev/ha/runtime/traces/latest-evaluation.json` and
+  `dev/ha/runtime/traces/latest.jsonl` without failure markers. The run passed
+  hot/clear cooling suppression, occupied-hot cooling activation, below-hysteresis
+  cooling clear, and non-target fan protections.
 
 ### 10.1.3 Multiple physical fans with overlapping roles
 
@@ -682,8 +687,8 @@ Assessment:
 
 ## Recommended closeout order
 
-1. Close the cooling fan occupancy live-validation marker by accepting existing
-   focused `fan-cover-matrix` evidence or running one focused rerun.
+1. Close the cooling fan occupancy live-validation marker. Complete: focused
+   `./run.sh fan-cover-matrix` validation passed on 2026-06-30.
 2. Confirm the active closeout surface is covered:
    - Fan Room humidity, odor, cooling, occupancy, unavailable-sensor, and
      overlapping-target behavior;
