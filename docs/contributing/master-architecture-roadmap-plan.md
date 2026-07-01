@@ -2922,7 +2922,12 @@ Validation result:
   change.
 - CRG was rebuilt after the structural refactor.
 
-### 10. Future Live Simulation Expansion
+### 10. Fan/Cover Closeout Simulation Readiness
+
+Phase 10 active scope was narrowed to fan/cover branch closeout readiness rather
+than general live simulator expansion. Broader simulator ideas remain preserved
+as future backlog or unit-test-first items in the Phase 10 planning material,
+but they are not active requirements for closing the fan/cover branch.
 
 #### 10.1. Fan Expansion
 
@@ -2954,7 +2959,29 @@ Validation result:
 
 #### 10.5. Phase Exit Validation
 
-- [ ] `10.5.1` Run `./scripts/validate.sh` after Phase 10 work is complete.
+- [x] `10.5.1` Run `./scripts/validate.sh` after Phase 10 work is complete.
+
+Completion notes:
+
+- Active closeout coverage is satisfied by focused live simulator validation:
+  `./run.sh fan-cover-matrix` passed Fan Room humidity, odor, cooling,
+  occupancy, unavailable-sensor, overlapping-target, post-clear-hold, and Cover
+  Room eligible/excluded class behavior.
+- `./run.sh cover-brightness-interaction` passed the cover-derived brightness
+  interaction after simulator bootstrap was fixed to wait for newly registered
+  fake-house entities before area assignment.
+- Membership/class reconciliation is satisfied for fan/cover closeout by
+  current eligible/excluded cover-class live coverage. Dynamic registry mutation
+  remains future backlog unless the fan-cover branch changes helper
+  reconciliation or registry repair behavior.
+- Phase exit validation passed:
+
+  ```bash
+  ./scripts/validate.sh
+  ```
+
+  Result: Ruff passed, mypy passed, `1468` tests passed, and `26` snapshots
+  passed.
 
 ### 11. Documentation Consolidation
 

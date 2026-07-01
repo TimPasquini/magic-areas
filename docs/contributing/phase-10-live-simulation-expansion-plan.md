@@ -736,3 +736,14 @@ Assessment:
   - `./run.sh cover-brightness-interaction`.
 - Full live suite is recommended to the user when the accumulated simulator
   changes justify it.
+
+Validation evidence:
+
+- Phase exit validation passed on 2026-06-30:
+
+  ```bash
+  ./scripts/validate.sh
+  ```
+
+  Result: Ruff passed, mypy passed, `1468` tests passed, and `26` snapshots
+  passed.
