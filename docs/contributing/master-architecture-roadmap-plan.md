@@ -1380,49 +1380,59 @@ Exit criteria:
 - Import-boundary tests pass.
 - Full validation passes.
 
-## Phase 10: Future Live Simulation Expansion
+## Phase 10: Fan/Cover Closeout Simulation Readiness
 
-Goal: expand live fake-house coverage after simulator modularization.
+Goal: prepare live fake-house coverage needed to safely resume and close the
+fan-cover branch. Phase 10 was intentionally narrowed from broad simulator
+expansion to fan/cover branch readiness.
 
-Detailed working inventory:
+Completed active closeout coverage:
 
-- `docs/contributing/phase-10-live-simulation-expansion-plan.md`
+- Fan Room `fan-cover-matrix` coverage now includes humidity threshold behavior,
+  VOC odor behavior, overlapping fan reasons, multiple physical fan targets,
+  cooling occupancy behavior, sleep suppression, unavailable-sensor handling,
+  post-clear hold, and non-target fan protections.
+- Cover Room `fan-cover-matrix` coverage includes eligible
+  blind/shade/curtain/shutter/window class behavior, excluded garage/door
+  behavior, daylight open, accent/media close, sleep/privacy close,
+  dark-context no-open, scoped manual hold, simultaneous blind/shade holds, and
+  hold expiry/reclaim.
+- `cover-brightness-interaction` covers the current justified cross-domain
+  interaction: cover state increases room brightness through the fake-house
+  pipeline and adaptive light control turns artificial light off.
+- Setup Room remains reserved for config-flow/manual setup validation and is not
+  used for active simulation scenarios.
 
-Fan coverage backlog:
+Deferred simulator seeds:
 
-- Explicit room-state odor fallback.
-- Cooling fan occupancy path.
-- Multiple physical fans with overlapping roles targeting different fans.
-- Home Assistant reload/restart behavior.
+- Fan reload/restart behavior and cover reload/restart behavior remain future
+  backlog unless a concrete fan/cover closeout defect requires them.
+- Dynamic membership/class reconciliation and helper/entity registry repair
+  remain future backlog. Current closeout is satisfied by eligible/excluded
+  cover-class live coverage; dynamic removal, rename, or reclassification should
+  be added only if helper reconciliation or registry repair behavior changes.
+- Combined fan/cover/light/adaptive active-room coverage remains deferred until
+  a specific cross-domain failure mode exists.
+- Config-flow/manual setup validation should start as instructions for Setup
+  Room; UI automation should only be added if it avoids repurposing Setup Room
+  and does not create a fragile browser-automation burden.
 
-Cover coverage backlog:
+Unit/platform/scenario-test-first seeds:
 
-- Partial position and tilt behavior.
+- Partial position/tilt cover behavior.
 - Cover `opening` and `closing` movement states.
-- Richer daylight/time-like policy context.
-- Home Assistant reload/restart behavior.
-- Membership/class reconciliation.
-
-Cross-domain backlog:
-
-- Combined fan/cover/light/adaptive active room.
-- Cover-induced brightness affecting adaptive switching through fuller live
-  fake-house pipeline.
-- Real media-player state instead of accent stand-in.
-- Helper/entity registry repair after removal, rename, or reclassification.
-
-Config-flow/manual setup backlog:
-
-- Keep Setup Room reserved for config-flow/manual setup validation.
-- Add UI/manual validation instructions or automation for creating exact room
-  configs.
-- Do not use Setup Room in active simulation tests.
+- Richer daylight/time-like cover policy.
+- Real media-player state, unless a concrete room-state collision affects
+  fan/cover closeout.
 
 Rules:
 
-- Add new live coverage only when simulator structure can support it.
+- Add new live coverage only for behavior that unit, platform, integration,
+  scenario, or snapshot tests cannot adequately prove.
 - Every new live scenario states what real HA behavior it proves.
 - Every new scenario uses named timing helpers.
+- Do not run `./run.sh all` automatically; recommend it to the user when a full
+  live suite is warranted.
 - Durable simulation guidance is updated with coverage/gap changes.
 
 Exit criteria:

@@ -263,6 +263,7 @@ cd /home/tim/python_repos/magic-areas-test-simulator
 ./run.sh presence-hold
 ./run.sh adaptive-lighting-manual-release
 ./run.sh fan-cover-matrix
+./run.sh cover-brightness-interaction
 ```
 
 Current live-simulation coverage:
@@ -331,6 +332,12 @@ Current live-simulation coverage:
 - Fan live simulation asserts VOC `hold_until_restored` unavailable-sensor
   behavior by holding the odor fan active until the VOC sensor returns below
   threshold.
+- Fan live simulation asserts multiple physical fan targets: humidity controls
+  the exhaust fan, odor controls exhaust plus booster, and cooling controls the
+  cooling fan without turning on non-target fans.
+- Fan live simulation asserts cooling behavior: hot while clear does not turn
+  on cooling, occupied hot does turn on cooling, and below-hysteresis
+  temperature clears cooling.
 - Cover live simulation asserts Daylight open, Sleep/Privacy close,
   Media/Accent close/release, dark-context no-open, and manual close hold
   behavior against real fake-house cover entities. Cover Room includes separate
@@ -344,9 +351,13 @@ Current live-simulation coverage:
   simultaneous blind/shade manual holds remain scoped and release after expiry.
 - Cover live simulation asserts the cover scenario alongside the room bright/dark
   signal so daylight-open blocking is validated against real room context.
-- The `fan-cover-matrix` scenario has been run successfully against the live dev
-  container after forced bootstrap refresh and simulator timing repair, using the
-  default 30-second cycle.
+- Cover brightness interaction is covered by the
+  `cover-brightness-interaction` scenario. It uses a dedicated Cover Brightness
+  Room where opening a cover increases room illuminance through the fake-house
+  pipeline and adaptive light control turns artificial light off.
+- The `fan-cover-matrix` and `cover-brightness-interaction` scenarios have been
+  run successfully against the live dev container using the default 30-second
+  cycle.
 - Pytest scenario coverage asserts that configured in-room light brightness
   increases block ambient-rise adaptive off decisions.
 - Pytest scenario coverage asserts that adopted Adaptive Lighting brightness
@@ -369,11 +380,21 @@ Current high-value gaps:
   covered in pytest scenarios but not yet in the live fake-house script.
 - Ambient-rise false positives from neighboring/spill-over lights are not
   covered.
-- Media and other future control-domain overlap cases are not covered.
+- Media and other future control-domain overlap cases are not covered. Treat
+  real media-player state as out of fan/cover closeout scope unless a concrete
+  room-state collision appears.
 - Config flow and frontend behavior are not automated by the fake-house
   simulation.
-- Reconciliation behavior after entity/helper/group membership changes is not
-  covered by fake-house simulation.
+- Dynamic reconciliation behavior after entity/helper/group membership changes
+  is not covered by fake-house simulation. Current fan/cover closeout is
+  satisfied by eligible/excluded cover-class live coverage; dynamic
+  removal/rename/reclassification remains future backlog unless helper
+  reconciliation or registry repair behavior changes.
+- Fan and cover reload/restart behavior is future backlog unless a concrete
+  fan/cover closeout defect requires it.
+- Position/tilt cover behavior, cover `opening`/`closing` transitional states,
+  and richer daylight/time-like cover policy should be unit/platform/scenario
+  test-first until production behavior requires live HA fixture support.
 
 ## Extending Scenario Tests
 
@@ -429,15 +450,17 @@ The simulation model should remain extensible beyond lights.
 Covers/blinds are covered by the Cover Room live scenario for initial daylight,
 privacy, media/accent, dark-context, scoped manual-hold behavior, simultaneous
 blind/shade holds, eligible blind/shade/curtain/shutter/window helpers, and
-excluded garage/door covers. Future coverage should add richer daylight/time-like
-context.
+excluded garage/door covers. The separate Cover Brightness Room covers the
+current justified cross-domain interaction: cover state affects room brightness,
+and adaptive light control responds to that brightness.
 
 Fans are covered by the Fan Room live scenario for humidity threshold behavior,
-VOC odor threshold behavior, overlapping fan reasons, managed Trend helper
-threshold-trend behavior, humidity unavailable `hold_then_clear` expiry,
-humidity `post_clear_hold` after the real clear window, and VOC unavailable
-`hold_until_restored` behavior. Room-state odor fallback is covered at lower test
-layers.
+VOC odor threshold behavior, overlapping fan reasons and overlapping physical
+fan targets, cooling occupancy behavior, managed Trend helper threshold-trend
+behavior, humidity unavailable `hold_then_clear` expiry, humidity
+`post_clear_hold` after the real clear window, and VOC unavailable
+`hold_until_restored` behavior. Room-state odor fallback is covered at lower
+test layers.
 
 Native helpers are part of the intended architecture. Scenario tests should
 cover Magic Areas consuming helper outputs rather than recreating every helper
