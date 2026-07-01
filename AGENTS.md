@@ -5,7 +5,7 @@
 
 On a new machine, follow
 [docs/contributing/workstation-bootstrap.md](./docs/contributing/workstation-bootstrap.md)
-before beginning roadmap work. Install and initialize CRG as part of that
+before beginning repository work. Install and initialize CRG as part of that
 bootstrap; it is repository infrastructure, not an optional visualization.
 
 This file exists for compatibility with GitHub Copilot and other AI coding assistants. All development guidance has been consolidated into `CLAUDE.md`, which includes:
@@ -23,5 +23,5 @@ This file exists for compatibility with GitHub Copilot and other AI coding assis
 The original comprehensive Home Assistant guidelines from this file have been distilled into the "Home Assistant Integration Patterns Reference" section of CLAUDE.md.
 
 `REPOSITORY_WORK_NOTES.md` records the execution, completion, validation, and
-simulator rules required to keep roadmap work aligned with actual code and
+simulator rules required to keep repository work aligned with actual code and
 runtime evidence.

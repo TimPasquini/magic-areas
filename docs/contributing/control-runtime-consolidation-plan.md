@@ -3,8 +3,8 @@
 This temporary planning document scopes the control-runtime consolidation work.
 Do not delete it while this work is active. Before removal, transfer any still
 useful decisions, standards, validation evidence, or deferred defects into
-`docs/contributing/master-architecture-roadmap-plan.md` or durable contributor
-guidance.
+durable contributor guidance such as `docs/contributing/architecture.md`,
+`docs/contributing/runtime-boundaries.md`, or `REPOSITORY_WORK_NOTES.md`.
 
 ## Goal
 

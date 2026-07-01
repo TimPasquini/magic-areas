@@ -5,9 +5,9 @@ external Home Assistant fake-house simulator used for human inspection and live
 validation. Keep it current when changing simulation expectations, fake-house
 setup, room-control behavior, or the interpretation of live validation results.
 
-This is durable contributor guidance, not a temporary feature plan. Active and
-deferred simulation work is tracked in
-`docs/contributing/master-architecture-roadmap-plan.md`.
+This is durable contributor guidance, not a temporary feature plan. Keep active
+and deferred simulation work here when it changes fake-house behavior or
+expected validation coverage.
 
 Live fake-house scenarios are real-time behavior checks, not unit-test
 substitutes. Preserve the default 30-second cycle for normal live validation and

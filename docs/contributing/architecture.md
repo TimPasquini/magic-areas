@@ -106,6 +106,70 @@ entities provide storage, display, target selection, and service surfaces; they
 do not infer what a "sleep light", "accent light", or custom control group means
 for a particular room.
 
+## Fan And Cover Default Automation Status
+
+Fan and cover default automation is implemented and validated for the branch
+scope that introduced it.
+
+Implemented fan behavior:
+
+- Fan automation uses controller roles: `cooling`, `humidity`, and `odor`.
+- Each controller owns its members, signal source, activation logic, clear
+  behavior, unavailable-sensor behavior, active states, suppression states, and
+  debug reason state.
+- Runtime aggregates active reasons so a fan turns off only after every reason
+  targeting that fan has cleared and applicable holds have expired.
+- Same-fan and multi-fan overlap are supported; one controller cannot turn off a
+  fan still required by another active controller.
+- Fan options-flow exposes intentional Cooling, Humidity, and Odor pages.
+- Detection supports threshold and threshold+trend, with managed Trend helper
+  support for humidity.
+- Sensor-driven odor and explicit room-state odor fallback are implemented.
+- Fan-derived visible area states `humid`, `odor`, and `hot` represent active
+  room conditions rather than raw fan on/off state.
+- Fan control switch remains the master automation opt-in.
+
+Implemented cover behavior:
+
+- Cover automation uses editable presets: Daylight, Privacy/Sleep, and
+  Media/Accent.
+- Default automatic cover classes are `blind`, `curtain`, `shade`, `shutter`,
+  and `window`.
+- Default excluded automatic classes are `awning`, `garage`, `gate`, `door`,
+  and `damper`.
+- Cover movement is opt-in and gated by the cover-control switch.
+- Privacy/Sleep and Media/Accent override Daylight while active.
+- Media/Accent release may reopen covers only when configured Daylight state
+  tokens match and runtime daylight context allows it.
+- Manual cover movement creates a scoped temporary hold so Magic Areas does not
+  immediately reverse user action.
+- Hold expiry schedules policy reevaluation so automation can reclaim the held
+  cover when conditions still allow it.
+- Cover policy emits cover service calls only; it does not command lights.
+
+Cross-domain boundary:
+
+- Covers and lights remain separate policy domains.
+- Cover movement changes room brightness/context through Home Assistant state.
+- Light/adaptive policy reacts to the resulting brightness/context; covers do
+  not directly command lights, and lights do not directly command covers.
+- Cover opening can support adaptive light-off through brightness context.
+- Cover closing can support light-on when occupied/dark through light policy.
+
+Deferred fan/cover seeds:
+
+- Fan and cover reload/restart behavior.
+- Dynamic cover membership/class reconciliation through registry mutation.
+- Helper/entity registry repair after removal, rename, or reclassification.
+- Partial position/tilt cover behavior.
+- Cover `opening` and `closing` transitional movement states.
+- Richer daylight/time-like cover policy beyond the current room bright/dark
+  context.
+- Combined fan/cover/light/adaptive active-room scenario, only if a concrete
+  cross-domain defect appears.
+- Real media-player state, unless a concrete room-state collision affects
+  fan/cover behavior.
+
 ## Light Runtime and Adaptive Lighting (Current)
 
 - Hidden `AreaLightGroup` policy entities remain enabled but hidden. They own

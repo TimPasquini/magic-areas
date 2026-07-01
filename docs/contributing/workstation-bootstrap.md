@@ -69,20 +69,14 @@ environment or ad hoc `pip` installation.
 
 ## 2. Restore The Main Repository
 
-Clone the repository and explicitly select the branch being worked on. Do not
-assume that `main` contains active roadmap work.
+Clone the repository and select the branch being worked on. For ordinary
+development after fan/cover closeout, start from `main`.
 
 ```bash
 git clone https://github.com/TimPasquini/magic-areas.git
 cd magic-areas
 git fetch --all --prune
-git switch <working-branch>
-```
-
-For the current fan/cover and architecture roadmap work, the remote branch is:
-
-```bash
-git switch fan-cover-default-automation
+git switch main
 ```
 
 Install the locked Python environment:
@@ -104,12 +98,10 @@ present in the clone.
 Before changing code, read the repository in this order:
 
 1. `AGENTS.md`, `CLAUDE.md`, and `REPOSITORY_WORK_NOTES.md` for operating rules.
-2. `docs/contributing/master-architecture-roadmap-plan.md` for active ordered
-   work and recorded evidence.
-3. `docs/contributing/architecture.md` and
+2. `docs/contributing/architecture.md` and
    `docs/contributing/runtime-boundaries.md` for ownership and dependency
    boundaries.
-4. `docs/contributing/dev-simulation-guidance.md` and `dev/ha/README.md` before
+3. `docs/contributing/dev-simulation-guidance.md` and `dev/ha/README.md` before
    changing runtime behavior or the fake house.
 
 At a high level, production policy and runtime abstractions belong under

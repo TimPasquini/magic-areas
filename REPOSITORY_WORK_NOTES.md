@@ -17,8 +17,9 @@ work is complete.
 
 ## Work Discipline
 
-- Start at the exact roadmap or audit item requested. Do not skip ahead because
-  a later item appears easier or more interesting.
+- Start at the exact requested item from the user's prompt or durable project
+  guidance. Do not skip ahead because a later item appears easier or more
+  interesting.
 - Read the implementation, callers, tests, documentation, and relevant logs
   before assessing an item's status. A checked box and a prior completion
   report are claims, not evidence.
@@ -45,7 +46,8 @@ An item is complete only when all applicable evidence exists:
   where relevant.
 - Documentation and examples describe the current API and behavior.
 - Required static, unit, integration, and simulation validation has passed.
-- The active roadmap accurately records both completion and remaining gaps.
+- Durable project guidance accurately records both completion and remaining
+  gaps when the change affects documented behavior or deferred work.
 
 Passing tests do not prove completion when the tests do not exercise the real
 contract. Do not describe browser or UI behavior as autonomously validated when
@@ -87,12 +89,12 @@ the evidence came only from API calls, fixtures, or test clients.
 
 - Do not delete temporary repair, audit, or checklist documents while they
   contain unique defects, decisions, expected outcomes, or coverage plans.
-- Transfer required knowledge into the durable roadmap or repository guidance
-  before proposing removal. Remove temporary material only when its purpose is
-  complete and any required user decision has been made.
-- Preserve technical detail from superseded plans. A replacement roadmap must
-  contain the work itself, ordered into actionable steps, not merely references
-  to the old documents.
+- Transfer required knowledge into durable repository guidance before proposing
+  removal. Remove temporary material only when its purpose is complete and any
+  required user decision has been made.
+- Preserve technical detail from superseded plans in durable documentation. Do
+  not replace plans with bare references that lose decisions, contracts,
+  expected outcomes, or deferred work.
 
 ## Repository State
 
