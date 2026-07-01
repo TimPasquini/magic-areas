@@ -210,13 +210,41 @@ async def test_meta_area_attributes_coverage(
 ) -> None:
     """Test meta area attributes coverage."""
 
-    # Get Global Meta Area
-    global_area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.GLOBAL.value}_area_state"
+    expected_child_areas = {
+        MockAreaIds.GLOBAL: {
+            MockAreaIds.KITCHEN.value,
+            MockAreaIds.LIVING_ROOM.value,
+            MockAreaIds.DINING_ROOM.value,
+            MockAreaIds.MASTER_BEDROOM.value,
+            MockAreaIds.GUEST_BEDROOM.value,
+            MockAreaIds.GARAGE.value,
+            MockAreaIds.BACKYARD.value,
+            MockAreaIds.FRONT_YARD.value,
+        },
+        MockAreaIds.GROUND_LEVEL: {
+            MockAreaIds.GARAGE.value,
+            MockAreaIds.BACKYARD.value,
+            MockAreaIds.FRONT_YARD.value,
+        },
+        MockAreaIds.FIRST_FLOOR: {
+            MockAreaIds.KITCHEN.value,
+            MockAreaIds.LIVING_ROOM.value,
+            MockAreaIds.DINING_ROOM.value,
+        },
+        MockAreaIds.SECOND_FLOOR: {
+            MockAreaIds.MASTER_BEDROOM.value,
+            MockAreaIds.GUEST_BEDROOM.value,
+        },
+    }
 
-    state = hass.states.get(global_area_sensor_entity_id)
-    assert state is not None
-    assert ATTR_AREAS in state.attributes
-    assert len(state.attributes[ATTR_AREAS]) > 0
+    for meta_area, expected_children in expected_child_areas.items():
+        area_sensor_entity_id = (
+            f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_"
+            f"{meta_area.value}_area_state"
+        )
+        state = hass.states.get(area_sensor_entity_id)
+        assert state is not None
+        assert set(state.attributes.get(ATTR_AREAS, [])) == expected_children
 
     # Define entity IDs
     master_bedroom_area_sensor_entity_id = f"{BINARY_SENSOR_DOMAIN}.magic_areas_presence_tracking_{MockAreaIds.MASTER_BEDROOM.value}_area_state"

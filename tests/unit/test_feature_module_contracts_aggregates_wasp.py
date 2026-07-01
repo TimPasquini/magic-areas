@@ -97,6 +97,41 @@ def test_aggregates_module_matches_legacy_sensor_entities() -> None:
     assert helper_surfaces[0].area_id == area_config.id
 
 
+def test_aggregates_module_sensor_group_surfaces_do_not_assign_device_class() -> None:
+    """Sensor aggregate helper groups should not inherit source sensor device class."""
+    area_config = make_area_config()
+    wind_direction = SensorDeviceClass.WIND_DIRECTION.value
+    entities_by_domain = {
+        SENSOR_DOMAIN: [
+            {
+                ATTR_DEVICE_CLASS: wind_direction,
+                ATTR_ENTITY_ID: "sensor.weather_wind_direction",
+                ATTR_UNIT_OF_MEASUREMENT: "°",
+            },
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES: {
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [wind_direction],
+            CONF_AGGREGATES_MIN_ENTITIES: 1,
+        }
+    }
+    snapshot = make_snapshot(
+        enabled={MagicAreasFeatures.AGGREGATES},
+        feature_configs=feature_configs,
+        entities=entities_by_domain,
+    )
+
+    surfaces = get_module("aggregates").desired_managed_surfaces(area_config, snapshot)
+
+    assert len(surfaces) == 1
+    helper_surface = _helper_surfaces(surfaces)[0]
+    assert helper_surface.domain == "group"
+    assert helper_surface.options["group_type"] == SENSOR_DOMAIN
+    assert helper_surface.options["entities"] == ["sensor.weather_wind_direction"]
+    assert helper_surface.device_class is None
+
+
 def test_aggregates_module_matches_legacy_binary_entities_and_threshold() -> None:
     """Aggregates module should declare native binary and threshold helper surfaces."""
     area_config = make_area_config()

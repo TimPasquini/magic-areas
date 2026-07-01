@@ -1,5 +1,6 @@
 """Tests for core aggregate selection helpers."""
 
+from homeassistant.components.sensor import SensorDeviceClass
 from custom_components.magic_areas.core.aggregates.selection import (
     build_binary_sensor_aggregates,
     build_health_sensor_spec,
@@ -22,6 +23,7 @@ from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     ATTR_UNIT_OF_MEASUREMENT,
+    PERCENTAGE,
 )
 
 
@@ -59,6 +61,73 @@ def test_build_sensor_aggregates_basic() -> None:
             device_class="temperature",
             entity_ids=["sensor.one", "sensor.two"],
             unit_of_measurement="C",
+        )
+    ]
+
+
+def test_build_sensor_aggregates_selects_configured_battery_class() -> None:
+    """Select explicitly configured battery sensor aggregates."""
+    entities_by_domain = {
+        SENSOR_DOMAIN: [
+            {
+                ATTR_ENTITY_ID: "sensor.device_battery",
+                ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY.value,
+                ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE,
+            }
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES.value: {
+            CONF_AGGREGATES_MIN_ENTITIES: 1,
+            CONF_AGGREGATES_SENSOR_DEVICE_CLASSES: [SensorDeviceClass.BATTERY.value],
+        }
+    }
+
+    specs = build_sensor_aggregates(
+        entities_by_domain=entities_by_domain,
+        feature_configs=feature_configs,
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
+    )
+
+    assert specs == [
+        SensorAggregateSpec(
+            device_class=SensorDeviceClass.BATTERY.value,
+            entity_ids=["sensor.device_battery"],
+            unit_of_measurement=PERCENTAGE,
+        )
+    ]
+
+
+def test_build_sensor_aggregates_selects_voc_parts_by_default() -> None:
+    """VOC-parts sensors should be included in the default aggregate set."""
+    entities_by_domain = {
+        SENSOR_DOMAIN: [
+            {
+                ATTR_ENTITY_ID: "sensor.room_voc_parts",
+                ATTR_DEVICE_CLASS: (
+                    SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS.value
+                ),
+                ATTR_UNIT_OF_MEASUREMENT: "ppm",
+            }
+        ]
+    }
+    feature_configs = {
+        MagicAreasFeatures.AGGREGATES.value: {
+            CONF_AGGREGATES_MIN_ENTITIES: 1,
+        }
+    }
+
+    specs = build_sensor_aggregates(
+        entities_by_domain=entities_by_domain,
+        feature_configs=feature_configs,
+        enabled_features={MagicAreasFeatures.AGGREGATES.value},
+    )
+
+    assert specs == [
+        SensorAggregateSpec(
+            device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS.value,
+            entity_ids=["sensor.room_voc_parts"],
+            unit_of_measurement="ppm",
         )
     ]
 
