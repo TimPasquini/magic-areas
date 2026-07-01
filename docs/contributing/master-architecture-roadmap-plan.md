@@ -48,6 +48,102 @@ Languages: python, bash
 Last updated: 2026-06-03T22:28:41
 ```
 
+## Fan/Cover Feature Plan Status
+
+The former temporary `fan-cover-default-automation-plan.md` defined the planned
+fan and cover default-automation feature set. Its durable status is preserved
+here so fan/cover feature work can resume without recreating the temporary plan.
+
+Current status: implementation and closeout validation are complete for the
+planned fan/cover branch scope. Remaining items listed below are intentionally
+deferred or test-first seeds, not blockers for fan/cover branch closure.
+
+Implemented fan feature scope:
+
+- Fan automation uses controller roles: `cooling`, `humidity`, and `odor`.
+- Each controller owns its members, signal source, activation logic, clear
+  behavior, unavailable-sensor behavior, active states, suppression states, and
+  debug reason state.
+- Runtime aggregates active reasons so a fan turns off only after every reason
+  targeting that fan has cleared and applicable holds have expired.
+- Same-fan and multi-fan overlap are supported; one controller cannot turn off a
+  fan still required by another active controller.
+- Fan options-flow exposes intentional Cooling, Humidity, and Odor pages, and
+  existing single-threshold fan config reopens as Cooling settings.
+- Detection supports threshold and threshold+trend, with managed Trend helper
+  support for humidity.
+- Sensor-driven odor and explicit room-state odor fallback are implemented.
+- Fan-derived visible area states `humid`, `odor`, and `hot` represent active
+  room conditions rather than raw fan on/off state.
+- Fan control switch remains the master automation opt-in.
+
+Implemented cover feature scope:
+
+- Cover automation uses editable presets: Daylight, Privacy/Sleep, and
+  Media/Accent.
+- Default automatic cover classes are `blind`, `curtain`, `shade`, `shutter`,
+  and `window`.
+- Default excluded automatic classes are `awning`, `garage`, `gate`, `door`,
+  and `damper`.
+- Cover movement is opt-in and gated by the cover-control switch.
+- Privacy/Sleep and Media/Accent override Daylight while active.
+- Media/Accent release may reopen covers only when configured Daylight state
+  tokens match and runtime daylight context allows it.
+- Manual cover movement creates a scoped temporary hold so Magic Areas does not
+  immediately reverse user action.
+- Hold expiry schedules policy reevaluation so automation can reclaim the held
+  cover when conditions still allow it.
+- Cover policy emits cover service calls only; it does not command lights.
+
+Implemented cross-domain boundary:
+
+- Covers and lights remain separate policy domains.
+- Cover movement changes room brightness/context through Home Assistant state.
+- Light/adaptive policy reacts to the resulting brightness/context; covers do
+  not directly command lights, and lights do not directly command covers.
+- Cover opening can support adaptive light-off through brightness context.
+- Cover closing can support light-on when occupied/dark through light policy.
+
+Validation status:
+
+- Unit, platform, config-flow, integration, scenario, and live fake-house
+  coverage exist for the implemented fan/cover branch scope.
+- `./run.sh fan-cover-matrix` passed against the current Magic Areas working
+  tree, including fan humidity, odor, cooling, overlap, unavailable-sensor,
+  post-clear-hold, cover eligible/excluded class behavior, cover presets, and
+  manual cover holds.
+- `./run.sh cover-brightness-interaction` passed the cover-derived brightness
+  interaction after simulator bootstrap was fixed to wait for newly registered
+  fake-house entities before assigning areas.
+- `./scripts/validate.sh` passed at Phase 10 closeout with Ruff, mypy, `1468`
+  tests, and `26` snapshots passing.
+
+Deferred or future seeds:
+
+- Fan reload/restart behavior.
+- Cover reload/restart behavior.
+- Dynamic cover membership/class reconciliation through registry mutation.
+- Helper/entity registry repair after removal, rename, or reclassification.
+- Partial position/tilt cover behavior.
+- Cover `opening` and `closing` transitional movement states.
+- Richer daylight/time-like cover policy beyond the current room bright/dark
+  context.
+- Combined fan/cover/light/adaptive active-room scenario, only if a concrete
+  cross-domain defect appears.
+- Real media-player state, unless a concrete room-state collision affects
+  fan/cover behavior.
+- Config-flow/manual setup validation should start as Setup Room instructions;
+  UI automation remains deferred unless it avoids fragile browser coupling.
+
+Explicit non-goals for the fan/cover branch:
+
+- Full solar heat-gain optimization.
+- Sun azimuth/elevation and room-orientation modeling.
+- Garage/gate/door default automation.
+- A global cross-domain arbitration engine replacing domain policies.
+- Adaptive Lighting brightness/color behavior beyond existing coordination.
+- Hidden odor inference without a sensor or explicit fallback configuration.
+
 ## Current Architecture Baseline
 
 Magic Areas is a Home Assistant custom integration with a coordinator/snapshot
